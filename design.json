@@ -1,0 +1,690 @@
+[
+  {
+    "themeRules": [
+      "Always use <ThemedView> for all screen and card backgrounds.",
+      "Always use <ThemedText> for all visible text.",
+      "Always use useThemeColor for icon colors, custom backgrounds, and any dynamic color logic.",
+      "Never hardcode color or backgroundColor in styles for text or backgrounds; use theme-aware components and hooks instead.",
+      "Remove all hardcoded color values from StyleSheet definitions for text or backgrounds.",
+      "Apply these rules to all screens, modals, overlays, and major components.",
+      "If you add a new screen or component, follow this pattern for full light/dark mode support."
+    ]
+  },
+  {
+    "lightThemePalette": {
+      "text": "#11181C",
+      "textSecondary": "#687076",
+      "textMuted": "#A0A0A0",
+      "background": "#fff",
+      "backgroundSecondary": "#F5F6FA",
+      "backgroundTertiary": "#E5E7EB",
+      "tint": "#0a7ea4",
+      "icon": "#687076",
+      "tabIconDefault": "#687076",
+      "tabIconSelected": "#0a7ea4",
+      "accentPrimary": "#6A5ACD",
+      "accentDanger": "#FF6B6B",
+      "accentSuccess": "#3CB371",
+      "accentWarning": "#FF8C00"
+    }
+  },
+  {
+    "darkThemePalette": {
+      "text": "#ECEDEE",
+      "background": "#151718",
+      "tint": "#fff",
+      "icon": "#9BA1A6",
+      "tabIconDefault": "#9BA1A6",
+      "tabIconSelected": "#fff"
+    }
+  },
+  {
+    "snackbarDesign": {
+      "description": "Web snackbar notification system for user feedback",
+      "component": "WebSnackbar",
+      "file": "components/web/WebSnackbar.tsx",
+      "context": "contexts/SnackbarContext.tsx",
+      "types": {
+        "success": {
+          "backgroundColor": "#3CB371",
+          "icon": "checkmark-circle",
+          "iconColor": "#FFFFFF",
+          "useCase": "Successful operations (create, update, delete)"
+        },
+        "error": {
+          "backgroundColor": "#FF6B6B",
+          "icon": "close-circle",
+          "iconColor": "#FFFFFF",
+          "useCase": "Failed operations, authentication errors"
+        },
+        "warning": {
+          "backgroundColor": "#FF8C00",
+          "icon": "warning",
+          "iconColor": "#FFFFFF",
+          "useCase": "Timeouts, temporary issues, retryable errors"
+        },
+        "info": {
+          "backgroundColor": "#6A5ACD",
+          "icon": "information-circle",
+          "iconColor": "#FFFFFF",
+          "useCase": "General information, tips, updates"
+        }
+      },
+      "layout": {
+        "position": "fixed",
+        "bottom": "20px",
+        "left": "20px",
+        "right": "20px",
+        "maxWidth": "400px",
+        "alignSelf": "center",
+        "zIndex": 1000
+      },
+      "styling": {
+        "container": {
+          "flexDirection": "row",
+          "alignItems": "center",
+          "justifyContent": "space-between",
+          "paddingHorizontal": 16,
+          "paddingVertical": 12,
+          "borderRadius": 8,
+          "borderWidth": 1,
+          "shadowColor": "#000",
+          "shadowOffset": { "width": 0, "height": 2 },
+          "shadowOpacity": 0.25,
+          "shadowRadius": 3.84,
+          "elevation": 5
+        },
+        "content": {
+          "flex": 1,
+          "flexDirection": "row",
+          "alignItems": "center"
+        },
+        "icon": {
+          "marginRight": 8,
+          "size": 20
+        },
+        "message": {
+          "fontSize": 14,
+          "fontWeight": "500",
+          "color": "#FFFFFF",
+          "flex": 1
+        },
+        "actions": {
+          "flexDirection": "row",
+          "alignItems": "center",
+          "marginLeft": 12
+        },
+        "actionButton": {
+          "marginRight": 8,
+          "paddingHorizontal": 8,
+          "paddingVertical": 4,
+          "borderRadius": 4,
+          "backgroundColor": "rgba(255, 255, 255, 0.2)"
+        },
+        "actionText": {
+          "color": "#FFFFFF",
+          "fontSize": 12,
+          "fontWeight": "600"
+        },
+        "closeButton": {
+          "padding": 4
+        }
+      },
+      "animation": {
+        "type": "spring",
+        "show": {
+          "toValue": 1,
+          "useNativeDriver": true,
+          "tension": 100,
+          "friction": 8,
+          "transform": {
+            "translateY": {
+              "inputRange": [0, 1],
+              "outputRange": [100, 0]
+            }
+          }
+        },
+        "hide": {
+          "toValue": 0,
+          "useNativeDriver": true,
+          "tension": 100,
+          "friction": 8
+        }
+      },
+      "behavior": {
+        "autoHide": true,
+        "defaultDuration": 4000,
+        "dismissible": true,
+        "actionButtons": "optional",
+        "stacking": "single instance"
+      },
+      "props": {
+        "visible": "boolean - Controls snackbar visibility",
+        "message": "string - The notification message",
+        "type": "SnackbarType - success | error | warning | info",
+        "duration": "number - Auto-hide duration in milliseconds",
+        "onClose": "() => void - Callback when snackbar is dismissed",
+        "action": "optional object with label and onPress for action button"
+      },
+      "usage": {
+        "context": "useSnackbar hook",
+        "showSnackbar": "(message, type, duration, action) => void",
+        "hideSnackbar": "() => void",
+        "snackbar": "Current snackbar state object"
+      },
+      "integration": {
+        "errorHandling": "Supabase error handler integration",
+        "authErrors": "Authentication error notifications",
+        "noteOperations": "Note CRUD operation feedback",
+        "webOnly": "Platform.OS === 'web' conditional rendering"
+      },
+      "errorHandling": {
+        "supabaseErrors": "Comprehensive Supabase error mapping",
+        "userMessages": "User-friendly error messages",
+        "retryLogic": "Retryable vs non-retryable errors",
+        "networkErrors": "Network connectivity issues",
+        "timeoutErrors": "Request timeout handling"
+      }
+    }
+  },
+  {
+    "webAppDesign": {
+      "description": "Web application design system and patterns",
+      "platform": {
+        "framework": "React Native Web",
+        "buildTool": "Expo",
+        "deployment": "Progressive Web App (PWA)",
+        "responsive": true,
+        "keyboardShortcuts": true
+      },
+      "layout": {
+        "mainLayout": {
+          "component": "WebLayout",
+          "structure": "Two-column layout with sidebar and main content",
+          "sidebar": {
+            "width": "280px",
+            "position": "fixed",
+            "background": "theme-aware",
+            "navigation": "WebSidebar component"
+          },
+          "mainContent": {
+            "marginLeft": "280px",
+            "padding": "24px",
+            "minHeight": "100vh"
+          }
+        },
+        "conditionalRendering": {
+          "pattern": "Platform.OS === 'web'",
+          "components": [
+            "WebLayout",
+            "WebSidebar", 
+            "WebNoteCard",
+            "Web-specific headers"
+          ]
+        }
+      },
+      "components": {
+        "WebLayout": {
+          "description": "Main layout wrapper for web pages",
+          "file": "components/web/WebLayout.tsx",
+          "features": [
+            "Two-column structure",
+            "Fixed sidebar",
+            "Responsive main content",
+            "Theme-aware styling"
+          ]
+        },
+        "WebSidebar": {
+          "description": "Desktop-optimized sidebar navigation",
+          "file": "components/web/WebSidebar.tsx",
+          "features": [
+            "Navigation links",
+            "User profile section",
+            "Theme toggle",
+            "Hover effects"
+          ]
+        },
+        "WebNoteCard": {
+          "description": "Web-optimized note card component",
+          "file": "components/web/WebNoteCard.tsx",
+          "features": [
+            "Hover effects",
+            "Action buttons",
+            "Responsive grid layout",
+            "Theme-aware styling"
+          ]
+        },
+        "WebHeader": {
+          "description": "Standardized web header pattern",
+          "structure": "Three-section layout (back button, title, right section)",
+          "styling": {
+            "paddingHorizontal": 0,
+            "paddingTop": 40,
+            "paddingBottom": 30,
+            "gap": 20
+          }
+        },
+        "WebSnackbar": {
+          "description": "Web notification system for user feedback",
+          "file": "components/web/WebSnackbar.tsx",
+          "features": [
+            "Animated notifications",
+            "Four notification types",
+            "Auto-dismiss functionality",
+            "Action buttons support",
+            "Theme-aware styling"
+          ]
+        }
+      },
+      "pages": {
+        "home": {
+          "file": "app/(tabs)/index.tsx",
+          "layout": "WebLayout + WebSidebar",
+          "features": [
+            "Grid layout for notes",
+            "WebNoteCard components",
+            "Note count badge",
+            "Keyboard shortcuts"
+          ],
+          "styling": {
+            "grid": {
+              "flexDirection": "row",
+              "flexWrap": "wrap",
+              "justifyContent": "flex-start",
+              "gap": 5
+            }
+          }
+        },
+        "createNote": {
+          "file": "app/create.tsx",
+          "layout": "WebLayout + WebSidebar",
+          "features": [
+            "Two-column layout",
+            "Auto-save functionality",
+            "Manual save coordination",
+            "Keyboard shortcuts (⌘S)",
+            "Save status indicators"
+          ],
+          "autoSave": {
+            "enabled": true,
+            "debounceTime": 1000,
+            "coordination": "Prevents double saves with manual save"
+          }
+        },
+        "noteDetail": {
+          "file": "app/note/[id].tsx",
+          "layout": "WebLayout + WebSidebar",
+          "features": [
+            "Two-column layout",
+            "Main content area",
+            "Right sidebar for actions",
+            "Note metadata display",
+            "Action buttons (edit, archive, delete)"
+          ]
+        },
+        "createAudioNote": {
+          "file": "app/create-audio.tsx",
+          "layout": "WebLayout + WebSidebar",
+          "features": [
+            "Two-column layout",
+            "Audio recording interface",
+            "Progress tracking",
+            "Info sidebar",
+            "Processing status"
+          ]
+        },
+        "archivedNotes": {
+          "file": "app/archived.tsx",
+          "layout": "WebLayout + WebSidebar",
+          "features": [
+            "Grid layout for archived notes",
+            "WebNoteCard components",
+            "Note count badge",
+            "Empty state handling"
+          ]
+        },
+        "search": {
+          "file": "app/(tabs)/search.tsx",
+          "layout": "WebLayout + WebSidebar",
+          "features": [
+            "Search interface",
+            "Results grid",
+            "Results count badge",
+            "WebNoteCard components"
+          ]
+        },
+        "settings": {
+          "file": "app/(tabs)/settings.tsx",
+          "layout": "WebLayout + WebSidebar",
+          "features": [
+            "User profile section",
+            "App settings",
+            "Sign out functionality",
+            "Theme preferences"
+          ],
+          "signOut": {
+            "webSpecific": "window.location.href = '/' for full page reload",
+            "mobileSpecific": "router.replace('/(auth)/login')"
+          }
+        },
+        "authentication": {
+          "login": {
+            "file": "app/(auth)/login.tsx",
+            "layout": "Two-panel layout for web",
+            "features": [
+              "Branding panel (left)",
+              "Login form (right)",
+              "Larger inputs",
+              "Auto-focus",
+              "Keyboard shortcuts"
+            ]
+          },
+          "signup": {
+            "file": "app/(auth)/signup.tsx",
+            "layout": "Two-panel layout for web",
+            "features": [
+              "Benefits panel (left)",
+              "Sign up form (right)",
+              "Password hints",
+              "Legal links",
+              "Keyboard shortcuts"
+            ]
+          }
+        },
+        "adminDashboard": {
+          "file": "app/admin-dashboard.tsx",
+          "layout": "WebLayout + WebSidebar (admin-specific)",
+          "access": "Admin users only",
+          "features": [
+            "System overview statistics",
+            "Quick action cards",
+            "System health monitoring",
+            "Admin-specific navigation",
+            "Role-based access control"
+          ],
+          "navigation": {
+            "sidebar": "Admin-specific items (User Management, Analytics, Support Tools, System Settings)",
+            "routing": "Outside tab system, direct access via /admin-dashboard"
+          },
+          "sections": {
+            "systemOverview": "Key metrics (users, notes, premium users)",
+            "quickActions": "User Management, Analytics, Support Tools, System Settings",
+            "systemHealth": "Status monitoring and alerts"
+          }
+        }
+      },
+      "features": {
+        "keyboardShortcuts": {
+          "hook": "useKeyboardShortcuts",
+          "file": "hooks/useKeyboardShortcuts.ts",
+          "shortcuts": {
+            "save": "⌘S",
+            "newNote": "⌘N",
+            "search": "⌘K",
+            "settings": "⌘,",
+            "escape": "Escape"
+          }
+        },
+        "autoSave": {
+          "implementation": "useRef for timer management",
+          "coordination": "isManualSaving state",
+          "status": "Visual indicators for save state"
+        },
+        "progressiveWebApp": {
+          "serviceWorker": "sw.js",
+          "manifest": "app.config.js",
+          "offline": "Caching and offline support",
+          "installable": "Add to home screen"
+        },
+        "responsiveDesign": {
+          "breakpoints": {
+            "desktop": "min-width: 1024px",
+            "tablet": "min-width: 768px",
+            "mobile": "max-width: 767px"
+          },
+          "adaptations": "Conditional styling based on screen size"
+        },
+        "errorHandling": {
+          "snackbar": "WebSnackbar component for notifications",
+          "supabaseErrors": "Comprehensive error mapping",
+          "userMessages": "User-friendly error messages",
+          "retryLogic": "Retryable vs non-retryable errors"
+        }
+      },
+      "styling": {
+        "themeSystem": {
+          "context": "ThemeContext.tsx",
+          "hook": "useThemeColor.ts",
+          "colors": "constants/Colors.ts",
+          "components": [
+            "ThemedView",
+            "ThemedText"
+          ]
+        },
+        "webSpecific": {
+          "cssFile": "styles/web.css",
+          "hoverEffects": "WebNoteCard hover states",
+          "transitions": "Smooth animations",
+          "focusStates": "Keyboard navigation support"
+        }
+      },
+      "navigation": {
+        "webSpecific": {
+          "sidebar": "Persistent navigation",
+          "breadcrumbs": "Header back buttons",
+          "deepLinking": "URL-based navigation"
+        },
+        "mobileSpecific": {
+          "bottomTabs": "Hidden on web",
+          "stackNavigation": "Used for mobile"
+        }
+      },
+      "stateManagement": {
+        "notes": "useNotes hook",
+        "authentication": "useAuth hook",
+        "theme": "ThemeContext",
+        "autoSave": "useRef + useState coordination",
+        "notifications": "SnackbarContext"
+      }
+    }
+  },
+    {
+      "id": "mainBackground",
+      "type": "rectangle",
+      "x": 0,
+      "y": 0,
+      "width": 500,
+      "height": 800,
+      "backgroundColor": "#1A1A1A"
+    },
+    {
+      "id": "headerNotes",
+      "type": "text",
+      "x": 40,
+      "y": 40,
+      "content": "",
+      "color": "#FFFFFF",
+      "fontSize": "18px",
+      "fontWeight": "bold"
+    },
+    {
+      "id": "headerTitle",
+      "type": "text",
+      "x": 40,
+      "y": 80,
+      "content": "",
+      "color": "#FFFFFF",
+      "fontSize": "22px",
+      "fontWeight": "bold"
+    },
+    {
+      "id": "headerDate",
+      "type": "text",
+      "x": 40,
+      "y": 110,
+      "content": "",
+      "color": "#A0A0A0",
+      "fontSize": "14px"
+    },
+    {
+      "id": "btnQuiz",
+      "type": "rectangle",
+      "x": 40,
+      "y": 160,
+      "width": 180,
+      "height": 40,
+      "backgroundColor": "#6A5ACD",
+      "borderRadius": "8px"
+    },
+    {
+      "id": "textQuiz",
+      "type": "text",
+      "x": 80,
+      "y": 170,
+      "content": "",
+      "color": "#FFFFFF",
+      "fontSize": "16px",
+      "fontWeight": "bold"
+    },
+    {
+      "id": "btnTranscription",
+      "type": "rectangle",
+      "x": 240,
+      "y": 160,
+      "width": 180,
+      "height": 40,
+      "backgroundColor": "#3CB371",
+      "borderRadius": "8px"
+    },
+    {
+      "id": "textTranscription",
+      "type": "text",
+      "x": 260,
+      "y": 170,
+      "content": "",
+      "color": "#FFFFFF",
+      "fontSize": "16px",
+      "fontWeight": "bold"
+    },
+    {
+      "id": "btnFlashcards",
+      "type": "rectangle",
+      "x": 40,
+      "y": 210,
+      "width": 180,
+      "height": 40,
+      "backgroundColor": "#9932CC",
+      "borderRadius": "8px"
+    },
+    {
+      "id": "textFlashcards",
+      "type": "text",
+      "x": 60,
+      "y": 220,
+      "content": "",
+      "color": "#FFFFFF",
+      "fontSize": "16px",
+      "fontWeight": "bold"
+    },
+    {
+      "id": "btnAIChat",
+      "type": "rectangle",
+      "x": 240,
+      "y": 210,
+      "width": 180,
+      "height": 40,
+      "backgroundColor": "#FF8C00",
+      "borderRadius": "8px"
+    },
+    {
+      "id": "textAIChat",
+      "type": "text",
+      "x": 270,
+      "y": 220,
+      "content": "",
+      "color": "#FFFFFF",
+      "fontSize": "16px",
+      "fontWeight": "bold"
+    },
+    {
+      "id": "btnTodoList",
+      "type": "rectangle",
+      "x": 40,
+      "y": 260,
+      "width": 180,
+      "height": 40,
+      "backgroundColor": "#DC143C",
+      "borderRadius": "8px"
+    },
+    {
+      "id": "textTodoList",
+      "type": "text",
+      "x": 60,
+      "y": 270,
+      "content": "",
+      "color": "#FFFFFF",
+      "fontSize": "16px",
+      "fontWeight": "bold"
+    },
+    {
+      "id": "btnWriteEssay",
+      "type": "rectangle",
+      "x": 240,
+      "y": 260,
+      "width": 180,
+      "height": 40,
+      "backgroundColor": "#00CED1",
+      "borderRadius": "8px"
+    },
+    {
+      "id": "textWriteEssay",
+      "type": "text",
+      "x": 260,
+      "y": 270,
+      "content": "",
+      "color": "#FFFFFF",
+      "fontSize": "16px",
+      "fontWeight": "bold"
+    },
+    {
+      "id": "summaryTitle",
+      "type": "text",
+      "x": 40,
+      "y": 330,
+      "content": "",
+      "color": "#FFFFFF",
+      "fontSize": "20px",
+      "fontWeight": "bold"
+    },
+    {
+      "id": "summarySubtitle",
+      "type": "text",
+      "x": 40,
+      "y": 360,
+      "content": "",
+      "color": "#FFFFFF",
+      "fontSize": "18px",
+      "fontWeight": "bold"
+    },
+    {
+      "id": "summaryContent",
+      "type": "text",
+      "x": 40,
+      "y": 390,
+      "content": "",
+      "color": "#A0A0A0",
+      "fontSize": "14px",
+      "width": 400,
+      "height": 100
+    },
+    {
+      "id": "sizeHierarchyTitle",
+      "type": "text",
+      "x": 40,
+      "y": 500,
+      "content": "",
+      "color": "#A0A0A0",
+      "fontSize": "18px",
+      "fontWeight": "bold"
+    }
+  ]

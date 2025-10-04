@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import { useEffect, useState, useLayoutEffect } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ThemedText } from '../components/ThemedText';
@@ -14,18 +15,33 @@ import { subscriptionManagementService, type SubscriptionDetails } from '../serv
 export default function SubscriptionManagementScreen() {
   console.log('SubscriptionManagementScreen component rendering');
   const router = useRouter();
+  const navigation = useNavigation();
   const { user } = useAuth();
   console.log('User from useAuth:', user);
+
+  // Set navigation options to hide header
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
+      header: () => null,
+      headerStyle: { height: 0 },
+      headerTitle: '',
+      headerBackTitle: '',
+      headerBackVisible: false,
+      headerTransparent: true,
+      headerShadowVisible: false,
+    });
+  }, [navigation]);
 
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const mutedTextColor = useThemeColor({}, 'textSecondary');
   const cardBackground = useThemeColor({}, 'backgroundSecondary');
-  const accentColor = useThemeColor({}, 'accentPrimary');
+  const accentColor = useThemeColor({}, 'tint');
   const borderColor = useThemeColor({}, 'border');
-  const successColor = useThemeColor({}, 'accentSuccess');
-  const warningColor = useThemeColor({}, 'accentWarning');
-  const errorColor = useThemeColor({}, 'accentError');
+  const successColor = useThemeColor({}, 'success');
+  const warningColor = useThemeColor({}, 'warning');
+  const errorColor = useThemeColor({}, 'danger');
 
   const [subscription, setSubscription] = useState<SubscriptionDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -196,13 +212,42 @@ export default function SubscriptionManagementScreen() {
   };
 
   const handleManageBilling = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.log('No user ID available');
+      alert('No user ID available');
+      return;
+    }
 
+    console.log('handleManageBilling called for user:', user.id);
+    alert('Starting billing portal creation...');
+    
     try {
+      setActionLoading(true);
+      console.log('Creating billing portal session...');
       const session = await subscriptionManagementService.createBillingPortalSession(user.id);
-      if (session) {
+      console.log('Billing portal session result:', session);
+      alert('Session result: ' + JSON.stringify(session));
+      
+      if (session && session.url) {
         if (Platform.OS === 'web') {
-          window.open(session.url, '_blank');
+          console.log('Opening billing portal URL:', session.url);
+          
+          // Check if it's a relative URL (starts with /)
+          let fullUrl = session.url;
+          if (session.url.startsWith('/')) {
+            // Construct full URL for relative paths
+            fullUrl = window.location.origin + session.url;
+          }
+          
+          alert('About to open URL: ' + fullUrl);
+          const newWindow = window.open(fullUrl, '_blank', 'noopener,noreferrer');
+          if (!newWindow) {
+            // Fallback if popup is blocked
+            alert('Popup blocked, redirecting in same window');
+            window.location.href = fullUrl;
+          } else {
+            alert('New window opened successfully');
+          }
         } else {
           // For mobile, you might want to open in a WebView or redirect to web
           Alert.alert(
@@ -215,6 +260,8 @@ export default function SubscriptionManagementScreen() {
           );
         }
       } else {
+        console.log('No session or URL returned');
+        alert('No session or URL returned: ' + JSON.stringify(session));
         if (Platform.OS === 'web') {
           alert('Error: Unable to create billing portal session');
         } else {
@@ -222,11 +269,15 @@ export default function SubscriptionManagementScreen() {
         }
       }
     } catch (error) {
+      console.error('Error in handleManageBilling:', error);
+      alert('Error: ' + (error as Error).message);
       if (Platform.OS === 'web') {
-        alert('Error: Failed to open billing portal');
+        alert('Error: Failed to open billing portal - ' + (error as Error).message);
       } else {
-        Alert.alert('Error', 'Failed to open billing portal');
+        Alert.alert('Error', 'Failed to open billing portal - ' + (error as Error).message);
       }
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -261,6 +312,15 @@ export default function SubscriptionManagementScreen() {
         return 'Invalid Date';
       }
       
+      // Use shorter format for mobile
+      if (Platform.OS !== 'web') {
+        return dateObj.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: '2-digit'
+        });
+      }
+      
       return dateObj.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
@@ -287,14 +347,21 @@ export default function SubscriptionManagementScreen() {
 
   const content = (
     <>
-      <View style={styles.header}>
-        <TouchableOpacity style={[styles.backLink]} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color={textColor} />
-          <ThemedText style={{ marginLeft: 6, color: textColor }}>Back</ThemedText>
+      {/* Custom Header */}
+      <View style={styles.customHeader}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={textColor} />
         </TouchableOpacity>
-        <View style={styles.titleContainer}>
-          <Ionicons name="card" size={28} color={accentColor} />
-          <ThemedText type="title" style={{ marginLeft: 8 }}>Subscription Management</ThemedText>
+        <View style={styles.headerTitle}>
+          <ThemedText type="title" style={{ color: textColor }}>Manage Premium</ThemedText>
+          <ThemedText style={{ color: mutedTextColor, fontSize: 14, marginTop: 4 }}>
+            Manage your premium subscription
+          </ThemedText>
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={[styles.refreshButton, { backgroundColor: cardBackground }]}>
+            <Ionicons name="refresh" size={20} color={accentColor} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -370,9 +437,12 @@ export default function SubscriptionManagementScreen() {
               <TouchableOpacity 
                 style={[styles.actionButton, { borderColor }]}
                 onPress={handleManageBilling}
+                disabled={actionLoading}
               >
                 <Ionicons name="card-outline" size={20} color={textColor} />
-                <ThemedText style={{ marginLeft: 8, color: textColor }}>Manage Billing</ThemedText>
+                <ThemedText style={{ marginLeft: 8, color: textColor }}>
+                  {actionLoading ? 'Loading...' : 'Manage Billing'}
+                </ThemedText>
               </TouchableOpacity>
 
               {subscription.status === 'active' && !subscription.cancelAtPeriodEnd ? (
@@ -414,29 +484,6 @@ export default function SubscriptionManagementScreen() {
             )}
           </View>
 
-          {/* Usage Statistics */}
-          {usage && (
-            <View style={[styles.card, { backgroundColor: cardBackground, borderColor }]}>
-              <ThemedText type="title" style={{ color: textColor, marginBottom: 16 }}>Usage This Period</ThemedText>
-              {Object.entries(usage.features).map(([feature, data]: [string, any]) => (
-                <View key={feature} style={styles.usageRow}>
-                  <ThemedText style={{ color: textColor, textTransform: 'capitalize' }}>
-                    {feature.replace('_', ' ')}
-                  </ThemedText>
-                  <ThemedText style={{ color: mutedTextColor }}>
-                    {data.used} / {data.limit === 'unlimited' ? '∞' : data.limit}
-                  </ThemedText>
-                </View>
-              ))}
-              {usage.resetDate && (
-                <View style={styles.usageReset}>
-                  <ThemedText style={{ color: mutedTextColor, fontSize: 12 }}>
-                    Resets on {formatDate(usage.resetDate)}
-                  </ThemedText>
-                </View>
-              )}
-            </View>
-          )}
 
           {/* Billing History */}
           {billingHistory.length > 0 && (
@@ -473,18 +520,29 @@ export default function SubscriptionManagementScreen() {
 
   console.log('Platform.OS:', Platform.OS);
   
-  // Web layout wrapper
+  // Web layout with custom header
   if (Platform.OS === 'web') {
     console.log('Rendering web layout');
     return (
-      <WebLayout
-        title="Subscription Management"
-        subtitle="Manage your premium subscription"
-        sidebar={<UserSidebar activePage="settings" />}
-        scrollable
-      >
-        {content}
-      </WebLayout>
+      <ThemedView style={[styles.webContainer, { backgroundColor }]}>
+        <View style={styles.webContent}>
+          {/* Sidebar */}
+          <View style={[styles.webSidebar, { backgroundColor: cardBackground }]}>
+            <UserSidebar activePage="settings" />
+          </View>
+          
+          {/* Main Content */}
+          <View style={styles.webMainContent}>
+            <ScrollView 
+              style={styles.webScrollView}
+              contentContainerStyle={styles.webScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {content}
+            </ScrollView>
+          </View>
+        </View>
+      </ThemedView>
     );
   }
 
@@ -503,15 +561,67 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scrollContent: { padding: 20 },
-  header: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between',
-    marginBottom: 24 
-  },
-  titleContainer: {
+  
+  // Custom Header Styles
+  customHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 0,
+    paddingTop: 40,
+    paddingBottom: 30,
+    marginBottom: 24,
+    gap: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    flex: 1,
+  },
+  headerRight: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refreshButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  
+  // Web Layout Styles
+  webContainer: {
+    flex: 1,
+  },
+  webContent: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  webSidebar: {
+    width: 280,
+    position: 'absolute',
+    height: '100%',
+    left: 0,
+    top: 0,
+  },
+  webMainContent: {
+    flex: 1,
+    marginLeft: 280,
+    padding: 24,
+    minHeight: '100%',
+  },
+  webScrollView: {
+    flex: 1,
+  },
+  webScrollContent: {
+    paddingBottom: 40,
   },
   noSubscription: { 
     alignItems: 'center', 
@@ -520,9 +630,14 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -566,6 +681,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+    flexWrap: 'wrap',
   },
   actionButtons: {
     flexDirection: 'row',
@@ -575,18 +691,28 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderRadius: 12,
     flex: 1,
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   primaryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 16,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   primaryButtonText: {
     color: '#fff',
@@ -613,11 +739,5 @@ const styles = StyleSheet.create({
   },
   billingAmount: {
     alignItems: 'flex-end',
-  },
-  backLink: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    alignSelf: 'flex-start', 
-    marginTop: 8 
   },
 });

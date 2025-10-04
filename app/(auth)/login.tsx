@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
+import { Logo } from '../../components/Logo';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
@@ -149,8 +150,8 @@ export default function LoginScreen() {
           {/* Left Panel - Branding */}
           <View style={[styles.webLeftPanel, { backgroundColor: cardBg }]}>
             <View style={styles.webBrandSection}>
-              <View style={[styles.webLogoContainer, { backgroundColor: accentColor + '20' }]}>
-                <Ionicons name="document-text" size={48} color={accentColor} />
+              <View style={styles.webLogoContainer}>
+                <Logo size={80} />
               </View>
               <ThemedText style={[styles.webBrandTitle, { color: textColor }]}>WizNote</ThemedText>
               <ThemedText style={[styles.webBrandSubtitle, { color: textSecondaryColor }]}>
@@ -309,7 +310,7 @@ export default function LoginScreen() {
     );
   }
 
-  // Mobile layout (existing code)
+  // Mobile layout - Redesigned
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -320,95 +321,97 @@ export default function LoginScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {/* Header Section */}
           <View style={styles.header}>
+            <View style={[styles.logoContainer, { backgroundColor: cardBg }]}>
+              <Logo size={100} />
+            </View>
             <ThemedText style={[styles.title, { color: textColor }]}>Welcome Back</ThemedText>
             <ThemedText style={[styles.subtitle, { color: textSecondaryColor }]}>
-              Sign in to continue with Notez
+              Sign in to continue with WizNote
             </ThemedText>
           </View>
-          <View style={styles.form}>
-            {/* Email Input */}
-            <View style={styles.inputContainer}>
-              <ThemedText style={[styles.label, { color: textColor }]}>Email Address</ThemedText>
-              <TextInput
-                style={[styles.input, { color: inputText, backgroundColor: inputBg, borderColor }]}
-                placeholder="Enter your email"
-                placeholderTextColor={borderColor}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-            {/* Password Input */}
-            <View style={styles.inputContainer}>
-              <ThemedText style={[styles.label, { color: textColor }]}>Password</ThemedText>
-              <View style={[styles.passwordContainer, { backgroundColor: inputBg, borderColor }] }>
+
+          {/* Form Card */}
+          <View style={[styles.formCard, { backgroundColor: cardBg }]}>
+            <View style={styles.form}>
+              {/* Email Input */}
+              <View style={styles.inputContainer}>
+                <View style={styles.inputLabelContainer}>
+                  <Ionicons name="mail" size={18} color={accentColor} />
+                  <ThemedText style={[styles.label, { color: textColor }]}>Email Address</ThemedText>
+                </View>
                 <TextInput
-                  style={[styles.passwordInput, { color: inputText }]}
-                  placeholder="Enter your password"
-                  placeholderTextColor={borderColor}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
+                  style={[styles.input, { color: inputText, backgroundColor: inputBg, borderColor }]}
+                  placeholder="Enter your email"
+                  placeholderTextColor={textSecondaryColor}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
                   autoCapitalize="none"
+                  autoCorrect={false}
                 />
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={styles.eyeButton}
-                >
-                  <Ionicons
-                    name={showPassword ? 'eye-off' : 'eye'}
-                    size={20}
-                    color={borderColor}
-                  />
-                </TouchableOpacity>
               </View>
-            </View>
-            {/* Forgot Password Link */}
-            <TouchableOpacity style={styles.forgotPasswordContainer}>
-              <ThemedText style={[styles.forgotPasswordText, { color: accentColor }]}>
-                Forgot Password?
-              </ThemedText>
-            </TouchableOpacity>
-            {/* Sign In Button */}
-            <TouchableOpacity
-              style={[styles.loginButton, { backgroundColor: accentColor }, isLoading && styles.loginButtonDisabled]}
-              onPress={handleLogin}
-              disabled={isLoading}
-            >
-              <ThemedText style={styles.loginButtonText}>
-                {isLoading ? 'Signing In...' : 'Sign In'}
-              </ThemedText>
-            </TouchableOpacity>
-            {/* Google Sign In Button - Disabled */}
-            {/* <View style={styles.dividerContainer}>
-              <View style={[styles.divider, { backgroundColor: borderColor }]} />
-              <ThemedText style={[styles.dividerText, { color: textSecondaryColor }]}>or</ThemedText>
-              <View style={[styles.divider, { backgroundColor: borderColor }]} />
-            </View>
-            <TouchableOpacity
-              style={[styles.googleButton, { backgroundColor: inputBg, borderColor }, isLoading && styles.disabledButton]}
-              onPress={handleGoogleLogin}
-              disabled={isLoading}
-            >
-              <Ionicons name="logo-google" size={20} color={textSecondaryColor} />
-              <ThemedText style={[styles.googleButtonText, { color: textColor }, isLoading && styles.disabledButtonText]}>
-                {isLoading ? 'Signing in...' : 'Continue with Google'}
-              </ThemedText>
-            </TouchableOpacity> */}
-            {/* Sign Up Link */}
-            <View style={styles.signupContainer}>
-              <ThemedText style={[styles.signupText, { color: textSecondaryColor }]}>
-                Don&apos;t have an account?{' '}
-              </ThemedText>
-              <TouchableOpacity onPress={() => router.push('/(auth)/signup' as any)}>
-                <ThemedText style={[styles.signupLink, { color: accentColor }]}>
-                  Sign Up
+
+              {/* Password Input */}
+              <View style={styles.inputContainer}>
+                <View style={styles.inputLabelContainer}>
+                  <Ionicons name="lock-closed" size={18} color={accentColor} />
+                  <ThemedText style={[styles.label, { color: textColor }]}>Password</ThemedText>
+                </View>
+                <View style={[styles.passwordContainer, { backgroundColor: inputBg, borderColor }]}>
+                  <TextInput
+                    style={[styles.passwordInput, { color: inputText }]}
+                    placeholder="Enter your password"
+                    placeholderTextColor={textSecondaryColor}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.eyeButton}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off' : 'eye'}
+                      size={20}
+                      color={textSecondaryColor}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Forgot Password Link */}
+              <TouchableOpacity style={styles.forgotPasswordContainer}>
+                <ThemedText style={[styles.forgotPasswordText, { color: accentColor }]}>
+                  Forgot Password?
+                </ThemedText>
+              </TouchableOpacity>
+
+              {/* Sign In Button */}
+              <TouchableOpacity
+                style={[styles.loginButton, { backgroundColor: accentColor }, isLoading && styles.loginButtonDisabled]}
+                onPress={handleLogin}
+                disabled={isLoading}
+              >
+                <ThemedText style={styles.loginButtonText}>
+                  {isLoading ? 'Signing In...' : 'Sign In'}
                 </ThemedText>
               </TouchableOpacity>
             </View>
+          </View>
+
+          {/* Sign Up Link */}
+          <View style={styles.signupContainer}>
+            <ThemedText style={[styles.signupText, { color: textSecondaryColor }]}>
+              Don&apos;t have an account?{' '}
+            </ThemedText>
+            <TouchableOpacity onPress={() => router.push('/(auth)/signup' as any)}>
+              <ThemedText style={[styles.signupLink, { color: accentColor }]}>
+                Sign Up
+              </ThemedText>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </ThemedView>
@@ -422,16 +425,29 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 40,
+    paddingHorizontal: 24,
     paddingTop: 60,
     paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
+  },
+  logoContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'center',
@@ -442,30 +458,45 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     lineHeight: 22,
   },
+  formCard: {
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
   form: {
     flex: 1,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 24,
+  },
+  inputLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 8,
   },
   input: {
-    height: 50,
-    borderWidth: 1,
-    borderRadius: 12,
+    height: 56,
+    borderWidth: 1.5,
+    borderRadius: 16,
     paddingHorizontal: 16,
     fontSize: 16,
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    height: 50,
+    borderWidth: 1.5,
+    borderRadius: 16,
+    height: 56,
   },
   passwordInput: {
     flex: 1,
@@ -477,19 +508,23 @@ const styles = StyleSheet.create({
   },
   forgotPasswordContainer: {
     alignItems: 'flex-end',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   forgotPasswordText: {
     fontSize: 14,
     fontWeight: '500',
   },
   loginButton: {
-    height: 50,
-    borderRadius: 12,
+    height: 56,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 20,
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   loginButtonDisabled: {
     opacity: 0.6,
@@ -531,6 +566,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
   signupText: {
     fontSize: 16,
@@ -546,7 +582,7 @@ const styles = StyleSheet.create({
   webContent: {
     flex: 1,
     flexDirection: 'row',
-    height: '100vh',
+    height: '100%',
   },
   webLeftPanel: {
     flex: 1,
