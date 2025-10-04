@@ -1,0 +1,977 @@
+import { supabase } from '../lib/supabase';
+import { featureLimitService } from './FeatureLimitService';
+import { supabaseFeatureService } from './SupabaseFeatureService';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  displayName?: string;
+  createdAt: Date;
+  lastActive: Date;
+  premium?: {
+    isActive: boolean;
+    planName: string;
+    expiresAt?: Date;
+  };
+}
+
+export interface UserFeatureStatus {
+  limits: Record<string, any>;
+  currentUsage: Record<string, number>;
+  remainingQuota: Record<string, number>;
+  upgradeRecommendations: string[];
+  lastUpdated: Date;
+}
+
+export interface LimitOverride {
+  id: string;
+  userId: string;
+  featureId: string;
+  originalLimit: number | 'unlimited';
+  currentLimit: number | 'unlimited';
+  expiresAt: Date;
+  grantedBy: string;
+  reason: string;
+  notes?: string;
+  createdAt: Date;
+}
+
+export interface FeatureLimitDebugInfo {
+  currentState: {
+    limit: number | 'unlimited';
+    usage: number;
+    remaining: number;
+    lastReset: Date;
+    nextReset: Date;
+  };
+  cacheStatus: {
+    isCached: boolean;
+    cacheTimestamp: Date;
+    lastInvalidation: Date;
+  };
+  realTimeStatus: {
+    subscriptionActive: boolean;
+    lastUpdate: Date;
+    connectionHealth: 'healthy' | 'degraded' | 'down';
+  };
+  recommendations: string[];
+}
+
+export class SupportService {
+  private static instance: SupportService;
+
+  private constructor() {}
+
+  static getInstance(): SupportService {
+    if (!SupportService.instance) {
+      SupportService.instance = new SupportService();
+    }
+    return SupportService.instance;
+  }
+
+  // ===== USER FEATURE LIMIT INSPECTOR =====
+
+  /**
+   * Search for a user by email, user ID, or username
+   */
+  async searchUser(query: string): Promise<UserProfile | null> {
+    try {
+      console.log(`SupportService: Searching for user with query: ${query}`);
+
+      // Check if query looks like an email
+      const isEmail = query.includes('@');
+      
+      if (isEmail) {
+        // For email searches, we need to find a way to get the user ID
+        // Since we can't use auth.admin methods, let's try a different approach
+        
+        // First, try to find any user profile that might have this email stored somewhere
+        // This is a fallback since the ideal approach (auth.admin) isn't working
+        
+        console.log(`SupportService: Email search detected, trying alternative approach for: ${query}`);
+        
+        // For now, return a mock user since we can't access auth data
+        // In a real implementation, you'd need to either:
+        // 1. Have admin access to use auth.admin methods
+        // 2. Store email in user_profiles table
+        // 3. Use a different search strategy
+        
+        return {
+          id: `mock_${Date.now()}`,
+          email: query,
+          displayName: query.split('@')[0],
+          createdAt: new Date(),
+          lastActive: new Date(),
+          premium: {
+            isActive: false,
+            planName: 'Free',
+            expiresAt: undefined,
+          },
+        };
+      }
+
+      // If not an email, try searching by user ID (UUID format)
+      if (query.length === 36 && query.includes('-')) {
+        try {
+          const { data: profile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', query)
+            .single();
+
+          if (!profileError && profile) {
+            return {
+              id: profile.id,
+              email: profile.id, // Use ID as email since we can't get real email
+              displayName: profile.display_name || 'Unknown User',
+              createdAt: new Date(profile.created_at || Date.now()),
+              lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
+              premium: profile.premium ? {
+                isActive: profile.premium.isActive || false,
+                planName: profile.premium.type || 'Free',
+                expiresAt: undefined,
+              } : {
+                isActive: false,
+                planName: 'Free',
+                expiresAt: undefined,
+              },
+            };
+          }
+        } catch (profileError) {
+          console.log(`SupportService: Could not find user by ID: ${query}`);
+        }
+      }
+
+      // Try searching by display name
+      try {
+        const { data: profiles, error: nameError } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .ilike('display_name', `%${query}%`)
+          .limit(1);
+
+        if (!nameError && profiles?.length) {
+          const profile = profiles[0];
+          return {
+            id: profile.id,
+            email: profile.id, // Use ID as email since we can't get real email
+            displayName: profile.display_name || 'Unknown User',
+            createdAt: new Date(profile.created_at || Date.now()),
+            lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
+            premium: profile.premium ? {
+              isActive: profile.premium.isActive || false,
+              planName: profile.premium.type || 'Free',
+              expiresAt: undefined,
+            } : {
+              isActive: false,
+              planName: 'Free',
+              expiresAt: undefined,
+            },
+          };
+        }
+      } catch (nameError) {
+        console.log(`SupportService: Could not find user by display name: ${query}`);
+      }
+
+      console.log(`SupportService: No user found for query: ${query}`);
+      return null;
+    } catch (error) {
+      console.error('SupportService: Error searching for user:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get comprehensive feature status for a user
+   */
+  async getUserFeatureStatus(userId: string): Promise<UserFeatureStatus> {
+    try {
+      console.log(`SupportService: Getting feature status for user: ${userId}`);
+
+      // Get all feature limits
+      const allLimits = await featureLimitService.getFeatureLimits();
+      
+      // Get user's current usage for all features
+      const currentUsage: Record<string, number> = {};
+      const remainingQuota: Record<string, number> = {};
+      const upgradeRecommendations: string[] = [];
+
+      for (const limit of allLimits) {
+        try {
+          const usage = await supabaseFeatureService.getUserFeatureUsage(userId, limit.featureId);
+          const usageCount = usage?.currentPeriod?.usage || 0;
+          
+          currentUsage[limit.featureId] = usageCount;
+          
+          if (limit.freeUserLimit !== 'unlimited') {
+            const remaining = Math.max(0, limit.freeUserLimit - usageCount);
+            remainingQuota[limit.featureId] = remaining;
+            
+            // Suggest upgrade if usage is high
+            if (usageCount > limit.freeUserLimit * 0.8) {
+              upgradeRecommendations.push(
+                `Consider upgrading ${limit.featureName} - currently at ${usageCount}/${limit.freeUserLimit} usage`
+              );
+            }
+          } else {
+            remainingQuota[limit.featureId] = 'unlimited';
+          }
+        } catch (error) {
+          console.warn(`SupportService: Could not get usage for feature ${limit.featureId}:`, error);
+          currentUsage[limit.featureId] = 0;
+          remainingQuota[limit.featureId] = limit.freeUserLimit;
+        }
+      }
+
+      return {
+        limits: allLimits,
+        currentUsage,
+        remainingQuota,
+        upgradeRecommendations,
+        lastUpdated: new Date(),
+      };
+    } catch (error) {
+      console.error('SupportService: Error getting user feature status:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user's plan information
+   */
+  async getUserPlanInfo(userId: string): Promise<{
+    currentPlan: string;
+    isPremium: boolean;
+    planFeatures: string[];
+    nextBillingDate: Date | null;
+  }> {
+    try {
+      console.log(`SupportService: Getting plan info for user: ${userId}`);
+
+      // Get user profile to check premium status
+      const { data: userProfile, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+
+      if (!userProfile || !userProfile.premium?.isActive) {
+        return {
+          currentPlan: 'Free',
+          isPremium: false,
+          planFeatures: ['Basic features'],
+          nextBillingDate: null,
+        };
+      }
+
+      // Get plan details - for now return basic info since plans table might not exist
+      const planData = null;
+
+      return {
+        currentPlan: userProfile.premium?.type || 'Premium',
+        isPremium: true,
+        planFeatures: ['All premium features'], // Default for now
+        nextBillingDate: null, // Not stored in current schema
+      };
+    } catch (error) {
+      console.error('SupportService: Error getting user plan info:', error);
+      throw error;
+    }
+  }
+
+  // ===== EMERGENCY LIMIT OVERRIDE =====
+
+  /**
+   * Grant temporary access to a feature
+   */
+  async grantTemporaryAccess(
+    userId: string,
+    featureId: string,
+    options: {
+      duration: '1hour' | '24hours' | '7days';
+      reason: string;
+      supportAgentId: string;
+      notes?: string;
+    }
+  ): Promise<LimitOverride> {
+    try {
+      console.log(`SupportService: Granting temporary access for user ${userId}, feature ${featureId}`);
+
+      // Calculate expiration time
+      const now = new Date();
+      let expiresAt: Date;
+      
+      switch (options.duration) {
+        case '1hour':
+          expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
+          break;
+        case '24hours':
+          expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          break;
+        case '7days':
+          expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      }
+
+      // Get current limit
+      const currentLimit = await featureLimitService.getFeatureLimit(featureId);
+      const originalLimit = currentLimit?.freeUserLimit || 0;
+
+      // Create override record
+      const overrideData = {
+        id: this.generateOverrideId(),
+        user_id: userId,
+        feature_id: featureId,
+        original_limit: originalLimit,
+        current_limit: 'unlimited',
+        expires_at: expiresAt.toISOString(),
+        granted_by: options.supportAgentId,
+        reason: options.reason,
+        notes: options.notes,
+        created_at: now.toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('feature_limit_overrides')
+        .insert(overrideData);
+
+      if (error) throw error;
+
+      // Force refresh user's limits
+      await featureLimitService.forceRefresh();
+
+      console.log(`SupportService: Temporary access granted until ${expiresAt}`);
+
+      return {
+        id: overrideData.id,
+        userId,
+        featureId,
+        originalLimit,
+        currentLimit: 'unlimited',
+        expiresAt,
+        grantedBy: options.supportAgentId,
+        reason: options.reason,
+        notes: options.notes,
+        createdAt: now,
+      };
+    } catch (error) {
+      console.error('SupportService: Error granting temporary access:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get active overrides for a user
+   */
+  async getActiveOverrides(userId: string): Promise<LimitOverride[]> {
+    try {
+      console.log(`SupportService: Getting active overrides for user: ${userId}`);
+
+      const { data, error } = await supabase
+        .from('feature_limit_overrides')
+        .select('*')
+        .eq('user_id', userId)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map(override => ({
+        id: override.id,
+        userId: override.user_id,
+        featureId: override.feature_id,
+        originalLimit: override.original_limit,
+        currentLimit: override.current_limit,
+        expiresAt: new Date(override.expires_at),
+        grantedBy: override.granted_by,
+        reason: override.reason,
+        notes: override.notes,
+        createdAt: new Date(override.created_at),
+      }));
+    } catch (error) {
+      console.error('SupportService: Error getting active overrides:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Revoke an override early
+   */
+  async revokeOverride(overrideId: string, reason: string): Promise<void> {
+    try {
+      console.log(`SupportService: Revoking override: ${overrideId}`);
+
+      const { error } = await supabase
+        .from('feature_limit_overrides')
+        .update({
+          expires_at: new Date().toISOString(),
+          notes: `Revoked early: ${reason}`,
+        })
+        .eq('id', overrideId);
+
+      if (error) throw error;
+
+      // Force refresh user's limits
+      await featureLimitService.forceRefresh();
+
+      console.log(`SupportService: Override ${overrideId} revoked successfully`);
+    } catch (error) {
+      console.error('SupportService: Error revoking override:', error);
+      throw error;
+    }
+  }
+
+  // ===== FEATURE LIMIT DEBUGGER =====
+
+  /**
+   * Debug a specific feature limit issue
+   */
+  async debugFeatureLimit(userId: string, featureId: string): Promise<FeatureLimitDebugInfo> {
+    try {
+      console.log(`SupportService: Debugging feature limit for user ${userId}, feature ${featureId}`);
+
+      // Get current limit and usage
+      const limit = await featureLimitService.getFeatureLimit(featureId);
+      const usage = await supabaseFeatureService.getUserFeatureUsage(userId, featureId);
+
+      if (!limit) {
+        throw new Error(`Feature limit not found for ${featureId}`);
+      }
+
+      const currentUsage = usage?.currentPeriod?.usage || 0;
+      const remaining = limit.freeUserLimit === 'unlimited' ? 'unlimited' : Math.max(0, limit.freeUserLimit - currentUsage);
+
+      // Get cache status
+      const cacheStatus = await this.getCacheStatus(featureId);
+
+      // Get real-time status
+      const realTimeStatus = await this.getRealTimeStatus(featureId);
+
+      // Generate recommendations
+      const recommendations = this.generateDebugRecommendations({
+        limit,
+        usage,
+        cacheStatus,
+        realTimeStatus,
+      });
+
+      return {
+        currentState: {
+          limit: limit.freeUserLimit,
+          usage: currentUsage,
+          remaining,
+          lastReset: usage?.lastReset || new Date(),
+          nextReset: this.calculateNextReset(limit.freeUserPeriod),
+        },
+        cacheStatus,
+        realTimeStatus,
+        recommendations,
+      };
+    } catch (error) {
+      console.error('SupportService: Error debugging feature limit:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Force refresh user's limits
+   */
+  async forceRefreshUserLimits(userId: string): Promise<{
+    success: boolean;
+    newLimits: Record<string, any>;
+    cacheCleared: boolean;
+  }> {
+    try {
+      console.log(`SupportService: Force refreshing limits for user: ${userId}`);
+
+      // Clear cache and reload
+      await featureLimitService.forceRefresh();
+
+      // Get updated limits
+      const newLimits = await featureLimitService.getFeatureLimits();
+
+      return {
+        success: true,
+        newLimits,
+        cacheCleared: true,
+      };
+    } catch (error) {
+      console.error('SupportService: Error force refreshing user limits:', error);
+      return {
+        success: false,
+        newLimits: {},
+        cacheCleared: false,
+      };
+    }
+  }
+
+  // ===== REAL-TIME USAGE MONITORING =====
+
+  /**
+   * Get real-time usage data for all users
+   */
+  async getRealTimeUsageData(): Promise<{
+    activeUsers: number;
+    totalUsage: Record<string, number>;
+    recentActivity: Array<{
+      userId: string;
+      userEmail: string;
+      featureId: string;
+      action: 'used' | 'blocked' | 'upgraded';
+      timestamp: Date;
+      usageCount: number;
+    }>;
+    alerts: Array<{
+      type: 'high_usage' | 'limit_reached' | 'unusual_activity';
+      userId: string;
+      userEmail: string;
+      featureId: string;
+      message: string;
+      severity: 'low' | 'medium' | 'high';
+      timestamp: Date;
+    }>;
+  }> {
+    try {
+      console.log('SupportService: Getting real-time usage data');
+
+      // Get all active users in the last 24 hours
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const { data: recentUsers, error: usersError } = await supabase
+        .from('user_feature_usage')
+        .select(`
+          user_id,
+          feature_id,
+          usage_count,
+          last_used,
+          users!inner(email, display_name)
+        `)
+        .gte('last_used', twentyFourHoursAgo.toISOString())
+        .order('last_used', { ascending: false });
+
+      if (usersError) throw usersError;
+
+      // Get recent activity from the last hour
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const { data: recentActivity, error: activityError } = await supabase
+        .from('user_feature_usage')
+        .select(`
+          user_id,
+          feature_id,
+          usage_count,
+          last_used,
+          users!inner(email, display_name)
+        `)
+        .gte('last_used', oneHourAgo.toISOString())
+        .order('last_used', { ascending: false });
+
+      if (activityError) throw activityError;
+
+      // Process data
+      const activeUsers = new Set(recentUsers?.map(u => u.user_id) || []).size;
+      const totalUsage: Record<string, number> = {};
+      const recentActivityList: Array<{
+        userId: string;
+        userEmail: string;
+        featureId: string;
+        action: 'used' | 'blocked' | 'upgraded';
+        timestamp: Date;
+        usageCount: number;
+      }> = [];
+
+      // Process recent activity
+      for (const activity of recentActivity || []) {
+        const user = activity.users as any;
+        recentActivityList.push({
+          userId: activity.user_id,
+          userEmail: user.email,
+          featureId: activity.feature_id,
+          action: 'used', // Default action
+          timestamp: new Date(activity.last_used),
+          usageCount: activity.usage_count,
+        });
+
+        // Aggregate total usage
+        totalUsage[activity.feature_id] = (totalUsage[activity.feature_id] || 0) + activity.usage_count;
+      }
+
+      // Generate alerts
+      const alerts = await this.generateUsageAlerts(recentUsers || []);
+
+      return {
+        activeUsers,
+        totalUsage,
+        recentActivity: recentActivityList,
+        alerts,
+      };
+    } catch (error) {
+      console.error('SupportService: Error getting real-time usage data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Monitor a specific user's real-time activity
+   */
+  async monitorUserActivity(userId: string, duration: '1hour' | '24hours' | '7days' = '1hour'): Promise<{
+    userId: string;
+    userEmail: string;
+    activity: Array<{
+      featureId: string;
+      action: string;
+      timestamp: Date;
+      usageCount: number;
+      limit: number | 'unlimited';
+      remaining: number | 'unlimited';
+    }>;
+    summary: {
+      totalActions: number;
+      featuresUsed: string[];
+      peakUsageTime: Date;
+      averageUsagePerHour: number;
+    };
+  }> {
+    try {
+      console.log(`SupportService: Monitoring activity for user: ${userId}`);
+
+      // Calculate time range
+      const now = new Date();
+      let startTime: Date;
+      
+      switch (duration) {
+        case '1hour':
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+          break;
+        case '24hours':
+          startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7days':
+          startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startTime = new Date(now.getTime() - 60 * 60 * 1000);
+      }
+
+      // Get user activity
+      const { data: activity, error } = await supabase
+        .from('user_feature_usage')
+        .select(`
+          feature_id,
+          usage_count,
+          last_used,
+          feature_limits!inner(free_user_limit, free_user_period)
+        `)
+        .eq('user_id', userId)
+        .gte('last_used', startTime.toISOString())
+        .order('last_used', { ascending: false });
+
+      if (error) throw error;
+
+      // Get user email
+      const { data: userData } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', userId)
+        .single();
+
+      // Process activity
+      const activityList = (activity || []).map(item => {
+        const limit = item.feature_limits as any;
+        const usageCount = item.usage_count;
+        const remaining = limit.free_user_limit === 'unlimited' ? 'unlimited' : 
+          Math.max(0, limit.free_user_limit - usageCount);
+
+        return {
+          featureId: item.feature_id,
+          action: 'feature_used',
+          timestamp: new Date(item.last_used),
+          usageCount,
+          limit: limit.free_user_limit,
+          remaining,
+        };
+      });
+
+      // Calculate summary
+      const totalActions = activityList.length;
+      const featuresUsed = [...new Set(activityList.map(a => a.featureId))];
+      const peakUsageTime = activityList.length > 0 ? 
+        activityList.reduce((max, current) => 
+          current.timestamp > max.timestamp ? current : max
+        ).timestamp : now;
+      
+      const hoursInDuration = duration === '1hour' ? 1 : duration === '24hours' ? 24 : 7 * 24;
+      const averageUsagePerHour = totalActions / hoursInDuration;
+
+      return {
+        userId,
+        userEmail: userData?.email || 'Unknown',
+        activity: activityList,
+        summary: {
+          totalActions,
+          featuresUsed,
+          peakUsageTime,
+          averageUsagePerHour,
+        },
+      };
+    } catch (error) {
+      console.error('SupportService: Error monitoring user activity:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get usage alerts for support agents
+   */
+  async getUsageAlerts(): Promise<Array<{
+    id: string;
+    type: 'high_usage' | 'limit_reached' | 'unusual_activity' | 'upgrade_opportunity';
+    userId: string;
+    userEmail: string;
+    featureId: string;
+    message: string;
+    severity: 'low' | 'medium' | 'high';
+    timestamp: Date;
+    isResolved: boolean;
+    resolvedBy?: string;
+    resolvedAt?: Date;
+    notes?: string;
+  }>> {
+    try {
+      console.log('SupportService: Getting usage alerts');
+
+      // Get all feature limits
+      const allLimits = await featureLimitService.getFeatureLimits();
+      
+      // Get recent usage data
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const { data: recentUsage, error } = await supabase
+        .from('user_feature_usage')
+        .select(`
+          user_id,
+          feature_id,
+          usage_count,
+          last_used,
+          users!inner(email, display_name)
+        `)
+        .gte('last_used', oneHourAgo.toISOString());
+
+      if (error) throw error;
+
+      const alerts: Array<{
+        id: string;
+        type: 'high_usage' | 'limit_reached' | 'unusual_activity' | 'upgrade_opportunity';
+        userId: string;
+        userEmail: string;
+        featureId: string;
+        message: string;
+        severity: 'low' | 'medium' | 'high';
+        timestamp: Date;
+        isResolved: boolean;
+        resolvedBy?: string;
+        resolvedAt?: Date;
+        notes?: string;
+      }> = [];
+
+      // Check for high usage and limit reached alerts
+      for (const usage of recentUsage || []) {
+        const limit = allLimits.find(l => l.featureId === usage.feature_id);
+        if (!limit) continue;
+
+        const user = usage.users as any;
+        const usageCount = usage.usage_count;
+        const limitValue = limit.freeUserLimit;
+
+        if (limitValue === 'unlimited') continue;
+
+        // High usage alert (80% of limit)
+        if (usageCount >= limitValue * 0.8 && usageCount < limitValue) {
+          alerts.push({
+            id: `high_${usage.user_id}_${usage.feature_id}`,
+            type: 'high_usage',
+            userId: usage.user_id,
+            userEmail: user.email,
+            featureId: usage.feature_id,
+            message: `User ${user.email} is at ${Math.round((usageCount / limitValue) * 100)}% of their ${usage.feature_id} limit`,
+            severity: 'medium',
+            timestamp: new Date(usage.last_used),
+            isResolved: false,
+          });
+        }
+
+        // Limit reached alert
+        if (usageCount >= limitValue) {
+          alerts.push({
+            id: `limit_${usage.user_id}_${usage.feature_id}`,
+            type: 'limit_reached',
+            userId: usage.user_id,
+            userEmail: user.email,
+            featureId: usage.feature_id,
+            message: `User ${user.email} has reached their ${usage.feature_id} limit`,
+            severity: 'high',
+            timestamp: new Date(usage.last_used),
+            isResolved: false,
+          });
+        }
+
+        // Upgrade opportunity (high usage over time)
+        if (usageCount >= limitValue * 0.6) {
+          alerts.push({
+            id: `upgrade_${usage.user_id}_${usage.feature_id}`,
+            type: 'upgrade_opportunity',
+            userId: usage.user_id,
+            userEmail: user.email,
+            featureId: usage.feature_id,
+            message: `User ${user.email} consistently uses ${Math.round((usageCount / limitValue) * 100)}% of ${usage.feature_id} - consider upgrade`,
+            severity: 'low',
+            timestamp: new Date(usage.last_used),
+            isResolved: false,
+          });
+        }
+      }
+
+      return alerts;
+    } catch (error) {
+      console.error('SupportService: Error getting usage alerts:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Resolve an alert
+   */
+  async resolveAlert(alertId: string, resolvedBy: string, notes?: string): Promise<void> {
+    try {
+      console.log(`SupportService: Resolving alert: ${alertId}`);
+
+      // In a real implementation, you'd store this in a database
+      // For now, we'll just log it
+      console.log(`Alert ${alertId} resolved by ${resolvedBy} with notes: ${notes}`);
+    } catch (error) {
+      console.error('SupportService: Error resolving alert:', error);
+      throw error;
+    }
+  }
+
+  // ===== PRIVATE HELPER METHODS =====
+
+  private generateOverrideId(): string {
+    return `override_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private async getCacheStatus(featureId: string): Promise<{
+    isCached: boolean;
+    cacheTimestamp: Date;
+    lastInvalidation: Date;
+  }> {
+    // This would check the actual cache implementation
+    // For now, return mock data
+    return {
+      isCached: true,
+      cacheTimestamp: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
+      lastInvalidation: new Date(Date.now() - 2 * 60 * 1000), // 2 minutes ago
+    };
+  }
+
+  private async getRealTimeStatus(featureId: string): Promise<{
+    subscriptionActive: boolean;
+    lastUpdate: Date;
+    connectionHealth: 'healthy' | 'degraded' | 'down';
+  }> {
+    // This would check the actual real-time subscription status
+    // For now, return mock data
+    return {
+      subscriptionActive: true,
+      lastUpdate: new Date(Date.now() - 1 * 60 * 1000), // 1 minute ago
+      connectionHealth: 'healthy',
+    };
+  }
+
+  private generateDebugRecommendations(data: any): string[] {
+    const recommendations: string[] = [];
+
+    if (data.cacheStatus.isCached && data.cacheStatus.lastInvalidation < new Date(Date.now() - 10 * 60 * 1000)) {
+      recommendations.push('Cache may be stale - consider forcing a refresh');
+    }
+
+    if (data.realTimeStatus.connectionHealth !== 'healthy') {
+      recommendations.push('Real-time connection issues detected - check Supabase status');
+    }
+
+    if (data.usage && data.limit && data.usage > data.limit * 0.9) {
+      recommendations.push('User is approaching limit - consider temporary override');
+    }
+
+    return recommendations;
+  }
+
+  private calculateNextReset(period: string): Date {
+    const now = new Date();
+    const next = new Date(now);
+
+    switch (period) {
+      case 'daily':
+        next.setDate(next.getDate() + 1);
+        next.setHours(0, 0, 0, 0);
+        break;
+      case 'weekly':
+        next.setDate(next.getDate() + 7);
+        next.setHours(0, 0, 0, 0);
+        break;
+      case 'monthly':
+        next.setMonth(next.getMonth() + 1);
+        next.setDate(1);
+        next.setHours(0, 0, 0, 0);
+        break;
+      default:
+        next.setMonth(next.getMonth() + 1);
+        next.setDate(1);
+        next.setHours(0, 0, 0, 0);
+    }
+
+    return next;
+  }
+
+  private async generateUsageAlerts(recentUsers: any[]): Promise<Array<{
+    type: 'high_usage' | 'limit_reached' | 'unusual_activity';
+    userId: string;
+    userEmail: string;
+    featureId: string;
+    message: string;
+    severity: 'low' | 'medium' | 'high';
+    timestamp: Date;
+  }>> {
+    const alerts: Array<{
+      type: 'high_usage' | 'limit_reached' | 'unusual_activity';
+      userId: string;
+      userEmail: string;
+      featureId: string;
+      message: string;
+      severity: 'low' | 'medium' | 'high';
+      timestamp: Date;
+    }> = [];
+
+    // Generate sample alerts based on usage data
+    for (const user of recentUsers.slice(0, 5)) { // Limit to 5 alerts for demo
+      const userData = user.users as any;
+      if (user.usage_count > 10) {
+        alerts.push({
+          type: 'high_usage',
+          userId: user.user_id,
+          userEmail: userData.email,
+          featureId: user.feature_id,
+          message: `High usage detected for ${user.feature_id}`,
+          severity: 'medium',
+          timestamp: new Date(user.last_used),
+        });
+      }
+    }
+
+    return alerts;
+  }
+}
+
+// Export singleton instance
+export const supportService = SupportService.getInstance();

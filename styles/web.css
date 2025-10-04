@@ -1,0 +1,690 @@
+/* Web-specific styles for Notez */
+
+/* CSS Reset to remove default browser margins and padding */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background-color: #1A1A1A;
+}
+
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #1A1A1A;
+}
+
+/* Ensure no white space at the top */
+body > * {
+  background-color: #1A1A1A;
+}
+
+/* Fix for CSSStyleDeclaration indexed property setter error */
+/* This prevents React Native Web from trying to set indexed properties on CSSStyleDeclaration */
+[style*="box-shadow"] {
+  box-shadow: inherit !important;
+}
+
+/* Additional fix for React Native Web style issues */
+[data-rn-root] * {
+  box-sizing: border-box;
+}
+
+/* Prevent React Native Web from setting indexed properties */
+[style] {
+  box-shadow: none !important;
+}
+
+/* Web layout specific overrides */
+.web-layout-container {
+  background-color: #1A1A1A !important;
+}
+
+/* Grid layout for notes */
+.web-notes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  padding: 24px;
+}
+
+/* Hover effects for note cards */
+.note-card-hover {
+  transition: all 0.2s ease;
+}
+
+.note-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Web layout container */
+.web-layout-container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Sidebar styles */
+.web-sidebar {
+  width: 280px;
+  border-right: 1px solid #333333;
+  display: flex;
+  flex-direction: column;
+  background-color: #1A1A1A;
+}
+
+/* Main content area */
+.web-main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header styles */
+.web-header {
+  height: 64px;
+  border-bottom: 1px solid #333333;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background-color: #1A1A1A;
+}
+
+/* Content area */
+.web-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .web-sidebar {
+    width: 240px;
+  }
+  
+  .web-notes-grid {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .web-layout-container {
+    flex-direction: column;
+  }
+  
+  .web-sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #333333;
+  }
+  
+  .web-notes-grid {
+    padding: 12px;
+  }
+}
+
+/* Keyboard shortcuts tooltip */
+.shortcut-tooltip {
+  position: absolute;
+  background-color: #333333;
+  color: #FFFFFF;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* Focus styles for accessibility */
+.web-sidebar-item:focus,
+.web-note-card:focus {
+  outline: 2px solid #6A5ACD;
+  outline-offset: 2px;
+}
+
+/* Loading animation */
+.web-loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Usage display web optimizations */
+.usage-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.usage-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  border-color: rgba(106, 90, 205, 0.3);
+}
+
+.usage-summary-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.usage-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(106, 90, 205, 0.2);
+}
+
+.usage-upgrade-button {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.usage-upgrade-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(106, 90, 205, 0.4);
+}
+
+.usage-upgrade-button:active {
+  transform: translateY(0);
+}
+
+.usage-action-button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.usage-action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.usage-back-button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.usage-back-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-color: rgba(106, 90, 205, 0.3);
+}
+
+.usage-refresh-button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.usage-refresh-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  transform: rotate(180deg);
+}
+
+.usage-login-button {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.usage-login-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(106, 90, 205, 0.4);
+}
+
+.usage-retry-button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.usage-retry-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.usage-upgrade-card-button {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.usage-upgrade-card-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(106, 90, 205, 0.4);
+}
+
+.usage-period-button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.usage-period-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.usage-status-badge {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.usage-status-badge:hover {
+  transform: scale(1.05);
+}
+
+.usage-progress-bar {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.usage-progress-fill {
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Loading animation for usage cards */
+.usage-card-loading {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.usage-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+/* Modal styles for web */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background-color: #1A1A1A !important;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  border: 1px solid #333333;
+}
+
+/* Override React Native Modal styles for web */
+[data-rn-root] [role="dialog"] {
+  background-color: #1A1A1A !important;
+  border: none !important;
+  outline: none !important;
+}
+
+[data-rn-root] [role="dialog"] > div {
+  background-color: #1A1A1A !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* Specific modal container fixes */
+.modal-container {
+  background-color: #1A1A1A !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* Ensure no white borders on modal content */
+[data-rn-root] [role="dialog"] * {
+  border-color: #333333 !important;
+}
+
+/* Ensure proper text colors in PlanForm */
+.modal-container * {
+  color: #ECEDEE !important;
+}
+
+.modal-container input,
+.modal-container textarea {
+  color: #ECEDEE !important;
+  background-color: #1A1A1A !important;
+}
+
+.modal-container input::placeholder,
+.modal-container textarea::placeholder {
+  color: #A0A0A0 !important;
+}
+
+/* Override any default text colors in PlanForm */
+[data-rn-root] [role="dialog"] .modal-container * {
+  color: #ECEDEE !important;
+}
+
+[data-rn-root] [role="dialog"] .modal-container input,
+[data-rn-root] [role="dialog"] .modal-container textarea {
+  color: #ECEDEE !important;
+  background-color: #1A1A1A !important;
+}
+
+/* Plan Form hover effects */
+.plan-form-input:hover {
+  border-color: #007AFF !important;
+  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.1);
+}
+
+.plan-form-input:focus {
+  border-color: #007AFF !important;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+
+.plan-form-select-option:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.plan-form-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.plan-form-button:active {
+  transform: translateY(0);
+}
+
+.plan-form-close-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: scale(1.1);
+}
+
+.plan-form-step-item:hover {
+  transform: scale(1.05);
+}
+
+.plan-form-feature-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.plan-form-feature-toggle:hover {
+  transform: scale(1.1);
+}
+
+.plan-form-switch:hover {
+  transform: scale(1.05);
+}
+
+.plan-form-preview-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.plan-form-currency-option:hover {
+  background-color: rgba(0, 122, 255, 0.1) !important;
+}
+
+.plan-form-limit-type-option:hover {
+  background-color: rgba(0, 122, 255, 0.1) !important;
+}
+
+@media (max-width: 768px) {
+  .usage-features-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .usage-summary-cards {
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .usage-features-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .usage-upgrade-section {
+    padding: 20px;
+  }
+  
+  .usage-upgrade-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 16px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .web-sidebar {
+    background-color: #1A1A1A;
+    border-right-color: #333333;
+  }
+  
+  .web-header {
+    background-color: #1A1A1A;
+    border-bottom-color: #333333;
+  }
+}
+
+/* Light mode support */
+@media (prefers-color-scheme: light) {
+  .web-sidebar {
+    background-color: #FFFFFF;
+    border-right-color: #E5E7EB;
+  }
+  
+  .web-header {
+    background-color: #FFFFFF;
+    border-bottom-color: #E5E7EB;
+  }
+  
+  /* Ensure flashcards are visible in light theme */
+  .flashcard-card {
+    background-color: #F5F6FA !important;
+    border: 1px solid #E5E7EB !important;
+    color: #11181C !important;
+  }
+  
+  .flashcard-text {
+    color: #11181C !important;
+  }
+  
+  .flashcard-muted-text {
+    color: #A0A0A0 !important;
+  }
+  
+  .flashcard-button {
+    background-color: #6A5ACD !important;
+    color: #FFFFFF !important;
+  }
+  
+  .flashcard-button:hover {
+    background-color: #5A4ABD !important;
+  }
+  
+  .flashcard-difficulty-badge {
+    color: #FFFFFF !important;
+  }
+  
+  .flashcard-progress-bar {
+    background-color: #E5E7EB !important;
+  }
+  
+  .flashcard-progress-fill {
+    background-color: #6A5ACD !important;
+  }
+  
+  /* Additional light theme overrides for better visibility */
+  [data-rn-root] .flashcard-container {
+    background-color: #FFFFFF !important;
+  }
+  
+  [data-rn-root] .flashcard-card {
+    background-color: #F5F6FA !important;
+    border: 1px solid #E5E7EB !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  [data-rn-root] .flashcard-text {
+    color: #11181C !important;
+  }
+  
+  [data-rn-root] .flashcard-muted-text {
+    color: #A0A0A0 !important;
+  }
+  
+  [data-rn-root] .flashcard-button {
+    background-color: #6A5ACD !important;
+    color: #FFFFFF !important;
+    border: 1px solid #5A4ABD !important;
+  }
+  
+  [data-rn-root] .flashcard-button:hover {
+    background-color: #5A4ABD !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(106, 90, 205, 0.3) !important;
+  }
+  
+  [data-rn-root] .flashcard-difficulty-badge {
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+  }
+  
+  [data-rn-root] .flashcard-progress-bar {
+    background-color: #E5E7EB !important;
+  }
+  
+  [data-rn-root] .flashcard-progress-fill {
+    background-color: #6A5ACD !important;
+  }
+  
+  [data-rn-root] .flashcard-input {
+    background-color: #FFFFFF !important;
+    border: 1px solid #E5E7EB !important;
+    color: #11181C !important;
+  }
+  
+  [data-rn-root] .flashcard-input:focus {
+    border-color: #6A5ACD !important;
+    box-shadow: 0 0 0 2px rgba(106, 90, 205, 0.1) !important;
+  }
+  
+  [data-rn-root] .flashcard-select {
+    background-color: #FFFFFF !important;
+    border: 1px solid #E5E7EB !important;
+    color: #11181C !important;
+  }
+  
+  [data-rn-root] .flashcard-checkbox {
+    border: 2px solid #E5E7EB !important;
+    background-color: #FFFFFF !important;
+  }
+  
+  [data-rn-root] .flashcard-checkbox:checked {
+    background-color: #6A5ACD !important;
+    border-color: #6A5ACD !important;
+  }
+}
+
+/* Hide Expo router headers */
+[data-testid="header"],
+[data-testid="header-container"],
+[role="banner"],
+header[class*="expo"],
+header[class*="router"],
+header[class*="header"],
+div[class*="expo-header"],
+div[class*="router-header"],
+div[class*="header-container"],
+.expo-header,
+.router-header,
+.header-container {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Hide any navigation headers that might be rendered by Expo */
+nav[class*="expo"],
+nav[class*="router"],
+nav[class*="header"],
+.nav-header,
+.navigation-header {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Ensure no top margin or padding from hidden headers */
+body > header,
+body > nav,
+#root > header,
+#root > nav {
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Additional aggressive header hiding for Expo router */
+[data-testid*="header"],
+[data-testid*="navigation"],
+[class*="header"],
+[class*="navigation"],
+[class*="nav"],
+[class*="expo"],
+[class*="router"],
+[class*="stack"],
+[role="navigation"],
+[role="banner"] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  top: -9999px !important;
+  left: -9999px !important;
+}
+
+/* Hide any remaining top-level headers */
+body > *:first-child[class*="header"],
+body > *:first-child[class*="nav"],
+body > *:first-child[class*="expo"],
+body > *:first-child[class*="router"],
+#root > *:first-child[class*="header"],
+#root > *:first-child[class*="nav"],
+#root > *:first-child[class*="expo"],
+#root > *:first-child[class*="router"] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+} 

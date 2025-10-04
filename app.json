@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "wiznote-new",
+    "slug": "wiznote",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "IS_DEV": false,
+      "IS_PREVIEW": false,
+      "eas": {
+        "projectId": "eb4bee18-b296-4da4-961e-2b100db5b29b"
+      }
+    },
+    "owner": "solox312"
+  }
+}
