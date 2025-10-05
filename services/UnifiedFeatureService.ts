@@ -218,6 +218,7 @@ export class UnifiedFeatureService {
         feature_id: featureId,
         usage_duration: featureLimit.limitType === 'duration' ? newUsage : 0,
         usage_count: featureLimit.limitType === 'count' ? newUsage : 0,
+        usage_storage: featureLimit.limitType === 'storage' ? newUsage : 0,
         current_period_start: periodStart.toISOString(),
         current_period_end: periodEnd.toISOString(),
         period_type: 'monthly',
@@ -246,7 +247,7 @@ export class UnifiedFeatureService {
     try {
       const { data, error } = await supabase
         .from('user_feature_usage')
-        .select('usage_count, usage_duration')
+        .select('usage_count, usage_duration, usage_storage')
         .eq('user_id', userId)
         .eq('feature_id', featureId)
         .single();
@@ -259,6 +260,8 @@ export class UnifiedFeatureService {
       // Return appropriate usage field based on limit type
       if (featureLimit.limitType === 'duration') {
         return data?.usage_duration || 0;
+      } else if (featureLimit.limitType === 'storage') {
+        return data?.usage_storage || 0;
       } else {
         return data?.usage_count || 0;
       }
@@ -273,7 +276,7 @@ export class UnifiedFeatureService {
     const usagePromises = Object.entries(UNIFIED_FEATURE_LIMITS).map(async ([featureId, config]) => {
       const currentUsage = await this.getCurrentUsage(userId, featureId);
       const limit = isPremium ? config.premiumLimit : config.freeLimit;
-      const remaining = limit === 'unlimited' ? 'unlimited' : Math.max(0, limit - currentUsage);
+      const remaining: number | 'unlimited' = limit === 'unlimited' ? 'unlimited' : Math.max(0, limit - currentUsage);
 
       // Get current period dates
       const now = new Date();
@@ -315,6 +318,8 @@ export class UnifiedFeatureService {
     // Reset appropriate field based on limit type
     if (featureLimit.limitType === 'duration') {
       resetData.usage_duration = 0;
+    } else if (featureLimit.limitType === 'storage') {
+      resetData.usage_storage = 0;
     } else {
       resetData.usage_count = 0;
     }

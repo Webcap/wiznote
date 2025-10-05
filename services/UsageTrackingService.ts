@@ -295,8 +295,7 @@ export class UsageTrackingService {
       const topUsers = Array.isArray(stats?.topUsers) ? stats.topUsers.map(user => ({
         userId: user.userId || '',
         usage: user.usage || 0,
-        displayName: user.displayName || '',
-        email: user.email || ''
+        displayName: user.displayName || ''
       })) : [];
       
       return {

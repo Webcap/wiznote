@@ -149,7 +149,7 @@ export const getSupabaseErrorMessage = (error: any): SupabaseErrorInfo => {
 };
 
 export const isSupabaseError = (error: unknown): boolean => {
-  return error && typeof error === 'object' && 'message' in error;
+  return !!(error && typeof error === 'object' && 'message' in error);
 };
 
 export const isNetworkError = (error: unknown): boolean => {

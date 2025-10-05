@@ -183,18 +183,21 @@ export class SupabaseNoteStorage {
         .eq('user_id', this.currentUser)
         .order('updated_at', { ascending: false });
 
-      const { data: notes, error } = await Promise.race([
+      const result = await Promise.race([
         queryPromise,
         timeoutPromise
-      ]);
+      ]) as any;
+
+      const { data: notes, error } = result;
 
       if (error) {
         this.handleError(error, 'getNotes');
       }
 
       // Transform Supabase data to Note format
-      const transformedNotes: Note[] = (notes || []).map(note => ({
+      const transformedNotes: Note[] = (notes || []).map((note: any) => ({
         id: note.id,
+        userId: note.user_id,
         title: note.title,
         content: note.content,
         tags: note.tags || [],
@@ -278,6 +281,7 @@ export class SupabaseNoteStorage {
       // Transform Supabase data to Note format
       return {
         id: note.id,
+        userId: note.user_id,
         title: note.title,
         content: note.content,
         tags: note.tags || [],
@@ -351,6 +355,7 @@ export class SupabaseNoteStorage {
       // Transform Supabase data to Note format
       return {
         id: note.id,
+        userId: note.user_id,
         title: note.title,
         content: note.content,
         tags: note.tags || [],
@@ -403,6 +408,7 @@ export class SupabaseNoteStorage {
       // Transform Supabase data to Note format
       return {
         id: note.id,
+        userId: note.user_id,
         title: note.title,
         content: note.content,
         tags: note.tags || [],
@@ -459,8 +465,9 @@ export class SupabaseNoteStorage {
       }
 
       // Transform Supabase data to Note format
-      const transformedNotes: Note[] = (notes || []).map(note => ({
+      const transformedNotes: Note[] = (notes || []).map((note: any) => ({
         id: note.id,
+        userId: note.user_id,
         title: note.title,
         content: note.content,
         tags: note.tags || [],
@@ -498,8 +505,9 @@ export class SupabaseNoteStorage {
       }
 
       // Transform Supabase data to Note format
-      const transformedNotes: Note[] = (notes || []).map(note => ({
+      const transformedNotes: Note[] = (notes || []).map((note: any) => ({
         id: note.id,
+        userId: note.user_id,
         title: note.title,
         content: note.content,
         tags: note.tags || [],
@@ -537,8 +545,9 @@ export class SupabaseNoteStorage {
       }
 
       // Transform Supabase data to Note format
-      const transformedNotes: Note[] = (notes || []).map(note => ({
+      const transformedNotes: Note[] = (notes || []).map((note: any) => ({
         id: note.id,
+        userId: note.user_id,
         title: note.title,
         content: note.content,
         tags: note.tags || [],
@@ -576,8 +585,9 @@ export class SupabaseNoteStorage {
       }
 
       // Transform Supabase data to Note format
-      const transformedNotes: Note[] = (notes || []).map(note => ({
+      const transformedNotes: Note[] = (notes || []).map((note: any) => ({
         id: note.id,
+        userId: note.user_id,
         title: note.title,
         content: note.content,
         tags: note.tags || [],
