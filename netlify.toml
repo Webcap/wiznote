@@ -1,0 +1,27 @@
+[build]
+  command = "npm run build"
+  functions = "netlify/functions"
+  publish = ".next"
+
+[functions]
+  node_bundler = "esbuild"
+
+# Scheduled functions for automatic monthly usage resets
+[[plugins]]
+  package = "@netlify/plugin-scheduled-functions"
+
+[plugins.inputs]
+  # Run monthly usage reset on the 1st of every month at 2 AM UTC
+  schedule = "0 2 1 * *"
+  function = "monthly-usage-reset"
+
+# Environment variables (these should be set in Netlify dashboard)
+[context.production.environment]
+  EXPO_PUBLIC_SUPABASE_URL = "your-supabase-url"
+  EXPO_PUBLIC_SUPABASE_ANON_KEY = "your-supabase-anon-key"
+
+# Redirects for SPA routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
