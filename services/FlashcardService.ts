@@ -15,7 +15,7 @@ import {
 } from '../types/Flashcards';
 import { featureFlagService } from './FeatureFlagService';
 import { generateFlashcardsWithGemini } from './GeminiAI';
-import { simpleUsageService } from './SimpleUsageService';
+import { featureLimitService } from './FeatureLimitService';
 import { SupabaseNoteStorage } from './SupabaseNoteStorage';
 
 export class FlashcardService {
@@ -45,7 +45,8 @@ export class FlashcardService {
       }
 
       // Check usage limits
-      const currentUsage = await simpleUsageService.getUsage(userId, 'ai_flashcards');
+      const usage = await featureLimitService.getUserFeatureUsage(userId, 'ai_flashcards', false);
+      const currentUsage = usage?.currentPeriod.usage || 0;
       const limit = 999999; // Premium users have high limits, will be refined later
       
       if (currentUsage >= limit) {
@@ -218,7 +219,7 @@ export class FlashcardService {
         const updatedSet = await this.getFlashcardSet(flashcardSet.id, flashcardOwnerId);
         
         // Record usage for the current user (not the owner)
-        await simpleUsageService.recordUsage(userId, 'ai_flashcards', 1);
+        await featureLimitService.recordFeatureUsage(userId, 'ai_flashcards', 1, false, 'count');
 
         const generationTime = Date.now() - startTime;
         

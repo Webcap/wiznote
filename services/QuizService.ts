@@ -12,7 +12,7 @@ import {
     QuizWithoutQuestions
 } from '../types/Quizzes';
 import { featureFlagService } from './FeatureFlagService';
-import { simpleUsageService } from './SimpleUsageService';
+import { featureLimitService } from './FeatureLimitService';
 
 export class QuizService {
   private static instance: QuizService;
@@ -41,7 +41,8 @@ export class QuizService {
       }
 
       // Check usage limits
-      const currentUsage = await simpleUsageService.getUsage(userId, 'ai_quiz');
+      const usage = await featureLimitService.getUserFeatureUsage(userId, 'ai_quiz', false);
+      const currentUsage = usage?.currentPeriod.usage || 0;
       const limit = await this.getUserQuizLimit(userId);
       
       if (currentUsage >= limit) {
@@ -121,7 +122,7 @@ export class QuizService {
       }
 
       // Track usage
-      await simpleUsageService.recordUsage(options.userId, 'ai_quiz', 1);
+      await featureLimitService.recordFeatureUsage(options.userId, 'ai_quiz', 1, false, 'count');
 
       console.log('✅ QuizService: Quiz created successfully:', quizData.id);
       

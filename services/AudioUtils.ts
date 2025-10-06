@@ -1,5 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import { simpleUsageService } from './SimpleUsageService';
+import { featureLimitService } from './FeatureLimitService';
 
 // Import expo-audio for SDK 54 - use the new API
 import {
@@ -808,7 +808,7 @@ export class AudioUtils {
       
       // Track AI transcription usage
       try {
-        await simpleUsageService.recordUsage(userId, 'ai_transcription', 1);
+        await featureLimitService.recordFeatureUsage(userId, 'ai_transcription', 1, false, 'count');
         console.log('[AudioUtils] AI transcription usage recorded');
       } catch (usageError) {
         console.warn('[AudioUtils] Failed to record AI transcription usage:', usageError);
@@ -823,7 +823,7 @@ export class AudioUtils {
         
         // Track AI title generation usage
         try {
-          await simpleUsageService.recordUsage(userId, 'ai_name_generating', 1);
+          await featureLimitService.recordFeatureUsage(userId, 'ai_name_generating', 1, false, 'count');
           console.log('[AudioUtils] AI title generation usage recorded');
         } catch (usageError) {
           console.warn('[AudioUtils] Failed to record AI title generation usage:', usageError);
@@ -840,25 +840,33 @@ export class AudioUtils {
       
       // Track AI summary usage
       try {
-        await simpleUsageService.recordUsage(userId, 'ai_summaries', 1);
+        await featureLimitService.recordFeatureUsage(userId, 'ai_summaries', 1, false, 'count');
         console.log('[AudioUtils] AI summary usage recorded');
       } catch (usageError) {
         console.warn('[AudioUtils] Failed to record AI summary usage:', usageError);
       }
       
-      // Generate key details from transcription
+      // Generate key details from transcription (with limit check)
       let keyDetails: string[] = [];
       try {
-        onProgress?.('AI is extracting key details...', 90);
-        keyDetails = await extractKeyDetailsWithGemini(transcription);
-        console.log('[AudioUtils] Key details generated successfully');
+        // Check if user can generate key details
+        const canUseKeyDetails = await featureLimitService.canUseFeature(userId, 'ai_key_details', 1, false);
         
-        // Track AI key details usage
-        try {
-          await simpleUsageService.recordUsage(userId, 'ai_key_details', 1);
-          console.log('[AudioUtils] AI key details usage recorded');
-        } catch (usageError) {
-          console.warn('[AudioUtils] Failed to record AI key details usage:', usageError);
+        if (canUseKeyDetails.canUse) {
+          onProgress?.('AI is extracting key details...', 90);
+          keyDetails = await extractKeyDetailsWithGemini(transcription);
+          console.log('[AudioUtils] Key details generated successfully');
+          
+          // Track AI key details usage
+          try {
+            await featureLimitService.recordFeatureUsage(userId, 'ai_key_details', 1, false, 'count');
+            console.log('[AudioUtils] AI key details usage recorded');
+          } catch (usageError) {
+            console.warn('[AudioUtils] Failed to record AI key details usage:', usageError);
+          }
+        } else {
+          console.log('[AudioUtils] Key details generation blocked:', canUseKeyDetails.reason);
+          onProgress?.('Key details limit reached, skipping...', 90);
         }
       } catch (keyDetailsError) {
         console.warn('[AudioUtils] Failed to generate key details:', keyDetailsError);

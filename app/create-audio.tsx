@@ -16,6 +16,7 @@ import { ThemedView } from '../components/ThemedView';
 import { VoiceRecorderSimple } from '../components/VoiceRecorderSimple';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useFeatureLimits } from '../hooks/useFeatureLimits';
 import { AudioUtils } from '../services/AudioUtils';
 import { supabaseNoteStorage } from '../services/SupabaseNoteStorage';
 
@@ -26,6 +27,11 @@ import { WebLayout } from '../components/web/WebLayout';
 
 export default function CreateAudioNoteScreen() {
   const { user, isLoading: authLoading } = useAuth();
+  const { canUseFeature, isPremium: hookIsPremium } = useFeatureLimits();
+  
+  // Use direct premium check as primary method since hook has issues with canceled subscriptions
+  const isPremium = Boolean(user?.premium?.isActive && user?.premium?.status !== 'canceled');
+  
   const [title, setTitle] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
@@ -38,8 +44,52 @@ export default function CreateAudioNoteScreen() {
   const [audioUri, setAudioUri] = useState<string | null>(null);
   const [noteId, setNoteId] = useState<string | null>(null);
   const [canSave, setCanSave] = useState(false);
+  const [recordingUsage, setRecordingUsage] = useState<{
+    currentUsage: number;
+    limit: number | 'unlimited';
+    remaining: number | 'unlimited';
+  } | null>(null);
+  const [sessionLimit, setSessionLimit] = useState<number | 'unlimited' | null>(null);
 
   const userId = user?.id || '';
+
+  // Helper function to format usage display
+  const formatUsageDisplay = () => {
+    if (!recordingUsage) return 'Loading usage data...';
+    
+    const currentUsage = recordingUsage.currentUsage ?? 0;
+    const limit = recordingUsage.limit;
+    const remaining = recordingUsage.remaining;
+    
+    // Check for NaN values and convert to 0
+    const safeCurrentUsage = isNaN(currentUsage) ? 0 : currentUsage;
+    const safeLimit = (typeof limit === 'number' && isNaN(limit)) ? 0 : limit;
+    const safeRemaining = (typeof remaining === 'number' && isNaN(remaining)) ? 0 : remaining;
+    
+    if (safeLimit === 'unlimited') {
+      return `Unlimited recording time (${safeCurrentUsage} min used this month)`;
+    }
+    
+    if (safeRemaining === 'unlimited') {
+      return `Unlimited recording time`;
+    }
+    
+    const remainingValue = safeRemaining ?? 0;
+    const limitValue = safeLimit ?? 0;
+    
+    return `${remainingValue} min remaining (${safeCurrentUsage}/${limitValue} min used)`;
+  };
+
+  // Helper function to format session limit display
+  const formatSessionLimitDisplay = () => {
+    if (sessionLimit === null) return 'Loading session limits...';
+    
+    if (sessionLimit === 'unlimited') {
+      return 'No session time limit';
+    }
+    
+    return `Max ${sessionLimit} min per recording session`;
+  };
 
   // Theme colors
   const backgroundColor = useThemeColor({}, 'background');
@@ -53,6 +103,148 @@ export default function CreateAudioNoteScreen() {
   useEffect(() => {
     AudioUtils.globalCleanup().catch(console.error);
   }, []);
+
+  // Load recording usage information
+  const loadRecordingUsage = async () => {
+    if (!user?.id) return;
+    
+    // Use direct premium check as primary method since hook has issues with canceled subscriptions
+    const directPremiumCheck = Boolean(user?.premium?.isActive && user?.premium?.status !== 'canceled');
+    const effectiveIsPremium = directPremiumCheck; // Always use direct check for canceled subscription handling
+    
+    console.log('[CreateAudio] ===== LOADING RECORDING USAGE =====');
+    console.log('[CreateAudio] Loading recording usage. User:', user?.id, 'isPremium:', isPremium, 'directPremiumCheck:', directPremiumCheck, 'effectiveIsPremium:', effectiveIsPremium);
+    console.log('[CreateAudio] User premium status:', user?.premium);
+    
+    try {
+      // Check cache first, but validate the data
+      const { featureCacheService } = await import('../services/FeatureCacheService');
+      const cacheKey = `voice_recording_usage_${user.id}_${effectiveIsPremium}`;
+      
+      // Debug: Check what's in the cache
+      console.log('[CreateAudio] Cache key:', cacheKey);
+      const allCacheKeys = featureCacheService.getKeys();
+      console.log('[CreateAudio] All cache keys:', allCacheKeys);
+      
+      const cachedUsage = await featureCacheService.get<{
+        recordingUsage: {
+          currentUsage: number;
+          limit: number | 'unlimited';
+          remaining: number | 'unlimited';
+        };
+        sessionLimit: number | 'unlimited';
+        timestamp: number;
+      }>(cacheKey);
+      
+      // Validate cached data - if it looks suspicious (very high usage), clear cache and fetch fresh
+      if (cachedUsage && cachedUsage.recordingUsage) {
+        const { currentUsage, limit } = cachedUsage.recordingUsage;
+        const isSuspiciousUsage = typeof currentUsage === 'number' && currentUsage > 100; // More than 100 minutes seems suspicious
+        
+        if (isSuspiciousUsage) {
+          console.log('[CreateAudio] Suspicious cached usage detected, clearing cache:', cachedUsage);
+          await featureCacheService.remove(cacheKey);
+          // Continue to fetch fresh data below
+        } else {
+          console.log('[CreateAudio] Using cached usage data:', cachedUsage);
+          setRecordingUsage(cachedUsage.recordingUsage);
+          setSessionLimit(cachedUsage.sessionLimit);
+          return;
+        }
+      }
+      
+      // Use feature limit service directly with corrected premium status
+      const { featureLimitService } = await import('../services/FeatureLimitService');
+      await featureLimitService.initialize();
+      
+      // Force clear any cached data in the service itself
+      await featureLimitService.clearCacheAndReload();
+      
+      const usage = await featureLimitService.getUserFeatureUsage(user.id, 'voice_recording', effectiveIsPremium);
+      console.log('[CreateAudio] Raw usage data (direct):', usage);
+      console.log('[CreateAudio] User ID being queried:', user.id);
+      console.log('[CreateAudio] Feature ID being queried: voice_recording');
+      
+      // Debug the usage calculation
+      if (usage && usage.currentPeriod) {
+        console.log('[CreateAudio] Usage calculation details:');
+        console.log('  - usage.currentPeriod.usage:', usage.currentPeriod.usage);
+        console.log('  - usage.currentPeriod.limit:', usage.currentPeriod.limit);
+        console.log('  - usage.currentPeriod.remaining:', usage.currentPeriod.remaining);
+        console.log('  - usage.currentPeriod.limitType:', usage.currentPeriod.limitType);
+        console.log('  - usage.isPremium:', usage.isPremium);
+      }
+      
+      // Load session limit
+      const sessionLimitValue = await featureLimitService.getSessionLimit('voice_recording', effectiveIsPremium);
+      setSessionLimit(sessionLimitValue);
+      console.log('[CreateAudio] Session limit loaded:', sessionLimitValue);
+      
+      if (usage && usage.currentPeriod) {
+        console.log('[CreateAudio] Current period data (direct):', usage.currentPeriod);
+        
+        // Validate and sanitize the usage data
+        const currentUsage = usage.currentPeriod.usage;
+        const limit = usage.currentPeriod.limit;
+        const remaining = usage.currentPeriod.remaining;
+        
+        console.log('[CreateAudio] Raw values - currentUsage:', currentUsage, 'limit:', limit, 'remaining:', remaining);
+        console.log('[CreateAudio] Value types - currentUsage:', typeof currentUsage, 'limit:', typeof limit, 'remaining:', typeof remaining);
+        
+        // Only use values from database, no hardcoded fallbacks
+        const safeCurrentUsage = (typeof currentUsage === 'number' && !isNaN(currentUsage)) ? currentUsage : 0;
+        const safeLimit = limit;
+        const safeRemaining = remaining;
+        
+        console.log('[CreateAudio] Safe values - currentUsage:', safeCurrentUsage, 'limit:', safeLimit, 'remaining:', safeRemaining);
+        
+        const usageData = {
+          currentUsage: safeCurrentUsage,
+          limit: safeLimit,
+          remaining: safeRemaining
+        };
+        
+        setRecordingUsage(usageData);
+        
+        // Cache the usage data
+        const cacheData = {
+          recordingUsage: usageData,
+          sessionLimit: sessionLimitValue,
+          timestamp: Date.now()
+        };
+        await featureCacheService.set(cacheKey, cacheData, 2 * 60 * 1000); // Cache for 2 minutes
+        console.log('[CreateAudio] Cached usage data:', cacheData);
+      } else {
+        // No usage data available from database
+        console.log('[CreateAudio] No usage data available from database');
+        setRecordingUsage(null);
+      }
+    } catch (error) {
+      console.error('Error loading recording usage:', error);
+      console.log('[CreateAudio] Error loading usage data from database');
+      // Don't set fallback values, only use database values
+      setRecordingUsage(null);
+      setSessionLimit(null);
+    }
+  };
+
+  useEffect(() => {
+    // Clear any cached usage data when user changes to prevent cross-user contamination
+    const clearUserCache = async () => {
+      try {
+        const { featureCacheService } = await import('../services/FeatureCacheService');
+        // Clear ALL cache entries to prevent cross-user data contamination
+        await featureCacheService.clear();
+        console.log('[CreateAudio] Cleared ALL cache for user change');
+      } catch (error) {
+        console.warn('[CreateAudio] Error clearing cache:', error);
+      }
+    };
+    
+    clearUserCache().then(() => {
+      loadRecordingUsage();
+    });
+  }, [user?.id, user?.premium?.isActive, user?.premium?.status]);
 
   // Update canSave based on content
   useEffect(() => {
@@ -82,6 +274,57 @@ export default function CreateAudioNoteScreen() {
       setHasRecording(true);
       setAudioUri(audioFile.filename);
       setRecordingDuration(audioFile.duration);
+
+      // Record audio usage tracking
+      try {
+        console.log('[CreateAudio] ===== STARTING USAGE TRACKING =====');
+        console.log('[CreateAudio] Audio file details:', {
+          duration: audioFile.duration,
+          filename: audioFile.filename,
+          userId: user?.id,
+          userPremium: user?.premium
+        });
+        
+        // Use the service directly since we're in a callback
+        const { featureLimitService } = await import('../services/FeatureLimitService');
+        await featureLimitService.initialize();
+        
+        // Use direct premium check as primary method since hook has issues with canceled subscriptions
+        const directPremiumCheck = Boolean(user?.premium?.isActive && user?.premium?.status !== 'canceled');
+        
+        // Convert duration from seconds to minutes and round to nearest minute
+        const durationInMinutes = Math.round(audioFile.duration / 60);
+        
+        console.log('[CreateAudio] About to record usage:', {
+          userId: user?.id,
+          featureId: 'voice_recording',
+          originalDuration: audioFile.duration,
+          durationInMinutes: durationInMinutes,
+          isPremium: directPremiumCheck,
+          usageType: 'duration'
+        });
+        
+        await featureLimitService.recordFeatureUsage(
+          user?.id || '',
+          'voice_recording',
+          durationInMinutes, // Record duration in minutes
+          directPremiumCheck,
+          'duration'
+        );
+        
+        console.log(`[CreateAudio] ✅ SUCCESS: Recorded audio usage: ${durationInMinutes} minutes (${audioFile.duration} seconds) for user ${user?.id}`);
+        
+        // Invalidate cache after recording usage
+        const { featureCacheService } = await import('../services/FeatureCacheService');
+        const cacheKey = `voice_recording_usage_${user?.id}_${directPremiumCheck}`;
+        await featureCacheService.remove(cacheKey);
+        console.log('[CreateAudio] Invalidated usage cache after recording');
+        console.log('[CreateAudio] ===== USAGE TRACKING COMPLETE =====');
+      } catch (usageError) {
+        console.error('[CreateAudio] ❌ ERROR recording audio usage:', usageError);
+        console.error('[CreateAudio] Usage tracking failed, but continuing with note creation');
+        // Don't block the user experience if usage tracking fails
+      }
 
       // Create note with audio file
       const note = await supabaseNoteStorage.createNote({
@@ -136,6 +379,9 @@ export default function CreateAudioNoteScreen() {
       setProgress(100);
       setProgressMessage('Complete!');
       setShowProgressBar(false);
+
+      // Refresh usage information after recording
+      await loadRecordingUsage();
 
       // Navigate to the note page (replace to avoid back button going to create-audio)
       router.replace(`/note/${note.id}` as any);
@@ -282,14 +528,65 @@ export default function CreateAudioNoteScreen() {
                 </View>
               </View>
               
-              <ThemedView style={styles.webRecorderContainer}>
-                <VoiceRecorderSimple
-                  onRecordingComplete={handleRecordingComplete}
-                  userId={userId}
-                  noteId={noteId || undefined}
-                  onProgress={setProgress}
-                />
-              </ThemedView>
+              {/* Recording Usage Display */}
+              <View style={styles.webUsageContainer}>
+                <View style={styles.webUsageInfo}>
+                  <Ionicons name="time" size={16} color={textSecondaryColor} />
+                  <ThemedText style={[styles.webUsageText, { color: textSecondaryColor }]}>
+                    {formatUsageDisplay()}
+                  </ThemedText>
+                </View>
+                <View style={styles.webUsageInfo}>
+                  <Ionicons name="stopwatch" size={16} color={textSecondaryColor} />
+                  <ThemedText style={[styles.webUsageText, { color: textSecondaryColor }]}>
+                    {formatSessionLimitDisplay()}
+                  </ThemedText>
+                </View>
+                {!isPremium && recordingUsage && recordingUsage.limit !== 'unlimited' && (
+                  <View style={styles.webUpgradeHint}>
+                    <Ionicons name="star" size={14} color={accentPrimary} />
+                    <ThemedText style={[styles.webUpgradeText, { color: accentPrimary }]}>
+                      Upgrade to Premium for unlimited recording
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+              
+              {/* Show upgrade card instead of recorder when out of minutes */}
+              {!isPremium && recordingUsage && recordingUsage.remaining === 0 && recordingUsage.limit !== 'unlimited' ? (
+                <ThemedView style={[styles.webUpgradeCard, { backgroundColor: backgroundSecondary }]}>
+                  <View style={styles.webUpgradeCardContent}>
+                    <View style={styles.webUpgradeCardIcon}>
+                      <Ionicons name="star" size={32} color={accentPrimary} />
+                    </View>
+                    <View style={styles.webUpgradeCardText}>
+                      <ThemedText style={[styles.webUpgradeCardTitle, { color: textColor }]}>
+                        Recording Limit Reached
+                      </ThemedText>
+                      <ThemedText style={[styles.webUpgradeCardDescription, { color: textSecondaryColor }]}>
+                        You've used all {recordingUsage.limit} minutes this month. Upgrade to Premium for unlimited voice recording and access to all premium features.
+                      </ThemedText>
+                    </View>
+                    <TouchableOpacity 
+                      style={[styles.webUpgradeCardButton, { backgroundColor: accentPrimary }]}
+                      onPress={() => router.push('/join-premium')}
+                    >
+                      <ThemedText style={styles.webUpgradeCardButtonText}>Upgrade Now</ThemedText>
+                      <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                </ThemedView>
+              ) : (
+                <ThemedView style={styles.webRecorderContainer}>
+                  <VoiceRecorderSimple
+                    onRecordingComplete={handleRecordingComplete}
+                    userId={userId}
+                    noteId={noteId || undefined}
+                    onProgress={setProgress}
+                    disabled={Boolean(recordingUsage && (recordingUsage.remaining === 0 || (typeof recordingUsage.remaining === 'number' && recordingUsage.remaining <= 0)) && recordingUsage.limit !== 'unlimited')}
+                  />
+                </ThemedView>
+              )}
             </ThemedView>
 
             {/* Title Section */}
@@ -408,14 +705,66 @@ export default function CreateAudioNoteScreen() {
           {/* Audio Recorder Section */}
           <View style={styles.section}>
             <ThemedText style={[styles.sectionTitle, { color: textColor }]}>Record Audio</ThemedText>
-            <View style={[styles.recorderContainer, { backgroundColor: backgroundSecondary }]}>
-              <VoiceRecorderSimple
-                onRecordingComplete={handleRecordingComplete}
-                userId={userId}
-                noteId={noteId || undefined}
-                onProgress={setProgress}
-              />
+            
+            {/* Recording Usage Display */}
+            <View style={styles.usageContainer}>
+              <View style={styles.usageInfo}>
+                <Ionicons name="time" size={16} color={textSecondaryColor} />
+                <ThemedText style={[styles.usageText, { color: textSecondaryColor }]}>
+                  {formatUsageDisplay()}
+                </ThemedText>
+              </View>
+              <View style={styles.usageInfo}>
+                <Ionicons name="stopwatch" size={16} color={textSecondaryColor} />
+                <ThemedText style={[styles.usageText, { color: textSecondaryColor }]}>
+                  {formatSessionLimitDisplay()}
+                </ThemedText>
+              </View>
+              {!isPremium && recordingUsage && recordingUsage.limit !== 'unlimited' && (
+                <View style={styles.upgradeHint}>
+                  <Ionicons name="star" size={14} color={accentPrimary} />
+                  <ThemedText style={[styles.upgradeText, { color: accentPrimary }]}>
+                    Upgrade to Premium for unlimited recording
+                  </ThemedText>
+                </View>
+              )}
             </View>
+            
+            {/* Show upgrade card instead of recorder when out of minutes */}
+            {!isPremium && recordingUsage && recordingUsage.remaining === 0 && recordingUsage.limit !== 'unlimited' ? (
+              <View style={[styles.upgradeCard, { backgroundColor: backgroundSecondary }]}>
+                <View style={styles.upgradeCardContent}>
+                  <View style={styles.upgradeCardIcon}>
+                    <Ionicons name="star" size={28} color={accentPrimary} />
+                  </View>
+                  <View style={styles.upgradeCardText}>
+                    <ThemedText style={[styles.upgradeCardTitle, { color: textColor }]}>
+                      Recording Limit Reached
+                    </ThemedText>
+                    <ThemedText style={[styles.upgradeCardDescription, { color: textSecondaryColor }]}>
+                      You've used all {recordingUsage.limit} minutes this month. Upgrade to Premium for unlimited voice recording.
+                    </ThemedText>
+                  </View>
+                  <TouchableOpacity 
+                    style={[styles.upgradeCardButton, { backgroundColor: accentPrimary }]}
+                    onPress={() => router.push('/join-premium')}
+                  >
+                    <ThemedText style={styles.upgradeCardButtonText}>Upgrade Now</ThemedText>
+                    <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={[styles.recorderContainer, { backgroundColor: backgroundSecondary }]}>
+                <VoiceRecorderSimple
+                  onRecordingComplete={handleRecordingComplete}
+                  userId={userId}
+                  noteId={noteId || undefined}
+                  onProgress={setProgress}
+                  disabled={Boolean(recordingUsage && (recordingUsage.remaining === 0 || (typeof recordingUsage.remaining === 'number' && recordingUsage.remaining <= 0)) && recordingUsage.limit !== 'unlimited')}
+                />
+              </View>
+            )}
           </View>
 
           {/* Title Section */}
@@ -562,6 +911,31 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 12,
+  },
+  usageContainer: {
+    marginBottom: 16,
+  },
+  usageInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  usageText: {
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  upgradeHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(106, 90, 205, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  upgradeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 6,
   },
   recorderContainer: {
     borderRadius: 12,
@@ -737,6 +1111,36 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
   },
+  webUsageContainer: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  webUsageInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  webUsageText: {
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  webUpgradeHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(106, 90, 205, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  webUpgradeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 6,
+  },
   webRecorderContainer: {
     borderRadius: 12,
     padding: 20,
@@ -814,5 +1218,100 @@ const styles = StyleSheet.create({
   webSaveButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Upgrade Card Styles
+  webUpgradeCard: {
+    marginTop: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(106, 90, 205, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  webUpgradeCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 24,
+    gap: 20,
+  },
+  webUpgradeCardIcon: {
+    flexShrink: 0,
+  },
+  webUpgradeCardText: {
+    flex: 1,
+  },
+  webUpgradeCardTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  webUpgradeCardDescription: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  webUpgradeCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    flexShrink: 0,
+  },
+  webUpgradeCardButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  // Mobile Upgrade Card Styles
+  upgradeCard: {
+    marginTop: 20,
+    marginHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(106, 90, 205, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  upgradeCardContent: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  upgradeCardIcon: {
+    marginBottom: 12,
+  },
+  upgradeCardText: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  upgradeCardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  upgradeCardDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  upgradeCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  upgradeCardButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });

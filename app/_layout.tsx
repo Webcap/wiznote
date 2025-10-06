@@ -145,6 +145,7 @@ function AppContent() {
       const isAiTranscriptionsPage = currentPath.startsWith('/ai-transcriptions');
       const isCreateAudioPage = currentPath.startsWith('/create-audio');
       const isSubscriptionManagementPage = currentPath.startsWith('/subscription-management');
+      const isPrivacyPage = currentPath.startsWith('/privacy');
       const isTabsPage = currentPath.startsWith('/(tabs)') || currentPath === '/' || currentPath === '';
       
       // Check if current path is a valid authenticated route
@@ -153,27 +154,31 @@ function AppContent() {
           isUsagePage || isUserManagementPage || isAiTranscriptionsPage || isCreateAudioPage ||
           isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage;
       
+      // Check if current path is a public route (accessible without authentication)
+      const isPublicRoute = isPrivacyPage;
+      
       console.log('Layout: Current path:', currentPath);
       console.log('Layout: Is payment page:', isPaymentPage);
       console.log('Layout: Is tabs page:', isTabsPage);
       console.log('Layout: Is valid authenticated route:', isValidAuthenticatedRoute);
+      console.log('Layout: Is public route:', isPublicRoute);
       
       if (isAuthenticated) {
         console.log('Layout: User is authenticated, checking navigation...');
-        // Don't redirect if we're on a payment page, valid authenticated route, or already on tabs
-        if (!isPaymentPage && !isValidAuthenticatedRoute && !isTabsPage) {
+        // Don't redirect if we're on a payment page, valid authenticated route, public route, or already on tabs
+        if (!isPaymentPage && !isValidAuthenticatedRoute && !isPublicRoute && !isTabsPage) {
           console.log('Layout: User authenticated, navigating to tabs');
           navigateToTabs();
         } else {
           console.log('Layout: User authenticated on valid route, not redirecting');
         }
       } else {
-        // Don't redirect if we're on a payment page
-        if (!isPaymentPage) {
+        // Don't redirect if we're on a payment page or public route
+        if (!isPaymentPage && !isPublicRoute) {
           console.log('Layout: User not authenticated, navigating to login');
           navigateToLogin();
         } else {
-          console.log('Layout: User not authenticated on payment page, not redirecting');
+          console.log('Layout: User not authenticated on payment page or public route, not redirecting');
         }
       }
     } else {
@@ -238,6 +243,7 @@ function AppContent() {
                     <Stack.Screen name="archived" options={{ headerShown: false }} />
                     <Stack.Screen name="join-premium" options={{ headerShown: false }} />
                     <Stack.Screen name="subscription-management" options={{ headerShown: false }} />
+                    <Stack.Screen name="privacy" options={{ headerShown: false }} />
                     <Stack.Screen name="admin" options={{ headerShown: false }} />
 
                     <Stack.Screen name="+not-found" />

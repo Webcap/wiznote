@@ -274,6 +274,9 @@ export class PlanManagementService {
       if (filters.isPopular !== undefined) {
         query = query.eq('is_popular', filters.isPopular);
       }
+      if (filters.isActive !== undefined) {
+        query = query.eq('is_active', filters.isActive);
+      }
       if (filters.createdBy) {
         query = query.eq('created_by', filters.createdBy);
       }
@@ -284,8 +287,9 @@ export class PlanManagementService {
         query = query.lte('created_at', filters.createdBefore.toISOString());
       }
 
-      // Apply sorting
-      query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+      // Apply sorting - map TypeScript field names to database column names
+      const dbSortField = this.mapSortFieldToDbColumn(sortBy);
+      query = query.order(dbSortField, { ascending: sortOrder === 'asc' });
 
       // Apply pagination
       const offset = (page - 1) * limit;
@@ -534,6 +538,19 @@ export class PlanManagementService {
   }
 
   // Private helper methods
+
+  private mapSortFieldToDbColumn(sortField: string): string {
+    const fieldMapping: Record<string, string> = {
+      'name': 'name',
+      'price': 'price',
+      'createdAt': 'created_at',
+      'updatedAt': 'updated_at',
+      'featureCount': 'feature_count',
+      'subscriberCount': 'subscriber_count'
+    };
+    
+    return fieldMapping[sortField] || sortField;
+  }
 
   private async checkPlanNameExists(name: string, excludeId?: string): Promise<boolean> {
     let query = this.supabase

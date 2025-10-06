@@ -475,6 +475,20 @@ export default function AdminDashboardScreen() {
               </View>
               <ThemedText style={styles.statLabel}>Premium Users</ThemedText>
             </View>
+            
+            <TouchableOpacity 
+              style={[styles.statCard, { backgroundColor: cardBg }]}
+              onPress={() => router.push('/admin/analytics')}
+            >
+              <View style={styles.statHeader}>
+                <Ionicons name="analytics" size={24} color="#9C27B0" />
+                <ThemedText style={styles.statNumber}>📊</ThemedText>
+              </View>
+              <ThemedText style={styles.statLabel}>Feature Analytics</ThemedText>
+              <ThemedText style={[styles.statSubtext, { color: textSecondaryColor }]}>
+                View detailed insights
+              </ThemedText>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -949,6 +963,11 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 14,
     opacity: 0.7,
+  },
+  statSubtext: {
+    fontSize: 12,
+    opacity: 0.6,
+    marginTop: 2,
   },
   actionsGrid: {
     flexDirection: 'row',

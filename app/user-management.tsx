@@ -16,7 +16,7 @@ import { WebLayout } from '../components/web/WebLayout';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
-import { simpleUsageService } from '../services/SimpleUsageService';
+import { featureLimitService } from '../services/FeatureLimitService';
 import { subscriptionManagementService } from '../services/SubscriptionManagementService';
 import { User, UserRole } from '../types/User';
 
@@ -112,11 +112,11 @@ export default function UserManagementScreen() {
         allUsers.map(async (user) => {
           try {
             // Get usage stats
-            const usageData = await simpleUsageService.getAllUsage(user.id);
-            const totalUsage = Object.values(usageData).reduce((sum: number, feature: any) => 
-              sum + (feature?.currentUsage || 0), 0);
-            const featuresUsed = Object.values(usageData).filter((feature: any) => 
-              feature?.currentUsage > 0).length;
+            const usageData = await featureLimitService.getUserFeatureUsageSummary(user.id, false);
+            const totalUsage = usageData.reduce((sum: number, feature: any) => 
+              sum + (feature?.currentPeriod?.usage || 0), 0);
+            const featuresUsed = usageData.filter((feature: any) => 
+              (feature?.currentPeriod?.usage || 0) > 0).length;
 
             return {
               ...user,
@@ -310,7 +310,7 @@ export default function UserManagementScreen() {
 
   const handleResetUsage = useCallback(async (userId: string, featureId: string, featureName: string) => {
     try {
-      await simpleUsageService.resetUsage(userId, featureId);
+      await featureLimitService.resetUserFeatureUsage(userId, featureId);
       
       if (selectedUser?.id === userId) {
         // Refresh user data
@@ -323,11 +323,11 @@ export default function UserManagementScreen() {
       console.error('Error resetting usage:', error);
       showSnackbar(`Failed to reset ${featureName} usage`, 'error', 6000);
     }
-  }, [simpleUsageService, selectedUser, users, showSnackbar]);
+  }, [selectedUser, users, showSnackbar]);
 
   const handleResetAllUsage = useCallback(async (userId: string) => {
     try {
-      await simpleUsageService.resetAllUsage(userId);
+      await featureLimitService.resetAllUserFeatureUsage(userId);
       
       if (selectedUser?.id === userId) {
         const updatedUser = users.find(u => u.id === userId);
@@ -339,7 +339,7 @@ export default function UserManagementScreen() {
       console.error('Error resetting all usage:', error);
       showSnackbar('Failed to reset all usage', 'error', 6000);
     }
-  }, [simpleUsageService, selectedUser, users, showSnackbar]);
+  }, [selectedUser, users, showSnackbar]);
 
   const handleCancelSubscription = useCallback(async (userId: string) => {
     try {

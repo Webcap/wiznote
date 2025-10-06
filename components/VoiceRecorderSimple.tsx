@@ -18,6 +18,7 @@ interface VoiceRecorderSimpleProps {
   noteId?: string;
   userId?: string;
   onProgress?: (progress: number) => void;
+  disabled?: boolean;
 }
 
 interface RecordingState {
@@ -34,6 +35,7 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
   noteId,
   userId,
   onProgress,
+  disabled = false,
 }) => {
   const { user } = useAuth();
   
@@ -100,6 +102,16 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
     console.log('[VoiceRecorderSimple] ===== START RECORDING =====');
     
     try {
+      // Check if recording is disabled (e.g., over usage limit)
+      if (disabled) {
+        Alert.alert(
+          'Recording Disabled',
+          'You have reached your monthly recording limit. Please upgrade to premium for unlimited recording.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
       // Prevent multiple starts
       if (state.isRecording || state.isStarting) {
         console.log('[VoiceRecorderSimple] Already recording or starting, ignoring');
@@ -238,7 +250,9 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
       };
 
       // Call completion callback
+      console.log('[VoiceRecorderSimple] Calling onRecordingComplete with audioFile:', audioFile);
       onRecordingComplete?.(audioFile);
+      console.log('[VoiceRecorderSimple] onRecordingComplete callback called');
       
       console.log('[VoiceRecorderSimple] ===== RECORDING STOPPED =====');
       
@@ -304,11 +318,11 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
             styles.recordButton,
             { 
               backgroundColor: state.isRecording ? buttonActiveBg : buttonBg,
-              opacity: state.isStarting ? 0.6 : 1,
+              opacity: (state.isStarting || disabled) ? 0.6 : 1,
             },
           ]}
           onPress={state.isRecording ? stopRecording : startRecording}
-          disabled={state.isStarting}
+          disabled={state.isStarting || disabled}
         >
           <Ionicons
             name={state.isRecording ? 'stop' : 'mic'}

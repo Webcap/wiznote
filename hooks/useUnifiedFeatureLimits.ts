@@ -5,7 +5,7 @@ import {
 } from '../constants/UnifiedFeatureLimits';
 import { supabase } from '../lib/supabase';
 import { featureLimitService } from '../services/FeatureLimitService';
-import { usageDataService } from '../services/UsageDataService';
+// Removed usageDataService import - now using featureLimitService directly
 import { useAuth } from './useAuth';
 import { useFeatureFlags } from './useFeatureFlags';
 
@@ -99,12 +99,31 @@ export function useUnifiedFeatureLimits(): UnifiedFeatureLimitsData {
       const limits = await featureLimitService.getFeatureLimits();
       setDynamicLimits(limits);
       
-      // Load usage data for authenticated users
+      // Load usage data for authenticated users using FeatureLimitService
       if (isAuthenticated && user?.id) {
         try {
           const featureIds = limits.map(limit => limit.featureId);
           console.log('🔍 DEBUG: Loading usage data for featureIds:', featureIds);
-          const usageMap = await usageDataService.getUserUsageData(user.id, featureIds);
+          
+          // Initialize FeatureLimitService
+          await featureLimitService.initialize();
+          
+          // Load usage data for each feature using FeatureLimitService
+          const usageMap: Record<string, number> = {};
+          for (const featureId of featureIds) {
+            try {
+              const usage = await featureLimitService.getUserFeatureUsage(user.id, featureId, isPremium);
+              if (usage && usage.currentPeriod) {
+                usageMap[featureId] = usage.currentPeriod.usage || 0;
+              } else {
+                usageMap[featureId] = 0;
+              }
+            } catch (err) {
+              console.warn(`Failed to load usage for ${featureId}:`, err);
+              usageMap[featureId] = 0;
+            }
+          }
+          
           console.log('🔍 DEBUG: Usage data loaded:', usageMap);
           setUsageData(usageMap);
         } catch (err) {
@@ -149,10 +168,29 @@ export function useUnifiedFeatureLimits(): UnifiedFeatureLimitsData {
       const limits = await featureLimitService.getFeatureLimits();
       setDynamicLimits(limits);
       
-      // Reload usage data
+      // Reload usage data using FeatureLimitService
       if (isAuthenticated && user?.id) {
         const featureIds = Array.isArray(limits) ? limits.map(l => l.featureId) : Object.keys(limits);
-        const usageMap = await usageDataService.getUserUsageData(user.id, featureIds);
+        
+        // Initialize FeatureLimitService
+        await featureLimitService.initialize();
+        
+        // Load usage data for each feature using FeatureLimitService
+        const usageMap: Record<string, number> = {};
+        for (const featureId of featureIds) {
+          try {
+            const usage = await featureLimitService.getUserFeatureUsage(user.id, featureId, isPremium);
+            if (usage && usage.currentPeriod) {
+              usageMap[featureId] = usage.currentPeriod.usage || 0;
+            } else {
+              usageMap[featureId] = 0;
+            }
+          } catch (err) {
+            console.warn(`Failed to load usage for ${featureId}:`, err);
+            usageMap[featureId] = 0;
+          }
+        }
+        
         setUsageData(usageMap);
       }
     } catch (err) {
@@ -239,22 +277,31 @@ export function useUnifiedFeatureLimits(): UnifiedFeatureLimitsData {
       return [];
     }
     
+    // Convert dynamicLimits array to object for easier lookup
+    const dynamicLimitsMap: Record<string, any> = {};
+    if (Array.isArray(dynamicLimits)) {
+      dynamicLimits.forEach(limit => {
+        dynamicLimitsMap[limit.featureId] = limit;
+      });
+    }
+    
     return availableFeatures.map(feature => {
       // Get real usage data from the database
       const currentUsage = usageData[feature.featureId] || 0;
       
       // Get dynamic limit from database, fallback to static limit
-      const dynamicLimit = dynamicLimits[feature.featureId];
+      const dynamicLimit = dynamicLimitsMap[feature.featureId];
       const userLimit = isPremium 
         ? (dynamicLimit?.premiumLimit === 'unlimited' ? 999999 : (dynamicLimit?.premiumLimit || feature.premiumUserLimit))
         : (dynamicLimit?.freeUserLimit || feature.freeUserLimit);
       
-      // Debug logging for AI summaries
-      if (feature.featureId === 'ai_summaries') {
-        console.log('🔍 DEBUG: AI Summaries limit calculation:');
+      // Debug logging for AI summaries and voice recording
+      if (feature.featureId === 'ai_summaries' || feature.featureId === 'voice_recording') {
+        console.log(`🔍 DEBUG: ${feature.featureName} limit calculation:`);
         console.log('  - isPremium:', isPremium);
         console.log('  - dynamicLimit:', dynamicLimit);
         console.log('  - static freeUserLimit:', feature.freeUserLimit);
+        console.log('  - static premiumUserLimit:', feature.premiumUserLimit);
         console.log('  - calculated userLimit:', userLimit);
         console.log('  - currentUsage:', currentUsage);
       }
@@ -336,10 +383,29 @@ export function useUnifiedFeatureLimits(): UnifiedFeatureLimitsData {
         { event: '*', schema: 'public', table: 'user_feature_usage' },
         async (payload) => {
           if (user?.id) {
-            // Refresh usage data for the current user
+            // Refresh usage data for the current user using FeatureLimitService
             const limits = await featureLimitService.getFeatureLimits();
             const featureIds = Array.isArray(limits) ? limits.map(l => l.featureId) : Object.keys(limits);
-            const newUsageData = await usageDataService.getUserUsageData(user.id, featureIds);
+            
+            // Initialize FeatureLimitService
+            await featureLimitService.initialize();
+            
+            // Load usage data for each feature using FeatureLimitService
+            const newUsageData: Record<string, number> = {};
+            for (const featureId of featureIds) {
+              try {
+                const usage = await featureLimitService.getUserFeatureUsage(user.id, featureId, isPremium);
+                if (usage && usage.currentPeriod) {
+                  newUsageData[featureId] = usage.currentPeriod.usage || 0;
+                } else {
+                  newUsageData[featureId] = 0;
+                }
+              } catch (err) {
+                console.warn(`Failed to load usage for ${featureId}:`, err);
+                newUsageData[featureId] = 0;
+              }
+            }
+            
             setUsageData(newUsageData);
           }
         }

@@ -87,12 +87,27 @@ export default function EnhancedPlansScreen() {
     };
   }, [user]);
 
+  // Reload data when view changes
+  useEffect(() => {
+    loadPlansData();
+  }, [selectedView]);
+
   const loadPlansData = async (showSpinner: boolean = true) => {
     try {
       if (showSpinner) setLoading(true);
       setError(null);
+      
+      // Set up filters based on current view
+      let filters: any = {};
+      if (selectedView === 'active') {
+        filters.isActive = true;
+      } else if (selectedView === 'draft') {
+        filters.isActive = false;
+      }
+      // For 'archived' view, we'll still load all and filter client-side since it uses metadata
+      
       const { plans: livePlans } = await planManagementService.listPlans({
-        filters: {},
+        filters,
         sortBy: 'createdAt',
         sortOrder: 'desc',
         limit: 100,
@@ -100,13 +115,22 @@ export default function EnhancedPlansScreen() {
       });
       setPlans(livePlans);
 
-      // Compute metrics from live data
+      // For metrics, we need to load all plans to get accurate totals
+      const { plans: allPlans } = await planManagementService.listPlans({
+        filters: {}, // Load all plans for metrics
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        limit: 1000, // Higher limit for metrics
+        page: 1,
+      });
+
+      // Compute metrics from all plans data
       const computed: PlanMetrics = {
-        totalPlans: livePlans.length,
-        activePlans: livePlans.filter(p => p.isActive).length,
-        plansWithStripe: livePlans.filter(p => !!p.stripeProductId).length,
-        plansWithFeatures: livePlans.filter(p => Object.keys(p.featureFlags || {}).length > 0).length,
-        averagePrice: livePlans.length > 0 ? Number((livePlans.reduce((acc, p) => acc + (p.price || 0), 0) / livePlans.length).toFixed(2)) : 0,
+        totalPlans: allPlans.length,
+        activePlans: allPlans.filter(p => p.isActive).length,
+        plansWithStripe: allPlans.filter(p => !!p.stripeProductId).length,
+        plansWithFeatures: allPlans.filter(p => Object.keys(p.featureFlags || {}).length > 0).length,
+        averagePrice: allPlans.length > 0 ? Number((allPlans.reduce((acc, p) => acc + (p.price || 0), 0) / allPlans.length).toFixed(2)) : 0,
         mostPopularPlan: livePlans.find(p => p.isPopular)?.id,
         lastCreatedPlan: livePlans[0]?.createdAt,
       };

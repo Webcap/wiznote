@@ -13,6 +13,7 @@ export const useFeatureLimits = () => {
   const { user } = useAuth();
   const { hasAccess: isPremium } = usePremiumAccess();
   const { showSnackbar } = useSnackbar();
+  
   const [limits, setLimits] = useState<FeatureLimit[]>([]);
   const [userUsage, setUserUsage] = useState<UserFeatureUsage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,13 +148,13 @@ export const useFeatureLimits = () => {
       return await featureLimitService.canUseFeature(user.id, featureId, requiredAmount, isPremium);
     } catch (err) {
       console.error('useFeatureLimits: Error checking feature usage:', err);
-      // Allow usage on error to prevent blocking users
+      // Block usage on error to prevent overages
       return {
-        canUse: true,
-        reason: 'Usage tracking unavailable',
+        canUse: false,
+        reason: 'Usage tracking unavailable, access blocked for security',
         currentUsage: 0,
-        limit: 'unlimited',
-        remaining: 'unlimited',
+        limit: 0,
+        remaining: 0,
         period: 'monthly',
         limitType: 'count',
         isPremium: isPremium,
@@ -424,7 +425,7 @@ export const useFeatureLimits = () => {
     forceRefresh,
 
     // Premium status functions
-    isPremium: isPremiumUser,
+    isPremium,
     hasUnlimitedAccess,
   };
 }; 
