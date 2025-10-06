@@ -306,6 +306,7 @@ export interface PlanFilters {
   hasStripe?: boolean;
   hasFeatures?: boolean;
   isPopular?: boolean;
+  isActive?: boolean;
   createdBy?: string;
   createdAfter?: Date;
   createdBefore?: Date;

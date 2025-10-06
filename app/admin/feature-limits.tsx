@@ -10,11 +10,13 @@ import { WebLayout } from '../../components/web/WebLayout';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureLimits } from '../../hooks/useFeatureLimits';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { useSnackbar } from '../../contexts/SnackbarContext';
 import { FeatureLimit, formatLimit } from '../../types/FeatureLimits';
 
 export default function FeatureLimitsScreen() {
   const router = useRouter();
   const { user, isAdmin: isAdminFn } = useAuth();
+  const { showSnackbar } = useSnackbar();
   const isAdmin = isAdminFn();
   const {
     featureLimits,
@@ -138,6 +140,10 @@ export default function FeatureLimitsScreen() {
         })
       };
       console.log('FeatureLimitsScreen: Saving updated limit:', updatedLimit);
+      
+      // Show loading snackbar
+      showSnackbar(`Saving ${updatedLimit.featureName}...`, 'info', 2000);
+      
       await saveFeatureLimit(updatedLimit);
       
       // Force refresh to ensure UI updates immediately
@@ -148,9 +154,26 @@ export default function FeatureLimitsScreen() {
       setEditingLimit(null);
       setEditForm({});
       console.log('FeatureLimitsScreen: Save completed successfully');
+      
+      // Show success snackbar with details
+      const changes = [];
+      if (cleanedEditForm.freeUserLimit !== undefined) {
+        changes.push(`Free limit: ${cleanedEditForm.freeUserLimit}`);
+      }
+      if (cleanedEditForm.premiumUserLimit !== undefined) {
+        changes.push(`Premium limit: ${cleanedEditForm.premiumUserLimit}`);
+      }
+      if (cleanedEditForm.isActive !== undefined) {
+        changes.push(`Status: ${cleanedEditForm.isActive ? 'Active' : 'Inactive'}`);
+      }
+      
+      const changeDetails = changes.length > 0 ? ` (${changes.join(', ')})` : '';
+      showSnackbar(`✅ ${updatedLimit.featureName} saved successfully${changeDetails}`, 'success', 4000);
+      
     } catch (error) {
       console.error('FeatureLimitsScreen: Save failed:', error);
-      Alert.alert('Error', 'Failed to save feature limit');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showSnackbar(`❌ Failed to save ${editingLimit?.featureName || 'feature'}: ${errorMessage}`, 'error', 6000);
     }
   };
 
@@ -196,9 +219,20 @@ export default function FeatureLimitsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              const limitToDelete = featureLimits.find(l => l.featureId === featureId);
+              const featureName = limitToDelete?.featureName || featureId;
+              
+              // Show loading snackbar
+              showSnackbar(`Deleting ${featureName}...`, 'info', 2000);
+              
               await deleteFeatureLimit(featureId);
+              
+              // Show success snackbar
+              showSnackbar(`✅ ${featureName} deleted successfully`, 'success', 4000);
             } catch (error) {
-              Alert.alert('Error', 'Failed to delete feature limit');
+              console.error('FeatureLimitsScreen: Delete failed:', error);
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+              showSnackbar(`❌ Failed to delete ${featureId}: ${errorMessage}`, 'error', 6000);
             }
           },
         },
@@ -219,11 +253,19 @@ export default function FeatureLimitsScreen() {
             try {
               console.log('FeatureLimitsScreen: Starting initialization...');
               setIsInitializing(true);
+              
+              // Show loading snackbar
+              showSnackbar('Initializing default feature limits...', 'info', 3000);
+              
               await initializeDefaults();
               console.log('FeatureLimitsScreen: Initialization completed successfully');
+              
+              // Show success snackbar
+              showSnackbar('✅ Default feature limits initialized successfully', 'success', 4000);
             } catch (error) {
               console.error('FeatureLimitsScreen: Initialization failed:', error);
-              Alert.alert('Error', `Failed to initialize default limits: ${error instanceof Error ? error.message : String(error)}`);
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              showSnackbar(`❌ Failed to initialize defaults: ${errorMessage}`, 'error', 6000);
             } finally {
               setIsInitializing(false);
             }
@@ -786,14 +828,45 @@ export default function FeatureLimitsScreen() {
               </ThemedText>
             </TouchableOpacity>
             <TouchableOpacity
+              style={[styles.initializeButton, { backgroundColor: accentPrimary, marginLeft: 12 }]}
+              onPress={async () => {
+                console.log('FeatureLimitsScreen: Force refresh button clicked!');
+                try {
+                  // Show loading snackbar
+                  showSnackbar('Refreshing feature limits...', 'info', 2000);
+                  
+                  await forceRefresh();
+                  
+                  // Show success snackbar
+                  showSnackbar('✅ Feature limits refreshed successfully', 'success', 3000);
+                } catch (error) {
+                  console.error('FeatureLimitsScreen: Force refresh failed:', error);
+                  const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+                  showSnackbar(`❌ Failed to refresh: ${errorMessage}`, 'error', 6000);
+                }
+              }}
+            >
+              <Ionicons name="refresh" size={16} color="#FFFFFF" />
+              <ThemedText style={[styles.initializeButtonText, { color: '#FFFFFF', fontSize: 14 }]}>
+                Refresh
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.initializeButton, { backgroundColor: accentWarning, marginLeft: 12 }]}
               onPress={async () => {
                 console.log('FeatureLimitsScreen: Clear cache button clicked!');
                 try {
+                  // Show loading snackbar
+                  showSnackbar('Clearing cache and reloading limits...', 'info', 2000);
+                  
                   await clearCache();
-                  Alert.alert('Success', 'Cache cleared successfully. Feature limits have been reloaded from the database.');
+                  
+                  // Show success snackbar
+                  showSnackbar('✅ Cache cleared successfully. Feature limits reloaded from database.', 'success', 4000);
                 } catch (error) {
-                  Alert.alert('Error', 'Failed to clear cache. Please try again.');
+                  console.error('FeatureLimitsScreen: Clear cache failed:', error);
+                  const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+                  showSnackbar(`❌ Failed to clear cache: ${errorMessage}`, 'error', 6000);
                 }
               }}
             >

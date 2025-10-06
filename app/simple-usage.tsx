@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import React from 'react';
 import { Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -33,10 +33,11 @@ export default function SimpleUsageScreen() {
     router.back();
   };
 
-  // Web layout
-  if (Platform.OS === 'web') {
-    return (
-      <WebLayout
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      {Platform.OS === 'web' ? (
+        <WebLayout
         title="Simple Usage"
         subtitle="Quick overview of your feature usage"
         sidebar={
@@ -160,49 +161,49 @@ export default function SimpleUsageScreen() {
           )}
         </ScrollView>
       </WebLayout>
-    );
-  }
+      ) : loading ? (
+        <ThemedView style={styles.container}>
+          <LoadingSpinner size={40} />
+          <Text style={[styles.loadingText, { color: textColor }]}>Loading usage data...</Text>
+        </ThemedView>
+      ) : (
+        <ScrollView 
+          style={[styles.container, { backgroundColor }]}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={onRefresh} />
+          }
+        >
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
+              <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+                <Ionicons name="arrow-back" size={24} color={textColor} />
+              </TouchableOpacity>
+              <Text style={[styles.title, { color: textColor }]}>Feature Usage</Text>
+            </View>
+            <Text style={[styles.subtitle, { color: mutedTextColor }]}>
+              Track your monthly feature usage
+            </Text>
+          </View>
 
-  // Mobile layout (existing code)
-  if (loading) {
-    return (
-      <ThemedView style={styles.container}>
-        <LoadingSpinner size={40} />
-        <Text style={[styles.loadingText, { color: textColor }]}>Loading usage data...</Text>
-      </ThemedView>
-    );
-  }
+          <View style={styles.content}>
+            <UnifiedUsageDisplay 
+              features={trackedFeatures}
+              onFeaturePress={(feature) => console.log('Feature pressed:', feature)}
+              onUpgradePress={() => router.push('join-premium')}
+            />
+          </View>
 
-  return (
-    <ScrollView 
-      style={[styles.container, { backgroundColor }]}
-      refreshControl={
-        <RefreshControl refreshing={loading} onRefresh={onRefresh} />
-      }
-    >
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: textColor }]}>Feature Usage</Text>
-        <Text style={[styles.subtitle, { color: mutedTextColor }]}>
-          Track your monthly feature usage
-        </Text>
-      </View>
-
-      <View style={styles.content}>
-        <UnifiedUsageDisplay 
-          features={trackedFeatures}
-          onFeaturePress={(feature) => console.log('Feature pressed:', feature)}
-          onUpgradePress={() => router.push('join-premium')}
-        />
-      </View>
-
-      {trackedFeatures.length === 0 && (
-        <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, { color: mutedTextColor }]}>
-            No tracking features available
-          </Text>
-        </View>
+          {trackedFeatures.length === 0 && (
+            <View style={styles.emptyState}>
+              <Text style={[styles.emptyText, { color: mutedTextColor }]}>
+                No tracking features available
+              </Text>
+            </View>
+          )}
+        </ScrollView>
       )}
-    </ScrollView>
+    </>
   );
 }
 
@@ -210,14 +211,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContent: {
+    paddingTop: 40,
+  },
   header: {
     padding: 20,
     paddingBottom: 10,
   },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  backButton: {
+    marginRight: 12,
+    padding: 4,
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 8,
+    flex: 1,
   },
   subtitle: {
     fontSize: 16,

@@ -368,16 +368,16 @@ export class FeatureLimitService {
       
       switch (limitType) {
         case 'count':
-          usage = usageRecord.usageCount;
+          usage = usageRecord.usage_count;
           break;
         case 'duration':
-          usage = usageRecord.usageDuration;
+          usage = usageRecord.usage_duration;
           break;
         case 'storage':
-          usage = usageRecord.usageStorage;
+          usage = usageRecord.usage_storage;
           break;
         default:
-          usage = usageRecord.usageCount + usageRecord.usageDuration + usageRecord.usageStorage; // Fallback
+          usage = usageRecord.usage_count + usageRecord.usage_duration + usageRecord.usage_storage; // Fallback
       }
       
       const userLimit = isPremium ? limit.premiumUserLimit : limit.freeUserLimit;
@@ -421,13 +421,13 @@ export class FeatureLimitService {
         if (defaultLimit) {
           limit = defaultLimit;
         } else {
-          // If no default limit found, allow usage with a warning
+          // If no default limit found, block access for security
           return { 
-            canUse: true, 
-            reason: 'Feature limit not configured, allowing access',
+            canUse: false, 
+            reason: 'Feature limit not configured, access blocked for security',
             currentUsage: 0,
-            limit: isPremium ? 'unlimited' : 100,
-            remaining: isPremium ? 'unlimited' : 100,
+            limit: 0,
+            remaining: 0,
             period: 'monthly',
             limitType: 'count',
             isPremium,
@@ -460,11 +460,11 @@ export class FeatureLimitService {
       }
 
       if (!usage) {
-        // If we can't get usage, allow usage with a warning
+        // If we can't get usage, be conservative and block access
         const userLimit = isPremium ? limit.premiumUserLimit : limit.freeUserLimit;
         return { 
-          canUse: true, // Changed from false to true for fallback
-          reason: 'Usage tracking unavailable, allowing access',
+          canUse: false, // Block access when usage tracking is unavailable
+          reason: 'Usage tracking unavailable, access blocked for security',
           currentUsage: 0,
           limit: userLimit,
           remaining: userLimit,
@@ -610,6 +610,8 @@ export class FeatureLimitService {
           current_period_end: periodEnd.toISOString(),
           period_type: period,
           last_used_at: now.toISOString(),
+        }, {
+          onConflict: 'user_id,feature_id'
         });
 
       if (error) throw error;

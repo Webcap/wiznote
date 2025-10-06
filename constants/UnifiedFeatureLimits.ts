@@ -91,7 +91,7 @@ export const UNIFIED_FEATURE_LIMITS: Record<string, UnifiedFeatureLimit> = {
     featureId: 'ai_key_details',
     featureName: 'AI Key Details',
     description: 'Extract key details from notes using AI',
-    freeUserLimit: 15,
+    freeUserLimit: 5,
     premiumUserLimit: 'unlimited',
     limitType: 'count',
     period: 'monthly',

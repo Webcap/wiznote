@@ -19,9 +19,8 @@ import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useNotes } from '../../hooks/useNotes';
 import { useThemeColor } from '../../hooks/useThemeColor';
-import { useUnifiedFeatureLimits } from '../../hooks/useUnifiedFeatureLimits';
 import { extractKeyDetailsWithGemini, generateSummaryWithGemini, testGeminiConnection } from '../../services/GeminiAI';
-import { simpleUsageService } from '../../services/SimpleUsageService';
+import { featureLimitService } from '../../services/FeatureLimitService';
 import { supabaseNoteStorage } from '../../services/SupabaseNoteStorage';
 import { NoteDetailStyles as styles } from '../../styles/NoteDetailStyles';
 import { AudioFile, Note } from '../../types/Note';
@@ -127,27 +126,9 @@ export default function NoteDetailScreen() {
       console.log('useFeatureFlags hook:', { isFeatureEnabled });
     };
     
-    // Test function to manually trigger AI key details generation
-    (window as any).testAIKeyDetails = async () => {
-      if (!note) {
-        console.log('No note available for testing');
-        return;
-      }
-      
-      console.log('🔍 Testing AI key details generation manually...');
-      try {
-        const text = note.content || 'Test note content';
-        console.log('Test text:', text);
-        
-        const details = await extractKeyDetailsWithGemini(text);
-        console.log('✅ Key details generated successfully:', details);
-      } catch (error) {
-        console.error('❌ Key details generation failed:', error);
-      }
-    };
+    // Test function removed - was bypassing usage limits
   }
   const { notes, toggleArchive, updateNote } = useNotes(user?.id || '');
-  const { trackedFeatures, canUseFeature } = useUnifiedFeatureLimits();
 
   // Helper functions for audio notes
   const isAudioNote = (note: Note): boolean => {
@@ -307,27 +288,22 @@ export default function NoteDetailScreen() {
       const generateKeyDetails = async () => {
         try {
           if (user) {
-            // Check usage limits using simple usage system
-            const currentUsage = await simpleUsageService.getUsage(user.id, 'ai_key_details');
-            const limit = user.premium?.isActive ? 999999 : 15; // 15 for free users, unlimited for premium
+            // Check usage limits using unified feature limit system
+            const canUseResult = await featureLimitService.canUseFeature(
+              user.id, 
+              'ai_key_details', 
+              1, 
+              user.premium?.isActive || false
+            );
             
-            if (currentUsage >= limit) {
-              console.log('🔍 NoteDetailScreen: User cannot use AI key details: usage limit reached');
+            if (!canUseResult.canUse) {
+              console.log('🔍 NoteDetailScreen: User cannot use AI key details:', canUseResult.reason);
               setKeyDetailsGeneratedFor(note.id);
-              setSummaryUsageLimit('Usage limit reached. Upgrade to Premium for unlimited key details!');
+              setSummaryUsageLimit(`Usage limit reached (${canUseResult.currentUsage}/${canUseResult.limit}). Upgrade to Premium for unlimited key details!`);
               return;
             }
           }
           
-        // Check feature limits before generating key details
-        const keyDetailsFeature = trackedFeatures.find(f => f.featureId === 'ai_key_details');
-        const canUseResult = keyDetailsFeature ? canUseFeature('ai_key_details', keyDetailsFeature.currentUsage) : { canUse: false, reason: 'Feature not found', limit: 0 };
-        
-        if (!keyDetailsFeature || !canUseResult.canUse) {
-          console.log('🚫 AI Key Details BLOCKED:', canUseResult.reason);
-          setKeyDetailsLoading(false);
-          return;
-        }
           
           // Generate key details
           console.log('🔍 NoteDetailScreen: Starting key details generation');
@@ -343,7 +319,13 @@ export default function NoteDetailScreen() {
           // Record usage if generation succeeded
           if (user?.id && details && details.length > 0) {
             try {
-              await simpleUsageService.recordUsage(user.id, 'ai_key_details', 1);
+              await featureLimitService.recordFeatureUsage(
+                user.id, 
+                'ai_key_details', 
+                1, 
+                user.premium?.isActive || false,
+                'count'
+              );
               console.log('🔍 NoteDetailScreen: AI key details usage recorded');
             } catch (usageError) {
               console.error('🔍 NoteDetailScreen: Failed to record AI key details usage:', usageError);
@@ -368,7 +350,7 @@ export default function NoteDetailScreen() {
       
       generateKeyDetails();
     }
-  }, [note?.id, keyDetailsGeneratedFor, isAIKeyDetailsEnabled, user?.id, user?.premium?.isActive, trackedFeatures]);
+  }, [note?.id, keyDetailsGeneratedFor, isAIKeyDetailsEnabled, user?.id, user?.premium?.isActive]);
 
   // Generate summary when note changes
   useEffect(() => {
@@ -439,18 +421,20 @@ export default function NoteDetailScreen() {
       const generateSummary = async () => {
         try {
         // Check feature limits before generating summary
-        const summaryFeature = trackedFeatures.find(f => f.featureId === 'ai_summaries');
-        console.log('🔍 DEBUG: SummaryFeature for canUseFeature:', summaryFeature);
-        console.log('🔍 DEBUG: User premium status:', user?.premium?.isActive);
-        
-        const canUseResult = summaryFeature ? canUseFeature('ai_summaries', summaryFeature.currentUsage) : { canUse: false, reason: 'Feature not found', limit: 0 };
-        console.log('🔍 DEBUG: CanUseResult from canUseFeature:', canUseResult);
-        
-        if (!summaryFeature || !canUseResult.canUse) {
-          console.log('🚫 AI Summary BLOCKED:', canUseResult.reason);
-          setSummaryGeneratedFor(note.id);
-          setSummaryUsageLimit('Usage limit reached. Upgrade to Premium for unlimited summaries!');
-          return;
+        if (user) {
+          const canUseResult = await featureLimitService.canUseFeature(
+            user.id, 
+            'ai_summaries', 
+            1, 
+            user.premium?.isActive || false
+          );
+          
+          if (!canUseResult.canUse) {
+            console.log('🚫 AI Summary BLOCKED:', canUseResult.reason);
+            setSummaryGeneratedFor(note.id);
+            setSummaryUsageLimit(`Usage limit reached (${canUseResult.currentUsage}/${canUseResult.limit}). Upgrade to Premium for unlimited summaries!`);
+            return;
+          }
         }
           
           // Generate summary
@@ -467,7 +451,13 @@ export default function NoteDetailScreen() {
           // Record usage if generation succeeded
           if (user?.id && generatedSummary && generatedSummary.trim().length > 0) {
             try {
-              await simpleUsageService.recordUsage(user.id, 'ai_summaries', 1);
+              await featureLimitService.recordFeatureUsage(
+                user.id, 
+                'ai_summaries', 
+                1, 
+                user.premium?.isActive || false,
+                'count'
+              );
               console.log('🔍 NoteDetailScreen: AI summary usage recorded');
             } catch (usageError) {
               console.error('🔍 NoteDetailScreen: Failed to record AI summary usage:', usageError);
@@ -492,7 +482,7 @@ export default function NoteDetailScreen() {
       
       generateSummary();
     }
-  }, [note?.id, summaryGeneratedFor, isAISummariesEnabled, user?.id, user?.premium?.isActive, trackedFeatures]);
+  }, [note?.id, summaryGeneratedFor, isAISummariesEnabled, user?.id, user?.premium?.isActive]);
 
   const handleArchiveToggle = async () => {
     if (!note) return;
@@ -567,13 +557,20 @@ export default function NoteDetailScreen() {
       console.log('🔍 Manual generation - Text preview:', text.substring(0, 200) + '...');
       
         // Check feature limits before generating key details
-        const keyDetailsFeature = trackedFeatures.find(f => f.featureId === 'ai_key_details');
-        const canUseResult = keyDetailsFeature ? canUseFeature('ai_key_details', keyDetailsFeature.currentUsage) : { canUse: false, reason: 'Feature not found', limit: 0 };
-        
-        if (!keyDetailsFeature || !canUseResult.canUse) {
-          console.log('🚫 Manual AI Key Details BLOCKED:', canUseResult.reason);
-          setKeyDetailsLoading(false);
-          return;
+        if (user) {
+          const canUseResult = await featureLimitService.canUseFeature(
+            user.id, 
+            'ai_key_details', 
+            1, 
+            user.premium?.isActive || false
+          );
+          
+          if (!canUseResult.canUse) {
+            console.log('🚫 Manual AI Key Details BLOCKED:', canUseResult.reason);
+            setKeyDetailsLoading(false);
+            Alert.alert('Limit Reached', `Usage limit reached (${canUseResult.currentUsage}/${canUseResult.limit}). Upgrade to Premium for unlimited key details!`);
+            return;
+          }
         }
       
       const details = await extractKeyDetailsWithGemini(text);
@@ -581,6 +578,22 @@ export default function NoteDetailScreen() {
       
       setKeyDetails(details);
       setKeyDetailsLoading(false);
+      
+      // Record usage if generation succeeded
+      if (user?.id && details && details.length > 0) {
+        try {
+          await featureLimitService.recordFeatureUsage(
+            user.id, 
+            'ai_key_details', 
+            1, 
+            user.premium?.isActive || false,
+            'count'
+          );
+          console.log('🔍 Manual generation - AI key details usage recorded');
+        } catch (usageError) {
+          console.error('🔍 Manual generation - Failed to record AI key details usage:', usageError);
+        }
+      }
       
       // Save to Firebase
       if (details && details.length > 0) {

@@ -68,7 +68,7 @@ export function UnifiedUsageDisplay({
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case 'ai': return 'brain';
+      case 'ai': return 'sparkles';
       case 'audio': return 'mic';
       case 'storage': return 'folder';
       case 'collaboration': return 'people';
