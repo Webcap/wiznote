@@ -19,6 +19,8 @@ The system automatically resets expired user usage records on the 1st of every m
 
 The functions are already created in your project. When you deploy to Netlify, they will be automatically available.
 
+**Note**: This is an Expo/React Native app, so the build process uses `expo export --platform web` instead of a traditional build script.
+
 ### 2. Configure Environment Variables
 
 In your Netlify dashboard, add these environment variables:
