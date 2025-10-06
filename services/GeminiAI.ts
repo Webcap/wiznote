@@ -163,8 +163,8 @@ export async function extractKeyDetailsWithGemini(noteText: string): Promise<str
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     return text
       .split(/\n|\r/)
-      .map(line => line.replace(/^[-*•]\s*/, '').trim())
-      .filter(line => line.length > 0);
+      .map((line: string) => line.replace(/^[-*•]\s*/, '').trim())
+      .filter((line: string) => line.length > 0);
   } catch (error) {
     console.error('GeminiAI: Error extracting key details:', error);
     throw error;

@@ -1,5 +1,6 @@
 export interface Flashcard {
   id: string;
+  flashcardSetId: string;
   noteId: string; // This is TEXT in database, so string is correct
   userId: string;
   question: string;

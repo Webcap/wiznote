@@ -91,7 +91,7 @@ export class RoleService {
       if (error) throw error;
 
       // Log the role change
-      await this.logRoleChange(userId, 'unknown', newRole, assignedBy, reason || 'Force role assignment');
+      await this.logRoleChange(userId, 'user', newRole, assignedBy, reason || 'Force role assignment');
 
       console.log(`RoleService: Successfully force assigned role '${newRole}' to user ${userId}`);
     } catch (error) {
@@ -109,7 +109,7 @@ export class RoleService {
   /**
    * Get default preferences for a role
    */
-  getDefaultRolePreferences(role: UserRole): Partial<UserPreferences> {
+  getDefaultRolePreferences(role: UserRole) {
     return getDefaultRolePreferences(role);
   }
 

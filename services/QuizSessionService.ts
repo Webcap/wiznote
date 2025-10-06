@@ -507,20 +507,25 @@ export class QuizSessionService {
   }
 
   private calculateQuestionTypeBreakdown(questions: QuizQuestion[], answers: QuizAnswer[]): {
-    [key: string]: { correct: number; total: number };
+    multiple_choice: { correct: number; total: number };
+    true_false: { correct: number; total: number };
+    short_answer: { correct: number; total: number };
+    fill_blank: { correct: number; total: number };
   } {
-    const breakdown: { [key: string]: { correct: number; total: number } } = {};
+    const breakdown = {
+      multiple_choice: { correct: 0, total: 0 },
+      true_false: { correct: 0, total: 0 },
+      short_answer: { correct: 0, total: 0 },
+      fill_blank: { correct: 0, total: 0 },
+    };
 
     questions.forEach(question => {
-      if (!breakdown[question.questionType]) {
-        breakdown[question.questionType] = { correct: 0, total: 0 };
-      }
-      
-      breakdown[question.questionType].total++;
+      const questionType = question.questionType as keyof typeof breakdown;
+      breakdown[questionType].total++;
       
       const answer = answers.find(a => a.questionId === question.id);
       if (answer && answer.isCorrect) {
-        breakdown[question.questionType].correct++;
+        breakdown[questionType].correct++;
       }
     });
 

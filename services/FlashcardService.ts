@@ -863,6 +863,7 @@ export class FlashcardService {
   private mapFlashcardRow(row: FlashcardRow): Flashcard {
     return {
       id: row.id,
+      flashcardSetId: row.flashcard_set_id,
       noteId: row.note_id,
       userId: row.user_id,
       question: row.question,

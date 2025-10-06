@@ -175,7 +175,7 @@ export class FeatureLimitService {
           premium_user_limit: formatPremiumLimit(limit.premiumUserLimit),
           premium_user_limit_type: limit.premiumUserLimitType,
           premium_user_period: limit.premiumUserPeriod,
-          premium_user_session_limit: formatPremiumLimit(limit.premiumUserSessionLimit),
+          premium_user_session_limit: limit.premiumUserSessionLimit ? formatPremiumLimit(limit.premiumUserSessionLimit) : null,
           updated_at: new Date().toISOString(),
         };
 
@@ -235,7 +235,7 @@ export class FeatureLimitService {
         }
       }
       
-      return isPremium ? limit.premiumUserSessionLimit : limit.freeUserSessionLimit;
+      return isPremium ? (limit.premiumUserSessionLimit ?? null) : (limit.freeUserSessionLimit ?? null);
     } catch (error) {
       console.error('FeatureLimitService: Error getting session limit:', error);
       // Fallback to reasonable defaults
@@ -737,13 +737,14 @@ export class FeatureLimitService {
 
       if (error) throw error;
 
-      const userStats = new Map<string, { usage: number; isPremium: boolean; displayName?: string; email?: string }>();
+      const userStats = new Map<string, { userId: string; usage: number; isPremium: boolean; displayName?: string; email?: string }>();
 
       data?.forEach(record => {
         const userId = record.user_id;
-        const existing = userStats.get(userId) || { usage: 0, isPremium: false };
+        const existing = userStats.get(userId) || { userId, usage: 0, isPremium: false };
         
         userStats.set(userId, {
+          userId,
           usage: existing.usage + (record.usage_count || 0),
           isPremium: record.user_profiles?.premium?.isActive || false,
           displayName: record.user_profiles?.display_name,
@@ -761,7 +762,7 @@ export class FeatureLimitService {
         .sort((a, b) => b.usage - a.usage)
         .slice(0, 10)
         .map(user => ({
-          userId: user.userId || '',
+          userId: user.userId,
           usage: user.usage,
           displayName: user.displayName,
           isPremium: user.isPremium,
@@ -864,14 +865,16 @@ export class FeatureLimitService {
         freeUserLimit: unifiedLimit.freeUserLimit === 'unlimited' ? 0 : unifiedLimit.freeUserLimit,
         freeUserPeriod: unifiedLimit.period === 'monthly' ? 'monthly' : 
                        unifiedLimit.period === 'yearly' ? 'monthly' : 
-                       unifiedLimit.period === 'daily' ? 'daily' : 'monthly',
+                       unifiedLimit.period === 'lifetime' ? 'monthly' : 
+                       unifiedLimit.period === 'per_use' ? 'daily' : 'monthly',
         freeUserLimitType: unifiedLimit.limitType === 'count' ? 'count' : 
                           unifiedLimit.limitType === 'duration' ? 'duration' : 
                           unifiedLimit.limitType === 'storage' ? 'storage' : 'count',
         premiumUserLimit: unifiedLimit.premiumUserLimit,
         premiumUserPeriod: unifiedLimit.period === 'monthly' ? 'monthly' : 
                           unifiedLimit.period === 'yearly' ? 'monthly' : 
-                          unifiedLimit.period === 'daily' ? 'daily' : 'monthly',
+                          unifiedLimit.period === 'lifetime' ? 'monthly' : 
+                          unifiedLimit.period === 'per_use' ? 'daily' : 'monthly',
         premiumUserLimitType: unifiedLimit.limitType === 'count' ? 'count' : 
                              unifiedLimit.limitType === 'duration' ? 'duration' : 
                              unifiedLimit.limitType === 'storage' ? 'storage' : 'count',
@@ -880,7 +883,7 @@ export class FeatureLimitService {
         premiumUserSessionLimit: unifiedLimit.sessionLimit?.type === 'duration' ? 
                                 unifiedLimit.sessionLimit.premium : undefined,
         isActive: unifiedLimit.isActive,
-        category: unifiedLimit.category,
+        category: unifiedLimit.category === 'other' ? 'customization' : unifiedLimit.category,
         priority: unifiedLimit.priority,
         createdAt: unifiedLimit.createdAt,
         updatedAt: unifiedLimit.updatedAt,
@@ -901,14 +904,16 @@ export class FeatureLimitService {
       freeUserLimit: unifiedLimit.freeUserLimit === 'unlimited' ? 0 : unifiedLimit.freeUserLimit,
       freeUserPeriod: unifiedLimit.period === 'monthly' ? 'monthly' : 
                      unifiedLimit.period === 'yearly' ? 'monthly' : 
-                     unifiedLimit.period === 'daily' ? 'daily' : 'monthly',
+                     unifiedLimit.period === 'lifetime' ? 'monthly' : 
+                     unifiedLimit.period === 'per_use' ? 'daily' : 'monthly',
       freeUserLimitType: unifiedLimit.limitType === 'count' ? 'count' : 
                         unifiedLimit.limitType === 'duration' ? 'duration' : 
                         unifiedLimit.limitType === 'storage' ? 'storage' : 'count',
       premiumUserLimit: unifiedLimit.premiumUserLimit,
       premiumUserPeriod: unifiedLimit.period === 'monthly' ? 'monthly' : 
-                        unifiedLimit.period === 'monthly' ? 'monthly' : 
-                        unifiedLimit.period === 'daily' ? 'daily' : 'monthly',
+                        unifiedLimit.period === 'yearly' ? 'monthly' : 
+                        unifiedLimit.period === 'lifetime' ? 'monthly' : 
+                        unifiedLimit.period === 'per_use' ? 'daily' : 'monthly',
       premiumUserLimitType: unifiedLimit.limitType === 'count' ? 'count' : 
                            unifiedLimit.limitType === 'duration' ? 'duration' : 
                            unifiedLimit.limitType === 'storage' ? 'storage' : 'count',
@@ -917,7 +922,7 @@ export class FeatureLimitService {
       premiumUserSessionLimit: unifiedLimit.sessionLimit?.type === 'duration' ? 
                               unifiedLimit.sessionLimit.premium : undefined,
       isActive: unifiedLimit.isActive,
-      category: unifiedLimit.category,
+      category: unifiedLimit.category === 'other' ? 'customization' : unifiedLimit.category,
       priority: unifiedLimit.priority,
       createdAt: unifiedLimit.createdAt,
       updatedAt: unifiedLimit.updatedAt,

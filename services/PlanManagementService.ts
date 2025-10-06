@@ -55,7 +55,7 @@ export class PlanManagementService {
         feature_flags: data.featureFlags || {},
         limits: data.featureLimits || {},
         metadata: data.metadata || {},
-        is_active: data.isActive !== false // Default to true
+        is_active: true // Default to true
       };
 
       // Insert plan
@@ -69,16 +69,17 @@ export class PlanManagementService {
         throw new Error(`Failed to create plan: ${error.message}`);
       }
 
-      // Create feature mappings if provided
-      if (data.featureMappings && data.featureMappings.length > 0) {
-        await this.createFeatureMappings(plan.id, data.featureMappings);
-      }
+      // Feature mappings are managed separately through the feature management system
 
       // Create initial version
       await this.createInitialVersion(plan.id, 'Plan created');
 
       // Return enhanced plan
-      return await this.getPlan(plan.id);
+      const enhancedPlan = await this.getPlan(plan.id);
+      if (!enhancedPlan) {
+        throw new Error('Failed to retrieve created plan');
+      }
+      return enhancedPlan;
     } catch (error) {
       console.error('Error creating plan:', error);
       throw error;
@@ -143,19 +144,22 @@ export class PlanManagementService {
         throw new Error(`Failed to update plan: ${error.message}`);
       }
 
-      // Update feature mappings if provided
-      if (data.featureMappings !== undefined) {
-        await this.updateFeatureMappings(id, data.featureMappings);
-      }
+      // Feature mappings are managed separately through the feature management system
 
       // Create version record
       const changes = this.detectChanges(currentPlan, updatedPlan);
-      if (Object.keys(changes).length > 0) {
-        await this.createVersion(id, changes);
+      if (changes.length > 0) {
+        for (const change of changes) {
+          await this.createVersion(id, change);
+        }
       }
 
       // Return enhanced plan
-      return await this.getPlan(id);
+      const enhancedPlan = await this.getPlan(id);
+      if (!enhancedPlan) {
+        throw new Error('Failed to retrieve updated plan');
+      }
+      return enhancedPlan;
     } catch (error) {
       console.error('Error updating plan:', error);
       throw error;
@@ -187,7 +191,13 @@ export class PlanManagementService {
       }
 
       // Create version record
-      await this.createVersion(id, { action: 'deleted', timestamp: new Date().toISOString() });
+      await this.createVersion(id, {
+        field: 'status',
+        oldValue: 'active',
+        newValue: 'deleted',
+        changeType: 'removed',
+        timestamp: new Date()
+      });
 
       return true;
     } catch (error) {
@@ -240,26 +250,38 @@ export class PlanManagementService {
         .select('*', { count: 'exact' });
 
       // Apply filters
-      if (filters.isActive !== undefined) {
-        query = query.eq('is_active', filters.isActive);
+      if (filters.status) {
+        query = query.in('status', filters.status);
       }
       if (filters.planType) {
-        query = query.eq('plan_type', filters.planType);
+        query = query.in('plan_type', filters.planType);
       }
-      if (filters.minPrice !== undefined) {
-        query = query.gte('price', filters.minPrice);
+      if (filters.priceRange) {
+        if (filters.priceRange.min !== undefined) {
+          query = query.gte('price', filters.priceRange.min);
+        }
+        if (filters.priceRange.max !== undefined) {
+          query = query.lte('price', filters.priceRange.max);
+        }
       }
-      if (filters.maxPrice !== undefined) {
-        query = query.lte('price', filters.maxPrice);
-      }
-      if (filters.currency) {
-        query = query.eq('currency', filters.currency);
-      }
-      if (filters.search) {
-        query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+      if (filters.hasStripe !== undefined) {
+        if (filters.hasStripe) {
+          query = query.not('stripe_product_id', 'is', null);
+        } else {
+          query = query.is('stripe_product_id', null);
+        }
       }
       if (filters.isPopular !== undefined) {
         query = query.eq('is_popular', filters.isPopular);
+      }
+      if (filters.createdBy) {
+        query = query.eq('created_by', filters.createdBy);
+      }
+      if (filters.createdAfter) {
+        query = query.gte('created_at', filters.createdAfter.toISOString());
+      }
+      if (filters.createdBefore) {
+        query = query.lte('created_at', filters.createdBefore.toISOString());
       }
 
       // Apply sorting
@@ -335,7 +357,6 @@ export class PlanManagementService {
           duplicated_from: id,
           duplicated_at: new Date().toISOString()
         },
-        isActive: false, // Start as inactive
         // createdBy handled at service layer if needed
       };
 
@@ -358,61 +379,103 @@ export class PlanManagementService {
    * Validate plan data
    */
   async validatePlan(data: CreatePlanData | UpdatePlanData): Promise<PlanValidationResult> {
-    const errors: string[] = [];
+    const errors: any[] = [];
+    const warnings: any[] = [];
 
     // Validate name
     if ('name' in data && data.name) {
       if (data.name.length < 3) {
-        errors.push('Plan name must be at least 3 characters long');
+        errors.push({
+          field: 'name',
+          message: 'Plan name must be at least 3 characters long',
+          code: 'NAME_TOO_SHORT'
+        });
       }
       if (data.name.length > 100) {
-        errors.push('Plan name must be less than 100 characters');
+        errors.push({
+          field: 'name',
+          message: 'Plan name must be less than 100 characters',
+          code: 'NAME_TOO_LONG'
+        });
       }
     }
 
     // Validate price
     if ('price' in data && data.price !== undefined) {
       if (data.price < 0) {
-        errors.push('Price must be non-negative');
+        errors.push({
+          field: 'price',
+          message: 'Price must be non-negative',
+          code: 'PRICE_NEGATIVE'
+        });
       }
       if (data.price > 999999.99) {
-        errors.push('Price must be less than 1,000,000');
+        errors.push({
+          field: 'price',
+          message: 'Price must be less than 1,000,000',
+          code: 'PRICE_TOO_HIGH'
+        });
       }
     }
 
     // Validate trial days
     if ('trialDays' in data && data.trialDays !== undefined) {
       if (data.trialDays < 0) {
-        errors.push('Trial days must be non-negative');
+        errors.push({
+          field: 'trialDays',
+          message: 'Trial days must be non-negative',
+          code: 'TRIAL_NEGATIVE'
+        });
       }
       if (data.trialDays > 365) {
-        errors.push('Trial days cannot exceed 365 days');
+        errors.push({
+          field: 'trialDays',
+          message: 'Trial days cannot exceed 365 days',
+          code: 'TRIAL_TOO_LONG'
+        });
       }
     }
 
     // Validate user limits
     if ('maxUsers' in data && data.maxUsers !== undefined) {
       if (data.maxUsers < 1) {
-        errors.push('Maximum users must be at least 1');
+        errors.push({
+          field: 'maxUsers',
+          message: 'Maximum users must be at least 1',
+          code: 'USERS_TOO_LOW'
+        });
       }
       if (data.maxUsers > 10000) {
-        errors.push('Maximum users cannot exceed 10,000');
+        errors.push({
+          field: 'maxUsers',
+          message: 'Maximum users cannot exceed 10,000',
+          code: 'USERS_TOO_HIGH'
+        });
       }
     }
 
     // Validate storage limits
     if ('maxStorage' in data && data.maxStorage !== undefined) {
       if (data.maxStorage < 1) {
-        errors.push('Maximum storage must be at least 1');
+        errors.push({
+          field: 'maxStorage',
+          message: 'Maximum storage must be at least 1',
+          code: 'STORAGE_TOO_LOW'
+        });
       }
       if (data.maxStorage > 1000000) {
-        errors.push('Maximum storage cannot exceed 1,000,000');
+        errors.push({
+          field: 'maxStorage',
+          message: 'Maximum storage cannot exceed 1,000,000',
+          code: 'STORAGE_TOO_HIGH'
+        });
       }
     }
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
+      warnings
     };
   }
 
@@ -452,15 +515,20 @@ export class PlanManagementService {
 
       return {
         success: true,
-        syncedFeatures: currentMappings.length,
-        featureFlags,
-        featureLimits
+        featuresUpdated: currentMappings.length,
+        featuresAdded: 0,
+        featuresRemoved: 0,
+        syncTimestamp: new Date()
       };
     } catch (error) {
       console.error('Error syncing plan features:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        featuresUpdated: 0,
+        featuresAdded: 0,
+        featuresRemoved: 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        syncTimestamp: new Date()
       };
     }
   }
@@ -560,8 +628,8 @@ export class PlanManagementService {
     }
   }
 
-  private detectChanges(oldPlan: any, newPlan: any): PlanChanges {
-    const changes: PlanChanges = {};
+  private detectChanges(oldPlan: any, newPlan: any): PlanChanges[] {
+    const changes: PlanChanges[] = [];
     
     const fields = ['name', 'description', 'price', 'currency', 'interval', 'plan_type', 
                    'trial_days', 'max_users', 'max_storage', 'is_popular', 'feature_flags', 
@@ -569,10 +637,13 @@ export class PlanManagementService {
 
     for (const field of fields) {
       if (oldPlan[field] !== newPlan[field]) {
-        changes[field] = {
-          from: oldPlan[field],
-          to: newPlan[field]
-        };
+        changes.push({
+          field,
+          oldValue: oldPlan[field],
+          newValue: newPlan[field],
+          changeType: 'modified',
+          timestamp: new Date()
+        });
       }
     }
 

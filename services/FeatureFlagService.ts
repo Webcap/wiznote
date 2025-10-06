@@ -294,7 +294,7 @@ export class FeatureFlagService {
 
   // Debug method to list all available flags
   getAllFlags(): Record<string, FeatureFlag> {
-    return this.flags;
+    return { ...this.flags };
   }
 
   // Debug method to check if a specific flag exists
@@ -550,10 +550,6 @@ export class FeatureFlagService {
     return Math.abs(hash);
   }
 
-  // Get all flags
-  getAllFlags(): Record<string, FeatureFlag> {
-    return { ...this.flags };
-  }
 
   // Get a specific flag
   getFlag(flagKey: FeatureFlagKey): FeatureFlag | undefined {
