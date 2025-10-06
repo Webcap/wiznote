@@ -134,6 +134,13 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
       isActive: activePage === 'usage-stats',
     },
     {
+      id: 'analytics',
+      label: 'Feature Analytics',
+      icon: 'analytics' as const,
+      onPress: () => router.push('/admin/analytics'),
+      isActive: activePage === 'analytics',
+    },
+    {
       id: 'support',
       label: 'Support Tools',
       icon: 'headset' as const,
