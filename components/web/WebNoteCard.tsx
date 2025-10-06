@@ -57,8 +57,10 @@ export function WebNoteCard({
         isHovered && styles.hovered
       ]}
       onPress={onPress}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      {...(Platform.OS === 'web' ? {
+        onMouseEnter: () => setIsHovered(true),
+        onMouseLeave: () => setIsHovered(false)
+      } : {})}
     >
       {/* Header */}
       <View style={styles.header}>
@@ -132,9 +134,13 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: 6,
     padding: 10,
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    display: 'flex',
+    ...(Platform.OS === 'web' ? {
+      cursor: 'pointer',
+      transition: 'all 0.2s ease',
+      display: 'flex',
+    } : {
+      display: 'flex',
+    }),
     flexDirection: 'column',
     height: 140,
     ...(Platform.OS === 'web' ? {
@@ -215,9 +221,10 @@ const styles = StyleSheet.create({
     color: '#A0A0A0',
     flex: 1, // Allow preview to take remaining space
     overflow: 'hidden', // Prevent text overflow
-    display: '-webkit-box',
-    WebkitLineClamp: 3,
-    WebkitBoxOrient: 'vertical',
+    ...(Platform.OS === 'web' ? {
+      WebkitLineClamp: 3,
+      WebkitBoxOrient: 'vertical' as any,
+    } : {}),
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
         fontSize: 10,

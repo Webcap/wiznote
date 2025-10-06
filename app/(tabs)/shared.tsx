@@ -159,7 +159,7 @@ export default function SharedScreen() {
       <View style={styles.shareItemHeader}>
         <View style={styles.shareItemInfo}>
           <ThemedText style={[styles.shareItemTitle, { color: textColor }]} numberOfLines={1}>
-            {item.note?.title || 'Unknown Note'}
+            {(item as any).note?.title || 'Unknown Note'}
           </ThemedText>
           <ThemedText style={[styles.shareItemRecipient, { color: textSecondaryColor }]}>
             {item.sharedWithEmail || 'Unknown User'}

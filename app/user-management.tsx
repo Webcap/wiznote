@@ -31,6 +31,7 @@ interface UserWithStats extends User {
     planType: string;
     nextBilling: Date;
   };
+  isBanned?: boolean;
 }
 
 interface BulkAction {

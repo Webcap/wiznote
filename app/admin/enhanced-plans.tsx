@@ -93,7 +93,7 @@ export default function EnhancedPlansScreen() {
       setError(null);
       const { plans: livePlans } = await planManagementService.listPlans({
         filters: {},
-        sortBy: 'created_at',
+        sortBy: 'createdAt',
         sortOrder: 'desc',
         limit: 100,
         page: 1,
@@ -306,7 +306,7 @@ export default function EnhancedPlansScreen() {
               </ThemedText>
               <TouchableOpacity 
                 style={[styles.webRetryButton, { backgroundColor: accentColor }]}
-                onPress={loadPlansData}
+                onPress={() => loadPlansData()}
               >
                 <Ionicons name="refresh" size={16} color={whiteColor} />
                 <ThemedText style={[styles.webRetryButtonText, { color: whiteColor }]}>Try Again</ThemedText>
@@ -842,8 +842,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   webPlansGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 24,
   },
   webPlanCard: {

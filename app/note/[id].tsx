@@ -182,10 +182,10 @@ export default function NoteDetailScreen() {
         id: 'legacy_audio',
         filename: note.audioUri,
         duration: 0,
-        transcription: note.transcription || '',
+        transcription: (note as any).transcription || '',
         transcriptionStatus: 'completed' as const,
         aiTranscription: '',
-        userEditedTranscription: note.transcription || '',
+        userEditedTranscription: (note as any).transcription || '',
         createdAt: note.createdAt,
       };
     }
@@ -236,7 +236,7 @@ export default function NoteDetailScreen() {
       note: !!note,
       isAIKeyDetailsEnabled,
       noteId: note?.id,
-      hasKeyDetails: note?.keyDetails?.length > 0,
+      hasKeyDetails: note?.keyDetails?.length ? note.keyDetails.length > 0 : false,
       keyDetailsGeneratedFor
     });
     
@@ -244,7 +244,7 @@ export default function NoteDetailScreen() {
       console.log('🔍 NoteDetailScreen: Key details effect triggered for note:', note.id);
       
       // Skip if we already have key details for this note
-      if (note.keyDetails && note.keyDetails.length > 0) {
+      if (note.keyDetails && note.keyDetails.length && note.keyDetails.length > 0) {
         console.log('🔍 NoteDetailScreen: Note already has key details, using existing');
         setKeyDetails(note.keyDetails);
         setKeyDetailsGeneratedFor(note.id);
@@ -268,8 +268,8 @@ export default function NoteDetailScreen() {
       let text = note.content || '';
       
       // Add transcription from note.transcription (legacy field)
-      if (note.transcription) {
-        text += '\n' + note.transcription;
+      if ((note as any).transcription) {
+        text += '\n' + (note as any).transcription;
         console.log('🔍 NoteDetailScreen: Added legacy transcription, text length now:', text.length);
       }
       
@@ -400,8 +400,8 @@ export default function NoteDetailScreen() {
       let text = note.content || '';
       
       // Add transcription from note.transcription (legacy field)
-      if (note.transcription) {
-        text += '\n' + note.transcription;
+      if ((note as any).transcription) {
+        text += '\n' + (note as any).transcription;
         console.log('🔍 NoteDetailScreen: Added legacy transcription for summary, text length now:', text.length);
       }
       
@@ -443,7 +443,7 @@ export default function NoteDetailScreen() {
         console.log('🔍 DEBUG: SummaryFeature for canUseFeature:', summaryFeature);
         console.log('🔍 DEBUG: User premium status:', user?.premium?.isActive);
         
-        const canUseResult = summaryFeature ? canUseFeature('ai_summaries', summaryFeature.currentUsage, user?.premium?.isActive || false) : { canUse: false, reason: 'Feature not found', limit: 0 };
+        const canUseResult = summaryFeature ? canUseFeature('ai_summaries', summaryFeature.currentUsage) : { canUse: false, reason: 'Feature not found', limit: 0 };
         console.log('🔍 DEBUG: CanUseResult from canUseFeature:', canUseResult);
         
         if (!summaryFeature || !canUseResult.canUse) {
@@ -540,8 +540,8 @@ export default function NoteDetailScreen() {
       let text = note.content || '';
       
       // Add transcription from note.transcription (legacy field)
-      if (note.transcription) {
-        text += '\n' + note.transcription;
+      if ((note as any).transcription) {
+        text += '\n' + (note as any).transcription;
         console.log('🔍 Manual generation - Added legacy transcription, text length now:', text.length);
       }
       
@@ -1576,7 +1576,6 @@ export default function NoteDetailScreen() {
       </ScrollView>
 
       {/* Share Modal */}
-      {console.log('🔍 Rendering ShareModal with props:', { visible: showShareModal, note: note?.id })}
       <ShareModal
         visible={showShareModal}
         note={note}

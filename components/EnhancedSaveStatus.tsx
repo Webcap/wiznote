@@ -85,7 +85,7 @@ export function EnhancedSaveStatus({
     }
     
     if (pendingSavesCount > 0) {
-      return { name: 'cloud-sync' as const, color: warningColor };
+      return { name: 'cloud-upload' as const, color: warningColor };
     }
     
     if (hasUnsavedChanges) {

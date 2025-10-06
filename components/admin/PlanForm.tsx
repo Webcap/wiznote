@@ -280,7 +280,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
                   backgroundColor: isActive ? accentColor : isCompleted ? successColor : borderColor,
                 }
               ]}
-              className={Platform.OS === 'web' ? 'plan-form-step-item' : undefined}
             >
               <View style={[
                 styles.stepCircle,
@@ -326,7 +325,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
           onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
           placeholder="Enter plan name"
           placeholderTextColor="#666"
-          className={Platform.OS === 'web' ? 'plan-form-input' : undefined}
         />
         {errors.name && <ThemedText style={styles.errorText}>{errors.name}</ThemedText>}
       </View>
@@ -347,7 +345,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
           placeholderTextColor="#666"
           multiline
           numberOfLines={3}
-          className={Platform.OS === 'web' ? 'plan-form-input' : undefined}
         />
       </View>
 
@@ -365,7 +362,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
                 }
               ]}
               onPress={() => setFormData(prev => ({ ...prev, planType: type }))}
-              className={Platform.OS === 'web' ? 'plan-form-select-option' : undefined}
             >
               <ThemedText style={[
                 styles.selectOptionText,
@@ -400,7 +396,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
             placeholder="0.00"
             placeholderTextColor="#666"
             keyboardType="numeric"
-            className={Platform.OS === 'web' ? 'plan-form-input' : undefined}
           />
           <View style={[styles.currencySelect, { borderColor }]}>
             {CURRENCIES.map(currency => (
@@ -411,7 +406,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
                   { backgroundColor: formData.currency === currency ? accentColor : cardBackground }
                 ]}
                 onPress={() => setFormData(prev => ({ ...prev, currency }))}
-                className={Platform.OS === 'web' ? 'plan-form-currency-option' : undefined}
               >
                 <ThemedText style={[
                   styles.currencyOptionText,
@@ -440,7 +434,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
                 }
               ]}
               onPress={() => setFormData(prev => ({ ...prev, interval }))}
-              className={Platform.OS === 'web' ? 'plan-form-select-option' : undefined}
             >
               <ThemedText style={[
                 styles.selectOptionText,
@@ -468,7 +461,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
           placeholder="0"
           placeholderTextColor="#666"
           keyboardType="numeric"
-          className={Platform.OS === 'web' ? 'plan-form-input' : undefined}
         />
         {errors.trialDays && <ThemedText style={styles.errorText}>{errors.trialDays}</ThemedText>}
       </View>
@@ -484,13 +476,11 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
           <View 
             key={feature.id} 
             style={[styles.featureItem, { backgroundColor: cardBackground }]}
-            className={Platform.OS === 'web' ? 'plan-form-feature-item' : undefined}
           >
             <View style={styles.featureHeader}>
               <TouchableOpacity
                 style={styles.featureToggle}
                 onPress={() => toggleFeature(feature.id)}
-                className={Platform.OS === 'web' ? 'plan-form-feature-toggle' : undefined}
               >
                 <Ionicons
                   name={formData.featureFlags[feature.id] ? 'checkbox' : 'square-outline'}
@@ -524,7 +514,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
                       feature.id, 
                       { limit: text.trim() === '' ? 'unlimited' : (Number.isNaN(parseInt(text)) ? 0 : parseInt(text)) }
                     )}
-                    className={Platform.OS === 'web' ? 'plan-form-input' : undefined}
                   />
                   <View style={[styles.limitTypeSelect, { borderColor }]}>
                     <TouchableOpacity
@@ -533,7 +522,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
                         { backgroundColor: formData.featureLimits[feature.id]?.type === 'count' ? accentColor : cardBackground }
                       ]}
                       onPress={() => updateFeatureLimit(feature.id, { type: 'count' })}
-                      className={Platform.OS === 'web' ? 'plan-form-limit-type-option' : undefined}
                     >
                       <ThemedText style={[
                         styles.limitTypeText,
@@ -548,7 +536,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
                         { backgroundColor: formData.featureLimits[feature.id]?.type === 'duration' ? accentColor : cardBackground }
                       ]}
                       onPress={() => updateFeatureLimit(feature.id, { type: 'duration' })}
-                      className={Platform.OS === 'web' ? 'plan-form-limit-type-option' : undefined}
                     >
                       <ThemedText style={[
                         styles.limitTypeText,
@@ -587,7 +574,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
           placeholder="1"
           placeholderTextColor="#666"
           keyboardType="numeric"
-          className={Platform.OS === 'web' ? 'plan-form-input' : undefined}
         />
         {errors.maxUsers && <ThemedText style={styles.errorText}>{errors.maxUsers}</ThemedText>}
       </View>
@@ -608,7 +594,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
           placeholder="1"
           placeholderTextColor="#666"
           keyboardType="numeric"
-          className={Platform.OS === 'web' ? 'plan-form-input' : undefined}
         />
         {errors.maxStorage && <ThemedText style={styles.errorText}>{errors.maxStorage}</ThemedText>}
       </View>
@@ -622,7 +607,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
               { backgroundColor: formData.isPopular ? accentColor : borderColor }
             ]}
             onPress={() => setFormData(prev => ({ ...prev, isPopular: !prev.isPopular }))}
-            className={Platform.OS === 'web' ? 'plan-form-switch' : undefined}
           >
             <View style={[
               styles.switchThumb,
@@ -639,7 +623,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
               { backgroundColor: formData.isActive ? accentColor : borderColor }
             ]}
             onPress={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
-            className={Platform.OS === 'web' ? 'plan-form-switch' : undefined}
           >
             <View style={[
               styles.switchThumb,
@@ -657,7 +640,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
       
       <View 
         style={[styles.previewCard, { backgroundColor: cardBackground }]}
-        className={Platform.OS === 'web' ? 'plan-form-preview-card' : undefined}
       >
         <ThemedText type="title" style={styles.previewName}>{formData.name}</ThemedText>
         <ThemedText style={styles.previewDescription}>{formData.description}</ThemedText>
@@ -721,7 +703,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
   return (
     <View 
       style={[styles.container, { backgroundColor: webBackgroundColor }]}
-      className={Platform.OS === 'web' ? 'modal-container' : undefined}
     >
       <View style={styles.header}>
         <ThemedText type="title" style={styles.title}>
@@ -730,7 +711,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
         <TouchableOpacity 
           onPress={onCancel} 
           style={styles.closeButton}
-          className={Platform.OS === 'web' ? 'plan-form-close-button' : undefined}
         >
           <Ionicons name="close" size={24} color={webTextColor} />
         </TouchableOpacity>
@@ -749,7 +729,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
               style={[styles.button, styles.secondaryButton, { borderColor }]}
               onPress={handlePrevious}
               disabled={isLoading}
-              className={Platform.OS === 'web' ? 'plan-form-button' : undefined}
             >
               <ThemedText style={styles.buttonText}>Previous</ThemedText>
             </TouchableOpacity>
@@ -760,7 +739,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
               style={[styles.button, styles.primaryButton, { backgroundColor: accentColor }]}
               onPress={handleNext}
               disabled={isLoading}
-              className={Platform.OS === 'web' ? 'plan-form-button' : undefined}
             >
               <ThemedText style={[styles.buttonText, { color: 'white' }]}>Next</ThemedText>
             </TouchableOpacity>
@@ -769,7 +747,6 @@ export function PlanForm({ plan, onSave, onCancel, isVisible }: PlanFormProps) {
               style={[styles.button, styles.primaryButton, { backgroundColor: accentColor }]}
               onPress={handleSave}
               disabled={isLoading}
-              className={Platform.OS === 'web' ? 'plan-form-button' : undefined}
             >
               <ThemedText style={[styles.buttonText, { color: 'white' }]}>
                 {isLoading ? 'Saving...' : plan ? 'Update Plan' : 'Create Plan'}

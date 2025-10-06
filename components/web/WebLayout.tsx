@@ -72,8 +72,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     flexDirection: 'row',
-    height: '100vh',
-    width: '100vw',
+    ...(Platform.OS === 'web' ? {
+      height: '100vh' as any,
+      width: '100vw' as any,
+    } : {
+      height: '100%',
+      width: '100%',
+    }),
     margin: 0,
     padding: 0,
   },
@@ -116,7 +121,11 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
     flexDirection: 'column',
-    height: '100vh',
+    ...(Platform.OS === 'web' ? {
+      height: '100vh' as any,
+    } : {
+      height: '100%',
+    }),
   },
   header: {
     borderBottomWidth: 1,

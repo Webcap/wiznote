@@ -232,13 +232,13 @@ export default function AdminDashboardScreen() {
       
       setMonitoring(prev => ({
         ...prev,
-        stripeGuardian: stripeGuardianStatus,
+        stripeGuardian: stripeGuardianStatus as { status: 'ready' | 'error' | 'unknown'; uptime?: number; timestamp?: string },
         lastUpdated: new Date(),
         error: null
       }));
     } catch (guardianError: unknown) {
       console.error('Error checking Stripe Guardian:', guardianError);
-      const stripeGuardianStatus = { status: 'error' };
+      const stripeGuardianStatus: { status: 'ready' | 'error' | 'unknown'; uptime?: number; timestamp?: string } = { status: 'error' };
       
       setMonitoring(prev => ({
         ...prev,
@@ -414,7 +414,6 @@ export default function AdminDashboardScreen() {
             <TouchableOpacity 
               style={styles.refreshButton}
               onPress={refreshFeatureLimits}
-              title="Refresh Feature Limits"
             >
               <Ionicons 
                 name="settings" 
@@ -789,9 +788,9 @@ export default function AdminDashboardScreen() {
                    console.error('AdminDashboard: Error syncing features:', error);
                    
                    if (Platform.OS === 'web') {
-                     showSnackbar(`Failed to sync features: ${error.message}`, 'error', 6000);
+                     showSnackbar(`Failed to sync features: ${error instanceof Error ? error.message : String(error)}`, 'error', 6000);
                    } else {
-                     Alert.alert('Error', `Failed to sync features: ${error.message}`);
+                     Alert.alert('Error', `Failed to sync features: ${error instanceof Error ? error.message : String(error)}`);
                    }
                  }
                }}

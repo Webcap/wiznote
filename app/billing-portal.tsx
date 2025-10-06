@@ -23,7 +23,7 @@ export default function BillingPortalScreen() {
   const borderColor = useThemeColor({}, 'border');
   const successColor = useThemeColor({}, 'accentSuccess');
   const warningColor = useThemeColor({}, 'accentWarning');
-  const errorColor = useThemeColor({}, 'accentError');
+  const errorColor = useThemeColor({}, 'danger');
 
   const [loading, setLoading] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);

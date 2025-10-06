@@ -308,9 +308,7 @@ export default function CreateNoteScreen() {
           error={error}
           pendingOperations={0}
           onRetry={() => {
-            if (performManualSave) {
-              handleSave();
-            }
+            handleSave();
           }}
         />
       </View>

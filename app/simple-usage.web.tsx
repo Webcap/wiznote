@@ -274,8 +274,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   webUsageGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 24,
     marginBottom: 32,
   },

@@ -153,9 +153,9 @@ export default function SupportAnalytics({ timeRange = '7d' }: SupportAnalyticsP
 
   // Get satisfaction icon
   const getSatisfactionIcon = (score: number) => {
-    if (score >= 4.5) return 'happy';
-    if (score >= 4.0) return 'neutral';
-    return 'sad';
+    if (score >= 4.5) return 'happy-outline';
+    if (score >= 4.0) return 'remove-outline';
+    return 'sad-outline';
   };
 
   // Get change color

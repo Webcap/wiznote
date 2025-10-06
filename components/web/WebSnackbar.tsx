@@ -170,7 +170,7 @@ export const WebSnackbar: React.FC<SnackbarProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    position: 'fixed',
+    position: 'absolute' as const,
     bottom: 20,
     left: 20,
     right: 20,
