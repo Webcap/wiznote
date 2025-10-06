@@ -34,8 +34,12 @@ USAGE_RESET_API_KEY=your-secret-api-key (optional, for manual resets)
 In your Netlify dashboard:
 
 1. Go to **Functions** → **Scheduled Functions**
-2. Enable scheduled functions for your site
-3. The monthly reset will automatically run on the 1st of every month at 2 AM UTC
+2. Click **"Enable scheduled functions"**
+3. Add a new scheduled function:
+   - **Function**: `monthly-reset`
+   - **Schedule**: `0 2 1 * *` (1st of every month at 2 AM UTC)
+   - **Description**: "Monthly usage reset"
+4. Save the configuration
 
 ### 4. Test the System
 
@@ -95,9 +99,13 @@ Check the function logs in your Netlify dashboard:
 
 ### Common Issues
 
-1. **Function not running**: Check that scheduled functions are enabled in Netlify
+1. **Function not running**: 
+   - Check that scheduled functions are enabled in Netlify dashboard
+   - Verify the function name matches exactly: `monthly-reset`
+   - Ensure the schedule is set correctly: `0 2 1 * *`
 2. **Database errors**: Verify Supabase environment variables are correct
 3. **No records reset**: This is normal if all usage is current
+4. **Build failures**: Make sure `netlify.toml` doesn't reference plugins that aren't installed
 
 ### Manual Testing
 
