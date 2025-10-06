@@ -1,7 +1,7 @@
 [build]
-  command = "npm run build"
+  command = "npx expo export --platform web"
   functions = "netlify/functions"
-  publish = ".next"
+  publish = "dist"
 
 [functions]
   node_bundler = "esbuild"
