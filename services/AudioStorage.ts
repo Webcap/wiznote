@@ -111,7 +111,7 @@ export class AudioStorage {
       } else {
         // For native platforms, use FileSystem
         const base64Audio = await FileSystem.readAsStringAsync(audioUri, {
-          encoding: FileSystem.EncodingType.Base64,
+          encoding: 'base64' as any,
         });
         audioData = this.base64ToUint8Array(base64Audio);
       }
@@ -269,7 +269,7 @@ export class AudioStorage {
 
       // Update the specific audio file
       const currentAudioFiles = note.audio_files || [];
-      const updatedAudioFiles = currentAudioFiles.map(audioFile => {
+      const updatedAudioFiles = currentAudioFiles.map((audioFile: AudioFile) => {
         if (audioFile.id === audioFileId) {
           return {
             ...audioFile,
@@ -312,7 +312,7 @@ export class AudioStorage {
       if (error) throw error;
 
       const audioFiles = note.audio_files || [];
-      return audioFiles.find(audio => audio.id === audioFileId) || null;
+      return audioFiles.find((audio: AudioFile) => audio.id === audioFileId) || null;
     } catch (error) {
       console.error('AudioStorage: Error getting audio file:', error);
       return null;
@@ -348,7 +348,7 @@ export class AudioStorage {
       if (fetchError) throw fetchError;
 
       const currentAudioFiles = note.audio_files || [];
-      const updatedAudioFiles = currentAudioFiles.filter(audio => audio.id !== audioFileId);
+      const updatedAudioFiles = currentAudioFiles.filter((audio: AudioFile) => audio.id !== audioFileId);
 
       const { error: updateError } = await supabase
         .from('notes')

@@ -212,8 +212,8 @@ function AppContent() {
               <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
                 <ThemedView style={{ 
                   flex: 1, 
-                  minHeight: '100vh',
-                  width: '100vw',
+                  minHeight: '100%',
+                  width: '100%',
                   margin: 0,
                   padding: 0
                 }}>
@@ -228,7 +228,6 @@ function AppContent() {
                     <Stack.Screen name="flashcards" options={{ 
                       headerShown: false,
                       header: () => null,
-                      headerStyle: { height: 0 },
                       headerTitle: '',
                       headerBackTitle: '',
                       headerBackVisible: false

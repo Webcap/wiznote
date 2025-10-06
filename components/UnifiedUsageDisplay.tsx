@@ -27,7 +27,7 @@ export function UnifiedUsageDisplay({
   const borderColor = useThemeColor({}, 'border');
   const successColor = useThemeColor({}, 'success');
   const warningColor = useThemeColor({}, 'warning');
-  const errorColor = useThemeColor({}, 'error');
+  const errorColor = useThemeColor({}, 'danger');
 
   const getUsageColor = (usagePercentage: number, isUnlimited: boolean) => {
     if (isUnlimited) return successColor;

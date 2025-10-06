@@ -70,13 +70,6 @@ export const supabase = createClient(
       storageKey: 'supabase.auth.token',
       // Disable debug mode to suppress GoTrueClient console logs
       debug: false,
-      // Optimize session handling
-      onAuthStateChange: (event, session) => {
-        // Only log auth state changes in development, and suppress GoTrueClient logs
-        if (process.env.NODE_ENV === 'development' && enableAuthStateLogs) {
-          console.log('Supabase auth state change:', event, session?.user?.id);
-        }
-      },
     },
     // Optimize global configuration
     global: {
@@ -93,7 +86,7 @@ export const supabase = createClient(
     // Platform-specific optimizations
     ...(Platform.OS === 'web' && {
       // Web-specific optimizations
-      fetch: (url, options = {}) => {
+      fetch: (url: string, options: RequestInit = {}) => {
         // Add timeout for web requests
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout

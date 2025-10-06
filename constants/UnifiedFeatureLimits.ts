@@ -326,7 +326,7 @@ export class UnifiedFeatureLimitManager {
     featureId: string,
     currentUsage: number,
     isPremium: boolean,
-    featureFlags?: Record<string, boolean>
+    featureFlags?: Record<string, { enabled: boolean }>
   ): { canUse: boolean; reason?: string; limit: number | 'unlimited' } {
     const limit = this.getFeatureLimit(featureId);
     

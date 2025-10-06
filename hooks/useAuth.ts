@@ -38,7 +38,7 @@ export const useAuth = () => {
     pendingOperations: 0,
   };
 
-  const authStateChangeHandlerRef = useRef<(user: User | null) => void>();
+  const authStateChangeHandlerRef = useRef<((user: User | null) => void) | undefined>(undefined);
 
   // Set up error handler for BetterAuthService
   useEffect(() => {
@@ -75,7 +75,9 @@ export const useAuth = () => {
       }));
     };
 
-    betterAuthService.setAuthStateChangeHandler(authStateChangeHandlerRef.current);
+    if (authStateChangeHandlerRef.current) {
+      betterAuthService.setAuthStateChangeHandler(authStateChangeHandlerRef.current);
+    }
 
     // Cleanup on unmount
     return () => {
@@ -417,7 +419,7 @@ export const useAuth = () => {
   // Check if user has specific permission
   const hasPermission = useCallback((permission: string): boolean => {
     if (!authState.user?.permissions) return false;
-    return authState.user.permissions[permission] === true;
+    return (authState.user.permissions as any)[permission] === true;
   }, [authState.user]);
 
   // Check if user has specific role
@@ -494,10 +496,10 @@ export const useAuth = () => {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // Try to load current user again
-      const user = await loadCurrentUser();
+      await loadCurrentUser();
       
-      console.log('useAuth: Session refresh complete, user:', user?.id);
-      return user;
+      console.log('useAuth: Session refresh complete, user:', authStateRef.current.user?.id);
+      return authStateRef.current.user;
     } catch (error) {
       console.error('useAuth: Error force refreshing session:', error);
       setAuthState(prev => ({

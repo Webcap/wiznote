@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export class FeatureCacheService {
   private memoryCache = new Map<string, any>();
   private cacheExpiry = new Map<string, number>();
-  private readonly DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
-  private readonly CACHE_PREFIX = 'feature_cache_';
+  private DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
+  private CACHE_PREFIX = 'feature_cache_';
 
   /**
    * Get a value from cache
@@ -58,6 +58,22 @@ export class FeatureCacheService {
       }));
     } catch (error) {
       console.warn('FeatureCacheService: Cache write error:', error);
+    }
+  }
+
+  /**
+   * Remove a specific key from cache
+   */
+  async remove(key: string): Promise<void> {
+    // Remove from memory cache
+    this.memoryCache.delete(key);
+    this.cacheExpiry.delete(key);
+
+    // Remove from AsyncStorage
+    try {
+      await AsyncStorage.removeItem(`${this.CACHE_PREFIX}${key}`);
+    } catch (error) {
+      console.warn('FeatureCacheService: Cache remove error:', error);
     }
   }
 

@@ -17,6 +17,13 @@ export default ({ config }) => {
   return {
     ...config,
     name: getAppName(),
+    scheme: 'wiznote',
+    icon: './assets/icon.png',
+    splash: {
+      image: './assets/splash-icon.png',
+      resizeMode: 'contain',
+      backgroundColor: IS_DEV ? '#1A1A1A' : '#ffffff'
+    },
     ios: {
       ...config.ios,
       bundleIdentifier: getUniqueIdentifier(),
@@ -35,6 +42,11 @@ export default ({ config }) => {
     },
     android: {
       ...config.android,
+      package: getUniqueIdentifier(),
+      adaptiveIcon: {
+        foregroundImage: './assets/adaptive-icon.png',
+        backgroundColor: IS_DEV ? '#1A1A1A' : '#ffffff'
+      },
       permissions: [
         ...(config.android?.permissions || []),
         'android.permission.INTERNET',

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+// @ts-ignore - react-dom types not available in React Native environment
 import { createPortal } from 'react-dom';
 import { Animated, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../hooks/useAuth';
@@ -28,7 +29,7 @@ export function UserSidebar({
   const [showCreateDropdown, setShowCreateDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef<View>(null);
-  const buttonRef = useRef<TouchableOpacity>(null);
+  const buttonRef = useRef<typeof TouchableOpacity>(null);
   const dropdownAnim = useRef(new Animated.Value(0)).current;
 
   if (Platform.OS !== 'web') {
@@ -40,8 +41,8 @@ export function UserSidebar({
     if (
       dropdownRef.current && 
       buttonRef.current &&
-      !dropdownRef.current.contains(event.target as Node) &&
-      !buttonRef.current.contains(event.target as Node)
+      !(dropdownRef.current as any).contains(event.target as Node) &&
+      !(buttonRef.current as any).contains(event.target as Node)
     ) {
       setShowCreateDropdown(false);
     }
@@ -253,7 +254,7 @@ export function UserSidebar({
       <View style={styles.quickActions}>
         <View style={styles.createButtonContainer}>
           <TouchableOpacity 
-            ref={buttonRef}
+            ref={buttonRef as any}
             style={styles.createButton} 
             onPress={handleCreateDropdownToggle}
             accessibilityLabel="Create new note"
@@ -411,8 +412,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     justifyContent: 'space-between',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
+    ...(Platform.OS === 'web' ? {
+      cursor: 'pointer',
+      transition: 'all 0.2s ease',
+    } : {}),
     ...(Platform.OS === 'web' ? {
       ':hover': {
         backgroundColor: '#5A4ABD',
@@ -442,13 +445,15 @@ const styles = StyleSheet.create({
   },
   chevronIcon: {
     marginLeft: 4,
-    transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    ...(Platform.OS === 'web' ? {
+      transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    } : {}),
     ...(Platform.OS === 'web' ? {
       transform: 'rotate(0deg)',
     } : {}),
   },
   dropdownMenu: {
-    position: 'fixed',
+    position: 'absolute' as const,
     top: 0,
     left: 0,
     marginTop: 0,

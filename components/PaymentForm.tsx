@@ -33,7 +33,7 @@ export function PaymentForm({
   const cardBackground = useThemeColor({}, 'card');
   const textColor = useThemeColor({}, 'text');
   const accentColor = useThemeColor({}, 'accentPrimary');
-  const mutedTextColor = useThemeColor({}, 'muted');
+  const mutedTextColor = useThemeColor({}, 'textMuted');
 
   const handleSubscribe = async () => {
     console.log('Subscribe button clicked!');
@@ -183,7 +183,7 @@ export function PaymentForm({
         disabled={isLoading || isPremium}
       >
         {isLoading ? (
-          <LoadingSpinner size="small" color="#FFFFFF" />
+          <LoadingSpinner size={20} color="#FFFFFF" />
         ) : isPremium ? (
           <>
             <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />

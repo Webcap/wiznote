@@ -34,10 +34,10 @@ export default function QuizCreationScreen() {
   const [sourceType, setSourceType] = useState<ContentSourceType>('note');
 
   // Theme colors
-  const backgroundColor = useThemeColor('background');
-  const textColor = useThemeColor('text');
-  const primaryColor = useThemeColor('primary');
-  const borderColor = useThemeColor('border');
+  const backgroundColor = useThemeColor({}, 'background');
+  const textColor = useThemeColor({}, 'text');
+  const primaryColor = useThemeColor({}, 'primary');
+  const borderColor = useThemeColor({}, 'border');
 
   useEffect(() => {
     if (!noteId) {

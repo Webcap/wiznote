@@ -46,9 +46,9 @@ export const AudioModuleDebug: React.FC = () => {
       try {
         const audioModule = await import('expo-audio');
         console.log('Dynamic import result:', audioModule);
-        console.log('Dynamic API:', typeof audioModule.default || typeof audioModule.Audio);
+        console.log('Dynamic API:', typeof audioModule.default || typeof (audioModule as any).Audio);
         
-        const AudioObj = audioModule.default || audioModule.Audio;
+        const AudioObj = audioModule.default || (audioModule as any).Audio;
         console.log('Dynamic Audio object:', AudioObj);
         console.log('Dynamic Audio type:', typeof AudioObj);
         
@@ -59,8 +59,8 @@ export const AudioModuleDebug: React.FC = () => {
           const methods = ['getPermissionsAsync', 'requestPermissionsAsync', 'setAudioModeAsync'];
           const methodCheck = methods.map(method => ({
             method,
-            exists: typeof AudioObj[method] === 'function',
-            type: typeof AudioObj[method]
+            exists: typeof (AudioObj as any)[method] === 'function',
+            type: typeof (AudioObj as any)[method]
           }));
           
           console.log('Method check:', methodCheck);
@@ -83,16 +83,16 @@ export const AudioModuleDebug: React.FC = () => {
       } catch (error) {
         console.error('Dynamic import failed:', error);
         setDebugInfo({
-          error: error.message,
-          stack: error.stack
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
         });
       }
 
     } catch (error) {
       console.error('Debug test failed:', error);
       setDebugInfo({
-        error: error.message,
-            stack: error.stack
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
       });
     } finally {
       setIsLoading(false);
@@ -108,7 +108,7 @@ Named: ${debugInfo.importMethods?.named ? 'OK' : 'FAILED'}
 Dynamic: ${debugInfo.importMethods?.dynamic ? 'OK' : 'FAILED'}
 
 Method Check:
-${debugInfo.methodCheck?.map(m => `${m.method}: ${m.exists ? '✓' : '✗'}`).join('\n')}
+${debugInfo.methodCheck?.map((m: any) => `${m.method}: ${m.exists ? '✓' : '✗'}`).join('\n')}
 
 Error: ${debugInfo.error || 'None'}
     `.trim());

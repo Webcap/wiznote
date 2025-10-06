@@ -30,7 +30,7 @@ export function SubscriptionManagementCard({
   const borderColor = useThemeColor({}, 'border');
   const successColor = useThemeColor({}, 'accentSuccess');
   const warningColor = useThemeColor({}, 'accentWarning');
-  const errorColor = useThemeColor({}, 'accentError');
+  const errorColor = useThemeColor({}, 'danger');
 
   const [subscription, setSubscription] = useState<SubscriptionDetails | null>(null);
   const [loading, setLoading] = useState(true);

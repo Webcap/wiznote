@@ -121,7 +121,7 @@ export class QuizService {
       }
 
       // Track usage
-      await simpleUsageService.incrementUsage(options.userId, 'ai_quiz');
+      await simpleUsageService.recordUsage(options.userId, 'ai_quiz', 1);
 
       console.log('✅ QuizService: Quiz created successfully:', quizData.id);
       
@@ -170,7 +170,7 @@ export class QuizService {
           throw new Error(`Failed to fetch questions: ${questionsError.message}`);
         }
 
-        questions = questionsData.map(this.mapDatabaseQuestionToQuestion);
+        questions = questionsData.map(q => this.mapDatabaseQuestionToQuestion(q, quizId));
 
         // Get tags
         const { data: tagsData, error: tagsError } = await supabase
@@ -230,13 +230,6 @@ export class QuizService {
         query = query.lte('created_at', filters.createdBefore.toISOString());
       }
 
-      // Get total count
-      const { count, error: countError } = await query.count();
-      if (countError) {
-        console.error('Error counting quizzes:', countError);
-        throw new Error(`Failed to count quizzes: ${countError.message}`);
-      }
-
       // Get paginated results
       const { data: quizzesData, error: quizzesError } = await query
         .order('created_at', { ascending: false })
@@ -247,7 +240,22 @@ export class QuizService {
         throw new Error(`Failed to fetch quizzes: ${quizzesError.message}`);
       }
 
-      const quizzes = quizzesData.map(this.mapDatabaseQuizToQuiz);
+      // Get total count separately
+      const { count, error: countError } = await supabase
+        .from('quizzes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'active');
+
+      if (countError) {
+        console.error('Error counting quizzes:', countError);
+      }
+
+      const quizzes = quizzesData.map((quizData: any) => ({
+        ...this.mapDatabaseQuizToQuiz(quizData),
+        questions: [], // Questions are loaded separately when needed
+        tags: [], // Tags are loaded separately when needed
+      }));
       const hasMore = offset + limit < (count || 0);
 
       return {
@@ -453,14 +461,16 @@ export class QuizService {
       sourceContent: dbQuiz.source_content,
       generationOptions: dbQuiz.generation_options,
       status: dbQuiz.status,
+      tags: [], // Tags are loaded separately
       createdAt: new Date(dbQuiz.created_at),
       updatedAt: new Date(dbQuiz.updated_at),
     };
   }
 
-  private mapDatabaseQuestionToQuestion(dbQuestion: any): QuizQuestionWithoutQuiz {
+  private mapDatabaseQuestionToQuestion(dbQuestion: any, quizId?: string): QuizQuestion {
     return {
       id: dbQuestion.id,
+      quizId: quizId || dbQuestion.quiz_id,
       questionText: dbQuestion.question_text,
       questionType: dbQuestion.question_type,
       correctAnswer: dbQuestion.correct_answer,

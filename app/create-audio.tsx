@@ -56,7 +56,7 @@ export default function CreateAudioNoteScreen() {
 
   // Update canSave based on content
   useEffect(() => {
-    const hasContent = title.trim() || hasRecording;
+    const hasContent = Boolean(title.trim()) || hasRecording;
     setCanSave(hasContent && !isLoading);
   }, [title, hasRecording, isLoading]);
 
@@ -286,7 +286,7 @@ export default function CreateAudioNoteScreen() {
                 <VoiceRecorderSimple
                   onRecordingComplete={handleRecordingComplete}
                   userId={userId}
-                  noteId={noteId}
+                  noteId={noteId || undefined}
                   onProgress={setProgress}
                 />
               </ThemedView>
@@ -412,7 +412,7 @@ export default function CreateAudioNoteScreen() {
               <VoiceRecorderSimple
                 onRecordingComplete={handleRecordingComplete}
                 userId={userId}
-                noteId={noteId}
+                noteId={noteId || undefined}
                 onProgress={setProgress}
               />
             </View>

@@ -55,7 +55,7 @@ export class DatabaseMigrationService {
     } catch (error) {
       console.error('DatabaseMigrationService: Migration failed:', error);
       result.success = false;
-      result.errors.push(`Migration failed: ${error.message}`);
+      result.errors.push(`Migration failed: ${error instanceof Error ? error.message : String(error)}`);
       return result;
     }
   }
@@ -83,7 +83,7 @@ export class DatabaseMigrationService {
         result.tablesUpdated.push('user_feature_usage');
       }
     } catch (error) {
-      result.errors.push(`Error ensuring user_feature_usage table: ${error.message}`);
+      result.errors.push(`Error ensuring user_feature_usage table: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -107,7 +107,7 @@ export class DatabaseMigrationService {
         result.tablesUpdated.push('feature_flags');
       }
     } catch (error) {
-      result.errors.push(`Error ensuring feature_flags table: ${error.message}`);
+      result.errors.push(`Error ensuring feature_flags table: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -131,7 +131,7 @@ export class DatabaseMigrationService {
         result.tablesUpdated.push('feature_limits');
       }
     } catch (error) {
-      result.errors.push(`Error ensuring feature_limits table: ${error.message}`);
+      result.errors.push(`Error ensuring feature_limits table: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -142,7 +142,7 @@ export class DatabaseMigrationService {
       console.log('DatabaseMigrationService: Index creation requires manual SQL execution');
       result.warnings.push('Index creation requires manual SQL execution');
     } catch (error) {
-      result.errors.push(`Error creating indexes: ${error.message}`);
+      result.errors.push(`Error creating indexes: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -153,7 +153,7 @@ export class DatabaseMigrationService {
       console.log('DatabaseMigrationService: RLS policy setup requires manual SQL execution');
       result.warnings.push('RLS policy setup requires manual SQL execution');
     } catch (error) {
-      result.errors.push(`Error setting up RLS policies: ${error.message}`);
+      result.errors.push(`Error setting up RLS policies: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -220,12 +220,12 @@ export class DatabaseMigrationService {
             health.tables[table.key] = true;
           }
         } catch (err) {
-          health.errors.push(`Table ${table.name} not accessible: ${err.message}`);
+          health.errors.push(`Table ${table.name} not accessible: ${err instanceof Error ? err.message : String(err)}`);
         }
       }
 
     } catch (error) {
-      health.errors.push(`Database health check failed: ${error.message}`);
+      health.errors.push(`Database health check failed: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     return health;

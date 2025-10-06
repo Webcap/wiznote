@@ -203,7 +203,7 @@ export class SupportService {
           
           currentUsage[limit.featureId] = usageCount;
           
-          if (limit.freeUserLimit !== 'unlimited') {
+          if (typeof limit.freeUserLimit === 'number') {
             const remaining = Math.max(0, limit.freeUserLimit - usageCount);
             remainingQuota[limit.featureId] = remaining;
             
@@ -214,12 +214,12 @@ export class SupportService {
               );
             }
           } else {
-            remainingQuota[limit.featureId] = 'unlimited';
+            remainingQuota[limit.featureId] = 'unlimited' as any;
           }
         } catch (error) {
           console.warn(`SupportService: Could not get usage for feature ${limit.featureId}:`, error);
           currentUsage[limit.featureId] = 0;
-          remainingQuota[limit.featureId] = limit.freeUserLimit;
+          remainingQuota[limit.featureId] = typeof limit.freeUserLimit === 'number' ? limit.freeUserLimit : 'unlimited' as any;
         }
       }
 
@@ -443,7 +443,7 @@ export class SupportService {
       }
 
       const currentUsage = usage?.currentPeriod?.usage || 0;
-      const remaining = limit.freeUserLimit === 'unlimited' ? 'unlimited' : Math.max(0, limit.freeUserLimit - currentUsage);
+      const remaining: number | 'unlimited' = typeof limit.freeUserLimit === 'number' ? Math.max(0, limit.freeUserLimit - currentUsage) : 'unlimited';
 
       // Get cache status
       const cacheStatus = await this.getCacheStatus(featureId);
@@ -463,7 +463,7 @@ export class SupportService {
         currentState: {
           limit: limit.freeUserLimit,
           usage: currentUsage,
-          remaining,
+          remaining: remaining as number,
           lastReset: usage?.lastReset || new Date(),
           nextReset: this.calculateNextReset(limit.freeUserPeriod),
         },
@@ -681,8 +681,8 @@ export class SupportService {
       const activityList = (activity || []).map(item => {
         const limit = item.feature_limits as any;
         const usageCount = item.usage_count;
-        const remaining = limit.free_user_limit === 'unlimited' ? 'unlimited' : 
-          Math.max(0, limit.free_user_limit - usageCount);
+        const remaining: number | 'unlimited' = typeof limit.free_user_limit === 'number' ? 
+          Math.max(0, limit.free_user_limit - usageCount) : 'unlimited';
 
         return {
           featureId: item.feature_id,
@@ -784,7 +784,7 @@ export class SupportService {
         const usageCount = usage.usage_count;
         const limitValue = limit.freeUserLimit;
 
-        if (limitValue === 'unlimited') continue;
+        if (typeof limitValue !== 'number') continue;
 
         // High usage alert (80% of limit)
         if (usageCount >= limitValue * 0.8 && usageCount < limitValue) {

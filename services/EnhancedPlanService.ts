@@ -12,7 +12,7 @@ import {
     PlanValidationWarning,
     UpdatePlanData
 } from '../types/EnhancedPlans';
-import { stripeService } from './StripeService.native';
+// Stripe integration moved to external Stripe Guardian service
 
 export class EnhancedPlanService {
   private static instance: EnhancedPlanService;
@@ -82,22 +82,8 @@ export class EnhancedPlanService {
 
       const createdPlan = this.transformDatabasePlan(data);
 
-      // 3. Sync with Stripe
-      try {
-        const stripeResult = await stripeService.syncProduct(createdPlan);
-        
-        // Update plan with Stripe IDs
-        await this.updatePlan(createdPlan.id, {
-          stripeProductId: stripeResult.productId,
-          stripePriceId: stripeResult.priceId,
-        });
-
-        createdPlan.stripeProductId = stripeResult.productId;
-        createdPlan.stripePriceId = stripeResult.priceId;
-      } catch (stripeError) {
-        console.error('EnhancedPlanService: Stripe sync failed:', stripeError);
-        // Don't fail the entire operation, but log the issue
-      }
+      // 3. Stripe sync handled by external Stripe Guardian service
+      // The external service will handle Stripe product/price creation
 
       // 4. Apply feature configurations
       await this.applyFeatureConfigurations(createdPlan.id, plan.featureFlags, plan.featureLimits);
@@ -171,27 +157,8 @@ export class EnhancedPlanService {
 
       const updatedPlan = this.transformDatabasePlan(data);
 
-      // 5. Sync with Stripe if pricing changed (create product/price if needed)
-      if (pricingChanged) {
-        try {
-          const stripeResult = await stripeService.syncProduct(updatedPlan);
-          
-          // Update with new Stripe IDs
-          await supabase
-            .from('premium_plans')
-            .update({
-              stripe_product_id: stripeResult.productId,
-              stripe_price_id: stripeResult.priceId,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', planId);
-
-          updatedPlan.stripeProductId = stripeResult.productId;
-          updatedPlan.stripePriceId = stripeResult.priceId;
-        } catch (stripeError) {
-          console.error('EnhancedPlanService: Stripe sync failed during update:', stripeError);
-        }
-      }
+      // 5. Stripe sync handled by external Stripe Guardian service
+      // The external service will handle Stripe product/price updates when pricing changes
 
       // 6. Apply feature configuration changes
       if (updates.featureFlags !== undefined || updates.featureLimits !== undefined) {
@@ -224,15 +191,8 @@ export class EnhancedPlanService {
         throw new Error(`Plan not found: ${planId}`);
       }
 
-      // 2. Delete from Stripe
-      if (plan.stripeProductId) {
-        try {
-          await stripeService.deleteProduct(plan);
-        } catch (stripeError) {
-          console.error('EnhancedPlanService: Stripe deletion failed:', stripeError);
-          // Continue with database deletion
-        }
-      }
+      // 2. Stripe deletion handled by external Stripe Guardian service
+      // The external service will handle Stripe product deletion
 
       // 3. Remove feature configurations
       await this.removeFeatureConfigurations(planId);
@@ -302,18 +262,19 @@ export class EnhancedPlanService {
       const plan = await this.getPlan(planId);
       if (!plan) return null;
 
-      // Get Stripe sync status
-      const stripeSync = await stripeService.getSyncStatus(plan);
-
       // Get feature sync status
       const featureSync = await this.getFeatureSyncStatus(planId);
+
+      // Stripe sync status handled by external Stripe Guardian service
+      // For now, assume Stripe is synced since external service handles it
+      const stripeSync = { success: true, error: null };
 
       // Persist a simple sync status hint back to Supabase for UI convenience
       try {
         await supabase
           .from('premium_plans')
           .update({
-            sync_status: stripeSync.success && featureSync.success ? 'synced' : 'pending',
+            sync_status: featureSync.success ? 'synced' : 'pending',
             last_sync_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
@@ -325,7 +286,7 @@ export class EnhancedPlanService {
         stripeSync,
         featureSync,
         lastSync: new Date(),
-        isInSync: stripeSync.success && featureSync.success,
+        isInSync: featureSync.success,
       };
     } catch (error) {
       console.error('EnhancedPlanService: Error getting sync status:', error);

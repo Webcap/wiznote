@@ -113,22 +113,22 @@ export default function FeatureLimitsScreen() {
       
       // Remove other undefined values
       Object.keys(cleanedEditForm).forEach(key => {
-        if (cleanedEditForm[key] === undefined) {
-          delete cleanedEditForm[key];
+        if (cleanedEditForm[key as keyof typeof cleanedEditForm] === undefined) {
+          delete cleanedEditForm[key as keyof typeof cleanedEditForm];
         }
       });
       
       // Create a proper FeatureLimit object with camelCase properties
       const updatedLimit: FeatureLimit = {
         ...limit,
-        freeUserLimit: cleanedEditForm.freeUserLimit,
-        freeUserPeriod: cleanedEditForm.freeUserPeriod,
-        freeUserLimitType: cleanedEditForm.freeUserLimitType,
-        premiumUserLimit: cleanedEditForm.premiumUserLimit,
-        premiumUserPeriod: cleanedEditForm.premiumUserPeriod,
-        premiumUserLimitType: cleanedEditForm.premiumUserLimitType,
-        isActive: cleanedEditForm.isActive,
-        priority: cleanedEditForm.priority,
+        freeUserLimit: cleanedEditForm.freeUserLimit || limit.freeUserLimit,
+        freeUserPeriod: cleanedEditForm.freeUserPeriod || limit.freeUserPeriod,
+        freeUserLimitType: cleanedEditForm.freeUserLimitType || limit.freeUserLimitType,
+        premiumUserLimit: cleanedEditForm.premiumUserLimit || limit.premiumUserLimit,
+        premiumUserPeriod: cleanedEditForm.premiumUserPeriod || limit.premiumUserPeriod,
+        premiumUserLimitType: cleanedEditForm.premiumUserLimitType || limit.premiumUserLimitType,
+        isActive: cleanedEditForm.isActive !== undefined ? cleanedEditForm.isActive : limit.isActive,
+        priority: cleanedEditForm.priority || limit.priority,
         // Add session limits if they exist
         ...(cleanedEditForm.freeUserSessionLimit !== undefined && { 
           freeUserSessionLimit: cleanedEditForm.freeUserSessionLimit 
@@ -223,7 +223,7 @@ export default function FeatureLimitsScreen() {
               console.log('FeatureLimitsScreen: Initialization completed successfully');
             } catch (error) {
               console.error('FeatureLimitsScreen: Initialization failed:', error);
-              Alert.alert('Error', `Failed to initialize default limits: ${error.message}`);
+              Alert.alert('Error', `Failed to initialize default limits: ${error instanceof Error ? error.message : String(error)}`);
             } finally {
               setIsInitializing(false);
             }

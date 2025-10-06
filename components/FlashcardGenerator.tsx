@@ -74,11 +74,11 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
   // Safe theme color access with fallbacks
   let backgroundColor, cardBackground, textColor, mutedTextColor, primaryColor;
   try {
-    backgroundColor = useThemeColor('background') || '#FFFFFF';
-    cardBackground = useThemeColor('card') || '#F2F2F7';
-    textColor = useThemeColor('text') || '#000000';
-    mutedTextColor = useThemeColor('mutedText') || '#8E8E93';
-    primaryColor = useThemeColor('primary') || '#007AFF';
+    backgroundColor = useThemeColor({}, 'background') || '#FFFFFF';
+    cardBackground = useThemeColor({}, 'card') || '#F2F2F7';
+    textColor = useThemeColor({}, 'text') || '#000000';
+    mutedTextColor = useThemeColor({}, 'textMuted') || '#8E8E93';
+    primaryColor = useThemeColor({}, 'accentPrimary') || '#007AFF';
     console.log('Theme colors loaded successfully');
   } catch (error) {
     console.error('Error loading theme colors:', error);
@@ -463,7 +463,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
                         <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                       )}
                     </View>
-                    <ThemedText style={[styles.webCheckboxText, { color: textColor }]}>
+                    <ThemedText style={[styles.webCheckboxLabel, { color: textColor }]}>
                       Include explanations for each flashcard
                     </ThemedText>
                   </TouchableOpacity>
@@ -653,7 +653,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
                       <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                     )}
                   </View>
-                  <ThemedText style={[styles.checkboxText, { color: textColor }]}>
+                  <ThemedText style={[styles.checkboxLabel, { color: textColor }]}>
                     Include explanations for each flashcard
                   </ThemedText>
                 </TouchableOpacity>
@@ -889,7 +889,7 @@ const styles = StyleSheet.create({
   
   // Web-optimized styles
   webOverlay: {
-    position: 'fixed',
+    position: 'absolute' as const,
     top: 0,
     left: 0,
     right: 0,
@@ -898,25 +898,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
-    ...(Platform.OS === 'web' ? {
-      position: 'fixed',
-    } : {
-      position: 'absolute',
-    }),
   },
   webModal: {
     width: Platform.OS === 'web' ? 600 : '100%',
-    maxWidth: '90vw',
-    maxHeight: '90vh',
+    maxWidth: '100%',
+    maxHeight: '100%',
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: Platform.OS === 'web' ? '#1a1a1a' : undefined,
-    boxShadow: Platform.OS === 'web' ? '0 20px 60px rgba(0, 0, 0, 0.3)' : undefined,
-    shadowColor: Platform.OS === 'web' ? undefined : '#000',
-    shadowOffset: Platform.OS === 'web' ? undefined : { width: 0, height: 20 },
-    shadowOpacity: Platform.OS === 'web' ? undefined : 0.3,
-    shadowRadius: Platform.OS === 'web' ? undefined : 60,
-    elevation: Platform.OS === 'web' ? undefined : 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.3,
+    shadowRadius: 60,
+    elevation: 20,
   },
   webHeader: {
     flexDirection: 'row',
@@ -1015,8 +1009,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     minWidth: 100,
     alignItems: 'center',
-    cursor: Platform.OS === 'web' ? 'pointer' : undefined,
-    transition: Platform.OS === 'web' ? 'all 0.2s ease' : undefined,
   },
   webDifficultyText: {
     fontSize: 14,
@@ -1065,8 +1057,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
-    cursor: Platform.OS === 'web' ? 'pointer' : undefined,
-    transition: Platform.OS === 'web' ? 'all 0.2s ease' : undefined,
   },
   webGenerateButtonText: {
     color: '#FFFFFF',

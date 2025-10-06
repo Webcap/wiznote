@@ -379,7 +379,7 @@ export class BetterAuthService {
       // Create user object
       const user: User = {
         id: data.user.id,
-        email: data.user.email,
+        email: data.user.email || '',
         displayName: userProfile.displayName || data.user.email?.split('@')[0],
         photoURL: data.user.user_metadata?.avatar_url,
         role: userProfile.role,
@@ -487,8 +487,8 @@ export class BetterAuthService {
       // Force clear any remaining session data
       if (Platform.OS === 'web') {
         try {
-          // Force clear the session by setting it to null
-          await supabase.auth.setSession(null);
+          // Force clear the session by setting it to empty tokens
+          await supabase.auth.setSession({ access_token: '', refresh_token: '' });
         } catch (clearError) {
           console.log('ℹ️ BetterAuthService: Error clearing session (expected):', clearError);
         }
@@ -586,7 +586,7 @@ export class BetterAuthService {
           console.log('BetterAuthService: Loaded user profile successfully');
           const user = {
             id: session.user.id,
-            email: session.user.email,
+            email: session.user.email || '',
             displayName: userProfile.displayName || session.user.email?.split('@')[0],
             photoURL: session.user.user_metadata?.avatar_url,
             role: userProfile.role,
@@ -608,7 +608,7 @@ export class BetterAuthService {
           const minimalProfile = await this.createMinimalUserProfile(session.user);
           const user = {
             id: session.user.id,
-            email: session.user.email,
+            email: session.user.email || '',
             displayName: minimalProfile.displayName || session.user.email?.split('@')[0],
             photoURL: session.user.user_metadata?.avatar_url,
             role: minimalProfile.role,
@@ -637,7 +637,7 @@ export class BetterAuthService {
     }
   }
 
-  private async loadUserProfile(userId: string): Promise<UserProfile | null> {
+  private async loadUserProfile(userId: string): Promise<any | null> {
     try {
       console.log('BetterAuthService: Loading user profile for:', userId);
       
@@ -666,7 +666,7 @@ export class BetterAuthService {
     }
   }
 
-  private async createUserProfile(supabaseUser: any): Promise<UserProfile> {
+  private async createUserProfile(supabaseUser: any): Promise<any> {
     try {
       console.log('Creating user profile for:', supabaseUser.id);
       console.log('User metadata:', supabaseUser.user_metadata);
@@ -747,7 +747,7 @@ export class BetterAuthService {
     }
   }
 
-  private async createMinimalUserProfile(supabaseUser: any): Promise<UserProfile> {
+  private async createMinimalUserProfile(supabaseUser: any): Promise<any> {
     try {
       console.log('Creating minimal user profile as fallback...');
       
@@ -763,7 +763,7 @@ export class BetterAuthService {
       console.log('Assigned role for minimal profile:', userRole);
       
       // Create a minimal profile object without database insertion
-      const minimalProfile: UserProfile = {
+      const minimalProfile = {
         id: supabaseUser.id,
         display_name: supabaseUser.user_metadata?.display_name || supabaseUser.email?.split('@')[0],
         role: userRole,
@@ -1024,10 +1024,19 @@ export class BetterAuthService {
 
       return (profiles || []).map(profile => ({
         id: profile.id,
+        email: profile.email || '',
         displayName: profile.display_name,
         role: profile.role,
         premium: profile.premium,
         permissions: profile.permissions,
+        preferences: profile.preferences || {
+          theme: 'auto',
+          language: 'en',
+          autoSync: true,
+          notifications: true,
+          autoKeyDetails: false,
+          autoAISummaries: false,
+        },
         lastLoginAt: profile.last_login_at ? new Date(profile.last_login_at) : new Date(),
         createdAt: new Date(profile.created_at),
         updatedAt: new Date(profile.updated_at),
@@ -1311,13 +1320,12 @@ export const betterAuthService = {
     return _betterAuthService;
   },
   // Proxy all methods to the instance
-  signUp: (...args: any[]) => betterAuthService.instance.signUp(...args),
-  signIn: (...args: any[]) => betterAuthService.instance.signIn(...args),
-  signOut: (...args: any[]) => betterAuthService.instance.signOut(...args),
-  getCurrentUser: (...args: any[]) => betterAuthService.instance.getCurrentUser(...args),
-  setErrorHandler: (...args: any[]) => betterAuthService.instance.setErrorHandler(...args),
-  setAuthStateChangeHandler: (...args: any[]) => betterAuthService.instance.setAuthStateChangeHandler(...args),
-  resetPassword: (...args: any[]) => betterAuthService.instance.resetPassword(...args),
-  updateUserPreferences: (...args: any[]) => betterAuthService.instance.updateUserPreferences(...args),
-  getCurrentUserWithValidation: (...args: any[]) => betterAuthService.instance.getCurrentUserWithValidation(...args),
+  signUp: (credentials: SignupCredentials) => betterAuthService.instance.signUp(credentials),
+  signIn: (credentials: LoginCredentials) => betterAuthService.instance.signIn(credentials),
+  signOut: () => betterAuthService.instance.signOut(),
+  getCurrentUser: () => betterAuthService.instance.getCurrentUser(),
+  setErrorHandler: (callback: (error: string, type: 'error' | 'warning' | 'info') => void) => betterAuthService.instance.setErrorHandler(callback),
+  setAuthStateChangeHandler: (callback: (user: User | null) => void) => betterAuthService.instance.setAuthStateChangeHandler(callback),
+  updatePreferences: (preferences: Partial<UserPreferences>) => betterAuthService.instance.updatePreferences(preferences),
+  getCurrentUserWithValidation: () => betterAuthService.instance.getCurrentUserWithValidation(),
 }; 

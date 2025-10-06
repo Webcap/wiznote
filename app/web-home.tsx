@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../components/ThemedText';
 import { UserSidebar } from '../components/web/UserSidebar';
 import { WebLayout } from '../components/web/WebLayout';
@@ -110,15 +110,15 @@ export default function WebHomeScreen() {
           <ThemedText type="title">My Notes</ThemedText>
                      <View style={styles.headerActions}>
              {/* Test button - should always show */}
-             <View style={styles.testButton} onClick={() => alert('Test button clicked!')}>
+             <TouchableOpacity style={styles.testButton} onPress={() => alert('Test button clicked!')}>
                <ThemedText style={styles.testButtonText}>TEST BUTTON</ThemedText>
-             </View>
+             </TouchableOpacity>
              
              {(forceShowButton || (user?.id && !user?.premium?.isActive && isFeatureEnabled('premium_features'))) && (
-               <View style={styles.premiumButton} onClick={handleJoinPremium}>
-                 <Ionicons name="crown" size={16} color="#FF8C00" />
+               <TouchableOpacity style={styles.premiumButton} onPress={handleJoinPremium}>
+                 <Ionicons name="star" size={16} color="#FF8C00" />
                  <ThemedText style={styles.premiumButtonText}>Join Premium</ThemedText>
-               </View>
+               </TouchableOpacity>
              )}
              <ThemedText style={styles.noteCount}>
                {filteredNotes.length} {filteredNotes.length === 1 ? 'note' : 'notes'}
@@ -145,10 +145,10 @@ export default function WebHomeScreen() {
               }
             </ThemedText>
             {!searchQuery && (
-              <View style={styles.createButton} onTouchEnd={handleCreateNote}>
+              <TouchableOpacity style={styles.createButton} onPress={handleCreateNote}>
                 <Ionicons name="add" size={20} color="#FFFFFF" />
                 <ThemedText style={styles.createButtonText}>Create Note</ThemedText>
-              </View>
+              </TouchableOpacity>
             )}
           </View>
         ) : (
@@ -276,20 +276,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   notesGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 16,
     padding: 24,
     justifyContent: 'center',
     maxWidth: '100%',
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        gridTemplateColumns: 'repeat(2, 1fr)',
         gap: 12,
         padding: 16,
       },
       '@media (max-width: 480px)': {
-        gridTemplateColumns: 'repeat(1, 1fr)',
         gap: 8,
         padding: 12,
       },

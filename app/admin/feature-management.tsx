@@ -219,9 +219,9 @@ export default function FeatureManagementScreen() {
           enabled: feature.enabled,
           premiumOnly: feature.premiumOnly,
           rolloutPercentage: feature.rolloutPercentage,
-          targetEnvironments: feature.targetEnvironments,
+          targetEnvironments: feature.targetEnvironments as ('development' | 'staging' | 'production')[],
           targetUsers: feature.targetUsers,
-          targetRoles: feature.targetRoles,
+          targetRoles: feature.targetRoles as ('user' | 'admin' | 'support')[],
           createdAt: new Date(),
           updatedAt: new Date(),
           createdBy: 'admin'
@@ -303,9 +303,9 @@ export default function FeatureManagementScreen() {
       console.error('Error syncing with defaults:', error);
       
       if (Platform.OS === 'web') {
-        showSnackbar(`Failed to sync with defaults: ${error.message}`, 'error', 6000);
+        showSnackbar(`Failed to sync with defaults: ${error instanceof Error ? error.message : String(error)}`, 'error', 6000);
       } else {
-        Alert.alert('Error', `Failed to sync with defaults: ${error.message}`);
+        Alert.alert('Error', `Failed to sync with defaults: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   };
@@ -324,9 +324,9 @@ export default function FeatureManagementScreen() {
       console.error('Error resetting all features:', error);
       
       if (Platform.OS === 'web') {
-        showSnackbar(`Failed to reset all features: ${error.message}`, 'error', 6000);
+        showSnackbar(`Failed to reset all features: ${error instanceof Error ? error.message : String(error)}`, 'error', 6000);
       } else {
-        Alert.alert('Error', `Failed to reset all features: ${error.message}`);
+        Alert.alert('Error', `Failed to reset all features: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   };
@@ -358,7 +358,7 @@ export default function FeatureManagementScreen() {
               await loadData();
               await loadSystemHealth();
             } catch (error) {
-              const errorMessage = `Failed to initialize features: ${error.message}`;
+              const errorMessage = `Failed to initialize features: ${error instanceof Error ? error.message : String(error)}`;
               
               if (Platform.OS === 'web') {
                 showSnackbar(errorMessage, 'error', 6000);
@@ -401,7 +401,7 @@ export default function FeatureManagementScreen() {
               await loadData();
               await loadSystemHealth();
             } catch (error) {
-              const errorMessage = `Failed to reset features: ${error.message}`;
+              const errorMessage = `Failed to reset features: ${error instanceof Error ? error.message : String(error)}`;
               
               if (Platform.OS === 'web') {
                 showSnackbar(errorMessage, 'error', 6000);

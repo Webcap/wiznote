@@ -86,10 +86,11 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
       await supportService.grantTemporaryAccess(
         selectedUser.id,
         'feature_limit_override',
-        100,
-        24, // 24 hours
-        reason,
-        supportAgentId
+        {
+          duration: '24hours',
+          reason,
+          supportAgentId
+        }
       );
       
       Alert.alert('Success', 'Temporary access granted successfully.');
@@ -109,10 +110,11 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
       await supportService.grantTemporaryAccess(
         selectedUser.id,
         featureId,
-        limit,
-        hours,
-        reason,
-        supportAgentId
+        {
+          duration: '24hours',
+          reason,
+          supportAgentId
+        }
       );
       
       Alert.alert('Success', 'Temporary access granted successfully.');
@@ -132,7 +134,7 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
         'Please provide a reason for granting temporary access:',
         [
           { text: 'Cancel', onPress: () => resolve(''), style: 'cancel' },
-          { text: 'OK', onPress: (reason) => resolve(reason || '') },
+          { text: 'OK', onPress: (reason?: string) => resolve(reason || '') },
         ],
         'plain-text'
       );
@@ -144,7 +146,7 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
       await supportService.revokeOverride(overrideId, 'Manual revocation by support agent');
       Alert.alert('Success', 'Temporary access revoked successfully.');
       // Refresh overrides
-      const overrides = await supportService.getActiveOverrides(selectedUser?.id);
+      const overrides = await supportService.getActiveOverrides(selectedUser?.id || '');
       setActiveOverrides(overrides);
     } catch (error) {
       console.error('Revoke override error:', error);
@@ -282,7 +284,7 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
           {userFeatureStatus && (
             <View style={[styles.statusCard, { backgroundColor: backgroundSecondary, borderColor: borderColor }]}>
               <Text style={[styles.statusTitle, { color: textColor }]}>Feature Status</Text>
-              {userFeatureStatus.limits.map((limit, index) => {
+              {userFeatureStatus.limits.map((limit: any, index: number) => {
                 const usage = userFeatureStatus.currentUsage[limit.featureId] || 0;
                 const remaining = userFeatureStatus.remainingQuota[limit.featureId] || 0;
                 const isLimitReached = usage >= (limit.freeUserLimit === 'unlimited' ? Infinity : limit.freeUserLimit);
@@ -391,19 +393,7 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
           <View style={[styles.debugCard, { backgroundColor: backgroundSecondary, borderColor: borderColor }]}>
             <Text style={[styles.debugTitle, { color: textColor }]}>Debug Information</Text>
             <Text style={[styles.debugText, { color: textSecondary }]}>
-              User ID: {debugInfo.userId}
-            </Text>
-            <Text style={[styles.debugText, { color: textSecondary }]}>
-              Plan: {debugInfo.userPlan}
-            </Text>
-            <Text style={[styles.debugText, { color: textSecondary }]}>
-              Feature Limits: {JSON.stringify(debugInfo.featureLimits, null, 2)}
-            </Text>
-            <Text style={[styles.debugText, { color: textSecondary }]}>
-              Usage Data: {JSON.stringify(debugInfo.usageData, null, 2)}
-            </Text>
-            <Text style={[styles.debugText, { color: textSecondary }]}>
-              Overrides: {JSON.stringify(debugInfo.activeOverrides, null, 2)}
+              Debug Info: {JSON.stringify(debugInfo, null, 2)}
             </Text>
           </View>
         </ScrollView>

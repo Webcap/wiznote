@@ -114,20 +114,26 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
       console.log('[VoiceRecorderSimple] Permission check result:', permissionCheck);
       
       // Request permissions if needed
-      let permission = permissionCheck;
+      let permissionResult = permissionCheck;
       if (permissionCheck.status !== 'granted') {
         console.log('[VoiceRecorderSimple] Permission not granted, requesting...');
-        permission = await AudioUtils.requestPermissions();
-        console.log('[VoiceRecorderSimple] Permission request result:', permission);
+        const requestResult = await AudioUtils.requestPermissions();
+        console.log('[VoiceRecorderSimple] Permission request result:', requestResult);
+        
+        // requestPermissions only returns status, so we need to preserve canRequest from the initial check
+        permissionResult = {
+          status: requestResult.status,
+          canRequest: permissionCheck.canRequest
+        };
       }
       
-      if (permission.status !== 'granted') {
-        console.log('[VoiceRecorderSimple] Permission denied or undetermined:', permission.status);
+      if (permissionResult.status !== 'granted') {
+        console.log('[VoiceRecorderSimple] Permission denied or undetermined:', permissionResult.status);
         
         let alertMessage = 'Microphone permission is required to record audio.';
-        if (permission.status === 'denied') {
+        if (permissionResult.status === 'denied') {
           alertMessage = 'Microphone permission was denied. Please enable it in your device settings to record audio.';
-        } else if (permission.status === 'undetermined') {
+        } else if (permissionResult.status === 'undetermined') {
           alertMessage = 'Microphone permission is required. Please grant permission to record audio.';
         }
         

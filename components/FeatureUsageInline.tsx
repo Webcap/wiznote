@@ -31,7 +31,7 @@ export function FeatureUsageInline({
   const accentColor = useThemeColor({}, 'accentPrimary');
   const successColor = useThemeColor({}, 'success');
   const warningColor = useThemeColor({}, 'warning');
-  const errorColor = useThemeColor({}, 'error');
+  const errorColor = useThemeColor({}, 'danger');
 
   if (!feature) {
     console.log(`FeatureUsageInline: Feature ${featureId} not found in trackedFeatures`);
