@@ -10,6 +10,7 @@ import {
     View
 } from 'react-native';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import { ProgressiveLoader, StaggeredLoader, ProgressiveCard } from '../components/ProgressiveLoader';
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
 import { useAuth } from '../hooks/useAuth';
@@ -85,6 +86,7 @@ export default function UsageScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   const [refreshing, setRefreshing] = useState(false);
+  const [showProgressiveContent, setShowProgressiveContent] = useState(false);
 
   const textColor = useThemeColor({}, 'text');
   const mutedTextColor = useThemeColor({}, 'textSecondary');
@@ -98,6 +100,19 @@ export default function UsageScreen() {
       navigation.setOptions({ headerShown: false });
     }
   }, [navigation]);
+
+  // Show progressive content after loading completes
+  useEffect(() => {
+    if (!loading && !trackingLoading && usageData.length > 0) {
+      // Add a small delay to show progressive loading
+      const timer = setTimeout(() => {
+        setShowProgressiveContent(true);
+      }, 200);
+      return () => clearTimeout(timer);
+    } else {
+      setShowProgressiveContent(false);
+    }
+  }, [loading, trackingLoading, usageData.length]);
 
   useEffect(() => {
     loadUsageData();
@@ -133,6 +148,9 @@ export default function UsageScreen() {
 
     try {
       setLoading(true);
+      
+      // Add a small delay to show skeleton loading for better UX
+      await new Promise(resolve => setTimeout(resolve, 300));
       const isPremium = user?.premium?.isActive || false;
       
       console.log('🔍 UsageScreen: Loading usage data for user:', user.id, 'Premium:', isPremium);
@@ -408,46 +426,86 @@ export default function UsageScreen() {
                 <ThemedText style={styles.webLoginButtonText}>Sign In</ThemedText>
               </TouchableOpacity>
             </View>
+          ) : !showProgressiveContent ? (
+            <View style={styles.webLoadingContainer}>
+              <LoadingSpinner size={48} />
+              <ThemedText style={[styles.webLoadingText, { color: mutedTextColor }]}>
+                Preparing your data...
+              </ThemedText>
+            </View>
           ) : (
             <>
-              {/* Usage Summary */}
-              <View style={styles.webUsageSummary}>
-                <View style={styles.webSummaryCard}>
-                  <Ionicons name="analytics" size={24} color={accentColor} />
-                  <ThemedText style={[styles.webSummaryTitle, { color: textColor }]}>
-                    {usageData.length}
-                  </ThemedText>
-                  <ThemedText style={[styles.webSummaryLabel, { color: mutedTextColor }]}>
-                    Features Tracked
-                  </ThemedText>
-                </View>
-                <View style={styles.webSummaryCard}>
-                  <Ionicons name="checkmark-circle" size={24} color="#3CB371" />
-                  <ThemedText style={[styles.webSummaryTitle, { color: textColor }]}>
-                    {usageData.filter(f => f.remaining > 0 || f.remaining === -1).length}
-                  </ThemedText>
-                  <ThemedText style={[styles.webSummaryLabel, { color: mutedTextColor }]}>
-                    Available
-                  </ThemedText>
-                </View>
-                <View style={styles.webSummaryCard}>
-                  <Ionicons name="warning" size={24} color="#FF8C00" />
-                  <ThemedText style={[styles.webSummaryTitle, { color: textColor }]}>
-                    {usageData.filter(f => {
-                      const percentage = getUsagePercentage(f.currentUsage, f.limit);
-                      return percentage > 80 && percentage < 100;
-                    }).length}
-                  </ThemedText>
-                  <ThemedText style={[styles.webSummaryLabel, { color: mutedTextColor }]}>
-                    Near Limit
-                  </ThemedText>
-                </View>
-              </View>
+              {/* Progressive Usage Summary */}
+              <StaggeredLoader
+                staggerDelay={200}
+                direction="slideUp"
+                duration={800}
+                style={styles.webUsageSummary}
+              >
+                <ProgressiveLoader direction="scaleIn" delay={0} duration={600}>
+                  <View style={styles.webSummaryCard}>
+                    <Ionicons name="analytics" size={24} color={accentColor} />
+                    <ThemedText style={[styles.webSummaryTitle, { color: textColor }]}>
+                      {usageData.filter(f => f.currentUsage > 0).length}
+                    </ThemedText>
+                    <ThemedText style={[styles.webSummaryLabel, { color: mutedTextColor }]}>
+                      Features Used
+                    </ThemedText>
+                  </View>
+                </ProgressiveLoader>
+                <ProgressiveLoader direction="scaleIn" delay={100} duration={600}>
+                  <View style={styles.webSummaryCard}>
+                    <Ionicons name="checkmark-circle" size={24} color="#3CB371" />
+                    <ThemedText style={[styles.webSummaryTitle, { color: textColor }]}>
+                      {usageData.filter(f => f.currentUsage > 0 && (f.remaining > 0 || f.remaining === -1)).length}
+                    </ThemedText>
+                    <ThemedText style={[styles.webSummaryLabel, { color: mutedTextColor }]}>
+                      Available
+                    </ThemedText>
+                  </View>
+                </ProgressiveLoader>
+                <ProgressiveLoader direction="scaleIn" delay={200} duration={600}>
+                  <View style={styles.webSummaryCard}>
+                    <Ionicons name="warning" size={24} color="#FF8C00" />
+                    <ThemedText style={[styles.webSummaryTitle, { color: textColor }]}>
+                      {usageData.filter(f => {
+                        const percentage = getUsagePercentage(f.currentUsage, f.limit);
+                        return f.currentUsage > 0 && percentage > 80 && percentage < 100;
+                      }).length}
+                    </ThemedText>
+                    <ThemedText style={[styles.webSummaryLabel, { color: mutedTextColor }]}>
+                      Near Limit
+                    </ThemedText>
+                  </View>
+                </ProgressiveLoader>
+              </StaggeredLoader>
 
               {/* Usage Grid */}
-              <View style={styles.webUsageGrid}>
-                {usageData.map((feature) => (
-                  <View key={feature.featureId} style={[styles.webUsageCard, { backgroundColor: cardBackground }]}>
+              {usageData.filter(feature => feature.currentUsage > 0).length === 0 ? (
+                <View style={styles.webLoadingContainer}>
+                  <Ionicons name="analytics-outline" size={64} color="#666666" />
+                  <ThemedText type="subtitle" style={styles.webEmptyTitle}>
+                    No features used yet
+                  </ThemedText>
+                  <ThemedText style={[styles.webEmptyTitle, { color: mutedTextColor }]}>
+                    Start using features to see your usage statistics here
+                  </ThemedText>
+                </View>
+              ) : (
+                <StaggeredLoader
+                  staggerDelay={120}
+                  direction="slideUp"
+                  duration={700}
+                  style={styles.webUsageGrid}
+                >
+                  {usageData.filter(feature => feature.currentUsage > 0).map((feature, index) => (
+                    <ProgressiveLoader
+                      key={feature.featureId}
+                      direction="fadeIn"
+                      delay={index * 100}
+                      duration={600}
+                    >
+                      <View style={[styles.webUsageCard, { backgroundColor: cardBackground }]}>
                     <View style={styles.webFeatureHeader}>
                       <View style={[styles.webFeatureIcon, { backgroundColor: feature.color }]}>
                         <Ionicons name={feature.icon as any} size={24} color="#FFFFFF" />
@@ -532,9 +590,11 @@ export default function UsageScreen() {
                         Resets {formatResetTime(getNextResetTime(feature.period))}
                       </ThemedText>
                     </View>
-                  </View>
-                ))}
-              </View>
+                      </View>
+                    </ProgressiveLoader>
+                  ))}
+                </StaggeredLoader>
+              )}
 
               {/* Upgrade Section */}
               <View style={[styles.webUpgradeSection, { backgroundColor: cardBackground }]}>
@@ -624,6 +684,13 @@ export default function UsageScreen() {
             <ThemedText style={styles.loginButtonText}>Log In</ThemedText>
           </TouchableOpacity>
         </View>
+      ) : !showProgressiveContent ? (
+        <View style={styles.loadingContainer}>
+          <LoadingSpinner size={40} />
+          <ThemedText style={[styles.loadingText, { color: mutedTextColor }]}>
+            Preparing your data...
+          </ThemedText>
+        </View>
       ) : (
         <ScrollView 
           style={styles.content} 
@@ -632,8 +699,28 @@ export default function UsageScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {usageData.map((feature) => (
-            <View key={feature.featureId} style={[styles.usageCard, { backgroundColor: cardBackground }]}>
+          {usageData.filter(feature => feature.currentUsage > 0).length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <Ionicons name="analytics-outline" size={64} color="#A0A0A0" />
+              <ThemedText style={styles.loadingText}>No features used yet</ThemedText>
+              <ThemedText style={styles.loadingText}>
+                Start using features to see your usage statistics here
+              </ThemedText>
+            </View>
+          ) : (
+            <StaggeredLoader
+              staggerDelay={100}
+              direction="slideUp"
+              duration={600}
+            >
+              {usageData.filter(feature => feature.currentUsage > 0).map((feature, index) => (
+                <ProgressiveLoader
+                  key={feature.featureId}
+                  direction="fadeIn"
+                  delay={index * 80}
+                  duration={500}
+                >
+                  <View style={[styles.usageCard, { backgroundColor: cardBackground }]}>
               <View style={styles.featureHeader}>
                 <View style={[styles.featureIcon, { backgroundColor: feature.color }]}>
                   <Ionicons name={feature.icon as any} size={24} color="#FFFFFF" />
@@ -693,7 +780,10 @@ export default function UsageScreen() {
                 </ThemedText>
               </View>
             </View>
-          ))}
+                  </ProgressiveLoader>
+                ))}
+              </StaggeredLoader>
+            )}
 
           {/* Upgrade Section */}
           <View style={[styles.upgradeSection, { backgroundColor: cardBackground }]}>
@@ -1156,5 +1246,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  // Skeleton loading styles
+  skeletonLine: {
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginBottom: 8,
   },
 }); 

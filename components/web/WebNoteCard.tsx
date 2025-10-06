@@ -8,6 +8,7 @@ import { ThemedText } from '../ThemedText';
 interface WebNoteCardProps {
   note: Note;
   onPress: () => void;
+  onLongPress?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
   onArchive?: () => void;
@@ -17,6 +18,7 @@ interface WebNoteCardProps {
 export function WebNoteCard({ 
   note, 
   onPress, 
+  onLongPress,
   onEdit, 
   onDelete, 
   onArchive,
@@ -57,6 +59,7 @@ export function WebNoteCard({
         isHovered && styles.hovered
       ]}
       onPress={onPress}
+      onLongPress={onLongPress}
       {...(Platform.OS === 'web' ? {
         onMouseEnter: () => setIsHovered(true),
         onMouseLeave: () => setIsHovered(false)

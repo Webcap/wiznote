@@ -4,6 +4,49 @@ This directory contains utility scripts for managing and maintaining the WizNote
 
 ## Available Scripts
 
+### 🚨 delete-all-data.js
+
+**Description**: **DANGER** - Completely deletes ALL data from your database. This includes all users, notes, audio files, and related data. This action is IRREVERSIBLE!
+
+**What it deletes**:
+- All users and user profiles
+- All notes
+- All audio files  
+- All feature usage data
+- All subscription data
+- All feature limits and premium plans
+
+**Usage**:
+```bash
+# Preview what would be deleted (SAFE - only reads data)
+node scripts/preview-delete-all-data.js
+
+# Actually delete all data (DANGEROUS - requires confirmation)
+node scripts/delete-all-data.js --confirm
+```
+
+**Safety Features**:
+- Requires `--confirm` flag to prevent accidental execution
+- Shows detailed preview of what will be deleted
+- Provides clear warnings about irreversible nature
+- Includes error handling and progress reporting
+
+**⚠️ WARNING**: This script will completely wipe your database. Make sure you have backups if needed!
+
+### 🔍 preview-delete-all-data.js
+
+**Description**: Safe preview script that shows what data would be deleted without actually deleting anything.
+
+**What it shows**:
+- Count of all records in each table
+- Sample data from each table
+- Summary of what would be deleted
+
+**Usage**:
+```bash
+node scripts/preview-delete-all-data.js
+```
+
 ### 🔧 fix-stripe-customers.js
 
 **Description**: Synchronizes Stripe customer subscriptions with the database to ensure data consistency between Stripe and your local user profiles.
