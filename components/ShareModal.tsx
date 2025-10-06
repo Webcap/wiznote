@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
+// @ts-ignore - react-dom types not available in React Native environment
 import { createPortal } from 'react-dom';
 import {
     KeyboardAvoidingView,
@@ -146,7 +147,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
   if (Platform.OS === 'web') {
     console.log('🌐 Rendering web ShareModal:', { visible, note: note?.id, platform: Platform.OS });
     
-    return createPortal(
+    const modalContent = (
       <div style={webStyles.modalOverlay} onClick={onClose}>
         <div style={webStyles.container} onClick={(e) => e.stopPropagation()}>
           {/* Header */}
@@ -303,9 +304,10 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
             </button>
           </div>
         </div>
-      </div>,
-      document.body
+      </div>
     );
+
+    return createPortal(modalContent, document.body);
   }
 
   // Mobile modal using ShareCard

@@ -137,10 +137,10 @@ export const useNotes = (userId: string) => {
       const notes = await Promise.race([
         supabaseNoteStorage.getNotes(),
         timeoutPromise
-      ]);
+      ]) as Note[];
       
       console.log('useNotes: Loaded notes:', notes.length);
-      console.log('useNotes: Notes details:', notes.map(n => ({ id: n.id, title: n.title, isArchived: n.isArchived })));
+      console.log('useNotes: Notes details:', notes.map((n: Note) => ({ id: n.id, title: n.title, isArchived: n.isArchived })));
       setNotes(notes);
       setLoading(false);
       setSyncStatus('synced');

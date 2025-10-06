@@ -12,7 +12,7 @@ export const OfflineIndicator: React.FC<OfflineIndicatorProps> = ({
   isVisible, 
   message = 'You are offline. Some features may be limited.' 
 }) => {
-  const backgroundColor = useThemeColor({}, 'error');
+  const backgroundColor = useThemeColor({}, 'danger');
   const textColor = useThemeColor({}, 'background');
 
   if (!isVisible) {

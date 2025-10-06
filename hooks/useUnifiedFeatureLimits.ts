@@ -38,6 +38,8 @@ export interface FeatureUsageData {
   usagePercentage: number;
   isUnlimited: boolean;
   requiresUpgrade: boolean;
+  requiresFeatureFlag?: boolean;
+  featureFlagKey?: string;
 }
 
 export interface UnifiedFeatureLimitsData {
@@ -63,6 +65,7 @@ export interface UnifiedFeatureLimitsData {
   getSessionLimit: (featureId: string) => { limit: number | 'unlimited'; type: string } | null;
   formatLimit: (limit: number | 'unlimited', limitType: string) => string;
   refreshLimits: () => Promise<void>;
+  forceRefresh: () => Promise<void>;
 }
 
 export function useUnifiedFeatureLimits(): UnifiedFeatureLimitsData {
@@ -303,6 +306,8 @@ export function useUnifiedFeatureLimits(): UnifiedFeatureLimitsData {
         usagePercentage,
         isUnlimited: userLimit === 'unlimited',
         requiresUpgrade: !canUseResult.canUse && !isPremium,
+        requiresFeatureFlag: feature.requiresFeatureFlag,
+        featureFlagKey: feature.featureFlagKey,
       };
       
       return result;

@@ -95,6 +95,15 @@ export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onDelete
     ) || note.audioUri;
   };
 
+  // Check if note has transcription
+  const hasTranscription = (note: Note) => {
+    return note.audioFiles?.some(audioFile => 
+      audioFile.transcription || 
+      audioFile.aiTranscription || 
+      audioFile.userEditedTranscription
+    ) || false;
+  };
+
 
 
   return (
@@ -131,7 +140,7 @@ export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onDelete
             <View style={styles.audioNoteBadge}>
               <Ionicons name="musical-notes" size={12} color="#6A5ACD" />
               <Text style={styles.audioNoteText}>
-                {note.transcription ? 'Audio + Transcription' : 'Audio Note'}
+                {hasTranscription(note) ? 'Audio + Transcription' : 'Audio Note'}
               </Text>
             </View>
           ) : (

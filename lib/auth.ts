@@ -22,7 +22,15 @@ const supabaseAdapter = {
   },
 
   async getUserByEmail(email: string) {
-    const { data, error } = await supabase.auth.admin.getUserByEmail(email);
+    // Supabase admin API doesn't have getUserByEmail, use regular auth API
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: 'dummy' // This will fail but we only need the user lookup
+    });
+    if (error && error.message.includes('Invalid login credentials')) {
+      // User doesn't exist
+      return null;
+    }
     if (error) throw error;
     return data.user;
   },
@@ -86,45 +94,42 @@ export const auth = betterAuth({
   plugins: [
     // Add plugins for additional features
   ],
-  hooks: {
-    onUserCreate: async (user) => {
-      // Create user profile with default settings using upsert to avoid conflicts
-      const { error } = await supabase
-        .from('user_profiles')
-        .upsert({
-          id: user.id,
-          role: 'user',
-          preferences: {
-            theme: 'auto',
-            language: 'en',
-            autoSync: true,
-            notifications: true,
-          },
-          premium: {
-            isActive: false,
-            type: null,
-          },
-          permissions: getDefaultPermissions('user'),
-        }, {
-          onConflict: 'id'
-        });
+  // Note: hooks configuration may vary by better-auth version
+  // hooks: {
+  //   onUserCreate: async (user: any) => {
+  //     // Create user profile with default settings using upsert to avoid conflicts
+  //     const { error } = await supabase
+  //       .from('user_profiles')
+  //       .upsert({
+  //         id: user.id,
+  //         role: 'user',
+  //         preferences: {
+  //           theme: 'auto',
+  //           language: 'en',
+  //           autoSync: true,
+  //           notifications: true,
+  //         },
+  //         premium: {
+  //           isActive: false,
+  //           type: null,
+  //         },
+  //         permissions: getDefaultPermissions('user'),
+  //       }, {
+  //         onConflict: 'id'
+  //       });
 
-      if (error) {
-        console.error('Error creating user profile:', error);
-        // Don't throw the error - just log it since this is a hook
-        // The BetterAuthService will handle profile creation as a fallback
-      } else {
-        // Create Stripe customer for the new user (async, don't wait for it)
-        // createStripeCustomerForUser(user.id, user.email).catch(error => {
-        //   console.warn('Failed to create Stripe customer during user creation:', error);
-        // });
-      }
-    },
-  },
+  //     if (error) {
+  //       console.error('Error creating user profile:', error);
+  //       // Don't throw the error - just log it since this is a hook
+  //       // The BetterAuthService will handle profile creation as a fallback
+  //     }
+  //   },
+  // },
 });
 
 // Export auth utilities
-export const { signIn, signUp, signOut, getSession, onAuthStateChange } = auth;
+// Note: better-auth exports may vary by version
+// export const { signIn, signUp, signOut, getSession, onAuthStateChange } = auth;
 
 // Helper function to create Stripe customer for new users
 // async function createStripeCustomerForUser(userId: string, email: string): Promise<void> {

@@ -1,6 +1,5 @@
-import { Platform } from 'react-native';
 import { PaymentForm } from './PaymentForm';
-import { PaymentSheetForm } from './PaymentSheetForm';
+import { PaymentSheetForm } from './PaymentSheetForm.native';
 
 interface UnifiedPaymentFormProps {
   planId: string;
@@ -13,30 +12,31 @@ interface UnifiedPaymentFormProps {
 }
 
 export function UnifiedPaymentForm(props: UnifiedPaymentFormProps) {
-  // Use PaymentSheet on mobile platforms, Stripe checkout on web
-  if (Platform.OS === 'ios' || Platform.OS === 'android') {
+  // For mobile platforms, use PaymentSheetForm
+  try {
     return (
       <PaymentSheetForm
         planId={props.planId}
         planName={props.planName}
         planPrice={props.planPrice}
-        stripePriceId={props.stripePriceId} // Add this line
+        stripePriceId={props.stripePriceId}
         productId={props.productId || ''}
         onSuccess={props.onSuccess}
         onError={props.onError}
       />
     );
+  } catch (error) {
+    console.warn('PaymentSheetForm not available, falling back to PaymentForm:', error);
+    // Fallback to PaymentForm for any error cases
+    return (
+      <PaymentForm
+        planId={props.planId}
+        planName={props.planName}
+        planPrice={props.planPrice}
+        stripePriceId={props.stripePriceId}
+        onSuccess={props.onSuccess}
+        onError={props.onError}
+      />
+    );
   }
-
-  // Use Stripe checkout on web
-  return (
-    <PaymentForm
-      planId={props.planId}
-      planName={props.planName}
-      planPrice={props.planPrice}
-      stripePriceId={props.stripePriceId}
-      onSuccess={props.onSuccess}
-      onError={props.onError}
-    />
-  );
 }

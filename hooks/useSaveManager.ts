@@ -70,7 +70,7 @@ export const useSaveManager = (
 
     return () => {
       try {
-        saveManagerService.setStatusChangeHandler(undefined);
+        saveManagerService.setStatusChangeHandler(() => {}); // Set empty handler instead of undefined
       } catch (error) {
         console.error('Failed to clear status change handler:', error);
       }
@@ -101,7 +101,7 @@ export const useSaveManager = (
 
     return () => {
       try {
-        saveManagerService.setErrorHandler(undefined);
+        saveManagerService.setErrorHandler(() => {}); // Set empty handler instead of undefined
       } catch (error) {
         console.error('Failed to clear error handler:', error);
       }
@@ -113,7 +113,7 @@ export const useSaveManager = (
     return () => {
       // Clean up any pending operations for this note
       if (noteId) {
-        saveManagerService.cancelAutoSave?.();
+        saveManagerService.cancelAutoSave(noteId);
       }
     };
   }, [noteId]);
