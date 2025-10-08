@@ -54,21 +54,36 @@ export default function UsageStatsScreen() {
         // Get all usage data for the selected feature
         const { data: allUsage, error } = await supabase
           .from('user_feature_usage')
-          .select('user_id, usage_count')
+          .select('user_id, usage_count, usage_duration, usage_storage')
           .eq('feature_id', selectedFeature);
         
         if (error) {
           throw error;
         }
         
+        // Determine the correct usage field based on feature type
+        const getUsageValue = (record: any) => {
+          if (selectedFeature === 'voice_recording') {
+            return record.usage_duration || 0; // Duration in minutes
+          } else if (selectedFeature === 'note_storage') {
+            return record.usage_storage || 0; // Storage in bytes
+          } else {
+            return record.usage_count || 0; // Count-based features
+          }
+        };
+        
         // Calculate stats
-        const totalUsage = allUsage.reduce((sum, record) => sum + record.usage_count, 0);
+        const totalUsage = allUsage.reduce((sum, record) => sum + getUsageValue(record), 0);
         const totalUsers = allUsage.length;
         const averageUsage = totalUsers > 0 ? totalUsage / totalUsers : 0;
         
         // Get top users with user details
         const topUsersData = allUsage
-          .sort((a, b) => b.usage_count - a.usage_count)
+          .map(record => ({
+            user_id: record.user_id,
+            usage: getUsageValue(record)
+          }))
+          .sort((a, b) => b.usage - a.usage)
           .slice(0, 10);
         
         // Fetch user details for top users - try user_profiles first, then fallback to users table
@@ -111,7 +126,7 @@ export default function UsageStatsScreen() {
           
           const result = {
             userId: record.user_id,
-            usage: record.usage_count,
+            usage: record.usage,
             displayName: userProfile?.display_name || null
           };
           
@@ -163,24 +178,39 @@ export default function UsageStatsScreen() {
     );
   }
 
-  const formatDuration = (seconds: number) => {
-    // For count-based features, treat seconds as count
-    const isCountBasedFeature = selectedFeature === 'ai_name_generating' || selectedFeature === 'ai_summaries' || selectedFeature === 'ai_key_details';
+  const formatDuration = (value: number) => {
+    // For voice recording, value is in minutes
+    if (selectedFeature === 'voice_recording') {
+      const hours = Math.floor(value / 60);
+      const minutes = Math.floor(value % 60);
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+      } else {
+        return `${minutes}m`;
+      }
+    }
+    
+    // For note storage, value is in bytes
+    if (selectedFeature === 'note_storage') {
+      const mb = (value / (1024 * 1024)).toFixed(2);
+      const gb = (value / (1024 * 1024 * 1024)).toFixed(2);
+      
+      if (parseFloat(gb) >= 1) {
+        return `${gb} GB`;
+      } else {
+        return `${mb} MB`;
+      }
+    }
+    
+    // For count-based features, treat value as count
+    const isCountBasedFeature = ['ai_name_generating', 'ai_summaries', 'ai_key_details', 'ai_transcription', 'ai_flashcards', 'note_sharing', 'advanced_search', 'note_export', 'custom_themes', 'priority_support', 'real_time_sync'].includes(selectedFeature);
     if (isCountBasedFeature) {
-      return `${seconds} uses`;
+      return `${Math.round(value)} uses`;
     }
     
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${secs}s`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    } else {
-      return `${secs}s`;
-    }
+    // Default: treat as count
+    return `${Math.round(value)}`;
   };
 
 

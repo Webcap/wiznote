@@ -23,6 +23,12 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name="favorites"
+          options={{
+            title: 'Favorites',
+          }}
+        />
+        <Tabs.Screen
           name="shared"
           options={{
             title: 'Shared',
@@ -72,6 +78,16 @@ export default function TabLayout() {
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
+          ),
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="favorites"
+        options={{
+          title: 'Favorites',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'star' : 'star-outline'} size={24} color={color} />
           ),
           headerShown: false,
         }}

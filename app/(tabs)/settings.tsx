@@ -25,6 +25,9 @@ import { AudioImportTest } from '../../components/AudioImportTest';
 import { AudioModuleDebug } from '../../components/AudioModuleDebug';
 import { Logo } from '../../components/Logo';
 import { PermissionTest } from '../../components/PermissionTest';
+import { featureFlagService } from '../../services/FeatureFlagService';
+import { featureCacheService } from '../../services/FeatureCacheService';
+import { useSnackbar } from '../../contexts/SnackbarContext';
 
 // Import web components
 import { UserSidebar } from '../../components/web/UserSidebar';
@@ -41,6 +44,7 @@ export default function SettingsScreen() {
     isSupport
   } = useAuth();
   const { notes } = useNotes(user?.id || '');
+  const { showSnackbar } = useSnackbar();
   const [notifications, setNotifications] = useState(true);
   const [autoSync, setAutoSync] = useState(true);
   const [autoKeyDetails, setAutoKeyDetails] = useState(true);
@@ -422,33 +426,16 @@ export default function SettingsScreen() {
           {/* Premium Section */}
           <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>Premium</ThemedText>
-            <View style={[styles.profileCard, { backgroundColor: cardBg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }] }>
+            <View style={[styles.profileCard, { backgroundColor: cardBg }] }>
               <View>
                 <ThemedText style={{ fontWeight: 'bold', fontSize: 16 }}>
                   Status: {currentUser?.premium?.isActive ? 'Active' : 'Inactive'}
                 </ThemedText>
                 <ThemedText style={{ color: '#A0A0A0', fontSize: 14 }}>
-                  {currentUser?.premium?.isActive ? `Type: ${currentUser?.premium?.type}` : 'Upgrade to unlock all features!'}
+                  {currentUser?.premium?.isActive ? (
+                    subscriptionDetails ? `${subscriptionDetails.planName}` : `${currentUser?.premium?.type || 'Premium'}`
+                  ) : 'Upgrade to unlock all features!'}
                 </ThemedText>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity
-                  style={{ backgroundColor: '#007AFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
-                  onPress={checkPremiumStatus}
-                >
-                  <ThemedText style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>Check Status</ThemedText>
-                </TouchableOpacity>
-                {!currentUser?.premium?.isActive && (
-                  <TouchableOpacity
-                    style={{ backgroundColor: accentColor, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
-                    onPress={async () => {
-                      // Note: Premium status is managed separately from user preferences
-                      Alert.alert('Premium Upgrade', 'Premium upgrade functionality coming soon!');
-                    }}
-                  >
-                    <ThemedText style={{ color: '#fff', fontWeight: 'bold' }}>Upgrade</ThemedText>
-                  </TouchableOpacity>
-                )}
               </View>
             </View>
           </View>
@@ -667,7 +654,7 @@ export default function SettingsScreen() {
             <View style={styles.logoSection}>
               <Logo size={80} />
               <ThemedText style={styles.appName}>WizNote</ThemedText>
-              <ThemedText style={styles.appVersion}>Version 1.2.1</ThemedText>
+
             </View>
             
             <TouchableOpacity style={styles.actionButton}>
@@ -681,6 +668,42 @@ export default function SettingsScreen() {
           {isAdmin() && __DEV__ && (
             <View style={styles.section}>
               <ThemedText style={styles.sectionTitle}>Admin Debug Tools</ThemedText>
+              
+              {/* Clear Feature Cache Button */}
+              <TouchableOpacity 
+                style={[styles.actionButton, { backgroundColor: '#FF9800', marginBottom: 10 }]}
+                onPress={async () => {
+                  try {
+                    console.log('🧹 Clearing feature flag cache...');
+                    await featureCacheService.invalidate('feature_flags');
+                    await featureFlagService.clearLocalCache();
+                    await featureFlagService.forceReloadFromSupabase();
+                    
+                    const message = '✅ Feature cache cleared! Please ' + (Platform.OS === 'web' ? 'refresh the page' : 'restart the app') + ' to see changes.';
+                    
+                    if (Platform.OS === 'web') {
+                      showSnackbar(message, 'success', 4000);
+                    } else {
+                      Alert.alert('Success', message);
+                    }
+                    console.log('✅ Feature flag cache cleared successfully');
+                  } catch (error) {
+                    console.error('❌ Error clearing cache:', error);
+                    const errorMsg = `Failed to clear cache: ${error instanceof Error ? error.message : String(error)}`;
+                    if (Platform.OS === 'web') {
+                      showSnackbar(errorMsg, 'error', 4000);
+                    } else {
+                      Alert.alert('Error', errorMsg);
+                    }
+                  }
+                }}
+              >
+                <Ionicons name="trash" size={20} color="white" />
+                <ThemedText style={[styles.actionButtonText, { color: 'white' }]}>
+                  🧹 Clear Feature Cache
+                </ThemedText>
+              </TouchableOpacity>
+              
               <View style={[styles.profileCard, { backgroundColor: cardBg }]}>
                 <PermissionTest />
                 <AudioModuleDebug />
@@ -756,7 +779,7 @@ export default function SettingsScreen() {
         {/* Premium Section */}
         <View style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Premium</ThemedText>
-          <View style={[styles.profileCard, { backgroundColor: cardBg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }] }>
+          <View style={[styles.profileCard, { backgroundColor: cardBg }] }>
             <View>
               <ThemedText style={{ fontWeight: 'bold', fontSize: 16 }}>
                 Status: {subscriptionDetails ? 'Active' : 'Inactive'}
@@ -766,25 +789,6 @@ export default function SettingsScreen() {
                   subscriptionLoading ? 'Loading...' : `${subscriptionDetails.planName} (${subscriptionDetails.planInterval})`
                 ) : 'Upgrade to unlock all features!'}
               </ThemedText>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TouchableOpacity
-                style={{ backgroundColor: '#007AFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
-                onPress={checkPremiumStatus}
-              >
-                <ThemedText style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>Check</ThemedText>
-              </TouchableOpacity>
-              {!subscriptionDetails && (
-                <TouchableOpacity
-                  style={{ backgroundColor: accentColor, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
-                  onPress={async () => {
-                    // Note: Premium status is managed separately from user preferences
-                    Alert.alert('Premium Upgrade', 'Premium upgrade functionality coming soon!');
-                  }}
-                >
-                  <ThemedText style={{ color: '#fff', fontWeight: 'bold' }}>Upgrade</ThemedText>
-                </TouchableOpacity>
-              )}
             </View>
           </View>
         </View>
@@ -991,6 +995,42 @@ export default function SettingsScreen() {
         {isAdmin() && __DEV__ && (
           <View style={[styles.section, { paddingBottom: 50 }]}>
             <ThemedText style={styles.sectionTitle}>Admin Debug Tools</ThemedText>
+            
+            {/* Clear Feature Cache Button */}
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: '#FF9800', marginBottom: 10 }]}
+              onPress={async () => {
+                try {
+                  console.log('🧹 Clearing feature flag cache...');
+                  await featureCacheService.invalidate('feature_flags');
+                  await featureFlagService.clearLocalCache();
+                  await featureFlagService.forceReloadFromSupabase();
+                  
+                  const message = '✅ Feature cache cleared! Please ' + (Platform.OS === 'web' ? 'refresh the page' : 'restart the app') + ' to see changes.';
+                  
+                  if (Platform.OS === 'web') {
+                    showSnackbar(message, 'success', 4000);
+                  } else {
+                    Alert.alert('Success', message);
+                  }
+                  console.log('✅ Feature flag cache cleared successfully');
+                } catch (error) {
+                  console.error('❌ Error clearing cache:', error);
+                  const errorMsg = `Failed to clear cache: ${error instanceof Error ? error.message : String(error)}`;
+                  if (Platform.OS === 'web') {
+                    showSnackbar(errorMsg, 'error', 4000);
+                  } else {
+                    Alert.alert('Error', errorMsg);
+                  }
+                }
+              }}
+            >
+              <Ionicons name="trash" size={20} color="white" />
+              <ThemedText style={[styles.actionButtonText, { color: 'white' }]}>
+                🧹 Clear Feature Cache
+              </ThemedText>
+            </TouchableOpacity>
+            
             <ScrollView 
               horizontal={true}
               showsHorizontalScrollIndicator={false}

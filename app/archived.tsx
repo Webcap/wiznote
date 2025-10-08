@@ -19,7 +19,7 @@ export const options = {
 
 export default function ArchivedNotesScreen() {
   const { user, isAdmin } = useAuth();
-  const { notes, loading, toggleArchive, deleteNote } = useNotes(user?.id || '');
+  const { notes, loading, toggleArchive, toggleFavorite, deleteNote } = useNotes(user?.id || '');
   const router = useRouter();
   const navigation = useNavigation();
   const iconColor = useThemeColor({}, 'text');
@@ -101,6 +101,7 @@ export default function ArchivedNotesScreen() {
                   onEdit={() => handleWebEditNote(note)}
                   onDelete={() => handleWebDeleteNote(note)}
                   onArchive={() => handleWebArchiveNote(note)}
+                  onToggleFavorite={() => toggleFavorite(note.id)}
                 />
               ))}
             </View>
@@ -129,7 +130,7 @@ export default function ArchivedNotesScreen() {
         <FlatList
           data={archivedNotes}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <NoteCard note={item} onPress={() => router.push(`/note/${item.id}`)} onTogglePin={() => {}} onToggleArchive={() => {}} onDelete={() => {}} />}
+          renderItem={({ item }) => <NoteCard note={item} onPress={() => router.push(`/note/${item.id}`)} onTogglePin={() => {}} onToggleArchive={() => {}} onToggleFavorite={() => toggleFavorite(item.id)} onDelete={() => {}} />}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
         />

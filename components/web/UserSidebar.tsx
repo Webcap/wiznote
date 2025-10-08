@@ -141,10 +141,7 @@ export function UserSidebar({
       id: 'favorites',
       label: 'Favorites',
       icon: 'star' as const,
-      onPress: () => {
-        // TODO: Implement favorites functionality
-        console.log('Favorites clicked');
-      },
+      onPress: () => router.push('/(tabs)/favorites'),
       isActive: activePage === 'favorites',
     },
     {

@@ -203,6 +203,7 @@ export class SupabaseNoteStorage {
         tags: note.tags || [],
         isPinned: note.is_pinned || false,
         isArchived: note.is_archived || false,
+        isFavorite: note.is_favorite || false,
         audioFiles: note.audio_files || [],
         keyDetails: note.key_details || [],
         summary: note.summary,
@@ -287,6 +288,7 @@ export class SupabaseNoteStorage {
         tags: note.tags || [],
         isPinned: note.is_pinned || false,
         isArchived: note.is_archived || false,
+        isFavorite: note.is_favorite || false,
         audioFiles: note.audio_files || [],
         keyDetails: note.key_details || [],
         summary: note.summary,
@@ -335,6 +337,7 @@ export class SupabaseNoteStorage {
         tags: noteData.tags || [],
         is_pinned: noteData.isPinned || false,
         is_archived: noteData.isArchived || false,
+        is_favorite: noteData.isFavorite || false,
         audio_files: audioFiles,
         key_details: noteData.keyDetails || [],
         summary: noteData.summary,
@@ -361,6 +364,7 @@ export class SupabaseNoteStorage {
         tags: note.tags || [],
         isPinned: note.is_pinned || false,
         isArchived: note.is_archived || false,
+        isFavorite: note.is_favorite || false,
         audioFiles: note.audio_files || [],
         keyDetails: note.key_details || [],
         summary: note.summary,
@@ -389,6 +393,7 @@ export class SupabaseNoteStorage {
       if (updates.tags !== undefined) updateData.tags = updates.tags;
       if (updates.isPinned !== undefined) updateData.is_pinned = updates.isPinned;
       if (updates.isArchived !== undefined) updateData.is_archived = updates.isArchived;
+      if (updates.isFavorite !== undefined) updateData.is_favorite = updates.isFavorite;
       if (updates.audioFiles !== undefined) updateData.audio_files = updates.audioFiles;
       if (updates.keyDetails !== undefined) updateData.key_details = updates.keyDetails;
       if (updates.summary !== undefined) updateData.summary = updates.summary;
@@ -414,6 +419,7 @@ export class SupabaseNoteStorage {
         tags: note.tags || [],
         isPinned: note.is_pinned || false,
         isArchived: note.is_archived || false,
+        isFavorite: note.is_favorite || false,
         audioFiles: note.audio_files || [],
         keyDetails: note.key_details || [],
         summary: note.summary,
@@ -473,6 +479,7 @@ export class SupabaseNoteStorage {
         tags: note.tags || [],
         isPinned: note.is_pinned || false,
         isArchived: note.is_archived || false,
+        isFavorite: note.is_favorite || false,
         audioFiles: note.audio_files || [],
         keyDetails: note.key_details || [],
         summary: note.summary,
@@ -513,6 +520,7 @@ export class SupabaseNoteStorage {
         tags: note.tags || [],
         isPinned: note.is_pinned || false,
         isArchived: note.is_archived || false,
+        isFavorite: note.is_favorite || false,
         audioFiles: note.audio_files || [],
         keyDetails: note.key_details || [],
         summary: note.summary,
@@ -553,6 +561,7 @@ export class SupabaseNoteStorage {
         tags: note.tags || [],
         isPinned: note.is_pinned || false,
         isArchived: note.is_archived || false,
+        isFavorite: note.is_favorite || false,
         audioFiles: note.audio_files || [],
         keyDetails: note.key_details || [],
         summary: note.summary,
@@ -593,6 +602,7 @@ export class SupabaseNoteStorage {
         tags: note.tags || [],
         isPinned: note.is_pinned || false,
         isArchived: note.is_archived || false,
+        isFavorite: note.is_favorite || false,
         audioFiles: note.audio_files || [],
         keyDetails: note.key_details || [],
         summary: note.summary,

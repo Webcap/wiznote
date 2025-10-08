@@ -9,6 +9,7 @@ import {
     View,
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
+import { useFeatureLimits } from '../hooks/useFeatureLimits';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { AudioUtils } from '../services/AudioUtils';
 
@@ -38,6 +39,7 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
   disabled = false,
 }) => {
   const { user } = useAuth();
+  const { getSessionLimit } = useFeatureLimits();
   
   // Theme colors
   const backgroundColor = useThemeColor({ light: '#F5F6FA', dark: '#1A1A1A' }, 'background');
@@ -45,6 +47,10 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
   const primaryColor = '#6A5ACD';
   const buttonBg = useThemeColor({ light: '#6A5ACD', dark: '#6A5ACD' }, 'tint');
   const buttonActiveBg = useThemeColor({ light: '#FF6B6B', dark: '#FF6B6B' }, 'tint');
+  
+  // Session limits from database (dynamic)
+  const isPremium = Boolean(user?.premium?.isActive);
+  const [sessionLimit, setSessionLimit] = useState<number | 'unlimited'>(isPremium ? 'unlimited' : 5 * 60);
   
   // Recording state
   const [state, setState] = useState<RecordingState>({
@@ -57,6 +63,36 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
   
   // Refs
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasShownWarningRef = useRef<boolean>(false);
+  const recordingRef = useRef<AudioRecorder | null>(null);
+  const isRecordingRef = useRef<boolean>(false);
+  
+  // Load session limit from database
+  useEffect(() => {
+    const loadSessionLimit = async () => {
+      try {
+        const limit = await getSessionLimit('voice_recording');
+        if (limit !== null) {
+          // Convert minutes to seconds if it's a number
+          const limitInSeconds = typeof limit === 'number' ? limit * 60 : limit;
+          setSessionLimit(limitInSeconds);
+          console.log('[VoiceRecorderSimple] Loaded session limit from database:', limitInSeconds);
+        } else {
+          // Fallback to default
+          const fallback = isPremium ? 'unlimited' : 5 * 60;
+          setSessionLimit(fallback);
+          console.log('[VoiceRecorderSimple] Using fallback session limit:', fallback);
+        }
+      } catch (error) {
+        console.error('[VoiceRecorderSimple] Error loading session limit:', error);
+        // Use fallback on error
+        const fallback = isPremium ? 'unlimited' : 5 * 60;
+        setSessionLimit(fallback);
+      }
+    };
+    
+    loadSessionLimit();
+  }, [isPremium, getSessionLimit]);
   
   // Global cleanup on component mount
   useEffect(() => {
@@ -86,7 +122,109 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
   const startTimer = () => {
     console.log('[VoiceRecorderSimple] Starting timer...');
     timerRef.current = setInterval(() => {
-      setState(prev => ({ ...prev, duration: prev.duration + 1 }));
+      setState(prev => {
+        const newDuration = prev.duration + 1;
+        
+        // Check session limit for free users
+        if (!isPremium && sessionLimit !== 'unlimited' && typeof sessionLimit === 'number') {
+          // Show warning at 80% of limit (4 minutes for 5 minute limit)
+          if (newDuration >= sessionLimit * 0.8 && !hasShownWarningRef.current) {
+            const remainingSeconds = sessionLimit - newDuration;
+            const remainingMinutes = Math.ceil(remainingSeconds / 60);
+            Alert.alert(
+              'Session Limit Warning',
+              `You have ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'} remaining in this recording session. Free users are limited to ${sessionLimit / 60} minutes per session.`,
+              [{ text: 'OK' }]
+            );
+            hasShownWarningRef.current = true;
+          }
+          
+          // Auto-stop at session limit
+          if (newDuration >= sessionLimit && isRecordingRef.current && recordingRef.current) {
+            console.log('[VoiceRecorderSimple] Session limit reached, auto-stopping recording');
+            
+            // Stop the timer immediately
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+              timerRef.current = null;
+            }
+            
+            // Stop the recording directly using refs
+            const currentRecording = recordingRef.current;
+            const finalDuration = newDuration;
+            
+            isRecordingRef.current = false;
+            
+            // Stop the recording asynchronously
+            (async () => {
+              try {
+                console.log('[VoiceRecorderSimple] Auto-stopping recording at limit...');
+                const uri = await AudioUtils.stopRecording(currentRecording);
+                console.log('[VoiceRecorderSimple] Recording stopped at limit, URI:', uri);
+                
+                // Create audio file object
+                const audioFile = {
+                  id: `audio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  filename: uri,
+                  duration: finalDuration,
+                  transcription: '',
+                  transcriptionStatus: 'pending' as const,
+                  aiTranscription: '',
+                  userEditedTranscription: '',
+                  createdAt: new Date(),
+                };
+                
+                // Update state to stopped
+                setState({
+                  isRecording: false,
+                  isStarting: false,
+                  duration: finalDuration,
+                  hasRecording: true,
+                  recording: null,
+                });
+                
+                recordingRef.current = null;
+                
+                // Call callbacks
+                onStopRecording?.();
+                onProgress?.(25);
+                onRecordingComplete?.(audioFile);
+                
+                console.log('[VoiceRecorderSimple] Recording saved successfully at session limit');
+                
+                // Show limit reached message after a delay
+                setTimeout(() => {
+                  Alert.alert(
+                    'Session Limit Reached',
+                    `You've reached the ${sessionLimit / 60}-minute session limit for free users. Your recording has been saved. Upgrade to Premium for unlimited recording sessions!`,
+                    [{ text: 'OK' }]
+                  );
+                }, 300);
+              } catch (error) {
+                console.error('[VoiceRecorderSimple] Error auto-stopping recording:', error);
+                setState({
+                  isRecording: false,
+                  isStarting: false,
+                  duration: finalDuration,
+                  hasRecording: false,
+                  recording: null,
+                });
+                recordingRef.current = null;
+                Alert.alert('Recording Error', 'Failed to save recording at session limit.');
+              }
+            })();
+            
+            // Return stopped state immediately
+            return {
+              ...prev,
+              isRecording: false,
+              duration: finalDuration,
+            };
+          }
+        }
+        
+        return { ...prev, duration: newDuration };
+      });
     }, 1000);
   };
 
@@ -102,6 +240,9 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
     console.log('[VoiceRecorderSimple] ===== START RECORDING =====');
     
     try {
+      // Reset warning flag for new recording
+      hasShownWarningRef.current = false;
+      
       // Check if recording is disabled (e.g., over usage limit)
       if (disabled) {
         Alert.alert(
@@ -167,7 +308,7 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
       
       console.log('[VoiceRecorderSimple] Recording started successfully');
       
-      // Update state
+      // Update state and refs
       setState(prev => ({
         ...prev,
         isRecording: true,
@@ -175,6 +316,9 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
         duration: 0,
         recording,
       }));
+      
+      recordingRef.current = recording;
+      isRecordingRef.current = true;
 
       // Start timer
       startTimer();
@@ -224,13 +368,16 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
 
       console.log('[VoiceRecorderSimple] Recording stopped, URI:', uri);
 
-      // Update state
+      // Update state and refs
       setState(prev => ({
         ...prev,
         isRecording: false,
         hasRecording: true,
         recording: null,
       }));
+      
+      recordingRef.current = null;
+      isRecordingRef.current = false;
       
       // Call callbacks
       onStopRecording?.();
@@ -339,6 +486,11 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
             </View>
             <Text style={[styles.durationText, { color: textColor }]}>
               {formatTime(state.duration)}
+              {!isPremium && sessionLimit !== 'unlimited' && (
+                <Text style={[styles.limitText, { color: textColor, opacity: 0.6 }]}>
+                  {' '}/ {formatTime(sessionLimit)}
+                </Text>
+              )}
             </Text>
           </View>
         )}
@@ -422,6 +574,10 @@ const styles = StyleSheet.create({
   durationText: {
     fontSize: 18,
     fontWeight: '600',
+  },
+  limitText: {
+    fontSize: 14,
+    fontWeight: '400',
   },
   clearButton: {
     width: 40,

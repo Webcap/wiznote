@@ -31,7 +31,7 @@ export default function HomeScreen() {
   const { user, isAuthenticated, isAdmin, isLoading: authLoading } = useAuth();
   const { isFeatureEnabled } = useFeatureFlags();
   const { showSnackbar } = useSnackbar();
-  const { notes, loading, error, syncStatus, isRealtimeActive, togglePin, toggleArchive, deleteNote, getFilteredNotes, refreshNotes } = useNotes(
+  const { notes, loading, error, syncStatus, isRealtimeActive, togglePin, toggleArchive, toggleFavorite, deleteNote, getFilteredNotes, refreshNotes } = useNotes(
     authLoading ? '' : (user?.id || '')
   );
 
@@ -131,6 +131,7 @@ export default function HomeScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [showCreateOptions, setShowCreateOptions] = useState(false);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [showFavorites, setShowFavorites] = useState(false);
   
   // Multi-select state
   const [selectedNotes, setSelectedNotes] = useState<Set<string>>(new Set());
@@ -378,6 +379,7 @@ export default function HomeScreen() {
     searchQuery: '',
     tags: [],
     showArchived: false,
+    showFavorites: showFavorites,
     sortBy: 'updatedAt',
     sortOrder: sortOrder,
   });
@@ -555,6 +557,7 @@ export default function HomeScreen() {
                     onEdit={() => handleWebEditNote(note)}
                     onDelete={() => handleWebDeleteNote(note)}
                     onArchive={() => handleWebArchiveNote(note)}
+                    onToggleFavorite={() => toggleFavorite(note.id)}
                   />
                 ))}
               </View>
@@ -654,7 +657,20 @@ export default function HomeScreen() {
           <ThemedText style={styles.sectionTitle}>Recent Notes</ThemedText>
           <View style={styles.sortOrderContainer}>
             <TouchableOpacity
-              style={[styles.sortOrderButton, { backgroundColor: sortOrderButtonBg }]}
+              style={[styles.sortOrderButton, { backgroundColor: showFavorites ? '#FFD700' : sortOrderButtonBg }]}
+              onPress={() => setShowFavorites(!showFavorites)}
+            >
+              <Ionicons
+                name={showFavorites ? 'star' : 'star-outline'}
+                size={18}
+                color={showFavorites ? '#000' : iconColor}
+              />
+              <ThemedText style={[styles.sortOrderText, { color: showFavorites ? '#000' : iconColor }]}>
+                {showFavorites ? 'Favorites' : 'All'}
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sortOrderButton, { backgroundColor: sortOrderButtonBg, marginLeft: 8 }]}
               onPress={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
             >
               <Ionicons
@@ -663,7 +679,7 @@ export default function HomeScreen() {
                 color={iconColor}
               />
               <ThemedText style={styles.sortOrderText}>
-                {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
+                {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -692,6 +708,7 @@ export default function HomeScreen() {
                       onPress={handleNotePress}
                       onTogglePin={togglePin}
                       onToggleArchive={toggleArchive}
+                      onToggleFavorite={toggleFavorite}
                       onDelete={deleteNote}
                     />
                   )}
@@ -715,6 +732,7 @@ export default function HomeScreen() {
                       onPress={handleNotePress}
                       onTogglePin={togglePin}
                       onToggleArchive={toggleArchive}
+                      onToggleFavorite={toggleFavorite}
                       onDelete={deleteNote}
                     />
                   )}

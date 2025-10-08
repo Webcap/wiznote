@@ -6,6 +6,7 @@ export interface Note {
   tags: string[];
   isPinned: boolean;
   isArchived: boolean;
+  isFavorite: boolean; // Mark note as favorite
   createdAt: Date;
   updatedAt: Date;
   audioUri?: string; // Audio file URI
@@ -39,6 +40,7 @@ export interface NoteFormData {
   tags: string[];
   isPinned?: boolean;
   isArchived?: boolean;
+  isFavorite?: boolean;
   audioUri?: string;
   audioFiles?: AudioFile[];
   keyDetails?: string[];
@@ -51,6 +53,7 @@ export interface UpdateNoteData {
   tags?: string[];
   isPinned?: boolean;
   isArchived?: boolean;
+  isFavorite?: boolean;
   audioUri?: string;
   audioFiles?: AudioFile[];
   keyDetails?: string[];
@@ -61,6 +64,7 @@ export interface NoteFilters {
   searchQuery: string;
   tags: string[];
   showArchived: boolean;
+  showFavorites: boolean;
   sortBy: 'createdAt' | 'updatedAt' | 'title';
   sortOrder: 'asc' | 'desc';
 }

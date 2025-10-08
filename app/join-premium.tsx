@@ -197,6 +197,7 @@ export default function JoinPremiumScreen() {
             planId={selectedPlan.id}
             planName={selectedPlan.name}
             planPrice={selectedPlan.price}
+            planInterval={selectedPlan.interval}
             stripePriceId={selectedPlan.stripePriceId}
             productId={Platform.OS === 'ios' || Platform.OS === 'android' ? getProductId(selectedPlan.id, Platform.OS as 'ios' | 'android') : undefined}
             onSuccess={handleSuccess}

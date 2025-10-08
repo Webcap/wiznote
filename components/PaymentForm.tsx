@@ -12,6 +12,7 @@ interface PaymentFormProps {
   planId: string;
   planName: string;
   planPrice: number;
+  planInterval?: string;
   stripePriceId?: string;
   onSuccess: () => void;
   onError: (error: string) => void;
@@ -21,6 +22,7 @@ export function PaymentForm({
   planId, 
   planName, 
   planPrice, 
+  planInterval = 'month',
   stripePriceId,
   onSuccess, 
   onError 
@@ -149,7 +151,7 @@ export function PaymentForm({
           {planName}
         </ThemedText>
         <ThemedText style={[styles.planPrice, { color: textColor }]}>
-          ${planPrice}/month
+          ${planPrice}/{planInterval === 'monthly' ? 'month' : planInterval === 'yearly' ? 'year' : planInterval === 'weekly' ? 'week' : planInterval}
         </ThemedText>
       </View>
       

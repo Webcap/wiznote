@@ -16,6 +16,7 @@ interface PaymentSheetFormProps {
   planId: string;
   planName: string;
   planPrice: number;
+  planInterval?: string;
   productId: string;
   stripePriceId?: string; // Add this missing prop
   onSuccess: () => void;
@@ -26,6 +27,7 @@ function PaymentSheetFormContent({
   planId, 
   planName, 
   planPrice, 
+  planInterval = 'month',
   productId,
   stripePriceId, // Add this parameter
   onSuccess, 
@@ -356,7 +358,7 @@ function PaymentSheetFormContent({
           {planName}
         </ThemedText>
         <ThemedText style={[styles.planPrice, { color: textColor }]}>
-          ${planPrice}/month
+          ${planPrice}/{planInterval === 'monthly' ? 'month' : planInterval === 'yearly' ? 'year' : planInterval === 'weekly' ? 'week' : planInterval}
         </ThemedText>
       </View>
       
