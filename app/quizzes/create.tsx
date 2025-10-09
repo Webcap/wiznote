@@ -18,6 +18,7 @@ import { UserSidebar } from '../../components/web/UserSidebar';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { supabase } from '../../lib/supabase';
 import { quizGenerationService } from '../../services/QuizGenerationService';
 import { ContentSourceType, QuestionType, QuizDifficulty } from '../../types/Quizzes';
 
@@ -60,20 +61,79 @@ export default function QuizCreationScreen() {
       return;
     }
 
-    // Load note content
-    loadNoteContent();
-  }, [noteId]);
+    // Only load note content when user is available
+    if (user?.id) {
+      loadNoteContent();
+    }
+  }, [noteId, user?.id]);
 
   const loadNoteContent = async () => {
     try {
-      // This would typically load from your note service
-      // For now, we'll use placeholder content
-      setNoteContent('This is a sample note content that will be used to generate the quiz. In a real implementation, this would load the actual note content from your database.');
-      setNoteTitle('Sample Note');
-      setQuizTitle(`Quiz on ${noteTitle || 'Note Content'}`);
+      if (!user?.id || !noteId) {
+        throw new Error('User or note ID not available');
+      }
+
+      console.log('Loading note content for noteId:', noteId);
+
+      // First, check if quizzes already exist for this note
+      const { data: existingQuizzes, error: quizzesError } = await supabase
+        .from('quizzes')
+        .select('id')
+        .eq('note_id', noteId)
+        .eq('user_id', user.id);
+
+      if (quizzesError) {
+        console.error('Error checking for existing quizzes:', quizzesError);
+        // Continue to load note even if quiz check fails
+      } else if (existingQuizzes && existingQuizzes.length > 0) {
+        // Quizzes already exist, redirect to quiz list page
+        console.log(`Found ${existingQuizzes.length} existing quizzes, redirecting to quiz list`);
+        router.replace(`/notes/${noteId}/quizzes`);
+        return;
+      }
+
+      // No existing quizzes, proceed to load note content
+      const { data: note, error } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('id', noteId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error loading note:', error);
+        throw new Error('Failed to load note from database');
+      }
+
+      if (!note) {
+        throw new Error('Note not found');
+      }
+
+      // Set note content and metadata
+      const content = note.content || '';
+      const title = note.title || 'Untitled Note';
+
+      if (!content || content.trim().length === 0) {
+        Alert.alert(
+          'Empty Note',
+          'This note appears to be empty. Please add some content to the note before generating a quiz.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+        return;
+      }
+
+      setNoteContent(content);
+      setNoteTitle(title);
+      setQuizTitle(`Quiz: ${title}`);
+
+      console.log('Note loaded successfully:', { title, contentLength: content.length });
     } catch (error) {
       console.error('Error loading note content:', error);
-      Alert.alert('Error', 'Failed to load note content');
+      Alert.alert(
+        'Error',
+        'Failed to load note content. Please try again.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
     }
   };
 
@@ -217,11 +277,11 @@ export default function QuizCreationScreen() {
         </View>
         <View style={styles.headerCenter}>
           <ThemedText style={styles.title}>Create AI Quiz</ThemedText>
-          {noteTitle && (
+          {noteTitle ? (
             <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
               From: {noteTitle}
             </ThemedText>
-          )}
+          ) : null}
         </View>
         <View style={styles.headerRight} />
       </ThemedView>
@@ -355,12 +415,21 @@ export default function QuizCreationScreen() {
 
         {/* Source Content Preview */}
         <ThemedView style={[styles.section, styles.card, { backgroundColor: cardBg }]}>
-          <ThemedText style={styles.sectionTitle}>Source Content</ThemedText>
-          <ThemedText style={[styles.sectionHint, { color: textSecondary }]}>
-            Quiz will be generated from this content
-          </ThemedText>
+          <View style={styles.contentPreviewHeader}>
+            <View>
+              <ThemedText style={styles.sectionTitle}>Source Content</ThemedText>
+              <ThemedText style={[styles.sectionHint, { color: textSecondary }]}>
+                Quiz will be generated from this content
+              </ThemedText>
+            </View>
+            {noteContent ? (
+              <ThemedText style={[styles.contentStats, { color: textSecondary }]}>
+                {noteContent.length} characters
+              </ThemedText>
+            ) : null}
+          </View>
           <ThemedView style={[styles.contentPreview, { borderColor, backgroundColor }]}>
-            <ThemedText style={styles.contentPreviewText} numberOfLines={3}>
+            <ThemedText style={styles.contentPreviewText} numberOfLines={5}>
               {noteContent || 'Loading note content...'}
             </ThemedText>
           </ThemedView>
@@ -638,12 +707,21 @@ const styles = StyleSheet.create({
     marginLeft: 36,
     marginTop: 4,
   },
+  contentPreviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  contentStats: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
   contentPreview: {
     borderWidth: 1,
     borderRadius: 8,
     padding: Platform.OS === 'web' ? 16 : 12,
-    marginTop: 8,
-    minHeight: 80,
+    minHeight: 100,
   },
   contentPreviewText: {
     fontSize: 14,

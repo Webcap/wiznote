@@ -172,7 +172,7 @@ export default function PaymentSuccessMobileScreen() {
 
         {/* Thank You Message */}
         <ThemedText style={[styles.thankYou, { color: textColor }]}>
-          Thank you for choosing Notez! 🚀
+          Thank you for choosing Wiznote! 🚀
         </ThemedText>
       </Animated.View>
     </ThemedView>
