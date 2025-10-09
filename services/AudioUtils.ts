@@ -666,11 +666,33 @@ export class AudioUtils {
     try {
       console.log('[AudioUtils] Converting audio to base64...');
       
+      // Web-specific implementation using browser APIs
+      if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
+        console.log('[AudioUtils] Using web-specific base64 conversion for:', uri);
+        
+        if (uri.startsWith('blob:')) {
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64 = (reader.result as string).split(',')[1];
+              console.log('[AudioUtils] Blob converted to base64 (web), length:', base64.length);
+              resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        }
+      }
+      
+      // Native implementation using expo-file-system
       const base64 = await FileSystem.readAsStringAsync(uri, { 
         encoding: 'base64' as any
       });
       
-      console.log('[AudioUtils] Audio converted to base64, length:', base64.length);
+      console.log('[AudioUtils] Audio converted to base64 (native), length:', base64.length);
       return base64;
     } catch (error) {
       console.error('[AudioUtils] Error converting audio to base64:', error);
