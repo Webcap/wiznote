@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -74,19 +74,24 @@ export default function PaymentSuccessMobileScreen() {
 
   if (isRefreshing) {
     return (
-      <ThemedView style={[styles.loadingContainer, { backgroundColor }]}>
-        <LoadingSpinner size={60} />
-        <ThemedText style={[styles.loadingText, { color: textColor }]}>
-          Activating your premium features...
-        </ThemedText>
-      </ThemedView>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ThemedView style={[styles.loadingContainer, { backgroundColor }]}>
+          <LoadingSpinner size={60} />
+          <ThemedText style={[styles.loadingText, { color: textColor }]}>
+            Activating your premium features...
+          </ThemedText>
+        </ThemedView>
+      </>
     );
   }
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor }]}>
-      {/* Success Animation */}
-      <Animated.View 
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ThemedView style={[styles.container, { backgroundColor }]}>
+        {/* Success Animation */}
+        <Animated.View 
         style={[
           styles.content,
           {
@@ -176,6 +181,7 @@ export default function PaymentSuccessMobileScreen() {
         </ThemedText>
       </Animated.View>
     </ThemedView>
+    </>
   );
 }
 

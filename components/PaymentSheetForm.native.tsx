@@ -35,8 +35,9 @@ function PaymentSheetFormContent({
 }: PaymentSheetFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isPaymentSheetReady, setIsPaymentSheetReady] = useState(false);
-  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
-  const paymentIntentIdRef = useRef<string | null>(null);
+  const [intentId, setIntentId] = useState<string | null>(null);
+  const intentIdRef = useRef<string | null>(null);
+  const [intentType, setIntentType] = useState<'setup' | 'payment'>('setup');
   const { user, validateCurrentUser, forceRefreshSession } = useAuth();
   const router = useRouter(); // Add router for navigation
   const isPremium = Boolean(user?.premium?.isActive);
@@ -49,17 +50,17 @@ function PaymentSheetFormContent({
 
   const { initPaymentSheet, presentPaymentSheet } = usePaymentSheet();
 
-  // Debug: Track paymentIntentId changes
+  // Debug: Track intentId changes
   useEffect(() => {
-    console.log('PaymentIntentId state changed to:', paymentIntentId);
-  }, [paymentIntentId]);
+    console.log(`${intentType}Id state changed to:`, intentId);
+  }, [intentId, intentType]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       console.log('PaymentSheetForm unmounting, clearing state');
-      setPaymentIntentId(null);
-      paymentIntentIdRef.current = null;
+      setIntentId(null);
+      intentIdRef.current = null;
       setIsPaymentSheetReady(false);
     };
   }, []);
@@ -135,22 +136,39 @@ function PaymentSheetFormContent({
         throw new Error(errorData.error || 'Failed to create PaymentSheet');
       }
 
-      const { paymentIntent, paymentIntentId: responsePaymentIntentId, ephemeralKey, customer, publishableKey } = await response.json();
+      const responseData = await response.json();
+      const { 
+        setupIntent, 
+        setupIntentId, 
+        paymentIntent, 
+        paymentIntentId: responsePaymentIntentId, 
+        ephemeralKey, 
+        customer, 
+        publishableKey,
+        planId: responsePlanId,
+        stripePriceId: responseStripePriceId
+      } = responseData;
+      
+      // Determine if we're using SetupIntent or PaymentIntent
+      const isUsingSetup = !!setupIntent;
+      const clientSecret = setupIntent || paymentIntent;
+      const responseIntentId = setupIntentId || responsePaymentIntentId;
       
       console.log('PaymentSheet response:', { 
-        hasPaymentIntent: !!paymentIntent, 
-        hasPaymentIntentId: !!responsePaymentIntentId,
+        isUsingSetupIntent: isUsingSetup,
+        hasClientSecret: !!clientSecret, 
+        hasIntentId: !!responseIntentId,
         hasEphemeralKey: !!ephemeralKey,
         hasCustomer: !!customer 
       });
       
       // Validate all required fields
-      if (!paymentIntent) {
-        throw new Error('No payment intent received');
+      if (!clientSecret) {
+        throw new Error('No payment/setup intent received');
       }
 
-      if (!responsePaymentIntentId) {
-        throw new Error('No payment intent ID received');
+      if (!responseIntentId) {
+        throw new Error('No intent ID received');
       }
 
       if (!ephemeralKey) {
@@ -163,29 +181,38 @@ function PaymentSheetFormContent({
 
       console.log('All required PaymentSheet data received successfully');
 
-      // Use the payment intent ID directly from the response
-      setPaymentIntentId(responsePaymentIntentId);
-      paymentIntentIdRef.current = responsePaymentIntentId;
-      console.log('Payment intent ID set:', responsePaymentIntentId);
+      // Store the intent ID and type
+      setIntentId(responseIntentId);
+      intentIdRef.current = responseIntentId;
+      setIntentType(isUsingSetup ? 'setup' : 'payment');
+      console.log(`${isUsingSetup ? 'Setup' : 'Payment'} intent ID set:`, responseIntentId);
 
-      // Initialize PaymentSheet
+      // Initialize PaymentSheet with appropriate intent
       console.log('Initializing PaymentSheet with:', {
         merchantDisplayName: 'Wiznote',
         customerId: customer,
         hasEphemeralKey: !!ephemeralKey,
-        hasPaymentIntent: !!paymentIntent,
+        intentType: isUsingSetup ? 'setup' : 'payment',
         allowsDelayedPaymentMethods: false,
         returnURL: 'notez://payment-success',
       });
 
-      const { error } = await initPaymentSheet({
+      const initConfig = {
         merchantDisplayName: 'Wiznote',
         customerId: customer,
         customerEphemeralKeySecret: ephemeralKey,
-        paymentIntentClientSecret: paymentIntent,
         allowsDelayedPaymentMethods: false,
         returnURL: 'notez://payment-success',
-      });
+      };
+
+      // Add the appropriate intent secret
+      if (isUsingSetup) {
+        initConfig.setupIntentClientSecret = clientSecret;
+      } else {
+        initConfig.paymentIntentClientSecret = clientSecret;
+      }
+
+      const { error } = await initPaymentSheet(initConfig);
 
       if (error) {
         console.error('PaymentSheet init error:', error);
@@ -214,15 +241,15 @@ function PaymentSheetFormContent({
           console.log('Payment completed successfully!');
           
           // Payment successful - now confirm and create subscription
-          console.log('Payment intent ID before confirmation:', paymentIntentId);
-          console.log('Payment intent ID ref before confirmation:', paymentIntentIdRef.current);
+          console.log(`${intentType} intent ID before confirmation:`, intentId);
+          console.log(`${intentType} intent ID ref before confirmation:`, intentIdRef.current);
           
           // Use ref as fallback if state is lost
-          const currentPaymentIntentId = paymentIntentId || paymentIntentIdRef.current;
+          const currentIntentId = intentId || intentIdRef.current;
           
-          if (!currentPaymentIntentId) {
-            console.error('Payment intent ID lost after successful payment');
-            throw new Error('Payment intent ID lost after successful payment');
+          if (!currentIntentId) {
+            console.error(`${intentType} intent ID lost after successful payment`);
+            throw new Error(`${intentType} intent ID lost after successful payment`);
           }
           
           console.log('Proceeding with payment confirmation...');
@@ -239,8 +266,8 @@ function PaymentSheetFormContent({
       } catch (presentError) {
         console.error('PaymentSheet presentation error:', presentError);
         // Reset state on error
-        setPaymentIntentId(null);
-        paymentIntentIdRef.current = null;
+        setIntentId(null);
+        intentIdRef.current = null;
         setIsPaymentSheetReady(false);
         throw presentError;
       }
@@ -248,16 +275,16 @@ function PaymentSheetFormContent({
     } catch (error) {
       console.error('PaymentSheet creation error:', error);
       // Reset state on error
-      setPaymentIntentId(null);
-      paymentIntentIdRef.current = null;
+      setIntentId(null);
+      intentIdRef.current = null;
       setIsPaymentSheetReady(false);
       throw error;
     }
   };
 
   const confirmPaymentSheetPayment = async () => {
-    console.log('confirmPaymentSheetPayment called with paymentIntentId:', paymentIntentId);
-    console.log('confirmPaymentSheetPayment ref value:', paymentIntentIdRef.current);
+    console.log(`confirmPaymentSheetPayment called with ${intentType}IntentId:`, intentId);
+    console.log('confirmPaymentSheetPayment ref value:', intentIdRef.current);
     
     // Check if user is still authenticated
     if (!user?.id) {
@@ -270,14 +297,14 @@ function PaymentSheetFormContent({
     }
     
     // Use ref as fallback if state is lost
-    const currentPaymentIntentId = paymentIntentId || paymentIntentIdRef.current;
+    const currentIntentId = intentId || intentIdRef.current;
     
-    if (!currentPaymentIntentId) {
-      console.error('Payment intent ID is null or undefined in both state and ref');
-      throw new Error('No payment intent ID available');
+    if (!currentIntentId) {
+      console.error(`${intentType} intent ID is null or undefined in both state and ref`);
+      throw new Error(`No ${intentType} intent ID available`);
     }
 
-    console.log('Confirming payment with ID:', currentPaymentIntentId);
+    console.log(`Confirming payment with ${intentType} intent ID:`, currentIntentId);
 
     try {
       const base = (
@@ -292,14 +319,23 @@ function PaymentSheetFormContent({
       console.log('Sending confirmation to:', `${base}/stripe/confirm-paymentsheet`);
       
       // Confirm payment and create subscription
+      // Send both setupIntentId and paymentIntentId for backward compatibility
+      const requestBody = {
+        planId,
+        userId: user?.id,
+        stripePriceId: stripePriceId,
+      };
+      
+      if (intentType === 'setup') {
+        requestBody.setupIntentId = currentIntentId;
+      } else {
+        requestBody.paymentIntentId = currentIntentId;
+      }
+      
       const response = await fetch(`${base}/stripe/confirm-paymentsheet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          paymentIntentId: currentPaymentIntentId,
-          planId,
-          userId: user?.id,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       console.log('Confirmation response status:', response.status);
@@ -334,9 +370,9 @@ function PaymentSheetFormContent({
       
       console.log('Payment confirmation completed with subscription ID:', result.subscriptionId);
       
-      // Clear the payment intent ID after successful confirmation
-      setPaymentIntentId(null);
-      paymentIntentIdRef.current = null;
+      // Clear the intent ID after successful confirmation
+      setIntentId(null);
+      intentIdRef.current = null;
       
     } catch (error) {
       console.error('Payment confirmation error:', error);
