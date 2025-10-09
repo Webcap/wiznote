@@ -39,12 +39,6 @@
     "version:major": "npm version major",
     "version:show": "npm version --no-git-tag-version"
   },
-  "overrides": {
-    "@supabase/postgrest-js": "^1.15.8",
-    "use-latest-callback": "^0.2.1",
-    "merge-options": "^3.0.4",
-    "tslib": "^2.6.2"
-  },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -92,6 +86,7 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@expo/image-utils": "^0.8.7",
+    "@expo/webpack-config": "^19.0.1",
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-native": "^12.9.0",
     "@types/eslint": "^9.6.1",
