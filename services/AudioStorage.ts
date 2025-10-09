@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { AudioFile } from '../types/Note';
@@ -101,11 +101,28 @@ export class AudioStorage {
       const fileName = `${userId}/${noteId}/audio_${timestamp}.${fileExtension}`;
 
       let audioData: Uint8Array;
+      let contentType = 'audio/webm'; // Default for web
 
       if (Platform.OS === 'web') {
         // For web, fetch the blob data directly
         const response = await fetch(audioUri);
         const blob = await response.blob();
+        
+        // Get the actual mime type from the blob
+        contentType = blob.type || 'audio/webm';
+        console.log('AudioStorage: Detected blob mime type:', contentType);
+        
+        // Supabase has issues with some mime types, normalize them
+        if (contentType.includes('mp4') || contentType.includes('m4a')) {
+          // Use audio/mpeg for better compatibility
+          contentType = 'audio/mpeg';
+        } else if (!contentType.startsWith('audio/')) {
+          // Fallback to webm if not an audio type
+          contentType = 'audio/webm';
+        }
+        
+        console.log('AudioStorage: Using normalized mime type:', contentType);
+        
         const arrayBuffer = await blob.arrayBuffer();
         audioData = new Uint8Array(arrayBuffer);
       } else {
@@ -114,13 +131,14 @@ export class AudioStorage {
           encoding: 'base64' as any,
         });
         audioData = this.base64ToUint8Array(base64Audio);
+        contentType = `audio/${fileExtension}`;
       }
 
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from(this.bucketName)
         .upload(fileName, audioData, {
-          contentType: Platform.OS === 'web' ? 'audio/mp4' : `audio/${fileExtension}`,
+          contentType: contentType,
           upsert: false,
         });
 
@@ -136,13 +154,27 @@ export class AudioStorage {
         throw error;
       }
 
-      // Get the public URL
-      const { data: urlData } = supabase.storage
+      // For private buckets, we use the storage path directly
+      // The app will generate signed URLs when needed for downloads
+      const storagePath = `${this.bucketName}/${fileName}`;
+      
+      // Create a signed URL that expires in 1 year (for long-term access)
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from(this.bucketName)
-        .getPublicUrl(fileName);
+        .createSignedUrl(fileName, 365 * 24 * 60 * 60); // 1 year in seconds
 
-      console.log('AudioStorage: Audio file uploaded successfully:', urlData.publicUrl);
-      return urlData.publicUrl;
+      if (signedUrlError) {
+        console.error('AudioStorage: Error creating signed URL:', signedUrlError);
+        // Fallback: return public URL (may not work for private buckets but better than nothing)
+        const { data: publicUrlData } = supabase.storage
+          .from(this.bucketName)
+          .getPublicUrl(fileName);
+        console.log('AudioStorage: Using public URL as fallback:', publicUrlData.publicUrl);
+        return publicUrlData.publicUrl;
+      }
+
+      console.log('AudioStorage: Audio file uploaded successfully with signed URL');
+      return signedUrlData.signedUrl;
     } catch (error) {
       console.error('AudioStorage: Error uploading audio file:', error);
       
