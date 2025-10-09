@@ -10,8 +10,20 @@ const config = getDefaultConfig(__dirname);
 // 2. Component.tsx
 config.resolver = {
   ...config.resolver,
-  sourceExts: ['tsx', 'ts', 'jsx', 'js', 'json'],
+  sourceExts: ['tsx', 'ts', 'jsx', 'js', 'json', 'mjs', 'cjs'],
   platforms: ['ios', 'android', 'web'],
+  unstable_enablePackageExports: false, // Disable package exports to avoid ESM issues
+};
+
+// Add transformer options for better compatibility
+config.transformer = {
+  ...config.transformer,
+  getTransformOptions: async () => ({
+    transform: {
+      experimentalImportSupport: false,
+      inlineRequires: true,
+    },
+  }),
 };
 
 module.exports = config;
