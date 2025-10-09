@@ -5,6 +5,7 @@ interface UnifiedPaymentFormProps {
   planId: string;
   planName: string;
   planPrice: number;
+  planInterval?: string;
   stripePriceId?: string;
   productId?: string; // iOS/Android product ID for in-app purchase
   onSuccess: () => void;
@@ -19,6 +20,7 @@ export function UnifiedPaymentForm(props: UnifiedPaymentFormProps) {
         planId={props.planId}
         planName={props.planName}
         planPrice={props.planPrice}
+        planInterval={props.planInterval}
         stripePriceId={props.stripePriceId}
         productId={props.productId || ''}
         onSuccess={props.onSuccess}
@@ -33,6 +35,7 @@ export function UnifiedPaymentForm(props: UnifiedPaymentFormProps) {
         planId={props.planId}
         planName={props.planName}
         planPrice={props.planPrice}
+        planInterval={props.planInterval}
         stripePriceId={props.stripePriceId}
         onSuccess={props.onSuccess}
         onError={props.onError}

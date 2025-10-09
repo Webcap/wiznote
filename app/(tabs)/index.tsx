@@ -8,10 +8,13 @@ import { Logo } from '../../components/Logo';
 import { NoteCard } from '../../components/NoteCard';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
+import { LazyWrapper, LazyViewport } from '../../components/LazyWrapper';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
+import { useLazyData } from '../../hooks/useLazyData';
 import { useNotes } from '../../hooks/useNotes';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { useSnackbar } from '../../contexts/SnackbarContext';
 import { AudioUtils } from '../../services/AudioUtils';
 import { featureFlagService } from '../../services/FeatureFlagService';
 import { realtimeSyncService } from '../../services/RealtimeSyncService';
@@ -27,8 +30,24 @@ export default function HomeScreen() {
   console.log('HomeScreen: Component rendering...');
   const { user, isAuthenticated, isAdmin, isLoading: authLoading } = useAuth();
   const { isFeatureEnabled } = useFeatureFlags();
-  const { notes, loading, error, syncStatus, isRealtimeActive, togglePin, toggleArchive, deleteNote, getFilteredNotes, refreshNotes } = useNotes(
+  const { showSnackbar } = useSnackbar();
+  const { notes, loading, error, syncStatus, isRealtimeActive, togglePin, toggleArchive, toggleFavorite, deleteNote, getFilteredNotes, refreshNotes } = useNotes(
     authLoading ? '' : (user?.id || '')
+  );
+
+  // Lazy load feature flags with caching
+  const featureFlags = useLazyData(
+    'feature-flags',
+    async () => {
+      if (!isAuthenticated) return {};
+      return await featureFlagService.getFeatureFlags();
+    },
+    {
+      enabled: isAuthenticated,
+      delay: 100, // Small delay to prevent blocking
+      cacheTime: 5 * 60 * 1000, // 5 minutes cache
+      staleTime: 1 * 60 * 1000, // 1 minute stale time
+    }
   );
 
   // Set up real-time sync for notes
@@ -112,10 +131,136 @@ export default function HomeScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const [showCreateOptions, setShowCreateOptions] = useState(false);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [showFavorites, setShowFavorites] = useState(false);
+  
+  // Multi-select state
+  const [selectedNotes, setSelectedNotes] = useState<Set<string>>(new Set());
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const iconColor = useThemeColor({}, 'text');
   const sortOrderButtonBg = useThemeColor({ light: '#E5E7EB', dark: '#282828' }, 'background');
   const premiumButtonBg = useThemeColor({ light: '#FF8C00', dark: '#FF8C00' }, 'tint');
   const premiumIconColor = useThemeColor({ light: '#fff', dark: '#fff' }, 'text');
+  const cardBg = useThemeColor({}, 'backgroundSecondary');
+
+  // Multi-select helper functions
+  const handleNoteLongPress = useCallback((noteId: string) => {
+    if (Platform.OS !== 'web') return;
+    
+    if (!isMultiSelectMode) {
+      setIsMultiSelectMode(true);
+      showSnackbar(
+        'Multi-select mode activated. Click notes to select more.',
+        'info',
+        2000
+      );
+    }
+    
+    setSelectedNotes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(noteId)) {
+        newSet.delete(noteId);
+      } else {
+        newSet.add(noteId);
+      }
+      return newSet;
+    });
+  }, [isMultiSelectMode, showSnackbar]);
+
+  const handleNotePress = useCallback((note: Note) => {
+    if (Platform.OS !== 'web') {
+      router.push(`/note/${note.id}`);
+      return;
+    }
+
+    if (isMultiSelectMode) {
+      // In multi-select mode, toggle selection instead of navigating
+      setSelectedNotes(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(note.id)) {
+          newSet.delete(note.id);
+        } else {
+          newSet.add(note.id);
+        }
+        return newSet;
+      });
+    } else {
+      // Normal mode - navigate to note
+      router.push(`/note/${note.id}`);
+    }
+  }, [isMultiSelectMode, router]);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedNotes.size === 0) return;
+
+    console.log('Bulk delete initiated for notes:', Array.from(selectedNotes));
+
+    // Use browser confirm for web, Alert.alert for mobile
+    const confirmed = Platform.OS === 'web' 
+      ? window.confirm(`Are you sure you want to delete ${selectedNotes.size} note${selectedNotes.size > 1 ? 's' : ''}? This action cannot be undone.`)
+      : true; // For mobile, we'll use Alert.alert
+
+    if (Platform.OS === 'web' && !confirmed) {
+      return;
+    }
+
+    if (Platform.OS !== 'web') {
+      Alert.alert(
+        'Delete Selected Notes',
+        `Are you sure you want to delete ${selectedNotes.size} note${selectedNotes.size > 1 ? 's' : ''}? This action cannot be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              await performBulkDelete();
+            }
+          }
+        ]
+      );
+    } else {
+      await performBulkDelete();
+    }
+
+    async function performBulkDelete() {
+      try {
+        console.log('Starting bulk delete process...');
+        const deletePromises = Array.from(selectedNotes).map(noteId => {
+          console.log('Deleting note:', noteId);
+          return deleteNote(noteId);
+        });
+        await Promise.all(deletePromises);
+        console.log('Bulk delete completed successfully');
+        setSelectedNotes(new Set());
+        setIsMultiSelectMode(false);
+        
+        // Show success message using snackbar
+        showSnackbar(
+          `Successfully deleted ${selectedNotes.size} note${selectedNotes.size > 1 ? 's' : ''}!`,
+          'success',
+          3000
+        );
+      } catch (error) {
+        console.error('Error deleting notes:', error);
+        showSnackbar(
+          'Failed to delete some notes. Please try again.',
+          'error',
+          5000
+        );
+      }
+    }
+  }, [selectedNotes, deleteNote, showSnackbar]);
+
+  const exitMultiSelectMode = useCallback(() => {
+    setIsMultiSelectMode(false);
+    setSelectedNotes(new Set());
+    showSnackbar(
+      'Multi-select mode cancelled.',
+      'info',
+      1500
+    );
+  }, [showSnackbar]);
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -136,10 +281,6 @@ export default function HomeScreen() {
 
     return () => pulse.stop();
   }, [pulseAnim]);
-
-  const handleNotePress = (note: Note) => {
-    router.push(`/note/${note.id}` as any);
-  };
 
   const handleCreateNote = useCallback(() => {
     console.log('Create button pressed, showCreateOptions:', showCreateOptions);
@@ -238,6 +379,7 @@ export default function HomeScreen() {
     searchQuery: '',
     tags: [],
     showArchived: false,
+    showFavorites: showFavorites,
     sortBy: 'updatedAt',
     sortOrder: sortOrder,
   });
@@ -373,18 +515,53 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            <View style={styles.webNotesGrid}>
-              {filteredNotes.map((note) => (
-                <WebNoteCard
-                  key={note.id}
-                  note={note}
-                  onPress={() => handleNotePress(note)}
-                  onEdit={() => handleWebEditNote(note)}
-                  onDelete={() => handleWebDeleteNote(note)}
-                  onArchive={() => handleWebArchiveNote(note)}
-                />
-              ))}
-            </View>
+            <>
+              {/* Multi-select Toolbar */}
+              {isMultiSelectMode && (
+                <View style={styles.webSelectionToolbar}>
+                  <View style={styles.webSelectionInfo}>
+                    <ThemedText style={styles.webSelectionText}>
+                      {selectedNotes.size} note{selectedNotes.size !== 1 ? 's' : ''} selected
+                    </ThemedText>
+                  </View>
+                  <View style={styles.webSelectionActions}>
+                    <TouchableOpacity 
+                      style={[styles.webSelectionButton, styles.webSelectionButtonDanger]}
+                      onPress={() => {
+                        console.log('Delete button clicked!');
+                        handleBulkDelete();
+                      }}
+                    >
+                      <Ionicons name="trash" size={16} color="#FFFFFF" />
+                      <ThemedText style={styles.webSelectionButtonText}>Delete</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.webSelectionButton}
+                      onPress={exitMultiSelectMode}
+                    >
+                      <Ionicons name="close" size={16} color="#666666" />
+                      <ThemedText style={[styles.webSelectionButtonText, { color: '#666666' }]}>Cancel</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.webNotesGrid}>
+                {filteredNotes.map((note) => (
+                  <WebNoteCard
+                    key={note.id}
+                    note={note}
+                    isSelected={selectedNotes.has(note.id)}
+                    onPress={() => handleNotePress(note)}
+                    onLongPress={() => handleNoteLongPress(note.id)}
+                    onEdit={() => handleWebEditNote(note)}
+                    onDelete={() => handleWebDeleteNote(note)}
+                    onArchive={() => handleWebArchiveNote(note)}
+                    onToggleFavorite={() => toggleFavorite(note.id)}
+                  />
+                ))}
+              </View>
+            </>
           )}
         </View>
       </WebLayout>
@@ -480,7 +657,20 @@ export default function HomeScreen() {
           <ThemedText style={styles.sectionTitle}>Recent Notes</ThemedText>
           <View style={styles.sortOrderContainer}>
             <TouchableOpacity
-              style={[styles.sortOrderButton, { backgroundColor: sortOrderButtonBg }]}
+              style={[styles.sortOrderButton, { backgroundColor: showFavorites ? '#FFD700' : sortOrderButtonBg }]}
+              onPress={() => setShowFavorites(!showFavorites)}
+            >
+              <Ionicons
+                name={showFavorites ? 'star' : 'star-outline'}
+                size={18}
+                color={showFavorites ? '#000' : iconColor}
+              />
+              <ThemedText style={[styles.sortOrderText, { color: showFavorites ? '#000' : iconColor }]}>
+                {showFavorites ? 'Favorites' : 'All'}
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sortOrderButton, { backgroundColor: sortOrderButtonBg, marginLeft: 8 }]}
               onPress={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
             >
               <Ionicons
@@ -489,7 +679,7 @@ export default function HomeScreen() {
                 color={iconColor}
               />
               <ThemedText style={styles.sortOrderText}>
-                {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
+                {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -518,6 +708,7 @@ export default function HomeScreen() {
                       onPress={handleNotePress}
                       onTogglePin={togglePin}
                       onToggleArchive={toggleArchive}
+                      onToggleFavorite={toggleFavorite}
                       onDelete={deleteNote}
                     />
                   )}
@@ -541,6 +732,7 @@ export default function HomeScreen() {
                       onPress={handleNotePress}
                       onTogglePin={togglePin}
                       onToggleArchive={toggleArchive}
+                      onToggleFavorite={toggleFavorite}
                       onDelete={deleteNote}
                     />
                   )}
@@ -1062,5 +1254,78 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
     gap: 5,
+  },
+  webNoteCardSkeleton: {
+    width: 'calc(33.333% - 10px)',
+    minHeight: 200,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    justifyContent: 'space-between',
+  },
+  skeletonLine: {
+    height: 12,
+    borderRadius: 6,
+    marginBottom: 8,
+    backgroundColor: '#E0E0E0',
+  },
+  // Multi-select toolbar styles
+  webSelectionToolbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    }),
+  },
+  webSelectionInfo: {
+    flex: 1,
+  },
+  webSelectionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#495057',
+  },
+  webSelectionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  webSelectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DEE2E6',
+    gap: 6,
+    ...(Platform.OS === 'web' ? {
+      cursor: 'pointer',
+      transition: 'all 0.2s ease',
+    } : {}),
+  },
+  webSelectionButtonDanger: {
+    backgroundColor: '#DC3545',
+    borderColor: '#DC3545',
+  },
+  webSelectionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#495057',
   },
 });

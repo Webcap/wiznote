@@ -243,26 +243,22 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
       console.log('generateFlashcards result:', result);
       
       if (result.success && result.flashcardSet) {
-        Alert.alert(
-          'Success!',
-          `Generated ${result.flashcardSet.totalCards} flashcards in ${Math.round((result.generationTime || 0) / 1000)}s`,
-          [
-            {
-              text: 'View Flashcards',
-              onPress: () => {
-                onClose();
-                // Call onSuccess callback to refresh the flashcards list
-                if (onSuccess) {
-                  onSuccess();
-                }
-              },
-            },
-            {
-              text: 'Close',
-              style: 'cancel',
-            },
-          ]
-        );
+        // Call onSuccess callback first to refresh the flashcards list
+        if (onSuccess) {
+          await onSuccess();
+        }
+        
+        // Close the modal
+        onClose();
+        
+        // Show success message after a brief delay to ensure the modal is closed
+        setTimeout(() => {
+          Alert.alert(
+            'Success!',
+            `Generated ${result.flashcardSet.totalCards} flashcards in ${Math.round((result.generationTime || 0) / 1000)}s. You can now view and study them below.`,
+            [{ text: 'Great!', style: 'default' }]
+          );
+        }, 300);
       } else {
         Alert.alert('Generation Failed', result.error || 'Unknown error occurred');
       }

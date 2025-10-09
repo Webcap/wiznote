@@ -56,10 +56,15 @@ export class SubscriptionManagementService {
         .from('user_profiles')
         .select('premium, stripe_customer_id')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
+        return null;
+      }
+
+      if (!profile) {
+        console.log('No user profile found for user:', userId);
         return null;
       }
 
@@ -84,10 +89,15 @@ export class SubscriptionManagementService {
         .from('premium_plans')
         .select('*')
         .eq('id', planId)
-        .single();
+        .maybeSingle();
 
       if (planError) {
         console.error('Error fetching plan details:', planError);
+        return null;
+      }
+
+      if (!plan) {
+        console.log('No plan found for planId:', planId);
         return null;
       }
 

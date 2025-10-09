@@ -134,6 +134,7 @@ export default function SharedScreen() {
         onPress={() => handleNotePress(item)}
         onTogglePin={() => {}} // Disabled for shared notes
         onToggleArchive={() => {}} // Disabled for shared notes
+        onToggleFavorite={() => {}} // Disabled for shared notes
         onDelete={() => {}} // Disabled for shared notes
       />
       <View style={[styles.shareInfo, { backgroundColor: backgroundSecondary, borderColor }]}>

@@ -938,12 +938,12 @@ export default function FlashcardsPage() {
                noteId={note?.id || ''}
                noteContent={note?.content || ''}
                userId={user?.id || ''}
-               onSuccess={() => {
-                 if (__DEV__) {
-                   console.log('Flashcards generated successfully on web, refreshing list...');
-                 }
-                 loadFlashcards();
-               }}
+              onSuccess={async () => {
+                if (__DEV__) {
+                  console.log('Flashcards generated successfully on web, refreshing list...');
+                }
+                await loadFlashcards();
+              }}
              />
            </View>
          )}
@@ -1456,11 +1456,11 @@ export default function FlashcardsPage() {
               noteContent={note?.content || ''}
               note={note}
               userId={user?.id || ''}
-              onSuccess={() => {
+              onSuccess={async () => {
                 if (__DEV__) {
                   console.log('Flashcards generated successfully, refreshing list...');
                 }
-                loadFlashcards();
+                await loadFlashcards();
               }}
             />
           </View>

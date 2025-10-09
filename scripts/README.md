@@ -4,6 +4,49 @@ This directory contains utility scripts for managing and maintaining the WizNote
 
 ## Available Scripts
 
+### 🚨 delete-all-data.js
+
+**Description**: **DANGER** - Completely deletes ALL data from your database. This includes all users, notes, audio files, and related data. This action is IRREVERSIBLE!
+
+**What it deletes**:
+- All users and user profiles
+- All notes
+- All audio files  
+- All feature usage data
+- All subscription data
+- All feature limits and premium plans
+
+**Usage**:
+```bash
+# Preview what would be deleted (SAFE - only reads data)
+node scripts/preview-delete-all-data.js
+
+# Actually delete all data (DANGEROUS - requires confirmation)
+node scripts/delete-all-data.js --confirm
+```
+
+**Safety Features**:
+- Requires `--confirm` flag to prevent accidental execution
+- Shows detailed preview of what will be deleted
+- Provides clear warnings about irreversible nature
+- Includes error handling and progress reporting
+
+**⚠️ WARNING**: This script will completely wipe your database. Make sure you have backups if needed!
+
+### 🔍 preview-delete-all-data.js
+
+**Description**: Safe preview script that shows what data would be deleted without actually deleting anything.
+
+**What it shows**:
+- Count of all records in each table
+- Sample data from each table
+- Summary of what would be deleted
+
+**Usage**:
+```bash
+node scripts/preview-delete-all-data.js
+```
+
 ### 🔧 fix-stripe-customers.js
 
 **Description**: Synchronizes Stripe customer subscriptions with the database to ensure data consistency between Stripe and your local user profiles.
@@ -84,6 +127,166 @@ node scripts/fix-stripe-customers.js --help
 - During maintenance or data migration
 - After manual Stripe operations
 - To verify subscription status accuracy
+
+### 🧪 create-test-user-full-usage.js
+
+**Description**: Creates a test user with all features at 100% usage for testing monthly reset functionality and feature limits.
+
+**What it does**:
+- Creates or updates a test user account in Supabase Auth
+- Creates a user profile for the test user
+- Sets all feature usage to 100% of the free tier limit
+- Verifies that all features are properly configured
+
+**Usage**:
+```bash
+# Create test user with default credentials (test@webcap.cc / TestPassword123!)
+node scripts/create-test-user-full-usage.js
+
+# Create test user with custom credentials
+node scripts/create-test-user-full-usage.js --email user@example.com --password MyPassword123
+
+# Show help
+node scripts/create-test-user-full-usage.js --help
+```
+
+**Environment Variables Required**:
+- `EXPO_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (for admin operations)
+
+**What gets created**:
+- User account in Supabase Auth with confirmed email
+- User profile with free tier settings
+- Feature usage records for all 13 features at 100% of their limits:
+  - AI Transcription: 10/10 uses
+  - AI Summaries: 15/15 uses
+  - AI Key Details: 5/5 uses
+  - AI Name Generation: 10/10 uses
+  - AI Flashcard Generation: 5/5 uses
+  - Voice Recording: 60/60 minutes
+  - Note Storage: 100MB/100MB
+  - Note Sharing: 5/5 shares
+  - Real-time Sync: 100/100 operations
+  - Advanced Search: 15/15 searches
+  - Note Export: 5/5 exports
+  - Custom Themes: 2/2 themes
+  - Priority Support: 1/1 tickets
+
+**Example Output**:
+```
+🚀 Creating test user with 100% feature usage...
+📧 Email: test@webcap.cc
+
+👤 Step 1: Creating/getting user account...
+   ✅ User created with ID: 6ff9afd7-7b8f-467a-a6c6-8722e98a088a
+
+📋 Step 2: Creating/updating user profile...
+   ✅ User profile created/updated
+
+⚡ Step 3: Setting all features to 100% usage...
+   ✅ AI Transcription: 10 count (100%)
+   ✅ AI Summaries: 15 count (100%)
+   ... (all 13 features)
+   📊 Summary: 13 succeeded, 0 failed
+
+🔍 Step 4: Verifying setup...
+   ✅ Found 13 usage records
+   ✅ 13/13 features at 100% usage
+
+✅ Test user created successfully!
+```
+
+**Common Use Cases**:
+- Testing monthly usage reset cron jobs
+- Testing feature limit enforcement
+- Verifying upgrade prompts for users at limits
+- QA testing of limit-reached scenarios
+- Demonstrating limit behavior to stakeholders
+
+### 🧪 test-monthly-reset.js
+
+**Description**: Tests the monthly usage reset functionality without making any changes to the database.
+
+**What it does**:
+- Fetches all user feature usage records
+- Analyzes which records would be reset based on their period type
+- Shows statistics about current usage
+- Provides a dry-run report of what would happen during a real reset
+
+**Usage**:
+```bash
+# Test the monthly reset logic (read-only)
+node scripts/test-monthly-reset.js
+```
+
+**Environment Variables Required**:
+- `EXPO_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (recommended for full access)
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY` - Alternative to service role key (may have limited access)
+
+**Common Use Cases**:
+- Before deploying monthly reset cron job
+- After creating test users with full usage
+- Verifying usage data is being tracked correctly
+- Troubleshooting reset functionality
+
+### 🔍 check-test-user-usage.js
+
+**Description**: Displays the current usage status for a test user, showing which features are at their limits.
+
+**What it does**:
+- Looks up the test user by email
+- Fetches all feature usage records for that user
+- Displays a formatted table showing usage vs. limits
+- Categorizes features by status (At Limit, Partial, Empty)
+- Provides a summary of overall usage
+
+**Usage**:
+```bash
+# Check default test user (test@webcap.cc)
+node scripts/check-test-user-usage.js
+
+# Check specific user
+node scripts/check-test-user-usage.js --email user@example.com
+
+# Show help
+node scripts/check-test-user-usage.js --help
+```
+
+**Environment Variables Required**:
+- `EXPO_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (for admin operations)
+
+**Example Output**:
+```
+🔍 Checking test user usage...
+📧 Email: test@webcap.cc
+
+👤 User ID: 6ff9afd7-7b8f-467a-a6c6-8722e98a088a
+
+📊 Feature Usage Status:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔴 At Limit AI Transcription                            10 / 10              (100%)
+🔴 At Limit AI Summaries                                15 / 15              (100%)
+🔴 At Limit AI Key Details                               5 / 5               (100%)
+... (all features)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📈 Summary:
+   🔴 At Limit:  13 features
+   🟡 Partial:   0 features
+   ✅ Empty:     0 features
+   📊 Total:     13 features
+
+🎯 All features are at 100% usage - perfect for testing monthly reset!
+```
+
+**Common Use Cases**:
+- Verify test user setup before running reset tests
+- Check if usage was successfully reset after cron job
+- Monitor feature usage during QA testing
+- Debug feature limit tracking issues
+- Validate that limits are being enforced correctly
 
 ---
 

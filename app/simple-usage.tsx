@@ -38,7 +38,7 @@ export default function SimpleUsageScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       {Platform.OS === 'web' ? (
         <WebLayout
-        title="Simple Usage"
+        title="Feature Usage"
         subtitle="Quick overview of your feature usage"
         sidebar={
           <UserSidebar
@@ -53,7 +53,7 @@ export default function SimpleUsageScreen() {
                 <ThemedText style={styles.webBackText}>Back</ThemedText>
               </TouchableOpacity>
               <View style={styles.webHeaderInfo}>
-                <ThemedText type="title">Simple Usage</ThemedText>
+                <ThemedText type="title">Feature Usage</ThemedText>
                 <ThemedText style={[styles.webHeaderSubtitle, { color: mutedTextColor }]}>
                   Quick overview of your feature usage and limits
                 </ThemedText>

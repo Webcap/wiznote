@@ -129,6 +129,11 @@ export const useFeatureFlags = () => {
       if (flagKey === 'voice_recording') {
         return true;
       }
+      // For ai_quiz, check defaults during initialization
+      if (flagKey === 'ai_quiz') {
+        const { DEFAULT_FEATURE_FLAGS } = require('../constants/DefaultFeatureFlags');
+        return DEFAULT_FEATURE_FLAGS.ai_quiz?.enabled || false;
+      }
       return false;
     }
 

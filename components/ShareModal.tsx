@@ -149,11 +149,11 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
     
     const modalContent = (
       <div style={webStyles.modalOverlay} onClick={onClose}>
-        <div style={webStyles.container} onClick={(e) => e.stopPropagation()}>
+        <div style={{...webStyles.container, backgroundColor}} onClick={(e) => e.stopPropagation()}>
           {/* Header */}
-          <div style={webStyles.header}>
+          <div style={{...webStyles.header, borderBottomColor: borderColor}}>
             <div style={webStyles.headerSpacer} />
-            <h2 style={webStyles.headerTitle}>Share Note</h2>
+            <h2 style={{...webStyles.headerTitle, color: textColor}}>Share Note</h2>
             <button style={webStyles.closeButton} onClick={onClose}>
               <Ionicons name="close" size={24} color={textColor} />
             </button>
@@ -163,16 +163,16 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
             {/* Note Info */}
             <div style={{...webStyles.noteInfo, backgroundColor: backgroundSecondary}}>
               <Ionicons name="document-text" size={20} color={accentPrimary} />
-              <div style={webStyles.noteTitle}>{note.title}</div>
+              <div style={{...webStyles.noteTitle, color: textColor}}>{note.title}</div>
             </div>
 
             {/* User Search */}
             <div style={webStyles.section}>
-              <h3 style={webStyles.sectionTitle}>Share with</h3>
+              <h3 style={{...webStyles.sectionTitle, color: textColor}}>Share with</h3>
               <div style={{...webStyles.searchContainer, backgroundColor: backgroundSecondary, borderColor}}>
                 <Ionicons name="search" size={20} color={textMutedColor} />
                 <input
-                  style={webStyles.searchInput}
+                  style={{...webStyles.searchInput, color: textColor, backgroundColor: 'transparent'}}
                   placeholder="Search users or enter email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -190,7 +190,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
               {searching && (
                 <div style={webStyles.searchingContainer}>
                   <LoadingSpinner size={20} />
-                  <span style={webStyles.searchingText}>Searching...</span>
+                  <span style={{...webStyles.searchingText, color: textMutedColor}}>Searching...</span>
                 </div>
               )}
 
@@ -204,8 +204,8 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
                     >
                       <Ionicons name="person" size={20} color={textMutedColor} />
                       <div style={webStyles.userInfo}>
-                        <div style={webStyles.userName}>{user.display_name || 'Unknown User'}</div>
-                        <div style={webStyles.userEmail}>{user.email}</div>
+                        <div style={{...webStyles.userName, color: textColor}}>{user.display_name || 'Unknown User'}</div>
+                        <div style={{...webStyles.userEmail, color: textMutedColor}}>{user.email}</div>
                       </div>
                     </div>
                   ))}
@@ -217,8 +217,8 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
                 <div style={{...webStyles.selectedUser, backgroundColor: backgroundSecondary, borderColor}}>
                   <Ionicons name="checkmark-circle" size={20} color={accentPrimary} />
                   <div style={webStyles.userInfo}>
-                    <div style={webStyles.userName}>{selectedUser.display_name || 'Unknown User'}</div>
-                    <div style={webStyles.userEmail}>{selectedUser.email}</div>
+                    <div style={{...webStyles.userName, color: textColor}}>{selectedUser.display_name || 'Unknown User'}</div>
+                    <div style={{...webStyles.userEmail, color: textMutedColor}}>{selectedUser.email}</div>
                   </div>
                   <button onClick={handleClearSelection} style={webStyles.clearButton}>
                     <Ionicons name="close-circle" size={20} color={textMutedColor} />
@@ -229,7 +229,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
 
             {/* Permission Level */}
             <div style={webStyles.section}>
-              <h3 style={webStyles.sectionTitle}>Permission Level</h3>
+              <h3 style={{...webStyles.sectionTitle, color: textColor}}>Permission Level</h3>
               <div style={webStyles.permissionOptions}>
                 {[
                   { key: 'read' as SharePermission, label: 'View Only', icon: 'eye' },
@@ -259,7 +259,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
 
             {/* Optional Message */}
             <div style={webStyles.section}>
-              <h3 style={webStyles.sectionTitle}>Message (Optional)</h3>
+              <h3 style={{...webStyles.sectionTitle, color: textColor}}>Message (Optional)</h3>
               <textarea
                 style={{
                   ...webStyles.messageInput,
@@ -278,7 +278,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
           {/* Action Buttons */}
           <div style={{...webStyles.actions, borderTopColor: borderColor}}>
             <button
-              style={{...webStyles.cancelButton, borderColor}}
+              style={{...webStyles.cancelButton, borderColor, color: textColor}}
               onClick={onClose}
             >
               Cancel
@@ -365,7 +365,6 @@ const webStyles = {
     width: '100%',
     maxWidth: '500px',
     minHeight: '400px',
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
     display: 'flex',
@@ -382,7 +381,8 @@ const webStyles = {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '20px 24px',
-    borderBottom: '1px solid #E5E7EB',
+    borderBottomWidth: 1,
+    borderBottomStyle: 'solid' as const,
   },
   headerSpacer: {
     width: '32px',
@@ -391,7 +391,6 @@ const webStyles = {
     fontSize: '18px',
     fontWeight: '600',
     margin: 0,
-    color: '#111827',
   },
   closeButton: {
     background: 'none',
@@ -421,7 +420,6 @@ const webStyles = {
     fontSize: '16px',
     fontWeight: '600',
     flex: 1,
-    color: '#111827',
   },
   section: {
     marginBottom: '24px',
@@ -430,7 +428,6 @@ const webStyles = {
     fontSize: '16px',
     fontWeight: '600',
     marginBottom: '12px',
-    color: '#111827',
   },
   searchContainer: {
     display: 'flex',
@@ -438,7 +435,8 @@ const webStyles = {
     alignItems: 'center',
     padding: '12px 16px',
     borderRadius: '8px',
-    border: '1px solid #D1D5DB',
+    borderWidth: 1,
+    borderStyle: 'solid' as const,
     gap: '12px',
   },
   searchInput: {
@@ -469,7 +467,6 @@ const webStyles = {
   },
   searchingText: {
     fontSize: '14px',
-    color: '#6B7280',
   },
   searchResults: {
     marginTop: '8px',
@@ -479,11 +476,12 @@ const webStyles = {
     flexDirection: 'row' as const,
     alignItems: 'center',
     padding: '12px',
-    borderBottom: '1px solid #E5E7EB',
+    borderBottomWidth: 1,
+    borderBottomStyle: 'solid' as const,
     cursor: 'pointer',
     gap: '12px',
     '&:hover': {
-      backgroundColor: '#F9FAFB',
+      opacity: 0.8,
     },
   },
   selectedUser: {
@@ -492,7 +490,8 @@ const webStyles = {
     alignItems: 'center',
     padding: '12px',
     borderRadius: '8px',
-    border: '1px solid #D1D5DB',
+    borderWidth: 1,
+    borderStyle: 'solid' as const,
     marginTop: '8px',
     gap: '12px',
   },
@@ -502,11 +501,9 @@ const webStyles = {
   userName: {
     fontSize: '14px',
     fontWeight: '500',
-    color: '#111827',
   },
   userEmail: {
     fontSize: '12px',
-    color: '#6B7280',
   },
   permissionOptions: {
     display: 'flex',
@@ -520,7 +517,8 @@ const webStyles = {
     justifyContent: 'center',
     padding: '12px 16px',
     borderRadius: '8px',
-    border: '1px solid #D1D5DB',
+    borderWidth: 1,
+    borderStyle: 'solid' as const,
     cursor: 'pointer',
     gap: '8px',
     fontSize: '14px',
@@ -532,7 +530,8 @@ const webStyles = {
   },
   messageInput: {
     width: '100%',
-    border: '1px solid #D1D5DB',
+    borderWidth: 1,
+    borderStyle: 'solid' as const,
     borderRadius: '8px',
     padding: '12px',
     fontSize: '14px',
@@ -542,29 +541,29 @@ const webStyles = {
     fontFamily: 'inherit',
     '&:focus': {
       outline: 'none',
-      borderColor: '#3B82F6',
     },
   },
   actions: {
     display: 'flex',
     flexDirection: 'row' as const,
     padding: '20px 24px',
-    borderTop: '1px solid #E5E7EB',
+    borderTopWidth: 1,
+    borderTopStyle: 'solid' as const,
     gap: '12px',
   },
   cancelButton: {
     flex: 1,
     padding: '12px 24px',
     borderRadius: '8px',
-    border: '1px solid #D1D5DB',
+    borderWidth: 1,
+    borderStyle: 'solid' as const,
     backgroundColor: 'transparent',
     cursor: 'pointer',
     fontSize: '14px',
     fontWeight: '500',
-    color: '#374151',
     transition: 'all 0.2s',
     '&:hover': {
-      backgroundColor: '#F9FAFB',
+      opacity: 0.8,
     },
   },
   shareButton: {

@@ -258,6 +258,7 @@ export default function SearchScreen() {
                     onPress={handleNotePress}
                     onTogglePin={() => {}}
                     onToggleArchive={() => {}}
+                    onToggleFavorite={() => {}}
                     onDelete={() => {}}
                   />
                 )}

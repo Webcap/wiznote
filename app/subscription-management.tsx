@@ -56,6 +56,9 @@ export default function SubscriptionManagementScreen() {
       loadSubscriptionData();
     } else {
       console.log('No user ID, not loading subscription data');
+      // If no user ID, set loading to false and subscription to null
+      setLoading(false);
+      setSubscription(null);
     }
   }, [user?.id]);
 
@@ -65,8 +68,13 @@ export default function SubscriptionManagementScreen() {
       console.log('Setting loading to true');
       setLoading(true);
       console.log('About to call subscriptionManagementService.getCurrentSubscription with user ID:', user!.id);
-      const [sub, usageData, history] = await Promise.all([
-        subscriptionManagementService.getCurrentSubscription(user!.id),
+      
+      // Call getCurrentSubscription first to see what it returns
+      const sub = await subscriptionManagementService.getCurrentSubscription(user!.id);
+      console.log('getCurrentSubscription result:', sub);
+      
+      // If no subscription, still load usage and history for display
+      const [usageData, history] = await Promise.all([
         subscriptionManagementService.getSubscriptionUsage(user!.id),
         subscriptionManagementService.getBillingHistory(user!.id)
       ]);
@@ -87,6 +95,8 @@ export default function SubscriptionManagementScreen() {
     } catch (error) {
       console.error('Error loading subscription data:', error);
       console.error('Error details:', error);
+      // Set subscription to null on error so we show the "No Active Subscription" message
+      setSubscription(null);
     } finally {
       console.log('Setting loading to false');
       setLoading(false);

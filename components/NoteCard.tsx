@@ -8,10 +8,11 @@ interface NoteCardProps {
   onPress: (note: Note) => void;
   onTogglePin: (id: string) => void;
   onToggleArchive: (id: string) => void;
+  onToggleFavorite: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onDelete }: NoteCardProps) => {
+export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onToggleFavorite, onDelete }: NoteCardProps) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
@@ -171,6 +172,17 @@ export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onDelete
         )}
 
         <View style={styles.actions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => onToggleFavorite(note.id)}
+          >
+            <Ionicons
+              name={note.isFavorite ? 'star' : 'star-outline'}
+              size={20}
+              color={note.isFavorite ? '#FFD700' : '#A0A0A0'}
+            />
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => onTogglePin(note.id)}

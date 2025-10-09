@@ -3,6 +3,7 @@ import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { FeatureUsageData } from '../hooks/useUnifiedFeatureLimits';
+import { LazyWrapper } from './LazyWrapper';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
 
@@ -80,7 +81,9 @@ export function UnifiedUsageDisplay({
 
   const groupedFeatures = React.useMemo(() => {
     const grouped: Record<string, FeatureUsageData[]> = {};
-    features.forEach(feature => {
+    // Filter out features with 0 usage
+    const featuresWithUsage = features.filter(feature => feature.currentUsage > 0);
+    featuresWithUsage.forEach(feature => {
       if (!grouped[feature.category]) {
         grouped[feature.category] = [];
       }
@@ -89,19 +92,20 @@ export function UnifiedUsageDisplay({
     return grouped;
   }, [features]);
 
-  if (features.length === 0) {
+  if (features.filter(f => f.currentUsage > 0).length === 0) {
     return (
       <ThemedView style={styles.emptyContainer}>
         <Ionicons name="information-circle" size={48} color={mutedTextColor} />
         <ThemedText style={[styles.emptyText, { color: mutedTextColor }]}>
-          No features available
+          No features used yet
         </ThemedText>
       </ThemedView>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <LazyWrapper delay={100}>
+      <ThemedView style={styles.container}>
       {/* Summary Cards */}
       <View style={styles.summaryContainer}>
         <View style={[styles.summaryCard, { backgroundColor: cardBackground }]}>
@@ -234,6 +238,7 @@ export function UnifiedUsageDisplay({
         </TouchableOpacity>
       )}
     </ThemedView>
+    </LazyWrapper>
   );
 }
 

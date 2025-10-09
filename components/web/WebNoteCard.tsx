@@ -8,18 +8,22 @@ import { ThemedText } from '../ThemedText';
 interface WebNoteCardProps {
   note: Note;
   onPress: () => void;
+  onLongPress?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
   onArchive?: () => void;
+  onToggleFavorite?: () => void;
   isSelected?: boolean;
 }
 
 export function WebNoteCard({ 
   note, 
   onPress, 
+  onLongPress,
   onEdit, 
   onDelete, 
   onArchive,
+  onToggleFavorite,
   isSelected = false 
 }: WebNoteCardProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -57,6 +61,7 @@ export function WebNoteCard({
         isHovered && styles.hovered
       ]}
       onPress={onPress}
+      onLongPress={onLongPress}
       {...(Platform.OS === 'web' ? {
         onMouseEnter: () => setIsHovered(true),
         onMouseLeave: () => setIsHovered(false)
@@ -78,6 +83,15 @@ export function WebNoteCard({
         {/* Action Buttons */}
         {(isHovered || isSelected) && (
           <View style={styles.actions}>
+            {onToggleFavorite && (
+              <TouchableOpacity style={styles.actionButton} onPress={onToggleFavorite}>
+                <Ionicons 
+                  name={note.isFavorite ? "star" : "star-outline"} 
+                  size={16} 
+                  color={note.isFavorite ? "#FFD700" : textColor}
+                />
+              </TouchableOpacity>
+            )}
             {onEdit && (
               <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
                 <Ionicons name="pencil" size={16} color={textColor} />

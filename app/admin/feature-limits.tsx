@@ -12,6 +12,7 @@ import { useFeatureLimits } from '../../hooks/useFeatureLimits';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { FeatureLimit, formatLimit } from '../../types/FeatureLimits';
+import { LazyWrapper } from '../../components/LazyWrapper';
 
 export default function FeatureLimitsScreen() {
   const router = useRouter();

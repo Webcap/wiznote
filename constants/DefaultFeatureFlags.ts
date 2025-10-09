@@ -132,8 +132,8 @@ export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlag> = {
     id: 'ai_quiz',
     name: 'AI Quiz Generation',
     description: 'Enable AI-powered quiz generation based on notes content, audio, summaries, and key details',
-    enabled: false,
-    premiumOnly: true, // Premium feature
+    enabled: true,
+    premiumOnly: false, // Premium feature - set to false for testing
     trackingEnabled: true, // Track AI quiz usage
     targetEnvironments: ['development', 'staging', 'production'],
     createdAt: new Date(),

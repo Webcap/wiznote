@@ -402,7 +402,8 @@ Important:
 
       if (quizError) {
         console.error('Error saving quiz:', quizError);
-        throw new Error(`Failed to save quiz: ${quizError.message}`);
+        const errorMessage = quizError.message || quizError.details || quizError.hint || JSON.stringify(quizError);
+        throw new Error(`Failed to save quiz: ${errorMessage}`);
       }
 
       const savedQuizId = quizData.id;

@@ -8,6 +8,7 @@ interface FilterOptions {
   searchQuery: string;
   tags: string[];
   showArchived: boolean;
+  showFavorites: boolean;
   sortBy: 'updatedAt' | 'createdAt' | 'title';
   sortOrder: 'asc' | 'desc';
 }
@@ -426,6 +427,43 @@ export const useNotes = (userId: string) => {
     }
   }, [userId, showSnackbar, notes]);
 
+  // Toggle favorite status
+  const toggleFavorite = useCallback(async (id: string): Promise<void> => {
+    // Don't try to toggle favorite if userId is empty
+    if (!userId || userId === '') {
+      throw new Error('Cannot toggle favorite: User not authenticated');
+    }
+
+    try {
+      setError(null);
+      const note = notes.find(n => n.id === id);
+      if (note) {
+        await supabaseNoteStorage.updateNote(id, { isFavorite: !note.isFavorite });
+        
+        // Update local state immediately
+        setNotes(prevNotes => 
+          prevNotes.map(n => n.id === id ? { ...n, isFavorite: !n.isFavorite } : n)
+        );
+      }
+      
+      // Show success notification on web
+      if (Platform.OS === 'web') {
+        const message = note?.isFavorite ? 'Removed from favorites' : 'Added to favorites';
+        showSnackbar(message, 'success', 2000);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to toggle favorite';
+      setError(errorMessage);
+      
+      // Show error notification on web
+      if (Platform.OS === 'web') {
+        showSnackbar(errorMessage, 'error', 6000);
+      }
+      
+      throw err;
+    }
+  }, [userId, showSnackbar, notes]);
+
   // Search notes using Supabase
   const searchNotes = useCallback(async (query: string): Promise<Note[]> => {
     try {
@@ -595,6 +633,11 @@ export const useNotes = (userId: string) => {
       filteredNotes = filteredNotes.filter(note => !note.isArchived);
     }
 
+    // Filter by favorite status
+    if (options.showFavorites) {
+      filteredNotes = filteredNotes.filter(note => note.isFavorite);
+    }
+
     // Sort notes
     filteredNotes.sort((a, b) => {
       let aValue: any;
@@ -637,6 +680,7 @@ export const useNotes = (userId: string) => {
     deleteNote,
     togglePin,
     toggleArchive,
+    toggleFavorite,
     searchNotes,
     getAllTags,
     saveAudioFile,

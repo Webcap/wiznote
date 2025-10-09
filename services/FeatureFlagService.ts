@@ -128,32 +128,38 @@ export class FeatureFlagService {
 
       const loadedFlags: Record<string, FeatureFlag> = {};
       
-      if (data) {
+      if (data && data.length > 0) {
         data.forEach((flag: any) => {
-                  loadedFlags[flag.id] = {
-          id: flag.id,
-          name: flag.name,
-          description: flag.description,
-          enabled: flag.enabled,
-          rolloutPercentage: flag.rollout_percentage,
-          targetUsers: flag.target_users || [],
-          targetRoles: flag.target_roles || [],
-          targetEnvironments: flag.target_environments || [],
-          premiumOnly: flag.premium_only || false,
-          trackingEnabled: flag.tracking_enabled !== undefined ? flag.tracking_enabled : true, // Default to true for backward compatibility
-          createdAt: new Date(flag.created_at),
-          updatedAt: new Date(flag.updated_at),
-          createdBy: flag.created_by,
-        };
+          loadedFlags[flag.id] = {
+            id: flag.id,
+            name: flag.name,
+            description: flag.description,
+            enabled: flag.enabled,
+            rolloutPercentage: flag.rollout_percentage,
+            targetUsers: flag.target_users || [],
+            targetRoles: flag.target_roles || [],
+            targetEnvironments: flag.target_environments || [],
+            premiumOnly: flag.premium_only || false,
+            trackingEnabled: flag.tracking_enabled !== undefined ? flag.tracking_enabled : true,
+            createdAt: new Date(flag.created_at),
+            updatedAt: new Date(flag.updated_at),
+            createdBy: flag.created_by,
+          };
         });
+        
+        this.flags = loadedFlags;
+        log(`FeatureFlagService: Loaded ${Object.keys(loadedFlags).length} flags from Supabase`);
+      } else {
+        // No flags in database, use defaults
+        log('FeatureFlagService: No flags found in Supabase, using defaults');
+        this.flags = { ...DEFAULT_FEATURE_FLAGS };
       }
-
-      this.flags = loadedFlags;
-      await this.saveToCache();
       
-      log(`FeatureFlagService: Loaded ${Object.keys(loadedFlags).length} flags from Supabase`);
+      await this.saveToCache();
     } catch (error) {
       console.error('FeatureFlagService: Error loading from Supabase:', error);
+      // On error, fall back to defaults
+      this.flags = { ...DEFAULT_FEATURE_FLAGS };
       throw error;
     }
   }
@@ -460,7 +466,7 @@ export class FeatureFlagService {
       // Get all default flags
       const defaultFlags = { ...DEFAULT_FEATURE_FLAGS };
       
-      // Update local flags with defaults (preserving any existing customizations)
+      // Update local flags with defaults
       for (const [flagKey, defaultFlag] of Object.entries(defaultFlags)) {
         const existingFlag = this.flags[flagKey];
         
