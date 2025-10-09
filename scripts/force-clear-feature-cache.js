@@ -95,3 +95,4 @@ console.log('   Temporarily bypass feature flags for testing:');
 console.log('   In app/note/[id].tsx, change line 96 to:');
 console.log('   const isAIQuizEnabled = true; // Force enable for testing\n');
 
+

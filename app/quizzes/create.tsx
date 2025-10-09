@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -125,24 +125,8 @@ export default function QuizCreationScreen() {
 
       console.log('💾 Quiz saved to database:', savedQuizId);
 
-      Alert.alert(
-        'Success!',
-        `Quiz generated with ${result.questionsGenerated} questions in ${result.generationTime}ms`,
-        [
-          {
-            text: 'Take Quiz',
-            onPress: () => router.push(`/quizzes/${savedQuizId}/take`),
-          },
-          {
-            text: 'View Quiz',
-            onPress: () => router.push(`/quizzes/${savedQuizId}`),
-          },
-          {
-            text: 'Create Another',
-            style: 'cancel',
-          },
-        ]
-      );
+      // Navigate to the quizzes list page for this note
+      router.push(`/notes/${noteId}/quizzes`);
     } catch (error) {
       console.error('❌ Error generating quiz:', error);
       Alert.alert('Error', `Failed to generate quiz: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -191,15 +175,18 @@ export default function QuizCreationScreen() {
 
   if (!isFeatureEnabled('ai_quiz')) {
     const errorContent = (
-      <ThemedView style={styles.errorContainer}>
-        <Ionicons name="alert-circle" size={48} color={primaryColor} />
-        <ThemedText style={styles.errorText}>
-          AI Quiz feature is currently disabled
-        </ThemedText>
-        <ThemedText style={[styles.errorSubtext, { color: textSecondary }]}>
-          Please contact your administrator to enable this feature
-        </ThemedText>
-      </ThemedView>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ThemedView style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={48} color={primaryColor} />
+          <ThemedText style={styles.errorText}>
+            AI Quiz feature is currently disabled
+          </ThemedText>
+          <ThemedText style={[styles.errorSubtext, { color: textSecondary }]}>
+            Please contact your administrator to enable this feature
+          </ThemedText>
+        </ThemedView>
+      </>
     );
 
     if (Platform.OS === 'web') {
@@ -217,9 +204,11 @@ export default function QuizCreationScreen() {
   }
 
   const mainContent = (
-    <ScrollView style={styles.container}>
-      {/* Web-optimized header following design.json pattern */}
-      <ThemedView style={styles.header}>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView style={styles.container}>
+        {/* Web-optimized header following design.json pattern */}
+        <ThemedView style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={primaryColor} />
@@ -285,7 +274,7 @@ export default function QuizCreationScreen() {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
+        </ThemedView>
 
         {/* Difficulty */}
         <ThemedView style={[styles.section, styles.card, { backgroundColor: cardBg }]}>
@@ -319,7 +308,7 @@ export default function QuizCreationScreen() {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
+        </ThemedView>
 
         {/* Question Types */}
         <ThemedView style={[styles.section, styles.card, { backgroundColor: cardBg }]}>
@@ -333,7 +322,7 @@ export default function QuizCreationScreen() {
             {renderQuestionTypeToggle('short_answer', 'Short Answer')}
             {renderQuestionTypeToggle('fill_blank', 'Fill in Blank')}
           </View>
-        </View>
+        </ThemedView>
 
         {/* Additional Options */}
         <ThemedView style={[styles.section, styles.card, { backgroundColor: cardBg }]}>
@@ -406,6 +395,7 @@ export default function QuizCreationScreen() {
         </TouchableOpacity>
       </ThemedView>
     </ScrollView>
+    </>
   );
 
   // Wrap in WebLayout for web platform

@@ -77,3 +77,4 @@ async function checkQuizFeatureStatus() {
 // Run the check
 checkQuizFeatureStatus();
 
+
