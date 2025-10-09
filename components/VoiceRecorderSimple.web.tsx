@@ -23,6 +23,7 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
   onProgress,
   disabled = false,
 }) => {
+  console.log('[VoiceRecorderWeb] Component mounted - Web version loaded successfully!');
   const { user } = useAuth();
   const { getSessionLimit } = useFeatureLimits();
   
@@ -48,6 +49,7 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
   const timerRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const hasShownWarningRef = useRef(false);
+  const durationRef = useRef(0); // Track duration for closures
   
   // Load session limit
   useEffect(() => {
@@ -104,6 +106,7 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
     timerRef.current = window.setInterval(() => {
       setDuration(prev => {
         const newDuration = prev + 1;
+        durationRef.current = newDuration; // Update ref for closures
         
         // Check session limit for free users
         if (!isPremium && sessionLimit !== 'unlimited' && typeof sessionLimit === 'number') {
@@ -155,6 +158,11 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
 
       setIsStarting(true);
       
+      // Check if mediaDevices is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('MediaDevices API not supported. Please use a modern browser with HTTPS.');
+      }
+      
       // Request microphone permission
       console.log('[VoiceRecorderWeb] Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -181,12 +189,16 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
         const blob = new Blob(chunksRef.current, { type: mimeType });
         const url = URL.createObjectURL(blob);
         
+        // Use ref to get current duration (avoids closure issue)
+        const finalDuration = durationRef.current;
+        console.log('[VoiceRecorderWeb] Recording duration:', finalDuration, 'seconds');
+        
         // Create audio file object
         const audioFile = {
           id: `audio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           filename: url,
           blob: blob,
-          duration: duration,
+          duration: finalDuration, // Use ref value instead of state
           transcription: '',
           transcriptionStatus: 'pending' as const,
           aiTranscription: '',
@@ -194,7 +206,7 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
           createdAt: new Date(),
         };
         
-        console.log('[VoiceRecorderWeb] Calling onRecordingComplete');
+        console.log('[VoiceRecorderWeb] Calling onRecordingComplete with audio file:', audioFile);
         onRecordingComplete?.(audioFile);
         setHasRecording(true);
       };
@@ -206,6 +218,7 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
       setIsRecording(true);
       setIsStarting(false);
       setDuration(0);
+      durationRef.current = 0; // Reset duration ref
       startTimer();
       
       console.log('[VoiceRecorderWeb] ===== RECORDING STARTED =====');
@@ -214,17 +227,26 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
       console.error('[VoiceRecorderWeb] Error starting recording:', error);
       
       let errorMessage = 'Failed to start recording. Please try again.';
+      let errorDetails = '';
+      
       if (error instanceof Error) {
+        errorDetails = error.message;
+        
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
           errorMessage = 'Microphone permission denied. Please allow microphone access in your browser settings.';
         } else if (error.name === 'NotFoundError') {
           errorMessage = 'No microphone found. Please connect a microphone and try again.';
         } else if (error.name === 'NotReadableError') {
           errorMessage = 'Microphone is already in use by another application.';
+        } else if (error.name === 'NotSupportedError' || error.message.includes('HTTPS')) {
+          errorMessage = 'Audio recording requires HTTPS. Please use https:// or run on localhost.';
+        } else if (error.message.includes('MediaDevices')) {
+          errorMessage = 'Your browser does not support audio recording. Please use a modern browser like Chrome, Firefox, or Safari.';
         }
       }
       
-      alert(errorMessage);
+      console.error('[VoiceRecorderWeb] Error details:', errorDetails);
+      alert(`${errorMessage}\n\nTechnical details: ${errorDetails}`);
       setIsStarting(false);
       cleanup();
     }
@@ -285,6 +307,7 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
       cleanup();
       setIsRecording(false);
       setDuration(0);
+      durationRef.current = 0; // Reset duration ref
       setHasRecording(false);
       chunksRef.current = [];
     }

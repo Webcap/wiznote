@@ -326,13 +326,32 @@ export default function CreateAudioNoteScreen() {
         // Don't block the user experience if usage tracking fails
       }
 
-      // Create note with audio file
+      // Upload audio file to Supabase storage first
+      setProgress(30);
+      setProgressMessage('Uploading audio file...');
+      console.log('[CreateAudio] Uploading blob to Supabase storage...');
+      
+      // Generate temporary note ID for upload path
+      const tempNoteId = `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const { audioStorage } = await import('../services/AudioStorage');
+      const uploadedAudioUrl = await audioStorage.uploadAudioFile(
+        audioFile.filename, // blob URL
+        userId,
+        tempNoteId
+      );
+      
+      console.log('[CreateAudio] Audio uploaded successfully:', uploadedAudioUrl);
+
+      // Create note with uploaded audio URL (not blob URL)
+      setProgress(50);
+      setProgressMessage('Creating note...');
       const note = await supabaseNoteStorage.createNote({
         title: title.trim() || 'Audio Note',
         content: '',
         tags: tags,
         summary: '',
-        audioUrl: audioFile.filename,
+        audioUrl: uploadedAudioUrl, // Use uploaded URL instead of blob
         audioDuration: audioFile.duration,
       });
 
@@ -347,7 +366,7 @@ export default function CreateAudioNoteScreen() {
         setProgressMessage('AI is processing your audio...');
         console.log('[CreateAudio] Progress set to 80% - AI is processing your audio...');
         const processingResult = await AudioUtils.processAudioForTranscription(
-          audioFile.filename,
+          uploadedAudioUrl, // Use uploaded URL for transcription
           userId,
           note.id,
           (message, progress) => {

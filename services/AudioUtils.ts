@@ -484,39 +484,45 @@ export class AudioUtils {
         // For Supabase URLs, we need to get a signed URL
         if (uri.includes('supabase.co')) {
           try {
-            // Import Supabase client
-            const { supabase } = await import('../lib/supabase');
-            
-            // Extract the file path from the URL
-            const urlParts = uri.split('/storage/v1/object/public/');
-            if (urlParts.length === 2) {
-              // The full path after /storage/v1/object/public/ includes the bucket name
-              const fullPath = urlParts[1];
-              
-              // Remove the bucket name from the path (audio-files/)
-              const filePath = fullPath.replace('audio-files/', '');
-              
-              console.log('[AudioUtils] Full path from URL:', fullPath);
-              console.log('[AudioUtils] Extracted file path:', filePath);
-              
-              // Get a signed URL that includes authentication
-              const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-                .from('audio-files')
-                .createSignedUrl(filePath, 3600); // 1 hour expiry
-              
-              if (signedUrlError) {
-                console.error('[AudioUtils] Error getting signed URL:', signedUrlError);
-                throw new Error(`Failed to get signed URL: ${signedUrlError.message}`);
-              }
-              
-              if (signedUrlData?.signedUrl) {
-                console.log('[AudioUtils] Got signed URL, using for playback');
-                finalUri = signedUrlData.signedUrl;
-              } else {
-                throw new Error('No signed URL received from Supabase');
-              }
+            // Check if it's already a signed URL (contains /sign/ or has ?token=)
+            if (uri.includes('/storage/v1/object/sign/') || uri.includes('?token=')) {
+              console.log('[AudioUtils] URL is already a signed URL, using directly');
+              finalUri = uri;
             } else {
-              throw new Error('Invalid Supabase URL format');
+              // Import Supabase client
+              const { supabase } = await import('../lib/supabase');
+              
+              // Extract the file path from public URL
+              const urlParts = uri.split('/storage/v1/object/public/');
+              if (urlParts.length === 2) {
+                // The full path after /storage/v1/object/public/ includes the bucket name
+                const fullPath = urlParts[1];
+                
+                // Remove the bucket name from the path (audio-files/)
+                const filePath = fullPath.replace('audio-files/', '');
+                
+                console.log('[AudioUtils] Full path from URL:', fullPath);
+                console.log('[AudioUtils] Extracted file path:', filePath);
+                
+                // Get a signed URL that includes authentication
+                const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+                  .from('audio-files')
+                  .createSignedUrl(filePath, 3600); // 1 hour expiry
+                
+                if (signedUrlError) {
+                  console.error('[AudioUtils] Error getting signed URL:', signedUrlError);
+                  throw new Error(`Failed to get signed URL: ${signedUrlError.message}`);
+                }
+                
+                if (signedUrlData?.signedUrl) {
+                  console.log('[AudioUtils] Got signed URL, using for playback');
+                  finalUri = signedUrlData.signedUrl;
+                } else {
+                  throw new Error('No signed URL received from Supabase');
+                }
+              } else {
+                throw new Error('Invalid Supabase public URL format');
+              }
             }
             
           } catch (error) {
@@ -925,8 +931,24 @@ export class AudioUtils {
       if (url.startsWith('http://') || url.startsWith('https://')) {
         console.log('[AudioUtils] Detected remote URL, fetching audio data...');
         
+        // Get Supabase auth token for authenticated requests (for private buckets)
+        const { supabase } = await import('../lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        const headers: Record<string, string> = {
+          'Accept': 'audio/*,*/*',
+        };
+        
+        // Add auth header if we have a session (for private buckets)
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+          console.log('[AudioUtils] Using authenticated request for private bucket');
+        } else {
+          console.log('[AudioUtils] Using anonymous request (public bucket)');
+        }
+        
         // Fetch the audio file from the remote URL
-        const response = await fetch(url);
+        const response = await fetch(url, { headers });
         if (!response.ok) {
           if (response.status === 400) {
             throw new Error(`Access denied to audio file. This may be due to missing RLS policies. Please ensure storage policies are configured in your Supabase dashboard. Status: ${response.status}`);
