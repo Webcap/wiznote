@@ -24,7 +24,7 @@ export default {
   },
   web: {
     favicon: './assets/favicon.png',
-    bundler: 'webpack',
+    bundler: 'metro',
     output: 'static',
     title: 'WizNote',
     // PWA configuration
