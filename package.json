@@ -4,6 +4,7 @@
   "version": "1.2.2",
   "scripts": {
     "start": "expo start",
+    "postinstall": "node scripts/postinstall.js",
     "fix-stripe-customers": "node scripts/fix-stripe-customers.js",
     "android": "expo run:android",
     "dev": "APP_VARIANT=development npx expo start",
@@ -86,7 +87,6 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@expo/image-utils": "^0.8.7",
-    "@expo/webpack-config": "^19.0.1",
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-native": "^12.9.0",
     "@types/eslint": "^9.6.1",
