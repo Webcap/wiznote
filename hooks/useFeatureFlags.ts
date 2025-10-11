@@ -125,14 +125,10 @@ export const useFeatureFlags = () => {
       if (enableFeatureFlagWarnings) {
         console.warn('useFeatureFlags: Service not initialized, checking default behavior');
       }
-      // For critical features like voice_recording, return true as fallback
-      if (flagKey === 'voice_recording') {
-        return true;
-      }
-      // For ai_quiz, check defaults during initialization
-      if (flagKey === 'ai_quiz') {
+      // For critical features, check defaults during initialization
+      if (flagKey === 'voice_recording' || flagKey === 'pdf_upload' || flagKey === 'ai_quiz') {
         const { DEFAULT_FEATURE_FLAGS } = require('../constants/DefaultFeatureFlags');
-        return DEFAULT_FEATURE_FLAGS.ai_quiz?.enabled || false;
+        return DEFAULT_FEATURE_FLAGS[flagKey]?.enabled || false;
       }
       return false;
     }

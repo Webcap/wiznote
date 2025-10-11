@@ -1,10 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 // @ts-ignore - react-dom types not available in React Native environment
 import { createPortal } from 'react-dom';
-import { Animated, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useSnackbar } from '../../contexts/SnackbarContext';
+import { useAuth } from '../../hooks/useAuth';
+import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { pdfStorage } from '../../services/PDFStorage';
+import { supabaseNoteStorage } from '../../services/SupabaseNoteStorage';
 import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
 
@@ -18,11 +23,15 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
   const accentColor = useThemeColor({}, 'accentPrimary');
   const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
   const borderColor = useThemeColor({}, 'border');
+  const { user } = useAuth();
+  const { showSnackbar } = useSnackbar();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [showCreateDropdown, setShowCreateDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef<View>(null);
   const buttonRef = useRef<typeof TouchableOpacity>(null);
   const dropdownAnim = useRef(new Animated.Value(0)).current;
+  const pdfFileInputRef = useRef<HTMLInputElement>(null);
 
   if (Platform.OS !== 'web') {
     return null;
@@ -154,6 +163,101 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
   const handleWebSearch = () => router.push('/(tabs)/search');
   const handleWebSettings = () => router.push('/(tabs)/settings');
 
+  const handlePDFUploadClick = useCallback(() => {
+    // Check if PDF upload feature is enabled
+    if (!isFeatureEnabled('pdf_upload')) {
+      showSnackbar('PDF upload feature is not available', 'error');
+      setShowCreateDropdown(false);
+      return;
+    }
+
+    setShowCreateDropdown(false);
+    if (pdfFileInputRef.current) {
+      pdfFileInputRef.current.click();
+    }
+  }, [isFeatureEnabled, showSnackbar]);
+
+  const handlePDFFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so the same file can be selected again
+    event.target.value = '';
+
+    // Validate file type
+    if (file.type !== 'application/pdf') {
+      Alert.alert('Invalid File', 'Please select a PDF file.');
+      return;
+    }
+
+    // Validate file size (50MB limit)
+    const maxSize = 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      Alert.alert('File Too Large', 'PDF file must be less than 50MB.');
+      return;
+    }
+
+    if (!user?.id) {
+      Alert.alert('Authentication Required', 'Please sign in to upload PDFs.');
+      return;
+    }
+
+    try {
+      // Show initial notification
+      showSnackbar('Uploading PDF...', 'info');
+
+      // Create a placeholder note immediately with special indicator
+      const placeholderNote = await supabaseNoteStorage.createNote({
+        title: `📄 ${file.name.replace('.pdf', '')}`,
+        content: '⏳ Uploading PDF... Please wait while we process your document.',
+        tags: ['pdf', 'uploading'],
+        summary: `Uploading ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
+      });
+
+      // Navigate to home screen immediately
+      router.push('/(tabs)');
+
+      // Upload PDF in the background
+      const tempNoteId = placeholderNote.id;
+      
+      showSnackbar('Processing PDF...', 'info');
+      
+      const uploadedPDFUrl = await pdfStorage.uploadPDFFile(
+        file,
+        user.id,
+        tempNoteId
+      );
+
+      // Extract text (placeholder for now)
+      const { text } = await pdfStorage.extractTextFromPDF(file);
+
+      // Update note with PDF data and remove "uploading" tag
+      await supabaseNoteStorage.updateNote(placeholderNote.id, {
+        title: file.name.replace('.pdf', ''),
+        content: text || `PDF uploaded successfully!\n\n${file.name}\nSize: ${(file.size / (1024 * 1024)).toFixed(2)} MB\n\nText extraction is pending. This is a placeholder for future PDF.js integration.`,
+        summary: `PDF: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
+        tags: ['pdf'], // Remove 'uploading' tag
+      });
+
+      // Save PDF metadata
+      await pdfStorage.savePDFMetadata(placeholderNote.id, user.id, {
+        filename: file.name,
+        storageUrl: uploadedPDFUrl,
+        extractedText: text,
+        extractionStatus: text ? 'completed' : 'pending',
+        pageCount: 1,
+        fileSize: file.size,
+      });
+
+      // Show success notification
+      showSnackbar(`✅ PDF uploaded: ${file.name}`, 'success');
+
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      showSnackbar('Failed to upload PDF. Please try again.', 'error');
+    }
+  }, [user]);
+
   const handleCreateDropdownToggle = () => {
     if (!showCreateDropdown && buttonRef.current) {
       // Calculate dropdown position when opening
@@ -176,6 +280,15 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: backgroundSecondary }]}>
+      {/* Hidden PDF file input */}
+      <input
+        ref={pdfFileInputRef}
+        type="file"
+        accept="application/pdf"
+        style={{ display: 'none' }}
+        onChange={handlePDFFileChange}
+      />
+
       {/* Logo/Brand */}
       <View style={styles.brand}>
         <ThemedText type="title" style={styles.logo}>
@@ -273,19 +386,24 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
                 </View>
               </TouchableOpacity>
               
-              {/* Future note types can be added here */}
-              {/* Example:
-              <TouchableOpacity 
-                style={styles.dropdownItem}
-                onPress={() => handleCreateOption('create-drawing')}
-                accessibilityLabel="Create drawing note"
-                accessibilityHint="Creates a new drawing note with canvas"
-                accessibilityRole="menuitem"
-              >
-                <Ionicons name="brush" size={18} color={iconColor} />
-                <ThemedText style={styles.dropdownItemText}>Drawing Note</ThemedText>
-              </TouchableOpacity>
-              */}
+              {/* PDF Upload Option - Feature Flag Protected */}
+              {isFeatureEnabled('pdf_upload') && (
+                <TouchableOpacity 
+                  style={styles.dropdownItem}
+                  onPress={handlePDFUploadClick}
+                  accessibilityLabel="Upload PDF"
+                  accessibilityHint="Upload a PDF document"
+                  accessibilityRole="menuitem"
+                >
+                  <View style={styles.dropdownItemIcon}>
+                    <Ionicons name="document" size={18} color="#6A5ACD" />
+                  </View>
+                  <View style={styles.dropdownItemContent}>
+                    <ThemedText style={styles.dropdownItemText}>Upload PDF</ThemedText>
+                    <ThemedText style={styles.dropdownItemSubtitle}>Extract text from PDF documents</ThemedText>
+                  </View>
+                </TouchableOpacity>
+              )}
             </Animated.View>,
             document.body
           )}

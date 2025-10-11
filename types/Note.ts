@@ -11,6 +11,8 @@ export interface Note {
   updatedAt: Date;
   audioUri?: string; // Audio file URI
   audioFiles?: AudioFile[]; // Voice recordings with transcription
+  pdfUrl?: string; // PDF file URL
+  pdfFiles?: PDFFile[]; // PDF documents with extracted text
   keyDetails?: string[]; // AI-generated key details
   summary?: string; // AI-generated summary
   // Sharing metadata
@@ -33,6 +35,17 @@ export interface AudioFile {
   createdAt: Date;
 }
 
+export interface PDFFile {
+  id: string;
+  filename: string;
+  storageUrl: string;
+  extractedText?: string;
+  extractionStatus: 'pending' | 'processing' | 'completed' | 'failed';
+  pageCount?: number;
+  fileSize?: number; // in bytes
+  createdAt: Date;
+}
+
 export interface NoteFormData {
   id?: string; // Optional for new notes, required for updates
   title: string;
@@ -43,6 +56,8 @@ export interface NoteFormData {
   isFavorite?: boolean;
   audioUri?: string;
   audioFiles?: AudioFile[];
+  pdfUrl?: string;
+  pdfFiles?: PDFFile[];
   keyDetails?: string[];
   summary?: string;
 }
@@ -56,6 +71,8 @@ export interface UpdateNoteData {
   isFavorite?: boolean;
   audioUri?: string;
   audioFiles?: AudioFile[];
+  pdfUrl?: string;
+  pdfFiles?: PDFFile[];
   keyDetails?: string[];
   summary?: string;
 }

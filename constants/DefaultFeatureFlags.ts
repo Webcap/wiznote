@@ -128,6 +128,19 @@ export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlag> = {
     createdBy: 'system',
   },
 
+  pdf_upload: {
+    id: 'pdf_upload',
+    name: 'PDF Upload',
+    description: 'Enable PDF document upload and text extraction functionality',
+    enabled: true,
+    premiumOnly: false, // Free for testing, will be premium-only in production
+    trackingEnabled: true, // Track PDF upload usage
+    targetEnvironments: ['development', 'staging', 'production'],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    createdBy: 'system',
+  },
+
   ai_quiz: {
     id: 'ai_quiz',
     name: 'AI Quiz Generation',

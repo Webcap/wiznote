@@ -27,6 +27,7 @@ export interface FeatureFlagConfig {
 export type FeatureFlagKey = 
   | 'ai_transcription'
   | 'voice_recording'
+  | 'pdf_upload'
   | 'ai_name_generating'
   | 'ai_summaries'
   | 'ai_key_details'
