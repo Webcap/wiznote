@@ -8,6 +8,7 @@ import { Logo } from '../../components/Logo';
 import { NoteCard } from '../../components/NoteCard';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
+import { UploadingNoteCard } from '../../components/UploadingNoteCard';
 import { LazyWrapper, LazyViewport } from '../../components/LazyWrapper';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
@@ -16,6 +17,8 @@ import { useNotes } from '../../hooks/useNotes';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { AudioUtils } from '../../services/AudioUtils';
+import { pdfStorage } from '../../services/PDFStorage';
+import { supabaseNoteStorage } from '../../services/SupabaseNoteStorage';
 import { featureFlagService } from '../../services/FeatureFlagService';
 import { realtimeSyncService } from '../../services/RealtimeSyncService';
 import { Note } from '../../types/Note';
@@ -34,6 +37,16 @@ export default function HomeScreen() {
   const { notes, loading, error, syncStatus, isRealtimeActive, togglePin, toggleArchive, toggleFavorite, deleteNote, getFilteredNotes, refreshNotes } = useNotes(
     authLoading ? '' : (user?.id || '')
   );
+
+  // PDF upload state
+  const [uploadingPDF, setUploadingPDF] = useState<{
+    fileName: string;
+    fileSize: string;
+    progress: number;
+    status: 'uploading' | 'processing' | 'completed' | 'error';
+    statusMessage: string;
+  } | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // Lazy load feature flags with caching
   const featureFlags = useLazyData(
@@ -364,6 +377,137 @@ export default function HomeScreen() {
   const handleCloseCreateOptions = useCallback(() => {
     setShowCreateOptions(false);
   }, []);
+
+  const handleCreatePDFNote = useCallback(() => {
+    console.log('PDF note button pressed');
+    
+    // Check if PDF upload feature is enabled
+    if (!isFeatureEnabled('pdf_upload')) {
+      showSnackbar('PDF upload feature is not available', 'error');
+      setShowCreateOptions(false);
+      return;
+    }
+
+    setShowCreateOptions(false);
+    
+    if (Platform.OS === 'web') {
+      // Web: Use file input
+      if (pdfInputRef.current) {
+        pdfInputRef.current.click();
+      }
+    } else {
+      // Mobile: Show message for now (requires expo-document-picker)
+      Alert.alert(
+        'PDF Upload',
+        'PDF upload on mobile is coming soon! Please use the web version to upload PDFs.',
+        [{ text: 'OK' }]
+      );
+    }
+  }, [isFeatureEnabled, showSnackbar]);
+
+  const handlePDFFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Reset input
+    event.target.value = '';
+
+    // Validate file type
+    if (file.type !== 'application/pdf') {
+      showSnackbar('Please select a PDF file', 'error');
+      return;
+    }
+
+    // Validate file size (50MB limit)
+    const maxSize = 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      showSnackbar('PDF file must be less than 50MB', 'error');
+      return;
+    }
+
+    if (!user?.id) {
+      showSnackbar('Please sign in to upload PDFs', 'error');
+      return;
+    }
+
+    try {
+      // Show uploading card
+      setUploadingPDF({
+        fileName: file.name.replace('.pdf', ''),
+        fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+        progress: 10,
+        status: 'uploading',
+        statusMessage: 'Preparing PDF...',
+      });
+
+      // Create placeholder note
+      const placeholderNote = await supabaseNoteStorage.createNote({
+        title: `📄 ${file.name.replace('.pdf', '')}`,
+        content: '⏳ Uploading PDF... Please wait while we process your document.',
+        tags: ['pdf', 'uploading'],
+        summary: `Uploading ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
+      });
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: 'Uploading to cloud...' } : null);
+
+      // Upload PDF
+      const uploadedPDFUrl = await pdfStorage.uploadPDFFile(
+        file,
+        user.id,
+        placeholderNote.id
+      );
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 60, status: 'processing', statusMessage: 'Extracting text...' } : null);
+
+      // Extract text
+      const { text } = await pdfStorage.extractTextFromPDF(file);
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 80, statusMessage: 'Saving...' } : null);
+
+      // Update note
+      await supabaseNoteStorage.updateNote(placeholderNote.id, {
+        title: file.name.replace('.pdf', ''),
+        content: text || `PDF uploaded successfully!\n\n${file.name}\nSize: ${(file.size / (1024 * 1024)).toFixed(2)} MB\n\nText extraction is pending.`,
+        summary: `PDF: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
+        tags: ['pdf'],
+      });
+
+      // Save PDF metadata
+      await pdfStorage.savePDFMetadata(placeholderNote.id, user.id, {
+        filename: file.name,
+        storageUrl: uploadedPDFUrl,
+        extractedText: text,
+        extractionStatus: text ? 'completed' : 'pending',
+        pageCount: 1,
+        fileSize: file.size,
+      });
+
+      // Show completion
+      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: 'Upload complete!' } : null);
+
+      // Hide card after delay
+      setTimeout(() => {
+        setUploadingPDF(null);
+        refreshNotes?.();
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      setUploadingPDF(prev => prev ? { 
+        ...prev, 
+        progress: 100, 
+        status: 'error', 
+        statusMessage: 'Upload failed. Please try again.' 
+      } : null);
+      
+      setTimeout(() => {
+        setUploadingPDF(null);
+      }, 3000);
+    }
+  }, [user, showSnackbar, refreshNotes]);
 
 
 
@@ -745,13 +889,37 @@ export default function HomeScreen() {
         )}
       </View>
       
+      {/* Hidden PDF file input for web */}
+      {Platform.OS === 'web' && (
+        <input
+          ref={pdfInputRef}
+          type="file"
+          accept="application/pdf"
+          style={{ display: 'none' }}
+          onChange={handlePDFFileChange}
+        />
+      )}
+
+      {/* Uploading PDF Card */}
+      {uploadingPDF && (
+        <UploadingNoteCard
+          fileName={uploadingPDF.fileName}
+          fileSize={uploadingPDF.fileSize}
+          progress={uploadingPDF.progress}
+          status={uploadingPDF.status}
+          statusMessage={uploadingPDF.statusMessage}
+        />
+      )}
+
       {/* Create Options Bottom Sheet */}
       <CreateOptionsSheet
         visible={showCreateOptions}
         onClose={handleCloseCreateOptions}
         onTextNote={handleCreateTextNote}
         onAudioNote={handleCreateAudioNote}
+        onPDFNote={handleCreatePDFNote}
         isVoiceRecordingEnabled={isFeatureEnabled('voice_recording')}
+        isPDFUploadEnabled={isFeatureEnabled('pdf_upload')}
         testID="create-options-sheet"
       />
     </ThemedView>
@@ -764,14 +932,18 @@ const CreateOptionsSheet = ({
   onClose, 
   onTextNote, 
   onAudioNote,
+  onPDFNote,
   isVoiceRecordingEnabled,
+  isPDFUploadEnabled,
   testID
 }: {
   visible: boolean;
   onClose: () => void;
   onTextNote: () => void;
   onAudioNote: () => void;
+  onPDFNote: () => void;
   isVoiceRecordingEnabled: boolean;
+  isPDFUploadEnabled: boolean;
   testID?: string;
 }) => {
   const slideAnim = useRef(new Animated.Value(300)).current;
@@ -850,6 +1022,27 @@ const CreateOptionsSheet = ({
               <View style={styles.createOptionContent}>
                 <ThemedText style={styles.createOptionTitle}>Audio Note</ThemedText>
                 <ThemedText style={styles.createOptionDescription}>Record voice notes with AI transcription</ThemedText>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={chevronColor} />
+            </TouchableOpacity>
+          )}
+
+          {isPDFUploadEnabled && (
+            <TouchableOpacity 
+              style={[styles.createOption, { backgroundColor: optionBg }]} 
+              onPress={onPDFNote} 
+              testID="pdf-note-button"
+              activeOpacity={0.7}
+              delayPressIn={0}
+            >
+              <View style={styles.createOptionIcon}>
+                <Ionicons name="document" size={24} color="#E74C3C" />
+              </View>
+              <View style={styles.createOptionContent}>
+                <ThemedText style={styles.createOptionTitle}>Upload PDF</ThemedText>
+                <ThemedText style={styles.createOptionDescription}>
+                  {Platform.OS === 'web' ? 'Extract text from PDF documents' : 'Coming soon on mobile'}
+                </ThemedText>
               </View>
               <Ionicons name="chevron-forward" size={20} color={chevronColor} />
             </TouchableOpacity>
