@@ -1,9 +1,11 @@
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { PDFFile } from '../types/Note';
+import { PDF_CONFIG } from '../constants/PDFConfig';
 
 export class PDFStorage {
-  private bucketName = 'pdf-files';
+  private bucketName = PDF_CONFIG.BUCKET_NAME;
 
   // Check if the storage bucket exists
   private async checkBucketExists(): Promise<boolean> {
@@ -61,9 +63,9 @@ export class PDFStorage {
   private async createBucket(): Promise<boolean> {
     try {
       const { data, error } = await supabase.storage.createBucket(this.bucketName, {
-        public: false,
-        fileSizeLimit: 50 * 1024 * 1024, // 50MB limit
-        allowedMimeTypes: ['application/pdf']
+        public: PDF_CONFIG.BUCKET_PUBLIC,
+        fileSizeLimit: PDF_CONFIG.MAX_FILE_SIZE_BYTES,
+        allowedMimeTypes: PDF_CONFIG.ALLOWED_MIME_TYPES
       });
 
       if (error) {
@@ -80,12 +82,12 @@ export class PDFStorage {
   }
 
   // Upload PDF file to Supabase Storage
-  async uploadPDFFile(file: File | Blob, userId: string, noteId: string): Promise<string> {
+  async uploadPDFFile(fileOrUri: File | Blob | string, userId: string, noteId: string, originalFilename?: string): Promise<string> {
     try {
       console.log('PDFStorage: Uploading PDF file');
       
       // Validate input parameters
-      if (!file) {
+      if (!fileOrUri) {
         throw new Error('PDF file is required for upload');
       }
       if (!userId) {
@@ -103,18 +105,48 @@ export class PDFStorage {
 
       // Generate unique filename
       const timestamp = Date.now();
-      const originalFilename = file instanceof File ? file.name : 'document.pdf';
-      const sanitizedFilename = originalFilename.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const fileName = `${userId}/${noteId}/pdf_${timestamp}_${sanitizedFilename}`;
+      let filename: string;
+      let pdfData: Uint8Array;
+      
+      if (typeof fileOrUri === 'string') {
+        // Mobile: fileOrUri is a URI string
+        console.log('PDFStorage: Processing mobile file URI');
+        
+        // Get filename from originalFilename or URI
+        const uriFilename = originalFilename || fileOrUri.split('/').pop() || 'document.pdf';
+        const sanitizedFilename = uriFilename.replace(/[^a-zA-Z0-9.-]/g, '_');
+        filename = `${userId}/${noteId}/pdf_${timestamp}_${sanitizedFilename}`;
+        
+        // Read file from mobile filesystem
+        const base64Data = await FileSystem.readAsStringAsync(fileOrUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        
+        // Convert base64 to Uint8Array
+        const binaryString = atob(base64Data);
+        pdfData = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          pdfData[i] = binaryString.charCodeAt(i);
+        }
+      } else {
+        // Web: fileOrUri is a File or Blob object
+        console.log('PDFStorage: Processing web file object');
+        
+        const webFilename = fileOrUri instanceof File ? fileOrUri.name : 'document.pdf';
+        const sanitizedFilename = webFilename.replace(/[^a-zA-Z0-9.-]/g, '_');
+        filename = `${userId}/${noteId}/pdf_${timestamp}_${sanitizedFilename}`;
+        
+        // Read file data
+        const arrayBuffer = await fileOrUri.arrayBuffer();
+        pdfData = new Uint8Array(arrayBuffer);
+      }
 
-      // Read file data
-      const arrayBuffer = await file.arrayBuffer();
-      const pdfData = new Uint8Array(arrayBuffer);
-
+      console.log('PDFStorage: Uploading to path:', filename);
+      
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from(this.bucketName)
-        .upload(fileName, pdfData, {
+        .upload(filename, pdfData, {
           contentType: 'application/pdf',
           upsert: false,
         });
@@ -133,13 +165,13 @@ export class PDFStorage {
       // Create a signed URL that expires in 1 year
       const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from(this.bucketName)
-        .createSignedUrl(fileName, 365 * 24 * 60 * 60); // 1 year in seconds
+        .createSignedUrl(filename, 365 * 24 * 60 * 60); // 1 year in seconds
 
       if (signedUrlError) {
         console.error('PDFStorage: Error creating signed URL:', signedUrlError);
         const { data: publicUrlData } = supabase.storage
           .from(this.bucketName)
-          .getPublicUrl(fileName);
+          .getPublicUrl(filename);
         console.log('PDFStorage: Using public URL as fallback:', publicUrlData.publicUrl);
         return publicUrlData.publicUrl;
       }
@@ -362,20 +394,90 @@ export class PDFStorage {
     }
   }
 
-  // Extract text from PDF (placeholder for future implementation)
-  async extractTextFromPDF(file: File | Blob): Promise<{ text: string; pageCount: number }> {
+  // Extract text from PDF using AI
+  async extractTextFromPDF(fileOrUri: File | Blob | string): Promise<{ text: string; pageCount: number }> {
     try {
-      console.log('PDFStorage: Extracting text from PDF');
+      console.log('PDFStorage: Extracting text from PDF using AI');
       
-      // For now, return a placeholder
-      // In the future, this could use a library like pdf.js or call an API
+      // Import PDF processing service
+      const { pdfProcessingService } = await import('./PDFProcessingService');
+      
+      // Extract text using AI
+      const result = await pdfProcessingService.extractText(fileOrUri);
+      
+      if (!result.success) {
+        console.warn('PDFStorage: Text extraction failed, returning placeholder');
+        return {
+          text: 'PDF text extraction failed. The file has been uploaded successfully, but text extraction is pending.',
+          pageCount: 1
+        };
+      }
+      
+      console.log('PDFStorage: Text extraction complete, length:', result.text.length);
+      
+      // Get metadata for page count estimate
+      const metadata = await pdfProcessingService.getPDFMetadata(fileOrUri);
+      
       return {
-        text: 'PDF text extraction will be implemented in a future update. For now, you can manually type or paste the content.',
-        pageCount: 1
+        text: result.text,
+        pageCount: metadata.estimatedPages || 1
       };
     } catch (error) {
       console.error('PDFStorage: Error extracting text from PDF:', error);
-      throw error;
+      // Return a graceful fallback instead of throwing
+      return {
+        text: 'PDF uploaded successfully. Text extraction is pending.',
+        pageCount: 1
+      };
+    }
+  }
+  
+  // Process PDF with full AI analysis (text extraction + title + summary + key details)
+  async processPDFWithAI(
+    fileOrUri: File | Blob | string,
+    options?: {
+      generateTitle?: boolean;
+      generateSummary?: boolean;
+      extractKeyDetails?: boolean;
+    }
+  ): Promise<{
+    success: boolean;
+    extractedText: string;
+    title?: string;
+    summary?: string;
+    keyDetails?: string[];
+    pageCount?: number;
+    error?: string;
+  }> {
+    try {
+      console.log('PDFStorage: Processing PDF with full AI analysis');
+      
+      // Import PDF processing service
+      const { pdfProcessingService } = await import('./PDFProcessingService');
+      
+      // Process with AI
+      const result = await pdfProcessingService.processPDF(fileOrUri, options);
+      
+      if (!result.success) {
+        console.error('PDFStorage: AI processing failed:', result.error);
+        return result;
+      }
+      
+      // Get metadata for page count
+      const metadata = await pdfProcessingService.getPDFMetadata(fileOrUri);
+      
+      console.log('PDFStorage: AI processing complete');
+      return {
+        ...result,
+        pageCount: metadata.estimatedPages,
+      };
+    } catch (error) {
+      console.error('PDFStorage: Error processing PDF with AI:', error);
+      return {
+        success: false,
+        extractedText: '',
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
     }
   }
 }

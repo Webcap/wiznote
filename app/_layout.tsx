@@ -11,6 +11,7 @@ import { OfflineIndicator } from '../components/OfflineIndicator';
 import { ThemedView } from '../components/ThemedView';
 import { WebSnackbar } from '../components/web/WebSnackbar';
 import { SnackbarProvider, useSnackbar } from '../contexts/SnackbarContext';
+import { PDFUploadProvider } from '../contexts/PDFUploadContext';
 import { useAuth } from '../hooks/useAuth';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
@@ -210,7 +211,8 @@ function AppContent() {
   return (
     <CustomThemeProvider initialTheme={userTheme}>
       <SnackbarProvider>
-        <ThemeContext.Consumer>
+        <PDFUploadProvider>
+          <ThemeContext.Consumer>
           {theme => {
             const isDark = theme === 'dark' || (theme === 'auto' && colorScheme === 'dark');
             return (
@@ -259,6 +261,7 @@ function AppContent() {
             );
           }}
         </ThemeContext.Consumer>
+        </PDFUploadProvider>
       </SnackbarProvider>
     </CustomThemeProvider>
   );

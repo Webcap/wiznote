@@ -1,8 +1,11 @@
+export type NoteType = 'text' | 'audio' | 'pdf';
+
 export interface Note {
   id: string;
   userId: string; // Link to user
   title: string;
   content: string;
+  type?: NoteType; // Note type: text, audio, or pdf
   tags: string[];
   isPinned: boolean;
   isArchived: boolean;
@@ -50,6 +53,7 @@ export interface NoteFormData {
   id?: string; // Optional for new notes, required for updates
   title: string;
   content: string;
+  type?: NoteType;
   tags: string[];
   isPinned?: boolean;
   isArchived?: boolean;
@@ -65,6 +69,7 @@ export interface NoteFormData {
 export interface UpdateNoteData {
   title?: string;
   content?: string;
+  type?: NoteType;
   tags?: string[];
   isPinned?: boolean;
   isArchived?: boolean;

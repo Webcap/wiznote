@@ -422,6 +422,198 @@ ${content}`;
   }
 }
 
+// Process PDF with Gemini AI - extract text and generate metadata
+export async function processPDFWithGemini(
+  base64PDF: string,
+  options: {
+    extractText?: boolean;
+    generateTitle?: boolean;
+    generateSummary?: boolean;
+    extractKeyDetails?: boolean;
+  } = {}
+): Promise<{
+  success: boolean;
+  extractedText?: string;
+  title?: string;
+  summary?: string;
+  keyDetails?: string[];
+  error?: string;
+}> {
+  console.log('GeminiAI: Starting PDF processing with Gemini');
+  console.log('GeminiAI: Options:', options);
+  
+  // Check if PDF processing is enabled
+  if (!featureFlagService.isFeatureEnabled('pdf_upload')) {
+    console.log('GeminiAI: PDF upload feature is disabled');
+    return {
+      success: false,
+      error: 'PDF upload feature is currently disabled'
+    };
+  }
+  
+  // Check if API key is available
+  if (!GEMINI_API_KEY) {
+    console.error('GeminiAI: API key not found');
+    return {
+      success: false,
+      error: 'Gemini API key not configured'
+    };
+  }
+  
+  try {
+    const result: any = { success: true };
+    
+    // Step 1: Extract text from PDF using Gemini
+    if (options.extractText !== false) {
+      console.log('GeminiAI: Extracting text from PDF...');
+      
+      const extractResponse = await fetch(GEMINI_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: 'application/pdf', data: base64PDF } },
+              { text: 'Extract all text from this PDF document. Preserve the structure, formatting, headings, and paragraph breaks as much as possible. Return only the extracted text content.' }
+            ]
+          }]
+        })
+      });
+      
+      if (!extractResponse.ok) {
+        const errorText = await extractResponse.text();
+        console.error('GeminiAI: PDF text extraction failed:', extractResponse.status, errorText);
+        throw new Error(`PDF text extraction failed: ${extractResponse.status}`);
+      }
+      
+      const extractData = await extractResponse.json();
+      
+      if (extractData.error) {
+        console.error('GeminiAI: API error during text extraction:', extractData.error);
+        throw new Error(`Gemini API error: ${extractData.error.message || 'Unknown error'}`);
+      }
+      
+      result.extractedText = extractData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      console.log('GeminiAI: Extracted text length:', result.extractedText.length);
+    }
+    
+    // Step 2: Generate title if requested
+    if (options.generateTitle && result.extractedText) {
+      console.log('GeminiAI: Generating title from PDF content...');
+      
+      try {
+        result.title = await generateTitleWithGemini(result.extractedText);
+      } catch (error) {
+        console.error('GeminiAI: Error generating title:', error);
+        result.title = 'PDF Document';
+      }
+    }
+    
+    // Step 3: Generate summary if requested
+    if (options.generateSummary && result.extractedText) {
+      console.log('GeminiAI: Generating summary from PDF content...');
+      
+      try {
+        result.summary = await generateSummaryWithGemini(result.extractedText);
+      } catch (error) {
+        console.error('GeminiAI: Error generating summary:', error);
+        result.summary = '';
+      }
+    }
+    
+    // Step 4: Extract key details if requested
+    if (options.extractKeyDetails && result.extractedText) {
+      console.log('GeminiAI: Extracting key details from PDF content...');
+      
+      try {
+        result.keyDetails = await extractKeyDetailsWithGemini(result.extractedText);
+      } catch (error) {
+        console.error('GeminiAI: Error extracting key details:', error);
+        result.keyDetails = [];
+      }
+    }
+    
+    console.log('GeminiAI: PDF processing complete');
+    return result;
+    
+  } catch (error) {
+    console.error('GeminiAI: Error processing PDF:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
+// Extract text from PDF using Gemini (direct method)
+export async function extractTextFromPDFWithGemini(base64PDF: string): Promise<{
+  success: boolean;
+  text: string;
+  error?: string;
+}> {
+  console.log('GeminiAI: Extracting text from PDF with Gemini');
+  
+  if (!GEMINI_API_KEY) {
+    return {
+      success: false,
+      text: '',
+      error: 'Gemini API key not configured'
+    };
+  }
+  
+  try {
+    const response = await fetch(GEMINI_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: 'application/pdf', data: base64PDF } },
+            { text: 'Extract all text from this PDF document. Preserve the structure, formatting, headings, lists, and paragraph breaks. Return only the text content without any additional commentary.' }
+          ]
+        }]
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('GeminiAI: Text extraction failed:', response.status, errorText);
+      return {
+        success: false,
+        text: '',
+        error: `Text extraction failed: ${response.status}`
+      };
+    }
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      console.error('GeminiAI: API error:', data.error);
+      return {
+        success: false,
+        text: '',
+        error: data.error.message || 'Unknown error'
+      };
+    }
+    
+    const extractedText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    console.log('GeminiAI: Successfully extracted', extractedText.length, 'characters');
+    
+    return {
+      success: true,
+      text: extractedText
+    };
+    
+  } catch (error) {
+    console.error('GeminiAI: Error extracting text:', error);
+    return {
+      success: false,
+      text: '',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
 // Debug function to test API key and connection
 export async function testGeminiConnection(): Promise<{ success: boolean; error?: string }> {
   if (!GEMINI_API_KEY) {

@@ -217,12 +217,12 @@ export const UNIFIED_FEATURE_LIMITS: Record<string, UnifiedFeatureLimit> = {
     featureId: 'real_time_sync',
     featureName: 'Real-time Sync',
     description: 'Real-time synchronization across devices',
-    freeUserLimit: 100, // 100 sync operations per month
+    freeUserLimit: 'unlimited', // Core feature - always available
     premiumUserLimit: 'unlimited',
     limitType: 'count',
     period: 'monthly',
     isActive: true,
-    requiresFeatureFlag: false, // Always available
+    requiresFeatureFlag: false, // Core feature - no flag needed
     category: 'collaboration',
     priority: 10,
     createdAt: new Date(),

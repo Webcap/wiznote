@@ -18,7 +18,7 @@ VALUES (
   'pdf-files',
   'pdf-files',
   false,
-  52428800, -- 50MB in bytes
+  209715200, -- 200MB in bytes
   ARRAY['application/pdf']::text[]
 )
 ON CONFLICT (id) DO NOTHING;

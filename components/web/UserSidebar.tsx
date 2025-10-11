@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 // @ts-ignore - react-dom types not available in React Native environment
 import { createPortal } from 'react-dom';
 import { Alert, Animated, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { useSnackbar } from '../../contexts/SnackbarContext';
+import { usePDFUpload } from '../../contexts/PDFUploadContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useThemeColor } from '../../hooks/useThemeColor';
@@ -12,6 +14,8 @@ import { pdfStorage } from '../../services/PDFStorage';
 import { supabaseNoteStorage } from '../../services/SupabaseNoteStorage';
 import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
+import { PDFSizeLimitWarning } from '../PDFSizeLimitWarning';
+import { PDF_CONFIG } from '../../constants/PDFConfig';
 
 interface UserSidebarProps {
   activePage?: string;
@@ -31,9 +35,12 @@ export function UserSidebar({
   const borderColor = useThemeColor({}, 'border');
   const { isAdmin, user } = useAuth();
   const { showSnackbar } = useSnackbar();
+  const { setUploadingPDF, onUploadComplete } = usePDFUpload();
   const { isFeatureEnabled } = useFeatureFlags();
   const [showCreateDropdown, setShowCreateDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const [showSizeLimitWarning, setShowSizeLimitWarning] = useState(false);
+  const [oversizedFile, setOversizedFile] = useState<{ name: string; size: number } | null>(null);
   const dropdownRef = useRef<View>(null);
   const buttonRef = useRef<typeof TouchableOpacity>(null);
   const dropdownAnim = useRef(new Animated.Value(0)).current;
@@ -225,7 +232,7 @@ export function UserSidebar({
   const handleWebSearch = useCallback(() => router.push('/(tabs)/search'), []);
   const handleWebSettings = useCallback(() => router.push('/(tabs)/settings'), []);
 
-  const handlePDFUploadClick = useCallback(() => {
+  const handlePDFUploadClick = useCallback(async () => {
     // Check if PDF upload feature is enabled
     if (!isFeatureEnabled('pdf_upload')) {
       showSnackbar('PDF upload feature is not available', 'error');
@@ -234,10 +241,155 @@ export function UserSidebar({
     }
 
     setShowCreateDropdown(false);
-    if (pdfFileInputRef.current) {
-      pdfFileInputRef.current.click();
+    
+    if (Platform.OS === 'web') {
+      // Web: Use file input
+      if (pdfFileInputRef.current) {
+        pdfFileInputRef.current.click();
+      }
+    } else {
+      // Mobile: Use expo-document-picker
+      try {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: 'application/pdf',
+          copyToCacheDirectory: true,
+          multiple: false,
+        });
+
+        if (result.canceled) {
+          console.log('PDF selection cancelled');
+          return;
+        }
+
+        const asset = result.assets[0];
+        
+        // Validate file
+        if (!asset) {
+          showSnackbar('No file selected', 'error');
+          return;
+        }
+
+        // Validate file size
+        if (asset.size && asset.size > PDF_CONFIG.MAX_FILE_SIZE_BYTES) {
+          setOversizedFile({ name: asset.name, size: asset.size });
+          setShowSizeLimitWarning(true);
+          return;
+        }
+
+        if (!user?.id) {
+          showSnackbar('Please sign in to upload PDFs', 'error');
+          return;
+        }
+
+        // Process the selected PDF
+        await handleMobilePDFUpload(asset.uri, asset.name, asset.size || 0);
+        
+      } catch (error) {
+        console.error('Error picking PDF:', error);
+        showSnackbar('Failed to select PDF file', 'error');
+      }
     }
-  }, [isFeatureEnabled, showSnackbar]);
+  }, [isFeatureEnabled, showSnackbar, user]);
+
+  const handleMobilePDFUpload = useCallback(async (fileUri: string, fileName: string, fileSize: number) => {
+    if (!user?.id) return;
+
+    try {
+      // Show upload card
+      setUploadingPDF({
+        fileName: fileName.replace('.pdf', ''),
+        fileSize: `${(fileSize / (1024 * 1024)).toFixed(2)} MB`,
+        progress: 10,
+        status: 'uploading',
+        statusMessage: 'Preparing PDF...',
+      });
+
+      // Create a placeholder note immediately
+      const placeholderNote = await supabaseNoteStorage.createNote({
+        title: `📄 ${fileName.replace('.pdf', '')}`,
+        content: '⏳ Uploading PDF... Please wait while we process your document.',
+        type: 'pdf',
+        tags: ['pdf', 'uploading'],
+        summary: `Uploading ${fileName} (${(fileSize / (1024 * 1024)).toFixed(2)} MB)`,
+      });
+
+      // Navigate to home screen immediately
+      router.push('/(tabs)');
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: 'Uploading to cloud...' } : null);
+      
+      const uploadedPDFUrl = await pdfStorage.uploadPDFFile(
+        fileUri,
+        user.id,
+        placeholderNote.id,
+        fileName
+      );
+
+      // Process PDF with AI
+      setUploadingPDF(prev => prev ? { ...prev, progress: 50, status: 'processing', statusMessage: 'Processing with AI...' } : null);
+      
+      const aiResult = await pdfStorage.processPDFWithAI(fileUri, {
+        generateTitle: true,
+        generateSummary: true,
+        extractKeyDetails: true,
+      });
+
+      const extractedText = aiResult.extractedText || '';
+      const aiTitle = aiResult.title || fileName.replace('.pdf', '');
+      const aiSummary = aiResult.summary || `PDF: ${fileName} (${(fileSize / (1024 * 1024)).toFixed(2)} MB)`;
+      const pageCount = aiResult.pageCount || 1;
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: 'Saving...' } : null);
+
+      // Update note with AI-processed content
+      await supabaseNoteStorage.updateNote(placeholderNote.id, {
+        title: aiTitle,
+        content: extractedText || `PDF uploaded!\n\n${fileName}\nText extraction failed.`,
+        type: 'pdf',
+        summary: aiSummary,
+        keyDetails: aiResult.keyDetails || [],
+        tags: ['pdf'],
+      });
+
+      // Save PDF metadata
+      await pdfStorage.savePDFMetadata(placeholderNote.id, user.id, {
+        filename: fileName,
+        storageUrl: uploadedPDFUrl,
+        extractedText: extractedText,
+        extractionStatus: extractedText ? 'completed' : 'failed',
+        pageCount: pageCount,
+        fileSize: fileSize,
+      });
+
+      // Show completion
+      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: 'Upload complete!' } : null);
+
+      // Refresh notes immediately to show the new upload
+      if (onUploadComplete) {
+        await onUploadComplete();
+      }
+
+      // Hide card after delay
+      setTimeout(() => {
+        setUploadingPDF(null);
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      setUploadingPDF(prev => prev ? { 
+        ...prev, 
+        progress: 100, 
+        status: 'error', 
+        statusMessage: 'Upload failed. Please try again.' 
+      } : null);
+      
+      setTimeout(() => {
+        setUploadingPDF(null);
+      }, 3000);
+    }
+  }, [user, setUploadingPDF]);
 
   const handlePDFFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -252,10 +404,10 @@ export function UserSidebar({
       return;
     }
 
-    // Validate file size (50MB limit)
-    const maxSize = 50 * 1024 * 1024;
-    if (file.size > maxSize) {
-      Alert.alert('File Too Large', 'PDF file must be less than 50MB.');
+    // Validate file size
+    if (file.size > PDF_CONFIG.MAX_FILE_SIZE_BYTES) {
+      setOversizedFile({ name: file.name, size: file.size });
+      setShowSizeLimitWarning(true);
       return;
     }
 
@@ -265,13 +417,20 @@ export function UserSidebar({
     }
 
     try {
-      // Show initial notification
-      showSnackbar('Uploading PDF...', 'info');
+      // Show upload card
+      setUploadingPDF({
+        fileName: file.name.replace('.pdf', ''),
+        fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+        progress: 10,
+        status: 'uploading',
+        statusMessage: 'Preparing PDF...',
+      });
 
       // Create a placeholder note immediately with special indicator
       const placeholderNote = await supabaseNoteStorage.createNote({
         title: `📄 ${file.name.replace('.pdf', '')}`,
         content: '⏳ Uploading PDF... Please wait while we process your document.',
+        type: 'pdf',
         tags: ['pdf', 'uploading'],
         summary: `Uploading ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
       });
@@ -279,46 +438,79 @@ export function UserSidebar({
       // Navigate to home screen immediately
       router.push('/(tabs)');
 
-      // Upload PDF in the background
-      const tempNoteId = placeholderNote.id;
-      
-      showSnackbar('Processing PDF...', 'info');
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: 'Uploading to cloud...' } : null);
       
       const uploadedPDFUrl = await pdfStorage.uploadPDFFile(
         file,
         user.id,
-        tempNoteId
+        placeholderNote.id
       );
 
-      // Extract text (placeholder for now)
-      const { text } = await pdfStorage.extractTextFromPDF(file);
+      // Process PDF with AI
+      setUploadingPDF(prev => prev ? { ...prev, progress: 50, status: 'processing', statusMessage: 'Processing with AI...' } : null);
+      
+      const aiResult = await pdfStorage.processPDFWithAI(file, {
+        generateTitle: true,
+        generateSummary: true,
+        extractKeyDetails: true,
+      });
 
-      // Update note with PDF data and remove "uploading" tag
+      const extractedText = aiResult.extractedText || '';
+      const aiTitle = aiResult.title || file.name.replace('.pdf', '');
+      const aiSummary = aiResult.summary || `PDF: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
+      const pageCount = aiResult.pageCount || 1;
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: 'Saving...' } : null);
+
+      // Update note with AI-processed content
       await supabaseNoteStorage.updateNote(placeholderNote.id, {
-        title: file.name.replace('.pdf', ''),
-        content: text || `PDF uploaded successfully!\n\n${file.name}\nSize: ${(file.size / (1024 * 1024)).toFixed(2)} MB\n\nText extraction is pending. This is a placeholder for future PDF.js integration.`,
-        summary: `PDF: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
-        tags: ['pdf'], // Remove 'uploading' tag
+        title: aiTitle,
+        content: extractedText || `PDF uploaded!\n\n${file.name}\nText extraction failed.`,
+        type: 'pdf',
+        summary: aiSummary,
+        keyDetails: aiResult.keyDetails || [],
+        tags: ['pdf'],
       });
 
       // Save PDF metadata
       await pdfStorage.savePDFMetadata(placeholderNote.id, user.id, {
         filename: file.name,
         storageUrl: uploadedPDFUrl,
-        extractedText: text,
-        extractionStatus: text ? 'completed' : 'pending',
-        pageCount: 1,
+        extractedText: extractedText,
+        extractionStatus: extractedText ? 'completed' : 'failed',
+        pageCount: pageCount,
         fileSize: file.size,
       });
 
-      // Show success notification
-      showSnackbar(`✅ PDF uploaded: ${file.name}`, 'success');
+      // Show completion
+      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: 'Upload complete!' } : null);
+
+      // Refresh notes immediately to show the new upload
+      if (onUploadComplete) {
+        await onUploadComplete();
+      }
+
+      // Hide card after delay
+      setTimeout(() => {
+        setUploadingPDF(null);
+      }, 2000);
 
     } catch (error) {
       console.error('Error uploading PDF:', error);
-      showSnackbar('Failed to upload PDF. Please try again.', 'error');
+      setUploadingPDF(prev => prev ? { 
+        ...prev, 
+        progress: 100, 
+        status: 'error', 
+        statusMessage: 'Upload failed. Please try again.' 
+      } : null);
+      
+      setTimeout(() => {
+        setUploadingPDF(null);
+      }, 3000);
     }
-  }, [user]);
+  }, [user, setUploadingPDF]);
 
   const handleCreateDropdownToggle = useCallback(() => {
     if (!showCreateDropdown && buttonRef.current) {
@@ -514,6 +706,19 @@ export function UserSidebar({
           <ThemedText style={styles.bottomLabel}>Settings</ThemedText>
         </TouchableOpacity>
       </View>
+
+      {/* PDF Size Limit Warning */}
+      {oversizedFile && (
+        <PDFSizeLimitWarning
+          visible={showSizeLimitWarning}
+          fileName={oversizedFile.name}
+          fileSize={oversizedFile.size}
+          onClose={() => {
+            setShowSizeLimitWarning(false);
+            setOversizedFile(null);
+          }}
+        />
+      )}
     </ThemedView>
   );
 }

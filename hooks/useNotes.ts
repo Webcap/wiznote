@@ -199,7 +199,7 @@ export const useNotes = (userId: string) => {
         });
       }
     }
-  }, [userId, showSnackbar]); // Remove loadNotes dependency
+  }, [userId, showSnackbar]);
 
   // Clean up subscription on unmount or userId change
   useEffect(() => {
