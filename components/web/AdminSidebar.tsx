@@ -1,12 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 // @ts-ignore - react-dom types not available in React Native environment
 import { createPortal } from 'react-dom';
-import { Animated, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import { useSnackbar } from '../../contexts/SnackbarContext';
+import { usePDFUpload } from '../../contexts/PDFUploadContext';
+import { useAuth } from '../../hooks/useAuth';
+import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { pdfStorage } from '../../services/PDFStorage';
+import { supabaseNoteStorage } from '../../services/SupabaseNoteStorage';
 import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
+import { PDFSizeLimitWarning } from '../PDFSizeLimitWarning';
+import { PDF_CONFIG } from '../../constants/PDFConfig';
 
 interface AdminSidebarProps {
   activePage?: string;
@@ -18,11 +27,18 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
   const accentColor = useThemeColor({}, 'accentPrimary');
   const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
   const borderColor = useThemeColor({}, 'border');
+  const { user } = useAuth();
+  const { showSnackbar } = useSnackbar();
+  const { setUploadingPDF, onUploadComplete } = usePDFUpload();
+  const { isFeatureEnabled } = useFeatureFlags();
   const [showCreateDropdown, setShowCreateDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const [showSizeLimitWarning, setShowSizeLimitWarning] = useState(false);
+  const [oversizedFile, setOversizedFile] = useState<{ name: string; size: number } | null>(null);
   const dropdownRef = useRef<View>(null);
   const buttonRef = useRef<typeof TouchableOpacity>(null);
   const dropdownAnim = useRef(new Animated.Value(0)).current;
+  const pdfFileInputRef = useRef<HTMLInputElement>(null);
 
   if (Platform.OS !== 'web') {
     return null;
@@ -154,6 +170,286 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
   const handleWebSearch = () => router.push('/(tabs)/search');
   const handleWebSettings = () => router.push('/(tabs)/settings');
 
+  const handlePDFUploadClick = useCallback(async () => {
+    // Check if PDF upload feature is enabled
+    if (!isFeatureEnabled('pdf_upload')) {
+      showSnackbar('PDF upload feature is not available', 'error');
+      setShowCreateDropdown(false);
+      return;
+    }
+
+    setShowCreateDropdown(false);
+    
+    if (Platform.OS === 'web') {
+      // Web: Use file input
+      if (pdfFileInputRef.current) {
+        pdfFileInputRef.current.click();
+      }
+    } else {
+      // Mobile: Use expo-document-picker
+      try {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: 'application/pdf',
+          copyToCacheDirectory: true,
+          multiple: false,
+        });
+
+        if (result.canceled) {
+          console.log('PDF selection cancelled');
+          return;
+        }
+
+        const asset = result.assets[0];
+        
+        // Validate file
+        if (!asset) {
+          showSnackbar('No file selected', 'error');
+          return;
+        }
+
+        // Validate file size
+        if (asset.size && asset.size > PDF_CONFIG.MAX_FILE_SIZE_BYTES) {
+          setOversizedFile({ name: asset.name, size: asset.size });
+          setShowSizeLimitWarning(true);
+          return;
+        }
+
+        if (!user?.id) {
+          showSnackbar('Please sign in to upload PDFs', 'error');
+          return;
+        }
+
+        // Process the selected PDF
+        await handleMobilePDFUpload(asset.uri, asset.name, asset.size || 0);
+        
+      } catch (error) {
+        console.error('Error picking PDF:', error);
+        showSnackbar('Failed to select PDF file', 'error');
+      }
+    }
+  }, [isFeatureEnabled, showSnackbar, user]);
+
+  const handleMobilePDFUpload = useCallback(async (fileUri: string, fileName: string, fileSize: number) => {
+    if (!user?.id) return;
+
+    try {
+      // Show upload card
+      setUploadingPDF({
+        fileName: fileName.replace('.pdf', ''),
+        fileSize: `${(fileSize / (1024 * 1024)).toFixed(2)} MB`,
+        progress: 10,
+        status: 'uploading',
+        statusMessage: 'Preparing PDF...',
+      });
+
+      // Create a placeholder note immediately
+      const placeholderNote = await supabaseNoteStorage.createNote({
+        title: `📄 ${fileName.replace('.pdf', '')}`,
+        content: '⏳ Uploading PDF... Please wait while we process your document.',
+        type: 'pdf',
+        tags: ['pdf', 'uploading'],
+        summary: `Uploading ${fileName} (${(fileSize / (1024 * 1024)).toFixed(2)} MB)`,
+      });
+
+      // Navigate to home screen immediately
+      router.push('/(tabs)');
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: 'Uploading to cloud...' } : null);
+      
+      const uploadedPDFUrl = await pdfStorage.uploadPDFFile(
+        fileUri,
+        user.id,
+        placeholderNote.id,
+        fileName
+      );
+
+      // Process PDF with AI
+      setUploadingPDF(prev => prev ? { ...prev, progress: 50, status: 'processing', statusMessage: 'Processing with AI...' } : null);
+      
+      const aiResult = await pdfStorage.processPDFWithAI(fileUri, {
+        generateTitle: true,
+        generateSummary: true,
+        extractKeyDetails: true,
+      });
+
+      const extractedText = aiResult.extractedText || '';
+      const aiTitle = aiResult.title || fileName.replace('.pdf', '');
+      const aiSummary = aiResult.summary || `PDF: ${fileName} (${(fileSize / (1024 * 1024)).toFixed(2)} MB)`;
+      const pageCount = aiResult.pageCount || 1;
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: 'Saving...' } : null);
+
+      // Update note with AI-processed content
+      await supabaseNoteStorage.updateNote(placeholderNote.id, {
+        title: aiTitle,
+        content: extractedText || `PDF uploaded!\n\n${fileName}\nText extraction failed.`,
+        type: 'pdf',
+        summary: aiSummary,
+        keyDetails: aiResult.keyDetails || [],
+        tags: ['pdf'],
+      });
+
+      // Save PDF metadata
+      await pdfStorage.savePDFMetadata(placeholderNote.id, user.id, {
+        filename: fileName,
+        storageUrl: uploadedPDFUrl,
+        extractedText: extractedText,
+        extractionStatus: extractedText ? 'completed' : 'failed',
+        pageCount: pageCount,
+        fileSize: fileSize,
+      });
+
+      // Show completion
+      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: 'Upload complete!' } : null);
+
+      // Refresh notes immediately to show the new upload
+      if (onUploadComplete) {
+        await onUploadComplete();
+      }
+
+      // Hide card after delay
+      setTimeout(() => {
+        setUploadingPDF(null);
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      setUploadingPDF(prev => prev ? { 
+        ...prev, 
+        progress: 100, 
+        status: 'error', 
+        statusMessage: 'Upload failed. Please try again.' 
+      } : null);
+      
+      setTimeout(() => {
+        setUploadingPDF(null);
+      }, 3000);
+    }
+  }, [user, setUploadingPDF]);
+
+  const handlePDFFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so the same file can be selected again
+    event.target.value = '';
+
+    // Validate file type
+    if (file.type !== 'application/pdf') {
+      Alert.alert('Invalid File', 'Please select a PDF file.');
+      return;
+    }
+
+    // Validate file size
+    if (file.size > PDF_CONFIG.MAX_FILE_SIZE_BYTES) {
+      setOversizedFile({ name: file.name, size: file.size });
+      setShowSizeLimitWarning(true);
+      return;
+    }
+
+    if (!user?.id) {
+      Alert.alert('Authentication Required', 'Please sign in to upload PDFs.');
+      return;
+    }
+
+    try {
+      // Show upload card
+      setUploadingPDF({
+        fileName: file.name.replace('.pdf', ''),
+        fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+        progress: 10,
+        status: 'uploading',
+        statusMessage: 'Preparing PDF...',
+      });
+
+      // Create a placeholder note immediately with special indicator
+      const placeholderNote = await supabaseNoteStorage.createNote({
+        title: `📄 ${file.name.replace('.pdf', '')}`,
+        content: '⏳ Uploading PDF... Please wait while we process your document.',
+        type: 'pdf',
+        tags: ['pdf', 'uploading'],
+        summary: `Uploading ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
+      });
+
+      // Navigate to home screen immediately
+      router.push('/(tabs)');
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: 'Uploading to cloud...' } : null);
+      
+      const uploadedPDFUrl = await pdfStorage.uploadPDFFile(
+        file,
+        user.id,
+        placeholderNote.id
+      );
+
+      // Process PDF with AI
+      setUploadingPDF(prev => prev ? { ...prev, progress: 50, status: 'processing', statusMessage: 'Processing with AI...' } : null);
+      
+      const aiResult = await pdfStorage.processPDFWithAI(file, {
+        generateTitle: true,
+        generateSummary: true,
+        extractKeyDetails: true,
+      });
+
+      const extractedText = aiResult.extractedText || '';
+      const aiTitle = aiResult.title || file.name.replace('.pdf', '');
+      const aiSummary = aiResult.summary || `PDF: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
+      const pageCount = aiResult.pageCount || 1;
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: 'Saving...' } : null);
+
+      // Update note with AI-processed content
+      await supabaseNoteStorage.updateNote(placeholderNote.id, {
+        title: aiTitle,
+        content: extractedText || `PDF uploaded!\n\n${file.name}\nText extraction failed.`,
+        type: 'pdf',
+        summary: aiSummary,
+        keyDetails: aiResult.keyDetails || [],
+        tags: ['pdf'],
+      });
+
+      // Save PDF metadata
+      await pdfStorage.savePDFMetadata(placeholderNote.id, user.id, {
+        filename: file.name,
+        storageUrl: uploadedPDFUrl,
+        extractedText: extractedText,
+        extractionStatus: extractedText ? 'completed' : 'failed',
+        pageCount: pageCount,
+        fileSize: file.size,
+      });
+
+      // Show completion
+      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: 'Upload complete!' } : null);
+
+      // Refresh notes immediately to show the new upload
+      if (onUploadComplete) {
+        await onUploadComplete();
+      }
+
+      // Hide card after delay
+      setTimeout(() => {
+        setUploadingPDF(null);
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      setUploadingPDF(prev => prev ? { 
+        ...prev, 
+        progress: 100, 
+        status: 'error', 
+        statusMessage: 'Upload failed. Please try again.' 
+      } : null);
+      
+      setTimeout(() => {
+        setUploadingPDF(null);
+      }, 3000);
+    }
+  }, [user, setUploadingPDF]);
+
   const handleCreateDropdownToggle = () => {
     if (!showCreateDropdown && buttonRef.current) {
       // Calculate dropdown position when opening
@@ -176,6 +472,15 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: backgroundSecondary }]}>
+      {/* Hidden PDF file input */}
+      <input
+        ref={pdfFileInputRef}
+        type="file"
+        accept="application/pdf"
+        style={{ display: 'none' }}
+        onChange={handlePDFFileChange}
+      />
+
       {/* Logo/Brand */}
       <View style={styles.brand}>
         <ThemedText type="title" style={styles.logo}>
@@ -273,19 +578,24 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
                 </View>
               </TouchableOpacity>
               
-              {/* Future note types can be added here */}
-              {/* Example:
-              <TouchableOpacity 
-                style={styles.dropdownItem}
-                onPress={() => handleCreateOption('create-drawing')}
-                accessibilityLabel="Create drawing note"
-                accessibilityHint="Creates a new drawing note with canvas"
-                accessibilityRole="menuitem"
-              >
-                <Ionicons name="brush" size={18} color={iconColor} />
-                <ThemedText style={styles.dropdownItemText}>Drawing Note</ThemedText>
-              </TouchableOpacity>
-              */}
+              {/* PDF Upload Option - Feature Flag Protected */}
+              {isFeatureEnabled('pdf_upload') && (
+                <TouchableOpacity 
+                  style={styles.dropdownItem}
+                  onPress={handlePDFUploadClick}
+                  accessibilityLabel="Upload PDF"
+                  accessibilityHint="Upload a PDF document"
+                  accessibilityRole="menuitem"
+                >
+                  <View style={styles.dropdownItemIcon}>
+                    <Ionicons name="document" size={18} color="#6A5ACD" />
+                  </View>
+                  <View style={styles.dropdownItemContent}>
+                    <ThemedText style={styles.dropdownItemText}>Upload PDF</ThemedText>
+                    <ThemedText style={styles.dropdownItemSubtitle}>Extract text from PDF documents</ThemedText>
+                  </View>
+                </TouchableOpacity>
+              )}
             </Animated.View>,
             document.body
           )}
@@ -336,6 +646,19 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
           <ThemedText style={styles.bottomLabel}>Settings</ThemedText>
         </TouchableOpacity>
       </View>
+
+      {/* PDF Size Limit Warning */}
+      {oversizedFile && (
+        <PDFSizeLimitWarning
+          visible={showSizeLimitWarning}
+          fileName={oversizedFile.name}
+          fileSize={oversizedFile.size}
+          onClose={() => {
+            setShowSizeLimitWarning(false);
+            setOversizedFile(null);
+          }}
+        />
+      )}
     </ThemedView>
   );
 }

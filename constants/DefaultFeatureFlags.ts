@@ -105,10 +105,10 @@ export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlag> = {
   real_time_sync: {
     id: 'real_time_sync',
     name: 'Real-time Sync',
-    description: 'Enable real-time synchronization',
+    description: 'Enable real-time synchronization across devices',
     enabled: true,
     premiumOnly: false,
-    trackingEnabled: false, // Sync features don't need usage tracking
+    trackingEnabled: false, // Core feature - no tracking needed
     targetEnvironments: ['development', 'staging', 'production'],
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -122,6 +122,19 @@ export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlag> = {
     enabled: true,
     premiumOnly: false, // Allow free users with limits
     trackingEnabled: true, // Track voice recording usage
+    targetEnvironments: ['development', 'staging', 'production'],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    createdBy: 'system',
+  },
+
+  pdf_upload: {
+    id: 'pdf_upload',
+    name: 'PDF Upload',
+    description: 'Enable PDF document upload and text extraction functionality',
+    enabled: true,
+    premiumOnly: false, // Free for testing, will be premium-only in production
+    trackingEnabled: true, // Track PDF upload usage
     targetEnvironments: ['development', 'staging', 'production'],
     createdAt: new Date(),
     updatedAt: new Date(),

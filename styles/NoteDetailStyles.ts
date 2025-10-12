@@ -613,4 +613,89 @@ export const NoteDetailStyles = StyleSheet.create({
     marginBottom: 16,
   },
 
+  // PDF Note Badge Styles
+  pdfNoteBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  webPDFNoteBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 6,
+  },
+
+  // PDF File Styles
+  pdfFileCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  pdfFileHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  pdfFileIcon: {
+    marginRight: 12,
+  },
+  pdfFileInfo: {
+    flex: 1,
+  },
+  pdfFileName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  pdfFileMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  pdfFileMetaText: {
+    fontSize: 13,
+  },
+  pdfFileStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pdfFileStatusText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  pdfFileActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  pdfActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 8,
+  },
+  viewButton: {
+    // backgroundColor set dynamically
+  },
+  downloadButton: {
+    // backgroundColor and borderColor set dynamically
+  },
+  pdfActionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+
 }); 

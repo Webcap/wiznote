@@ -11,6 +11,7 @@ import { OfflineIndicator } from '../components/OfflineIndicator';
 import { ThemedView } from '../components/ThemedView';
 import { WebSnackbar } from '../components/web/WebSnackbar';
 import { SnackbarProvider, useSnackbar } from '../contexts/SnackbarContext';
+import { PDFUploadProvider } from '../contexts/PDFUploadContext';
 import { useAuth } from '../hooks/useAuth';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -157,18 +158,19 @@ function AppContent() {
   return (
     <CustomThemeProvider initialTheme={userTheme}>
       <SnackbarProvider>
-        <ThemeContext.Consumer>
-          {theme => {
-            const isDark = theme === 'dark' || (theme === 'auto' && colorScheme === 'dark');
-            return (
-              <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
-                <ThemedView style={{ 
-                  flex: 1, 
-                  ...(Platform.OS === 'web' ? { minHeight: '100vh' as any, width: '100vw' as any } : { minHeight: '100%', width: '100%' }),
-                  margin: 0,
-                  padding: 0
-                }}>
-                  <Stack>
+        <PDFUploadProvider>
+          <ThemeContext.Consumer>
+            {theme => {
+              const isDark = theme === 'dark' || (theme === 'auto' && colorScheme === 'dark');
+              return (
+                <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+                  <ThemedView style={{ 
+                    flex: 1, 
+                    ...(Platform.OS === 'web' ? { minHeight: '100vh' as any, width: '100vw' as any } : { minHeight: '100%', width: '100%' }),
+                    margin: 0,
+                    padding: 0
+                  }}>
+                    <Stack>
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                     <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                     <Stack.Screen name="note" options={{ headerShown: false }} />
@@ -207,6 +209,7 @@ function AppContent() {
             );
           }}
         </ThemeContext.Consumer>
+        </PDFUploadProvider>
       </SnackbarProvider>
     </CustomThemeProvider>
   );

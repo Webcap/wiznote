@@ -3,11 +3,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Animated, FlatList, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { Logo } from '../../components/Logo';
 import { NoteCard } from '../../components/NoteCard';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
+import { UploadingNoteCard } from '../../components/UploadingNoteCard';
+import { PDFSizeLimitWarning } from '../../components/PDFSizeLimitWarning';
 import { LazyWrapper, LazyViewport } from '../../components/LazyWrapper';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
@@ -15,10 +18,14 @@ import { useLazyData } from '../../hooks/useLazyData';
 import { useNotes } from '../../hooks/useNotes';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { useSnackbar } from '../../contexts/SnackbarContext';
+import { usePDFUpload } from '../../contexts/PDFUploadContext';
 import { AudioUtils } from '../../services/AudioUtils';
+import { pdfStorage } from '../../services/PDFStorage';
+import { supabaseNoteStorage } from '../../services/SupabaseNoteStorage';
 import { featureFlagService } from '../../services/FeatureFlagService';
 import { realtimeSyncService } from '../../services/RealtimeSyncService';
 import { Note } from '../../types/Note';
+import { PDF_CONFIG } from '../../constants/PDFConfig';
 
 // Import web components
 import { SyncStatusIndicator } from '../../components/SyncStatusIndicator';
@@ -31,9 +38,21 @@ export default function HomeScreen() {
   const { user, isAuthenticated, isAdmin, isLoading: authLoading } = useAuth();
   const { isFeatureEnabled } = useFeatureFlags();
   const { showSnackbar } = useSnackbar();
+  const { uploadingPDF, setUploadingPDF, setOnUploadComplete } = usePDFUpload();
   const { notes, loading, error, syncStatus, isRealtimeActive, togglePin, toggleArchive, toggleFavorite, deleteNote, getFilteredNotes, refreshNotes } = useNotes(
     authLoading ? '' : (user?.id || '')
   );
+
+  // Register refresh callback for PDF uploads from sidebars
+  useEffect(() => {
+    setOnUploadComplete(() => refreshNotes);
+    return () => setOnUploadComplete(null);
+  }, [refreshNotes, setOnUploadComplete]);
+
+  // PDF upload UI state
+  const [showSizeLimitWarning, setShowSizeLimitWarning] = useState(false);
+  const [oversizedFile, setOversizedFile] = useState<{ name: string; size: number } | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // Lazy load feature flags with caching
   const featureFlags = useLazyData(
@@ -365,6 +384,314 @@ export default function HomeScreen() {
     setShowCreateOptions(false);
   }, []);
 
+  const handleCreatePDFNote = useCallback(async () => {
+    console.log('PDF note button pressed');
+    
+    // Check if PDF upload feature is enabled
+    if (!isFeatureEnabled('pdf_upload')) {
+      showSnackbar('PDF upload feature is not available', 'error');
+      setShowCreateOptions(false);
+      return;
+    }
+
+    setShowCreateOptions(false);
+    
+    if (Platform.OS === 'web') {
+      // Web: Use file input
+      if (pdfInputRef.current) {
+        pdfInputRef.current.click();
+      }
+    } else {
+      // Mobile: Use expo-document-picker
+      try {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: 'application/pdf',
+          copyToCacheDirectory: true,
+          multiple: false,
+        });
+
+        if (result.canceled) {
+          console.log('PDF selection cancelled');
+          return;
+        }
+
+        const asset = result.assets[0];
+        
+        // Validate file
+        if (!asset) {
+          showSnackbar('No file selected', 'error');
+          return;
+        }
+
+        // Validate file size
+        if (asset.size && asset.size > PDF_CONFIG.MAX_FILE_SIZE_BYTES) {
+          setOversizedFile({ name: asset.name, size: asset.size });
+          setShowSizeLimitWarning(true);
+          return;
+        }
+
+        if (!user?.id) {
+          showSnackbar('Please sign in to upload PDFs', 'error');
+          return;
+        }
+
+        // Process the selected PDF
+        await handleMobilePDFUpload(asset.uri, asset.name, asset.size || 0);
+        
+      } catch (error) {
+        console.error('Error picking PDF:', error);
+        showSnackbar('Failed to select PDF file', 'error');
+      }
+    }
+  }, [isFeatureEnabled, showSnackbar, user]);
+
+  const handleMobilePDFUpload = useCallback(async (fileUri: string, fileName: string, fileSize: number) => {
+    if (!user?.id) {
+      console.error('❌ No user ID available for PDF upload');
+      return;
+    }
+
+    console.log('📱 Starting mobile PDF upload:', { fileName, fileSize: `${(fileSize / (1024 * 1024)).toFixed(2)} MB`, fileUri });
+
+    try {
+      // Show uploading card
+      console.log('📤 Setting upload state...');
+      setUploadingPDF({
+        fileName: fileName.replace('.pdf', ''),
+        fileSize: `${(fileSize / (1024 * 1024)).toFixed(2)} MB`,
+        progress: 10,
+        status: 'uploading',
+        statusMessage: 'Preparing PDF...',
+      });
+
+      // Create placeholder note
+      console.log('📝 Creating placeholder note...');
+      const placeholderNote = await supabaseNoteStorage.createNote({
+        title: `📄 ${fileName.replace('.pdf', '')}`,
+        content: '⏳ Uploading PDF... Please wait while we process your document.',
+        type: 'pdf',
+        tags: ['pdf', 'uploading'],
+        summary: `Uploading ${fileName} (${(fileSize / (1024 * 1024)).toFixed(2)} MB)`,
+      });
+      console.log('✅ Placeholder note created:', placeholderNote.id);
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: 'Uploading to cloud...' } : null);
+
+      // Upload PDF
+      console.log('☁️ Uploading PDF to storage...');
+      const uploadedPDFUrl = await pdfStorage.uploadPDFFile(
+        fileUri,
+        user.id,
+        placeholderNote.id,
+        fileName
+      );
+      console.log('✅ PDF uploaded:', uploadedPDFUrl);
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 50, statusMessage: 'Processing with AI...' } : null);
+
+      // Process PDF with AI (extract text, generate title, summary, key details)
+      console.log('🤖 Processing PDF with AI...');
+      const aiResult = await pdfStorage.processPDFWithAI(fileUri, {
+        generateTitle: true,
+        generateSummary: true,
+        extractKeyDetails: true,
+      });
+      console.log('✅ AI processing complete:', { 
+        hasText: !!aiResult.extractedText, 
+        title: aiResult.title,
+        pageCount: aiResult.pageCount 
+      });
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: 'Saving...' } : null);
+
+      const extractedText = aiResult.extractedText || '';
+      const aiTitle = aiResult.title || fileName.replace('.pdf', '');
+      const aiSummary = aiResult.summary || `PDF: ${fileName} (${(fileSize / (1024 * 1024)).toFixed(2)} MB)`;
+      const pageCount = aiResult.pageCount || 1;
+
+      // Update note with AI-processed content
+      console.log('💾 Updating note with AI content...');
+      await supabaseNoteStorage.updateNote(placeholderNote.id, {
+        title: aiTitle,
+        content: extractedText || `PDF uploaded successfully!\n\n${fileName}\nSize: ${(fileSize / (1024 * 1024)).toFixed(2)} MB\n\nText extraction failed. Please try again.`,
+        type: 'pdf',
+        summary: aiSummary,
+        keyDetails: aiResult.keyDetails || [],
+        tags: ['pdf'],
+      });
+      console.log('✅ Note updated');
+
+      // Save PDF metadata
+      console.log('📊 Saving PDF metadata...');
+      await pdfStorage.savePDFMetadata(placeholderNote.id, user.id, {
+        filename: fileName,
+        storageUrl: uploadedPDFUrl,
+        extractedText: extractedText,
+        extractionStatus: extractedText ? 'completed' : 'failed',
+        pageCount: pageCount,
+        fileSize: fileSize,
+      });
+      console.log('✅ Metadata saved');
+
+      // Show completion
+      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: 'Upload complete!' } : null);
+
+      // Refresh notes immediately to show the new upload
+      console.log('🔄 Refreshing notes list...');
+      await refreshNotes?.();
+      console.log('✅ Notes refreshed');
+
+      // Hide card after delay
+      setTimeout(() => {
+        console.log('🎉 Hiding upload card');
+        setUploadingPDF(null);
+      }, 2000);
+
+    } catch (error) {
+      console.error('❌ Mobile PDF upload error:', error);
+      console.error('❌ Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showSnackbar(`PDF upload failed: ${errorMessage}`, 'error');
+      
+      setUploadingPDF(prev => prev ? { 
+        ...prev, 
+        progress: 100, 
+        status: 'error', 
+        statusMessage: 'Upload failed. Please try again.' 
+      } : null);
+      
+      setTimeout(() => {
+        setUploadingPDF(null);
+      }, 3000);
+    }
+  }, [user, showSnackbar, refreshNotes, setUploadingPDF]);
+
+  const handlePDFFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Reset input
+    event.target.value = '';
+
+    // Validate file type
+    if (file.type !== 'application/pdf') {
+      showSnackbar('Please select a PDF file', 'error');
+      return;
+    }
+
+    // Validate file size
+    if (file.size > PDF_CONFIG.MAX_FILE_SIZE_BYTES) {
+      setOversizedFile({ name: file.name, size: file.size });
+      setShowSizeLimitWarning(true);
+      return;
+    }
+
+    if (!user?.id) {
+      showSnackbar('Please sign in to upload PDFs', 'error');
+      return;
+    }
+
+    try {
+      // Show uploading card
+      setUploadingPDF({
+        fileName: file.name.replace('.pdf', ''),
+        fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+        progress: 10,
+        status: 'uploading',
+        statusMessage: 'Preparing PDF...',
+      });
+
+      // Create placeholder note
+      const placeholderNote = await supabaseNoteStorage.createNote({
+        title: `📄 ${file.name.replace('.pdf', '')}`,
+        content: '⏳ Uploading PDF... Please wait while we process your document.',
+        type: 'pdf',
+        tags: ['pdf', 'uploading'],
+        summary: `Uploading ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
+      });
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: 'Uploading to cloud...' } : null);
+
+      // Upload PDF
+      const uploadedPDFUrl = await pdfStorage.uploadPDFFile(
+        file,
+        user.id,
+        placeholderNote.id
+      );
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 50, status: 'processing', statusMessage: 'Processing with AI...' } : null);
+
+      // Process PDF with AI (extract text, generate title, summary, key details)
+      const aiResult = await pdfStorage.processPDFWithAI(file, {
+        generateTitle: true,
+        generateSummary: true,
+        extractKeyDetails: true,
+      });
+
+      // Update progress
+      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: 'Saving...' } : null);
+
+      const extractedText = aiResult.extractedText || '';
+      const aiTitle = aiResult.title || file.name.replace('.pdf', '');
+      const aiSummary = aiResult.summary || `PDF: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
+      const pageCount = aiResult.pageCount || 1;
+
+      // Update note with AI-processed content
+      await supabaseNoteStorage.updateNote(placeholderNote.id, {
+        title: aiTitle,
+        content: extractedText || `PDF uploaded successfully!\n\n${file.name}\nSize: ${(file.size / (1024 * 1024)).toFixed(2)} MB\n\nText extraction failed. Please try again.`,
+        type: 'pdf',
+        summary: aiSummary,
+        keyDetails: aiResult.keyDetails || [],
+        tags: ['pdf'],
+      });
+
+      // Save PDF metadata
+      await pdfStorage.savePDFMetadata(placeholderNote.id, user.id, {
+        filename: file.name,
+        storageUrl: uploadedPDFUrl,
+        extractedText: extractedText,
+        extractionStatus: extractedText ? 'completed' : 'failed',
+        pageCount: pageCount,
+        fileSize: file.size,
+      });
+
+      // Show completion
+      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: 'Upload complete!' } : null);
+
+      // Refresh notes immediately to show the new upload
+      await refreshNotes?.();
+
+      // Hide card after delay
+      setTimeout(() => {
+        setUploadingPDF(null);
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      setUploadingPDF(prev => prev ? { 
+        ...prev, 
+        progress: 100, 
+        status: 'error', 
+        statusMessage: 'Upload failed. Please try again.' 
+      } : null);
+      
+      setTimeout(() => {
+        setUploadingPDF(null);
+      }, 3000);
+    }
+  }, [user, showSnackbar, refreshNotes, setUploadingPDF]);
+
 
 
   const handlePremiumPress = () => {
@@ -395,6 +722,9 @@ export default function HomeScreen() {
   // Split filtered notes into pinned and unpinned
   const pinnedNotes = filteredNotes.filter(n => n.isPinned);
   const unpinnedNotes = filteredNotes.filter(n => !n.isPinned);
+  
+  // Combine uploading card with notes for display
+  const displayNotes = [...unpinnedNotes];
 
   // Web-specific handlers for note cards
   const handleWebCreateNote = () => {
@@ -500,7 +830,7 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.webContent}>
-          {filteredNotes.length === 0 ? (
+          {filteredNotes.length === 0 && !uploadingPDF ? (
             <View style={styles.webEmptyContainer}>
               <Ionicons name="document-outline" size={64} color="#666666" />
               <ThemedText type="subtitle" style={styles.webEmptyTitle}>
@@ -547,6 +877,17 @@ export default function HomeScreen() {
               )}
 
               <View style={styles.webNotesGrid}>
+                {/* Show uploading PDF card first */}
+                {uploadingPDF && (
+                  <UploadingNoteCard
+                    fileName={uploadingPDF.fileName}
+                    fileSize={uploadingPDF.fileSize}
+                    progress={uploadingPDF.progress}
+                    status={uploadingPDF.status}
+                    statusMessage={uploadingPDF.statusMessage}
+                  />
+                )}
+                {/* Then show regular notes */}
                 {filteredNotes.map((note) => (
                   <WebNoteCard
                     key={note.id}
@@ -685,7 +1026,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {pinnedNotes.length === 0 && unpinnedNotes.length === 0 ? (
+        {pinnedNotes.length === 0 && unpinnedNotes.length === 0 && !uploadingPDF ? (
           <View style={styles.emptyState}>
             <Ionicons name="document-outline" size={64} color="#A0A0A0" />
             <ThemedText style={styles.emptyText}>No notes yet</ThemedText>
@@ -717,14 +1058,14 @@ export default function HomeScreen() {
                 />
               </>
             )}
-            {pinnedNotes.length > 0 && unpinnedNotes.length > 0 && (
+            {pinnedNotes.length > 0 && (unpinnedNotes.length > 0 || uploadingPDF) && (
               <View style={styles.sectionDivider} />
             )}
-            {unpinnedNotes.length > 0 && (
+            {(unpinnedNotes.length > 0 || uploadingPDF) && (
               <>
                 <ThemedText style={styles.othersLabel}>Others</ThemedText>
                 <FlatList
-                  data={unpinnedNotes}
+                  data={displayNotes}
                   keyExtractor={(item) => item.id}
                   renderItem={({ item }) => (
                     <NoteCard
@@ -736,6 +1077,17 @@ export default function HomeScreen() {
                       onDelete={deleteNote}
                     />
                   )}
+                  ListHeaderComponent={
+                    uploadingPDF ? (
+                      <UploadingNoteCard
+                        fileName={uploadingPDF.fileName}
+                        fileSize={uploadingPDF.fileSize}
+                        progress={uploadingPDF.progress}
+                        status={uploadingPDF.status}
+                        statusMessage={uploadingPDF.statusMessage}
+                      />
+                    ) : null
+                  }
                   contentContainerStyle={styles.listContainer}
                   showsVerticalScrollIndicator={false}
                 />
@@ -745,15 +1097,42 @@ export default function HomeScreen() {
         )}
       </View>
       
+      {/* Hidden PDF file input for web */}
+      {Platform.OS === 'web' && (
+        <input
+          ref={pdfInputRef}
+          type="file"
+          accept="application/pdf"
+          style={{ display: 'none' }}
+          onChange={handlePDFFileChange}
+        />
+      )}
+
+
       {/* Create Options Bottom Sheet */}
       <CreateOptionsSheet
         visible={showCreateOptions}
         onClose={handleCloseCreateOptions}
         onTextNote={handleCreateTextNote}
         onAudioNote={handleCreateAudioNote}
+        onPDFNote={handleCreatePDFNote}
         isVoiceRecordingEnabled={isFeatureEnabled('voice_recording')}
+        isPDFUploadEnabled={isFeatureEnabled('pdf_upload')}
         testID="create-options-sheet"
       />
+
+      {/* PDF Size Limit Warning */}
+      {oversizedFile && (
+        <PDFSizeLimitWarning
+          visible={showSizeLimitWarning}
+          fileName={oversizedFile.name}
+          fileSize={oversizedFile.size}
+          onClose={() => {
+            setShowSizeLimitWarning(false);
+            setOversizedFile(null);
+          }}
+        />
+      )}
     </ThemedView>
   );
 }
@@ -764,14 +1143,18 @@ const CreateOptionsSheet = ({
   onClose, 
   onTextNote, 
   onAudioNote,
+  onPDFNote,
   isVoiceRecordingEnabled,
+  isPDFUploadEnabled,
   testID
 }: {
   visible: boolean;
   onClose: () => void;
   onTextNote: () => void;
   onAudioNote: () => void;
+  onPDFNote: () => void;
   isVoiceRecordingEnabled: boolean;
+  isPDFUploadEnabled: boolean;
   testID?: string;
 }) => {
   const slideAnim = useRef(new Animated.Value(300)).current;
@@ -850,6 +1233,27 @@ const CreateOptionsSheet = ({
               <View style={styles.createOptionContent}>
                 <ThemedText style={styles.createOptionTitle}>Audio Note</ThemedText>
                 <ThemedText style={styles.createOptionDescription}>Record voice notes with AI transcription</ThemedText>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={chevronColor} />
+            </TouchableOpacity>
+          )}
+
+          {isPDFUploadEnabled && (
+            <TouchableOpacity 
+              style={[styles.createOption, { backgroundColor: optionBg }]} 
+              onPress={onPDFNote} 
+              testID="pdf-note-button"
+              activeOpacity={0.7}
+              delayPressIn={0}
+            >
+              <View style={styles.createOptionIcon}>
+                <Ionicons name="document" size={24} color="#E74C3C" />
+              </View>
+              <View style={styles.createOptionContent}>
+                <ThemedText style={styles.createOptionTitle}>Upload PDF</ThemedText>
+                <ThemedText style={styles.createOptionDescription}>
+                  Extract text from PDF documents
+                </ThemedText>
               </View>
               <Ionicons name="chevron-forward" size={20} color={chevronColor} />
             </TouchableOpacity>

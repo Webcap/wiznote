@@ -96,6 +96,14 @@ export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onToggle
     ) || note.audioUri;
   };
 
+  // Check if note has PDF content
+  const isPDFNote = (note: Note) => {
+    return (
+      note.pdfFiles && 
+      note.pdfFiles.length > 0
+    ) || note.pdfUrl;
+  };
+
   // Check if note has transcription
   const hasTranscription = (note: Note) => {
     return note.audioFiles?.some(audioFile => 
@@ -137,7 +145,12 @@ export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onToggle
 
         {/* Note Type Badge */}
         <View style={styles.noteTypeContainer}>
-          {isAudioNote(note) ? (
+          {isPDFNote(note) ? (
+            <View style={styles.pdfNoteBadge}>
+              <Ionicons name="document" size={12} color="#E74C3C" />
+              <Text style={styles.pdfNoteText}>PDF</Text>
+            </View>
+          ) : isAudioNote(note) ? (
             <View style={styles.audioNoteBadge}>
               <Ionicons name="musical-notes" size={12} color="#6A5ACD" />
               <Text style={styles.audioNoteText}>
@@ -321,6 +334,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6A5ACD',
     marginLeft: 4,
+  },
+  pdfNoteBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFE5E0',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  pdfNoteText: {
+    fontSize: 12,
+    color: '#E74C3C',
+    marginLeft: 4,
+    fontWeight: '600',
   },
   textNoteBadge: {
     flexDirection: 'row',

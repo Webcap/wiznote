@@ -3,11 +3,14 @@ import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
     Alert,
+    Linking,
     Platform,
     ScrollView,
     TouchableOpacity,
     View
 } from 'react-native';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import { AudioPlayer } from '../../components/AudioPlayer';
 import { FeatureUsageInline } from '../../components/FeatureUsageInline';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
@@ -36,6 +39,8 @@ const BUTTONS = [
   { id: 'aiChat', label: 'AI Chat', color: '#FF8C00' },
   { id: 'writeEssay', label: 'Write Essay', color: '#00CED1' },
   { id: 'share', label: 'Share', color: '#10B981' },
+  { id: 'viewPDF', label: 'View PDF', color: '#E74C3C' },
+  { id: 'downloadPDF', label: 'Download PDF', color: '#2563EB' },
 ];
 
 export default function NoteDetailScreen() {
@@ -130,12 +135,17 @@ export default function NoteDetailScreen() {
   }
   const { notes, toggleArchive, updateNote } = useNotes(user?.id || '');
 
-  // Helper functions for audio notes
+  // Helper functions for note type detection
   const isAudioNote = (note: Note): boolean => {
+    // Check type field first (most reliable)
+    if (note.type === 'audio') return true;
+    
+    // Fallback to checking for audio files
     const hasAudioFiles = note.audioFiles && note.audioFiles.length > 0;
     const hasAudioUri = !!note.audioUri;
     console.log('[NoteDetail] Audio detection:', {
       noteId: note.id,
+      type: note.type,
       hasAudioFiles,
       audioFilesLength: note.audioFiles?.length || 0,
       hasAudioUri,
@@ -143,6 +153,21 @@ export default function NoteDetailScreen() {
       audioFiles: note.audioFiles
     });
     return hasAudioFiles || hasAudioUri;
+  };
+
+  const isPDFNote = (note: Note): boolean => {
+    // Check type field first (most reliable)
+    if (note.type === 'pdf') return true;
+    
+    // Fallback to checking for PDF files
+    const hasPDFFiles = note.pdfFiles && note.pdfFiles.length > 0;
+    console.log('[NoteDetail] PDF detection:', {
+      noteId: note.id,
+      type: note.type,
+      hasPDFFiles,
+      pdfFilesLength: note.pdfFiles?.length || 0,
+    });
+    return hasPDFFiles;
   };
 
   const getPrimaryAudioFile = (note: Note): AudioFile | null => {
@@ -619,7 +644,123 @@ export default function NoteDetailScreen() {
     });
   };
 
+  // Handle viewing PDF
+  const handleViewPDF = async (storageUrl: string) => {
+    try {
+      if (Platform.OS === 'web') {
+        // Web: Open in new tab
+        window.open(storageUrl, '_blank');
+      } else {
+        // Mobile: Open PDF directly in browser/viewer
+        console.log('👁️ Opening PDF in viewer');
+        console.log('📄 PDF URL:', storageUrl);
+        
+        // Check if we can open the URL
+        const canOpen = await Linking.canOpenURL(storageUrl);
+        
+        if (canOpen) {
+          console.log('✅ Opening PDF with system browser/viewer');
+          await Linking.openURL(storageUrl);
+        } else {
+          throw new Error('Cannot open PDF URL');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error viewing PDF:', error);
+      Alert.alert(
+        'Error', 
+        'Failed to open PDF. The file may not be accessible.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
 
+  // Handle downloading PDF
+  const handleDownloadPDF = async (storageUrl: string, filename: string) => {
+    try {
+      if (Platform.OS === 'web') {
+        // Web: Trigger browser download
+        const response = await fetch(storageUrl);
+        const blob = await response.blob();
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        Alert.alert('Success', 'PDF downloaded successfully');
+      } else {
+        // Mobile: Use share sheet to let user choose where to save
+        console.log('💾 Downloading PDF');
+        
+        // Check if sharing is available
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (!isAvailable) {
+          Alert.alert(
+            'Not Available',
+            'File sharing is not available on this device.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+        
+        // Download to documents directory
+        const fileUri = FileSystem.documentDirectory + filename;
+        
+        // Show loading
+        Alert.alert('Downloading', 'Preparing file...', [], { cancelable: false });
+        
+        await FileSystem.downloadAsync(storageUrl, fileUri);
+        
+        // Dismiss loading
+        Alert.alert('', '');
+        
+        // Share the file - this opens native share sheet
+        // User can choose to save to Files, iCloud, Google Drive, etc.
+        // No special permissions needed - share sheet handles it
+        await Sharing.shareAsync(fileUri, {
+          UTI: 'com.adobe.pdf',
+          mimeType: 'application/pdf',
+          dialogTitle: 'Save PDF',
+        });
+        
+        Alert.alert(
+          'Success', 
+          'Use the share menu to save the PDF to your preferred location.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      
+      // Provide helpful error messages
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        Alert.alert(
+          'Network Error',
+          'Failed to download PDF. Please check your internet connection and try again.',
+          [{ text: 'OK' }]
+        );
+      } else if (errorMessage.includes('storage') || errorMessage.includes('space')) {
+        Alert.alert(
+          'Storage Error',
+          'Not enough storage space on your device. Please free up some space and try again.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Error',
+          'Failed to download PDF. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    }
+  };
 
   // Check if a button should be disabled based on feature flags and note type
   const isButtonDisabled = (buttonId: string): boolean => {
@@ -637,6 +778,10 @@ export default function NoteDetailScreen() {
       case 'transcription':
         // Only show transcription button for audio notes
         return !note || !isAudioNote(note);
+      case 'viewPDF':
+      case 'downloadPDF':
+        // Only show PDF buttons for PDF notes
+        return !note || !isPDFNote(note);
       default:
         return false;
     }
@@ -674,6 +819,18 @@ export default function NoteDetailScreen() {
         console.log('📤 Opening share modal');
         setShowShareModal(true);
         break;
+      case 'viewPDF':
+        console.log('👁️ Opening PDF viewer');
+        if (note && note.pdfFiles && note.pdfFiles.length > 0) {
+          handleViewPDF(note.pdfFiles[0].storageUrl);
+        }
+        break;
+      case 'downloadPDF':
+        console.log('💾 Downloading PDF');
+        if (note && note.pdfFiles && note.pdfFiles.length > 0) {
+          handleDownloadPDF(note.pdfFiles[0].storageUrl, note.pdfFiles[0].filename);
+        }
+        break;
       default:
         break;
     }
@@ -694,6 +851,10 @@ export default function NoteDetailScreen() {
         return 'create';
       case 'share':
         return 'share';
+      case 'viewPDF':
+        return 'eye';
+      case 'downloadPDF':
+        return 'download';
       default:
         return 'help-circle';
     }
@@ -832,7 +993,12 @@ export default function NoteDetailScreen() {
             </View>
             <View style={styles.webHeaderRight}>
               <View style={styles.webNoteTypeBadge}>
-                {isAudioNote(note) ? (
+                {isPDFNote(note) ? (
+                  <View style={[styles.webPDFNoteBadge, { backgroundColor: cardBackground }]}>
+                    <Ionicons name="document" size={16} color="#E74C3C" />
+                    <ThemedText style={[styles.webAudioNoteText, { color: '#E74C3C' }]}>PDF Note</ThemedText>
+                  </View>
+                ) : isAudioNote(note) ? (
                   <View style={[styles.webAudioNoteBadge, { backgroundColor: cardBackground }]}>
                     <Ionicons name="musical-notes" size={16} color={accentColor} />
                     <ThemedText style={[styles.webAudioNoteText, { color: accentColor }]}>Audio Note</ThemedText>
@@ -927,8 +1093,6 @@ export default function NoteDetailScreen() {
                 ))}
               </View>
             )}
-
-
 
             {/* Note Content - Only show for non-audio notes or audio notes with content */}
             {(!isAudioNote(note) || (isAudioNote(note) && note.content && note.content.trim() !== '')) && (
@@ -1063,6 +1227,72 @@ export default function NoteDetailScreen() {
                     </View>
                   ))}
                 </View>
+              </View>
+            )}
+
+            {/* PDF Files Section - Show for PDF notes */}
+            {note.type === 'pdf' && note.pdfFiles && note.pdfFiles.length > 0 && (
+              <View style={styles.webContentSection}>
+                <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>
+                  PDF Document{note.pdfFiles.length > 1 ? 's' : ''} ({note.pdfFiles.length})
+                </ThemedText>
+                {note.pdfFiles.map((pdfFile, index) => (
+                  <View key={pdfFile.id || index} style={[styles.pdfFileCard, { backgroundColor: cardBackground, borderColor: borderColor }]}>
+                    <View style={styles.pdfFileHeader}>
+                      <View style={styles.pdfFileIcon}>
+                        <Ionicons name="document" size={32} color="#E74C3C" />
+                      </View>
+                      <View style={styles.pdfFileInfo}>
+                        <ThemedText style={[styles.pdfFileName, { color: textColor }]}>
+                          {pdfFile.filename}
+                        </ThemedText>
+                        <View style={styles.pdfFileMeta}>
+                          <ThemedText style={[styles.pdfFileMetaText, { color: mutedTextColor }]}>
+                            {pdfFile.pageCount || 1} page{(pdfFile.pageCount || 1) > 1 ? 's' : ''}
+                          </ThemedText>
+                          <ThemedText style={[styles.pdfFileMetaText, { color: mutedTextColor }]}>•</ThemedText>
+                          <ThemedText style={[styles.pdfFileMetaText, { color: mutedTextColor }]}>
+                            {pdfFile.fileSize ? `${(pdfFile.fileSize / 1024 / 1024).toFixed(2)} MB` : 'Unknown size'}
+                          </ThemedText>
+                        </View>
+                        <View style={styles.pdfFileStatus}>
+                          <Ionicons 
+                            name={pdfFile.extractionStatus === 'completed' ? 'checkmark-circle' : 'time'} 
+                            size={14} 
+                            color={pdfFile.extractionStatus === 'completed' ? '#10B981' : '#F59E0B'} 
+                          />
+                          <ThemedText style={[styles.pdfFileStatusText, { 
+                            color: pdfFile.extractionStatus === 'completed' ? '#10B981' : '#F59E0B' 
+                          }]}>
+                            {pdfFile.extractionStatus === 'completed' ? 'Text extracted' : 'Extraction pending'}
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.pdfFileActions}>
+                      <TouchableOpacity 
+                        style={[styles.pdfActionButton, styles.viewButton, { backgroundColor: accentColor }]}
+                        onPress={() => handleViewPDF(pdfFile.storageUrl)}
+                      >
+                        <Ionicons name="eye" size={18} color="#FFFFFF" />
+                        <ThemedText style={styles.pdfActionButtonText}>View PDF</ThemedText>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity 
+                        style={[styles.pdfActionButton, styles.downloadButton, { 
+                          backgroundColor: 'transparent',
+                          borderWidth: 1,
+                          borderColor: accentColor 
+                        }]}
+                        onPress={() => handleDownloadPDF(pdfFile.storageUrl, pdfFile.filename)}
+                      >
+                        <Ionicons name="download" size={18} color={accentColor} />
+                        <ThemedText style={[styles.pdfActionButtonText, { color: accentColor }]}>Download</ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
               </View>
             )}
           </View>
@@ -1277,13 +1507,18 @@ export default function NoteDetailScreen() {
           <View style={styles.noteTypeWrapper}>
             <View style={styles.noteTypeOuterContainer}>
               <View style={styles.noteTypeContainer}>
-                {isAudioNote(note) ? (
-                  <View style={[styles.audioNoteBadge, { backgroundColor: cardBackground, borderColor: accentColor }] }>
+                {isPDFNote(note) ? (
+                  <View style={[styles.pdfNoteBadge, { backgroundColor: cardBackground, borderColor: '#E74C3C' }]}>
+                    <Ionicons name="document" size={16} color="#E74C3C" />
+                    <ThemedText style={[styles.audioNoteText, { color: '#E74C3C' }]}>PDF Note</ThemedText>
+                  </View>
+                ) : isAudioNote(note) ? (
+                  <View style={[styles.audioNoteBadge, { backgroundColor: cardBackground, borderColor: accentColor }]}>
                     <Ionicons name="musical-notes" size={16} color={accentColor} />
                     <ThemedText style={[styles.audioNoteText, { color: accentColor }]}>Audio Note</ThemedText>
                   </View>
                 ) : (
-                  <View style={[styles.textNoteBadge, { backgroundColor: cardBackground, borderColor: accentColor }] }>
+                  <View style={[styles.textNoteBadge, { backgroundColor: cardBackground, borderColor: accentColor }]}>
                     <Ionicons name="document-text" size={16} color={accentColor} />
                     <ThemedText style={[styles.textNoteText, { color: accentColor }]}>Text Note</ThemedText>
                   </View>
@@ -1353,6 +1588,37 @@ export default function NoteDetailScreen() {
                  {BUTTONS.slice(4, 6).filter(button => {
                    const disabled = isButtonDisabled(button.id);
                    console.log('🔍 Button:', button.id, 'Disabled:', disabled);
+                   return !disabled;
+                 }).map((button) => (
+                   <TouchableOpacity
+                     key={button.id}
+                     style={[
+                       styles.actionButton, 
+                       { 
+                         backgroundColor: button.color,
+                         opacity: 1
+                       }
+                     ]}
+                     onPress={() => handleActionButton(button.id)}
+                   >
+                     <Ionicons 
+                       name={getButtonIcon(button.id)} 
+                       size={16} 
+                       color={iconColor} 
+                     />
+                     <ThemedText style={[
+                       styles.actionButtonText,
+                       { color: iconColor }
+                     ]}>
+                       {button.label}
+                     </ThemedText>
+                   </TouchableOpacity>
+                 ))}
+               </View>
+                             <View style={styles.buttonRow}>
+                 {BUTTONS.slice(6, 8).filter(button => {
+                   const disabled = isButtonDisabled(button.id);
+                   console.log('🔍 PDF Button:', button.id, 'Disabled:', disabled);
                    return !disabled;
                  }).map((button) => (
                    <TouchableOpacity

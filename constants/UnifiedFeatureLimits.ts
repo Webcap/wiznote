@@ -178,6 +178,23 @@ export const UNIFIED_FEATURE_LIMITS: Record<string, UnifiedFeatureLimit> = {
     updatedAt: new Date(),
   },
   
+  pdf_upload: {
+    featureId: 'pdf_upload',
+    featureName: 'PDF Upload',
+    description: 'Upload and extract text from PDF documents',
+    freeUserLimit: 'unlimited', // Unlimited for testing, will be limited in production
+    premiumUserLimit: 'unlimited',
+    limitType: 'count',
+    period: 'monthly',
+    isActive: true,
+    requiresFeatureFlag: true,
+    featureFlagKey: 'pdf_upload',
+    category: 'storage',
+    priority: 8,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  
   // Collaboration Features
   note_sharing: {
     featureId: 'note_sharing',
@@ -191,7 +208,7 @@ export const UNIFIED_FEATURE_LIMITS: Record<string, UnifiedFeatureLimit> = {
     requiresFeatureFlag: true,
     featureFlagKey: 'note_sharing',
     category: 'collaboration',
-    priority: 8,
+    priority: 9,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -200,14 +217,14 @@ export const UNIFIED_FEATURE_LIMITS: Record<string, UnifiedFeatureLimit> = {
     featureId: 'real_time_sync',
     featureName: 'Real-time Sync',
     description: 'Real-time synchronization across devices',
-    freeUserLimit: 100, // 100 sync operations per month
+    freeUserLimit: 'unlimited', // Core feature - always available
     premiumUserLimit: 'unlimited',
     limitType: 'count',
     period: 'monthly',
     isActive: true,
-    requiresFeatureFlag: false, // Always available
+    requiresFeatureFlag: false, // Core feature - no flag needed
     category: 'collaboration',
-    priority: 9,
+    priority: 10,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -225,7 +242,7 @@ export const UNIFIED_FEATURE_LIMITS: Record<string, UnifiedFeatureLimit> = {
     requiresFeatureFlag: true,
     featureFlagKey: 'advanced_search',
     category: 'analytics',
-    priority: 10,
+    priority: 11,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -242,7 +259,7 @@ export const UNIFIED_FEATURE_LIMITS: Record<string, UnifiedFeatureLimit> = {
     requiresFeatureFlag: true,
     featureFlagKey: 'note_export',
     category: 'analytics',
-    priority: 11,
+    priority: 12,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -260,7 +277,7 @@ export const UNIFIED_FEATURE_LIMITS: Record<string, UnifiedFeatureLimit> = {
     requiresFeatureFlag: true,
     featureFlagKey: 'custom_themes',
     category: 'customization',
-    priority: 12,
+    priority: 13,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -276,7 +293,7 @@ export const UNIFIED_FEATURE_LIMITS: Record<string, UnifiedFeatureLimit> = {
     isActive: true,
     requiresFeatureFlag: false, // Based on subscription, not feature flag
     category: 'other',
-    priority: 13,
+    priority: 14,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
