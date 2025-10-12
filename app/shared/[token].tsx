@@ -243,11 +243,20 @@ export default function PublicShareScreen() {
               <View style={styles.footerActions}>
                 <TouchableOpacity
                   style={[styles.footerButton, { borderColor, backgroundColor: cardBackground }]}
-                  onPress={() => router.push('/')}
+                  onPress={() => router.push('/(auth)/signup')}
                 >
-                  <Ionicons name="create" size={16} color={accentColor} />
+                  <Ionicons name="person-add" size={16} color={accentColor} />
                   <ThemedText style={[styles.footerButtonText, { color: accentColor }]}>
-                    Create Your Own Notes
+                    Sign Up Free
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.footerButton, { borderColor, backgroundColor: accentColor }]}
+                  onPress={() => router.push('/(auth)/login')}
+                >
+                  <Ionicons name="log-in" size={16} color="#FFFFFF" />
+                  <ThemedText style={[styles.footerButtonText, { color: '#FFFFFF' }]}>
+                    Log In
                   </ThemedText>
                 </TouchableOpacity>
               </View>
