@@ -79,7 +79,33 @@ FOR SELECT
 TO authenticated
 USING (auth.uid() = shared_with_user_id);
 
--- Step 6: Create policy for public note access
+-- Step 6: Create BASE policies for authenticated users
+CREATE POLICY "users_can_insert_own_notes"
+ON notes
+FOR INSERT
+TO authenticated
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "users_can_select_own_notes"
+ON notes
+FOR SELECT
+TO authenticated
+USING (auth.uid() = user_id);
+
+CREATE POLICY "users_can_update_own_notes"
+ON notes
+FOR UPDATE
+TO authenticated
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "users_can_delete_own_notes"
+ON notes
+FOR DELETE
+TO authenticated
+USING (auth.uid() = user_id);
+
+-- Step 7: Create policy for public note access
 CREATE POLICY "anon_can_view_publicly_shared_notes"
 ON notes
 FOR SELECT
@@ -95,7 +121,7 @@ USING (
   )
 );
 
--- Step 7: Verify
+-- Step 8: Verify
 DO $$ 
 DECLARE
   policy_count INTEGER;
@@ -112,13 +138,25 @@ BEGIN
   
   SELECT COUNT(*) INTO policy_count
   FROM pg_policies 
-  WHERE schemaname = 'public' AND tablename = 'notes'
-    AND policyname = 'anon_can_view_publicly_shared_notes';
+  WHERE schemaname = 'public' AND tablename = 'notes';
   
-  IF policy_count > 0 THEN
-    RAISE NOTICE 'NOTES: Public access policy created ✓';
+  RAISE NOTICE 'NOTES: % policies created (expected: 5)', policy_count;
+  
+  SELECT COUNT(*) INTO policy_count
+  FROM pg_policies 
+  WHERE schemaname = 'public' AND tablename = 'notes'
+    AND policyname IN (
+      'users_can_insert_own_notes',
+      'users_can_select_own_notes',
+      'users_can_update_own_notes',
+      'users_can_delete_own_notes',
+      'anon_can_view_publicly_shared_notes'
+    );
+  
+  IF policy_count = 5 THEN
+    RAISE NOTICE 'NOTES: All policies created successfully ✓';
   ELSE
-    RAISE NOTICE 'NOTES: ❌ Policy creation failed!';
+    RAISE NOTICE 'NOTES: ❌ Expected 5 policies but found %', policy_count;
   END IF;
   
   RAISE NOTICE '';
