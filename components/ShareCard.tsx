@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
+    Clipboard,
     ScrollView,
     StyleSheet,
     TextInput,
@@ -32,6 +33,8 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [publicLink, setPublicLink] = useState<string>('');
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const backgroundColor = useThemeColor({}, 'background');
   const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
@@ -70,9 +73,12 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
   };
 
   const handleUserSelect = (user: any) => {
+    console.log('📱 ShareCard: User selected:', user);
+    console.log('📱 ShareCard: Setting selected user state');
     setSelectedUser(user);
     setSearchQuery(user.email || user.display_name || '');
     setSearchResults([]);
+    console.log('📱 ShareCard: User selection complete, showing snackbar');
     showSnackbar(`Selected ${user.display_name || user.email}`, 'success', 2000);
   };
 
@@ -81,6 +87,11 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
     setSearchQuery('');
     setSearchResults([]);
     showSnackbar('Selection cleared', 'info', 1500);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   const handleShare = async () => {
@@ -137,10 +148,47 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
     }
   };
 
+  const handleCreatePublicLink = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    showSnackbar('Creating public link...', 'info', 2000);
+    
+    try {
+      const { shareUrl } = await noteSharingService.createPublicShare(
+        note.id, 
+        user.id
+      );
+      
+      setPublicLink(shareUrl);
+      showSnackbar('Public link created!', 'success', 3000);
+    } catch (error) {
+      console.error('Error creating public link:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create public link.';
+      showSnackbar(errorMessage, 'error', 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!publicLink) return;
+    
+    try {
+      await Clipboard.setString(publicLink);
+      setLinkCopied(true);
+      showSnackbar('Link copied to clipboard!', 'success', 2000);
+      
+      setTimeout(() => setLinkCopied(false), 3000);
+    } catch (error) {
+      showSnackbar('Failed to copy link', 'error', 2000);
+    }
+  };
+
   const canShare = selectedUser || (searchQuery.includes('@') && searchQuery.length > 5);
 
   return (
-    <ThemedView style={[styles.card, { backgroundColor, borderColor }]}>
+    <ThemedView style={[styles.card, { backgroundColor, borderColor }]} onStartShouldSetResponder={() => true}>
       {/* Drag Handle */}
       <View style={[styles.dragHandle, { backgroundColor: textMutedColor }]} />
       
@@ -149,12 +197,19 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
         <ThemedText style={[styles.title, { color: textColor }]}>
           Share Note
         </ThemedText>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+        <TouchableOpacity onPress={() => {
+          console.log('🚨 ShareCard: Close button pressed');
+          onClose();
+        }} style={styles.closeButton}>
           <Ionicons name="close" size={20} color={textColor} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Note Info */}
         <View style={[styles.noteInfo, { backgroundColor: backgroundSecondary }]}>
           <Ionicons name="document-text" size={16} color={accentPrimary} />
@@ -179,8 +234,8 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
               autoCapitalize="none"
               keyboardType="email-address"
             />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={handleClearSelection}>
+            {searchQuery.length > 0 && !selectedUser && (
+              <TouchableOpacity onPress={handleClearSearch}>
                 <Ionicons name="close-circle" size={16} color={textMutedColor} />
               </TouchableOpacity>
             )}
@@ -295,6 +350,45 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
             textAlignVertical="top"
           />
         </View>
+
+        {/* Public Link Section */}
+        <View style={styles.section}>
+          <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
+            Public Link
+          </ThemedText>
+          <ThemedText style={[styles.sectionSubtitle, { color: textMutedColor }]}>
+            Anyone with the link can view this note
+          </ThemedText>
+          
+          {!publicLink ? (
+            <TouchableOpacity
+              style={[styles.createLinkButton, { backgroundColor: backgroundSecondary, borderColor }]}
+              onPress={handleCreatePublicLink}
+              disabled={loading}
+            >
+              {loading ? (
+                <LoadingSpinner size={16} color={accentPrimary} />
+              ) : (
+                <>
+                  <Ionicons name="link" size={16} color={accentPrimary} />
+                  <ThemedText style={[styles.createLinkText, { color: accentPrimary }]}>
+                    Create Public Link
+                  </ThemedText>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.linkContainer, { backgroundColor: backgroundSecondary, borderColor }]}>
+              <Ionicons name="link" size={16} color={accentPrimary} />
+              <ThemedText style={[styles.linkText, { color: textColor }]} numberOfLines={1}>
+                {publicLink}
+              </ThemedText>
+              <TouchableOpacity onPress={handleCopyLink} style={styles.copyButton}>
+                <Ionicons name={linkCopied ? "checkmark-circle" : "copy"} size={18} color={linkCopied ? "#10B981" : accentPrimary} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       {/* Action Buttons */}
@@ -395,6 +489,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
+  sectionSubtitle: {
+    fontSize: 12,
+    marginBottom: 12,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -473,6 +571,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     minHeight: 60,
     textAlignVertical: 'top',
+  },
+  createLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 8,
+  },
+  createLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  linkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 8,
+  },
+  linkText: {
+    flex: 1,
+    fontSize: 12,
+  },
+  copyButton: {
+    padding: 4,
   },
   actions: {
     flexDirection: 'row',
