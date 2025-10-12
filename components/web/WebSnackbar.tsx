@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Animated, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { createPortal } from 'react-dom';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { ThemedText } from '../ThemedText';
 
@@ -26,6 +27,8 @@ export const WebSnackbar: React.FC<SnackbarProps> = ({
   onClose,
   action,
 }) => {
+  console.log('WebSnackbar component called with props:', { visible, message, type, duration });
+  
   const [animation] = useState(new Animated.Value(0));
   const backgroundColor = useThemeColor({}, 'backgroundSecondary');
   const textColor = useThemeColor({}, 'text');
@@ -63,11 +66,12 @@ export const WebSnackbar: React.FC<SnackbarProps> = ({
   const typeStyles = getTypeStyles();
 
   useEffect(() => {
+    console.log('WebSnackbar visibility changed:', visible, 'Message:', message, 'Type:', type);
     if (visible) {
       // Slide in from bottom
       Animated.spring(animation, {
         toValue: 1,
-        useNativeDriver: Platform.OS !== 'web',
+        useNativeDriver: false, // Disable native driver for web
         tension: 100,
         friction: 8,
       }).start();
@@ -75,6 +79,7 @@ export const WebSnackbar: React.FC<SnackbarProps> = ({
       // Auto hide after duration
       if (duration > 0) {
         const timer = setTimeout(() => {
+          console.log('WebSnackbar auto-hiding after duration');
           hideSnackbar();
         }, duration);
 
@@ -84,7 +89,7 @@ export const WebSnackbar: React.FC<SnackbarProps> = ({
       // Slide out to bottom
       Animated.spring(animation, {
         toValue: 0,
-        useNativeDriver: Platform.OS !== 'web',
+        useNativeDriver: false, // Disable native driver for web
         tension: 100,
         friction: 8,
       }).start();
@@ -100,24 +105,26 @@ export const WebSnackbar: React.FC<SnackbarProps> = ({
     hideSnackbar();
   };
 
-  if (!visible) return null;
+  if (!visible) {
+    console.log('WebSnackbar not visible, returning null');
+    return null;
+  }
 
-  return (
-    <Animated.View
-      style={[
-        styles.container,
-        {
-          transform: [
-            {
-              translateY: animation.interpolate({
-                inputRange: [0, 1],
-                outputRange: [100, 0],
-              }),
-            },
-          ],
-          opacity: animation,
-        },
-      ]}
+  console.log('WebSnackbar rendering, type:', type, 'message:', message);
+
+  const snackbarContent = (
+    <View
+      style={{
+        position: 'fixed' as any,
+        bottom: 20,
+        left: 0,
+        right: 0,
+        zIndex: 9999,
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'box-none' as any,
+        paddingHorizontal: 20,
+      }}
     >
       <View
         style={[
@@ -125,6 +132,8 @@ export const WebSnackbar: React.FC<SnackbarProps> = ({
           {
             backgroundColor: typeStyles.backgroundColor,
             borderColor: backgroundColor,
+            maxWidth: 500,
+            width: '100%',
           },
         ]}
       >
@@ -164,20 +173,33 @@ export const WebSnackbar: React.FC<SnackbarProps> = ({
           </TouchableOpacity>
         </View>
       </View>
-    </Animated.View>
+    </View>
   );
+
+  // Use portal on web to render outside the DOM hierarchy
+  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    console.log('Rendering with createPortal to document.body');
+    return createPortal(snackbarContent, document.body) as any;
+  }
+
+  console.log('Rendering without portal');
+  return snackbarContent;
 };
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute' as const,
+    position: 'fixed' as const,
     bottom: 20,
-    left: 20,
-    right: 20,
-    zIndex: 1000,
-    maxWidth: 400,
-    alignSelf: 'center',
-  },
+    left: 0,
+    right: 0,
+    zIndex: 9999,
+    maxWidth: 500,
+    marginHorizontal: 'auto',
+    marginLeft: 'auto',
+    marginRight: 'auto',
+    paddingHorizontal: 20,
+    pointerEvents: 'auto' as const,
+  } as any,
   snackbar: {
     flexDirection: 'row',
     alignItems: 'center',

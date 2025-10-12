@@ -219,6 +219,9 @@ function AppContent() {
 function SnackbarWrapper() {
   const { snackbar, hideSnackbar } = useSnackbar();
   
+  console.log('SnackbarWrapper render - snackbar state:', snackbar);
+  console.log('Platform.OS:', Platform.OS);
+  
   return (
     <>
       {/* Web Snackbar for error notifications */}

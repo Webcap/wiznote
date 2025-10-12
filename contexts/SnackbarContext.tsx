@@ -42,6 +42,7 @@ export const SnackbarProvider: React.FC<SnackbarProviderProps> = ({ children }) 
     duration: number = 4000,
     action?: { label: string; onPress: () => void }
   ) => {
+    console.log('SnackbarContext showSnackbar called:', { message, type, duration });
     setSnackbar({
       visible: true,
       message,

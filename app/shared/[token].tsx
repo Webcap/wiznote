@@ -3,6 +3,7 @@ import { router, useLocalSearchParams, useNavigation, Stack } from 'expo-router'
 import { useEffect, useState } from 'react';
 import {
   Dimensions,
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
@@ -233,33 +234,85 @@ export default function PublicShareScreen() {
           )}
         </View>
 
-        {/* Footer */}
+        {/* Footer with Branding */}
         {isWeb && (
           <View style={[styles.footer, { borderTopColor: borderColor }]}>
             <View style={styles.footerContent}>
-              <ThemedText style={[styles.footerText, { color: textMutedColor }]}>
-                This note was shared using WizNote
+              {/* Branding Section */}
+              <View style={styles.brandingSection}>
+                <Image
+                  source={require('../../assets/images/wiznote-logo.svg')}
+                  style={styles.brandLogo}
+                  resizeMode="contain"
+                />
+                <View style={styles.brandInfo}>
+                  <ThemedText style={[styles.brandName, { color: textColor }]}>
+                    WizNote
+                  </ThemedText>
+                  <ThemedText style={[styles.brandTagline, { color: textMutedColor }]}>
+                    Smart note-taking with AI-powered insights
+                  </ThemedText>
+                </View>
+              </View>
+
+              {/* Call to Action */}
+              <ThemedText style={[styles.footerCTA, { color: textColor }]}>
+                Want to create your own AI-powered notes?
               </ThemedText>
+              
               <View style={styles.footerActions}>
                 <TouchableOpacity
-                  style={[styles.footerButton, { borderColor, backgroundColor: cardBackground }]}
+                  style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: accentColor }]}
                   onPress={() => router.push('/(auth)/signup')}
                 >
-                  <Ionicons name="person-add" size={16} color={accentColor} />
-                  <ThemedText style={[styles.footerButtonText, { color: accentColor }]}>
-                    Sign Up Free
+                  <Ionicons name="rocket" size={18} color="#FFFFFF" />
+                  <ThemedText style={[styles.footerButtonText, { color: '#FFFFFF' }]}>
+                    Get Started Free
                   </ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.footerButton, { borderColor, backgroundColor: accentColor }]}
+                  style={[styles.footerButton, styles.footerButtonSecondary, { borderColor }]}
                   onPress={() => router.push('/(auth)/login')}
                 >
-                  <Ionicons name="log-in" size={16} color="#FFFFFF" />
-                  <ThemedText style={[styles.footerButtonText, { color: '#FFFFFF' }]}>
+                  <Ionicons name="log-in" size={18} color={accentColor} />
+                  <ThemedText style={[styles.footerButtonText, { color: accentColor }]}>
                     Log In
                   </ThemedText>
                 </TouchableOpacity>
               </View>
+
+              {/* Features List */}
+              <View style={styles.featuresGrid}>
+                <View style={styles.featureItem}>
+                  <Ionicons name="mic" size={16} color={accentColor} />
+                  <ThemedText style={[styles.featureText, { color: textMutedColor }]}>
+                    Voice Notes
+                  </ThemedText>
+                </View>
+                <View style={styles.featureItem}>
+                  <Ionicons name="sparkles" size={16} color={accentColor} />
+                  <ThemedText style={[styles.featureText, { color: textMutedColor }]}>
+                    AI Summaries
+                  </ThemedText>
+                </View>
+                <View style={styles.featureItem}>
+                  <Ionicons name="document-text" size={16} color={accentColor} />
+                  <ThemedText style={[styles.featureText, { color: textMutedColor }]}>
+                    PDF Upload
+                  </ThemedText>
+                </View>
+                <View style={styles.featureItem}>
+                  <Ionicons name="school" size={16} color={accentColor} />
+                  <ThemedText style={[styles.featureText, { color: textMutedColor }]}>
+                    AI Quizzes
+                  </ThemedText>
+                </View>
+              </View>
+
+              {/* Copyright */}
+              <ThemedText style={[styles.copyright, { color: textMutedColor }]}>
+                © 2024 WizNote. All rights reserved.
+              </ThemedText>
             </View>
           </View>
         )}
@@ -528,33 +581,96 @@ const styles = StyleSheet.create({
   } as any,
   footerContent: {
     alignItems: 'center',
-    gap: isWeb && !isMobile ? 20 : 16,
-    paddingVertical: isWeb && !isMobile ? 32 : 20,
+    gap: isWeb && !isMobile ? 24 : 16,
+    paddingVertical: isWeb && !isMobile ? 48 : 32,
+    maxWidth: 900,
+    width: '100%',
+    marginHorizontal: 'auto',
   },
-  footerText: {
-    fontSize: isWeb && !isMobile ? 14 : 12,
+  brandingSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 8,
+  },
+  brandLogo: {
+    width: 56,
+    height: 56,
+  },
+  brandInfo: {
+    gap: 4,
+  },
+  brandName: {
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  brandTagline: {
+    fontSize: 14,
+    fontWeight: '400',
+  },
+  footerCTA: {
+    fontSize: 18,
+    fontWeight: '600',
     textAlign: 'center',
+    marginTop: 8,
   },
   footerActions: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
   footerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    borderWidth: 1,
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     ...(isWeb && {
       cursor: 'pointer',
       transition: 'all 0.2s',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
     } as any),
   },
+  footerButtonPrimary: {
+    minWidth: 180,
+  },
+  footerButtonSecondary: {
+    borderWidth: 2,
+    minWidth: 140,
+  },
   footerButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 20,
+    justifyContent: 'center',
+    marginTop: 16,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(128, 128, 128, 0.1)',
+    width: '100%',
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  featureText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  copyright: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 16,
+    opacity: 0.7,
   },
 });
 
