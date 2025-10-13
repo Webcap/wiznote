@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { AudioRecorder } from 'expo-audio';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
@@ -117,6 +118,9 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
       }
       (state.recording as any).remove();
     }
+    
+    // Deactivate keep awake
+    deactivateKeepAwake();
   };
 
   const startTimer = () => {
@@ -323,6 +327,14 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
       // Start timer
       startTimer();
       
+      // Keep screen awake during recording
+      try {
+        await activateKeepAwakeAsync();
+        console.log('[VoiceRecorderSimple] Screen keep-awake activated');
+      } catch (error) {
+        console.warn('[VoiceRecorderSimple] Failed to activate keep-awake:', error);
+      }
+      
       console.log('[VoiceRecorderSimple] ===== RECORDING STARTED =====');
       
     } catch (error) {
@@ -353,6 +365,14 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
 
       // Stop timer
       stopTimer();
+      
+      // Deactivate keep awake
+      try {
+        deactivateKeepAwake();
+        console.log('[VoiceRecorderSimple] Screen keep-awake deactivated');
+      } catch (error) {
+        console.warn('[VoiceRecorderSimple] Failed to deactivate keep-awake:', error);
+      }
 
       // Check minimum duration
       if (state.duration < 1) {
