@@ -644,11 +644,6 @@ export default function SettingsScreen() {
               <ThemedText style={styles.actionButtonText}>Export Notes</ThemedText>
               <Ionicons name="chevron-forward" size={20} color={borderColor} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Ionicons name="cloud-upload" size={20} color={iconColor} />
-              <ThemedText style={styles.actionButtonText}>Backup to Cloud</ThemedText>
-              <Ionicons name="chevron-forward" size={20} color={borderColor} />
-            </TouchableOpacity>
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => router.push('/archived')}
@@ -992,11 +987,6 @@ export default function SettingsScreen() {
             <ThemedText style={styles.actionButtonText}>Export Notes</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="cloud-upload" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>Backup to Cloud</ThemedText>
-            <Ionicons name="chevron-forward" size={20} color={borderColor} />
-          </TouchableOpacity>
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => router.push('/archived')}
@@ -1018,7 +1008,7 @@ export default function SettingsScreen() {
           
           <TouchableOpacity style={styles.actionButton}>
             <Ionicons name="information-circle" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>About Notez</ThemedText>
+            <ThemedText style={styles.actionButtonText}>About WizNote</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
         </View>

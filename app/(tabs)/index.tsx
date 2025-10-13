@@ -163,13 +163,13 @@ export default function HomeScreen() {
   const cardBg = useThemeColor({}, 'backgroundSecondary');
 
   // Multi-select helper functions
-  const handleNoteLongPress = useCallback((noteId: string) => {
-    if (Platform.OS !== 'web') return;
-    
+  const handleNoteLongPress = useCallback((note: Note) => {
     if (!isMultiSelectMode) {
       setIsMultiSelectMode(true);
       showSnackbar(
-        'Multi-select mode activated. Click notes to select more.',
+        Platform.OS === 'web' 
+          ? 'Multi-select mode activated. Click notes to select more.'
+          : 'Hold and release to select. Tap other notes to select more.',
         'info',
         2000
       );
@@ -177,21 +177,16 @@ export default function HomeScreen() {
     
     setSelectedNotes(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(noteId)) {
-        newSet.delete(noteId);
+      if (newSet.has(note.id)) {
+        newSet.delete(note.id);
       } else {
-        newSet.add(noteId);
+        newSet.add(note.id);
       }
       return newSet;
     });
   }, [isMultiSelectMode, showSnackbar]);
 
   const handleNotePress = useCallback((note: Note) => {
-    if (Platform.OS !== 'web') {
-      router.push(`/note/${note.id}`);
-      return;
-    }
-
     if (isMultiSelectMode) {
       // In multi-select mode, toggle selection instead of navigating
       setSelectedNotes(prev => {
@@ -1051,6 +1046,8 @@ export default function HomeScreen() {
                       onToggleArchive={toggleArchive}
                       onToggleFavorite={toggleFavorite}
                       onDelete={deleteNote}
+                      isSelected={selectedNotes.has(item.id)}
+                      onLongPress={handleNoteLongPress}
                     />
                   )}
                   contentContainerStyle={[styles.listContainer, { paddingBottom: 32 }]}
@@ -1075,6 +1072,8 @@ export default function HomeScreen() {
                       onToggleArchive={toggleArchive}
                       onToggleFavorite={toggleFavorite}
                       onDelete={deleteNote}
+                      isSelected={selectedNotes.has(item.id)}
+                      onLongPress={handleNoteLongPress}
                     />
                   )}
                   ListHeaderComponent={
@@ -1108,6 +1107,33 @@ export default function HomeScreen() {
         />
       )}
 
+      {/* Mobile Selection Toolbar */}
+      {isMultiSelectMode && Platform.OS !== 'web' && (
+        <View style={[styles.mobileSelectionToolbar, { backgroundColor: cardBg }]}>
+          <View style={styles.mobileSelectionInfo}>
+            <ThemedText style={styles.mobileSelectionText}>
+              {selectedNotes.size} note{selectedNotes.size !== 1 ? 's' : ''} selected
+            </ThemedText>
+          </View>
+          <View style={styles.mobileSelectionActions}>
+            <TouchableOpacity 
+              style={[styles.mobileSelectionButton, styles.mobileSelectionButtonDanger]}
+              onPress={handleBulkDelete}
+              disabled={selectedNotes.size === 0}
+            >
+              <Ionicons name="trash" size={20} color="#FFFFFF" />
+              <ThemedText style={styles.mobileSelectionButtonText}>Delete</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.mobileSelectionButton, styles.mobileSelectionButtonCancel]}
+              onPress={exitMultiSelectMode}
+            >
+              <Ionicons name="close" size={20} color="#666666" />
+              <ThemedText style={[styles.mobileSelectionButtonText, { color: '#666666' }]}>Cancel</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Create Options Bottom Sheet */}
       <CreateOptionsSheet
@@ -1731,5 +1757,61 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#495057',
+  },
+  // Mobile selection toolbar styles
+  mobileSelectionToolbar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+    borderTopWidth: 1,
+    borderTopColor: '#333333',
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px -2px 8px rgba(0, 0, 0, 0.15)',
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 8,
+    }),
+  },
+  mobileSelectionInfo: {
+    flex: 1,
+  },
+  mobileSelectionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  mobileSelectionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  mobileSelectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  mobileSelectionButtonDanger: {
+    backgroundColor: '#DC3545',
+  },
+  mobileSelectionButtonCancel: {
+    backgroundColor: '#333333',
+  },
+  mobileSelectionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

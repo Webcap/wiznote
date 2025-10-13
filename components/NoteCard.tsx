@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
-import { Alert, Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Note } from '../types/Note';
 
 interface NoteCardProps {
@@ -10,9 +10,11 @@ interface NoteCardProps {
   onToggleArchive: (id: string) => void;
   onToggleFavorite: (id: string) => void;
   onDelete: (id: string) => void;
+  isSelected?: boolean;
+  onLongPress?: (note: Note) => void;
 }
 
-export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onToggleFavorite, onDelete }: NoteCardProps) => {
+export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onToggleFavorite, onDelete, isSelected = false, onLongPress }: NoteCardProps) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
@@ -125,7 +127,16 @@ export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onToggle
         },
       ]}
     >
-      <TouchableOpacity testID="note-card" style={styles.card} onPress={() => onPress(note)}>
+      <Pressable 
+        testID="note-card" 
+        style={[
+          styles.card,
+          isSelected && styles.cardSelected
+        ]} 
+        onPress={() => onPress(note)}
+        onLongPress={onLongPress ? () => onLongPress(note) : undefined}
+        delayLongPress={500}
+      >
         <View style={styles.header}>
           <View style={styles.titleContainer}>
             <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
@@ -225,15 +236,23 @@ export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onToggle
             <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
           </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </Pressable>
+      
+      {/* Selection Indicator */}
+      {isSelected && (
+        <View style={styles.selectionIndicator}>
+          <Ionicons name="checkmark-circle" size={24} color="#6A5ACD" />
+        </View>
+      )}
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    // This style is for the Animated.View, not the TouchableOpacity
-    // The TouchableOpacity itself has its own styles.
+    position: 'relative',
+    // This style is for the Animated.View, not the Pressable
+    // The Pressable itself has its own styles.
   },
   card: {
     backgroundColor: '#282828',
@@ -242,6 +261,28 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#333333',
+  },
+  cardSelected: {
+    borderColor: '#6A5ACD',
+    borderWidth: 2,
+    backgroundColor: '#3A3555',
+  },
+  selectionIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 2,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.3)',
+    } : {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 5,
+    }),
   },
   header: {
     flexDirection: 'row',
