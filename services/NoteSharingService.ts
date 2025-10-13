@@ -169,24 +169,23 @@ export class NoteSharingService {
       // Get the owner IDs
       const ownerIds = [...new Set(shares.map(share => share.owner_id))];
       
-      // Get user profiles for owners
-      const { data: userProfiles, error: profilesError } = await supabase
-        .from('user_profiles')
-        .select('id, display_name')
-        .in('id', ownerIds);
+      // Get user details (including email) for owners using RPC
+      const { data: userDetails, error: userDetailsError } = await supabase
+        .rpc('get_user_details_by_ids', { user_ids: ownerIds });
 
-      if (profilesError) {
-        console.warn('Failed to get user profiles:', profilesError);
+      if (userDetailsError) {
+        console.warn('Failed to get user details via RPC:', userDetailsError);
+        console.warn('Falling back to user_profiles (email will not be available)');
       }
 
       // Create a map for quick lookup
       const notesMap = new Map(notes?.map(note => [note.id, note]) || []);
-      const profilesMap = new Map(userProfiles?.map(profile => [profile.id, profile]) || []);
+      const userDetailsMap = new Map(userDetails?.map(user => [user.id, user]) || []);
 
       // Transform to SharedNote format
       const sharedNotes: SharedNote[] = shares.map((share: any) => {
         const note = notesMap.get(share.note_id);
-        const profile = profilesMap.get(share.owner_id);
+        const userDetail = userDetailsMap.get(share.owner_id);
         
         return {
           id: share.note_id,
@@ -206,8 +205,8 @@ export class NoteSharingService {
             permission: share.permission_level,
             sharedBy: {
               id: share.owner_id,
-              email: 'Unknown User', // We can't get email from user_profiles
-              displayName: profile?.display_name || 'Unknown User',
+              email: userDetail?.email || 'Unknown User',
+              displayName: userDetail?.display_name || 'Unknown User',
             },
             sharedAt: new Date(share.created_at),
             message: share.message,
@@ -376,7 +375,12 @@ export class NoteSharingService {
         throw new Error(`Failed to create public share: ${error.message}`);
       }
 
-      const shareUrl = `${window.location.origin}/shared/${shareToken}`;
+      // Get the base URL (works on both web and mobile)
+      const baseUrl = typeof window !== 'undefined' && window.location 
+        ? window.location.origin 
+        : 'https://your-app-url.com'; // Replace with your actual production URL
+      
+      const shareUrl = `${baseUrl}/shared/${shareToken}`;
       
       return { shareToken, shareUrl };
     } catch (error) {
@@ -390,34 +394,101 @@ export class NoteSharingService {
    */
   async accessPublicShare(shareToken: string): Promise<{ note: Note; share: NoteShare }> {
     try {
-      const { data: share, error } = await supabase
+      console.log('🔍 NoteSharingService: Accessing public share with token:', shareToken);
+      
+      // First, get the share record
+      const { data: share, error: shareError } = await supabase
         .from('note_shares')
-        .select(`
-          *,
-          note:note_id(*)
-        `)
+        .select('*')
         .eq('share_token', shareToken)
         .eq('is_active', true)
         .single();
 
-      if (error || !share) {
+      if (shareError) {
+        console.error('❌ NoteSharingService: Error fetching share:', shareError);
+        console.error('❌ Error code:', shareError.code);
+        console.error('❌ Error message:', shareError.message);
+        console.error('❌ Error details:', shareError.details);
+        
+        // Check if it's a permission error
+        if (shareError.code === '42501') {
+          throw new Error('Public share access is not configured. Please run the database migration: database/fix-public-share-constraint.sql');
+        }
+        
         throw new Error('Share not found or expired');
       }
 
+      if (!share) {
+        console.error('❌ NoteSharingService: Share not found');
+        throw new Error('Share not found or expired');
+      }
+
+      console.log('✅ NoteSharingService: Share found:', share.id);
+
       // Check if share has expired
       if (share.expires_at && new Date(share.expires_at) < new Date()) {
+        console.error('❌ NoteSharingService: Share has expired');
         throw new Error('Share has expired');
       }
 
-      // Track access
-      await this.trackShareAccess(share.id, 'viewed');
+      // Now get the note separately (with specific fields to avoid user table access)
+      const { data: note, error: noteError } = await supabase
+        .from('notes')
+        .select('id, title, content, tags, summary, key_details, audio_files, pdf_files, type, created_at, updated_at')
+        .eq('id', share.note_id)
+        .single();
+
+      if (noteError) {
+        console.error('❌ NoteSharingService: Error fetching note:', noteError);
+        console.error('❌ Error code:', noteError.code);
+        console.error('❌ Error message:', noteError.message);
+        
+        if (noteError.code === '42501') {
+          throw new Error('Public note access is not configured. Please run the database migration: database/fix-public-share-constraint.sql');
+        }
+        
+        throw new Error('Note not found');
+      }
+
+      if (!note) {
+        console.error('❌ NoteSharingService: Note not found');
+        throw new Error('Note not found');
+      }
+
+      console.log('✅ NoteSharingService: Note found:', note.id);
+
+      // Track access (don't fail if this errors)
+      try {
+        await this.trackShareAccess(share.id, 'viewed');
+      } catch (trackError) {
+        console.warn('Failed to track share access:', trackError);
+      }
+
+      // Transform to Note type
+      const transformedNote: Note = {
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        userId: share.owner_id, // Use owner_id from share
+        tags: note.tags || [],
+        isPinned: false,
+        isFavorite: false,
+        isArchived: false,
+        audioFiles: note.audio_files || [],
+        pdfFiles: note.pdf_files || [],
+        type: note.type || 'text',
+        keyDetails: note.key_details || [],
+        summary: note.summary || null,
+        createdAt: new Date(note.created_at),
+        updatedAt: new Date(note.updated_at),
+      };
 
       return {
-        note: share.note,
+        note: transformedNote,
         share: share as NoteShare,
       };
     } catch (error) {
-      console.error('NoteSharingService: Error accessing public share:', error);
+      console.error('❌ NoteSharingService: Error accessing public share:', error);
       throw error;
     }
   }
@@ -586,45 +657,62 @@ export class NoteSharingService {
   async searchUsers(query: string): Promise<any[]> {
     try {
       if (!query || query.length < 2) {
+        console.log('NoteSharingService: Query too short:', query.length);
         return [];
       }
 
-      // Try to search in auth.users table first (if accessible)
-      const { data: authUsers, error: authError } = await supabase
-        .from('auth.users')
-        .select('id, email, raw_user_meta_data')
-        .or(`email.ilike.%${query}%,raw_user_meta_data->display_name.ilike.%${query}%`)
-        .limit(10);
+      console.log('🔍 NoteSharingService: Searching users with query:', query);
 
-      if (!authError && authUsers) {
-        // Transform auth.users data
-        return authUsers.map(user => ({
-          id: user.id,
-          email: user.email,
-          display_name: user.raw_user_meta_data?.display_name || user.email?.split('@')[0] || 'Unknown User'
-        }));
+      // Use RPC function to search users (can access auth.users)
+      const { data: users, error } = await supabase
+        .rpc('search_users_by_email_or_name', { search_query: query });
+
+      if (error) {
+        console.error('❌ NoteSharingService: RPC search error:', error);
+        console.error('❌ Error code:', error.code);
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error details:', error.details);
+        console.error('❌ Error hint:', error.hint);
+        
+        // Check if it's a "function not found" error
+        if (error.code === '42883' || error.message?.includes('function') || error.message?.includes('does not exist')) {
+          console.error('⚠️ The database function "search_users_by_email_or_name" does not exist!');
+          console.error('⚠️ Please run the SQL migration: database/create-user-search-function.sql');
+        }
+        
+        // Fallback: Search in user_profiles table for display names only
+        console.log('🔄 NoteSharingService: Falling back to user_profiles search');
+        const { data: profiles, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('id, display_name')
+          .ilike('display_name', `%${query}%`)
+          .limit(10);
+
+        if (profileError) {
+          console.error('❌ NoteSharingService: Fallback search error:', profileError);
+          return [];
+        }
+
+        console.log('⚠️ Note: Email search is not available. Only display name search works.');
+        console.log('⚠️ Found profiles:', profiles?.length || 0);
+
+        // Transform user_profiles data (no email available)
+        return profiles?.map(profile => ({
+          id: profile.id,
+          email: null, // No email in user_profiles
+          display_name: profile.display_name || 'Unknown User'
+        })) || [];
       }
 
-      // Fallback: Search in user_profiles table for display names only
-      const { data: profiles, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('id, display_name')
-        .ilike('display_name', `%${query}%`)
-        .limit(10);
-
-      if (profileError) {
-        console.error('NoteSharingService: Search users error:', profileError);
-        return [];
+      console.log('✅ NoteSharingService: Found users:', users?.length || 0);
+      if (users && users.length > 0) {
+        console.log('✅ Users:', users.map(u => ({ email: u.email, name: u.display_name })));
       }
 
-      // Transform user_profiles data (no email available)
-      return profiles?.map(profile => ({
-        id: profile.id,
-        email: null, // No email in user_profiles
-        display_name: profile.display_name || 'Unknown User'
-      })) || [];
+      // Users from RPC already have the correct format
+      return users || [];
     } catch (error) {
-      console.error('NoteSharingService: Search users error:', error);
+      console.error('❌ NoteSharingService: Search users error:', error);
       return [];
     }
   }

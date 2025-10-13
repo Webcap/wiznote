@@ -147,6 +147,7 @@ function AppContent() {
       const isCreateAudioPage = currentPath.startsWith('/create-audio');
       const isSubscriptionManagementPage = currentPath.startsWith('/subscription-management');
       const isPrivacyPage = currentPath.startsWith('/privacy');
+      const isSharedPage = currentPath.startsWith('/shared/');
       const isTabsPage = currentPath.startsWith('/(tabs)') || currentPath === '/' || currentPath === '';
       
       // Check if current path is a valid authenticated route
@@ -156,7 +157,7 @@ function AppContent() {
           isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage;
       
       // Check if current path is a public route (accessible without authentication)
-      const isPublicRoute = isPrivacyPage;
+      const isPublicRoute = isPrivacyPage || isSharedPage;
       
       console.log('Layout: Current path:', currentPath);
       console.log('Layout: Is payment page:', isPaymentPage);

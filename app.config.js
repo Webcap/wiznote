@@ -60,6 +60,9 @@ export default ({ config }) => {
     ],
     extra: {
       ...config.extra,
+      eas: {
+        projectId: "eb4bee18-b296-4da4-961e-2b100db5b29b"
+      },
       GEMINI_API_KEY: process.env.GEMINI_API_KEY,
       IS_DEV,
       IS_PREVIEW,

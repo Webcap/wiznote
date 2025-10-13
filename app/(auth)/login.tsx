@@ -36,6 +36,7 @@ export default function LoginScreen() {
     if (!email.trim()) {
       const message = 'Please enter your email address';
       if (Platform.OS === 'web') {
+        console.log('Login validation error - calling showSnackbar:', message);
         showSnackbar(message, 'error', 4000);
       } else {
         Alert.alert('Error', message);
@@ -46,6 +47,7 @@ export default function LoginScreen() {
     if (!email.includes('@')) {
       const message = 'Please enter a valid email address';
       if (Platform.OS === 'web') {
+        console.log('Login validation error - calling showSnackbar:', message);
         showSnackbar(message, 'error', 4000);
       } else {
         Alert.alert('Error', message);
@@ -56,6 +58,7 @@ export default function LoginScreen() {
     if (!password) {
       const message = 'Please enter your password';
       if (Platform.OS === 'web') {
+        console.log('Login validation error - calling showSnackbar:', message);
         showSnackbar(message, 'error', 4000);
       } else {
         Alert.alert('Error', message);
@@ -78,16 +81,55 @@ export default function LoginScreen() {
       
       // Show success message on web
       if (Platform.OS === 'web') {
-        showSnackbar('Successfully signed in!', 'success', 3000);
+        showSnackbar('Successfully signed in! Welcome back.', 'success', 3000);
       }
       
       router.replace('/(tabs)');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to sign in';
+      // Parse error message and provide user-friendly feedback
+      let errorMessage = 'Failed to sign in. Please try again.';
+      let errorDuration = 6000;
+      
+      if (error instanceof Error) {
+        const message = error.message.toLowerCase();
+        
+        // Invalid credentials
+        if (message.includes('invalid login credentials') || 
+            message.includes('invalid email or password')) {
+          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+          errorDuration = 7000;
+        }
+        // Email not confirmed
+        else if (message.includes('email not confirmed')) {
+          errorMessage = 'Please verify your email address. Check your inbox for the confirmation link.';
+          errorDuration = 8000;
+        }
+        // User not found
+        else if (message.includes('user not found') || message.includes('no user found')) {
+          errorMessage = 'No account found with this email. Please sign up or check your email address.';
+          errorDuration = 7000;
+        }
+        // Network errors
+        else if (message.includes('network') || message.includes('fetch')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+          errorDuration = 6000;
+        }
+        // Rate limiting
+        else if (message.includes('rate limit') || message.includes('too many requests')) {
+          errorMessage = 'Too many login attempts. Please wait a moment before trying again.';
+          errorDuration = 8000;
+        }
+        // Generic error with message
+        else if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+      
+      console.log('Login error - showing snackbar:', errorMessage, 'Duration:', errorDuration);
       if (Platform.OS === 'web') {
-        showSnackbar(errorMessage, 'error', 6000);
+        showSnackbar(errorMessage, 'error', errorDuration);
       } else {
-        Alert.alert('Error', errorMessage);
+        Alert.alert('Login Error', errorMessage);
       }
     } finally {
       setIsLoading(false);

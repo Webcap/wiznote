@@ -36,14 +36,34 @@ export interface SubscriptionUpdateResult {
 export class SubscriptionManagementService {
   private static instance: SubscriptionManagementService;
   private supabase = supabase;
+  private stripeGuardianUrl: string;
 
-  private constructor() {}
+  private constructor() {
+    // Get the Stripe Guardian API URL from environment
+    this.stripeGuardianUrl = process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL || 'https://api.webcap.media/api';
+  }
 
   public static getInstance(): SubscriptionManagementService {
     if (!SubscriptionManagementService.instance) {
       SubscriptionManagementService.instance = new SubscriptionManagementService();
     }
     return SubscriptionManagementService.instance;
+  }
+
+  /**
+   * Safely parse a date string, handling "N/A" and invalid dates
+   */
+  private parseDateSafely(dateValue: any, defaultDate?: Date): Date {
+    if (!dateValue || dateValue === 'N/A' || dateValue === 'null' || dateValue === 'undefined') {
+      return defaultDate || new Date();
+    }
+    
+    const parsed = new Date(dateValue);
+    if (isNaN(parsed.getTime())) {
+      return defaultDate || new Date();
+    }
+    
+    return parsed;
   }
 
   /**
@@ -84,14 +104,36 @@ export class SubscriptionManagementService {
 
       console.log('Using planId:', planId);
 
-      // Get plan details
-      const { data: plan, error: planError } = await this.supabase
+      // Get plan details - try both id and stripe_price_id
+      // This handles cases where planId might be either the internal ID or Stripe price ID
+      let plan = null;
+      let planError = null;
+
+      // First try to find by id
+      const { data: planById, error: errorById } = await this.supabase
         .from('premium_plans')
         .select('*')
         .eq('id', planId)
         .maybeSingle();
 
-      if (planError) {
+      if (planById && !errorById) {
+        plan = planById;
+      } else {
+        // If not found by id, try to find by stripe_price_id
+        const { data: planByStripeId, error: errorByStripeId } = await this.supabase
+          .from('premium_plans')
+          .select('*')
+          .eq('stripe_price_id', planId)
+          .maybeSingle();
+
+        if (planByStripeId && !errorByStripeId) {
+          plan = planByStripeId;
+        } else {
+          planError = errorByStripeId || errorById;
+        }
+      }
+
+      if (planError && !plan) {
         console.error('Error fetching plan details:', planError);
         return null;
       }
@@ -101,8 +143,28 @@ export class SubscriptionManagementService {
         return null;
       }
 
-      const currentPeriodEnd = profile.premium.currentPeriodEnd ? new Date(profile.premium.currentPeriodEnd) : new Date();
+      // Calculate default billing dates based on the plan interval
       const now = new Date();
+      let defaultPeriodStart = now;
+      let defaultPeriodEnd = new Date(now);
+      
+      // Set default period based on interval
+      switch (plan.interval) {
+        case 'weekly':
+          defaultPeriodEnd.setDate(defaultPeriodEnd.getDate() + 7);
+          break;
+        case 'monthly':
+          defaultPeriodEnd.setMonth(defaultPeriodEnd.getMonth() + 1);
+          break;
+        case 'yearly':
+          defaultPeriodEnd.setFullYear(defaultPeriodEnd.getFullYear() + 1);
+          break;
+        default:
+          defaultPeriodEnd.setMonth(defaultPeriodEnd.getMonth() + 1);
+      }
+
+      const currentPeriodStart = this.parseDateSafely(profile.premium.currentPeriodStart, defaultPeriodStart);
+      const currentPeriodEnd = this.parseDateSafely(profile.premium.currentPeriodEnd, defaultPeriodEnd);
       const isCanceled = profile.premium.status === 'canceled';
       
       // For canceled subscriptions, check if the period has ended
@@ -117,18 +179,18 @@ export class SubscriptionManagementService {
       return {
         id: planId,
         status: profile.premium.status || 'active',
-        currentPeriodStart: profile.premium.currentPeriodStart ? new Date(profile.premium.currentPeriodStart) : new Date(),
+        currentPeriodStart: currentPeriodStart,
         currentPeriodEnd: currentPeriodEnd,
         cancelAtPeriodEnd: isCanceled,
-        canceledAt: profile.premium.renewedAt ? new Date(profile.premium.renewedAt) : undefined,
+        canceledAt: profile.premium.renewedAt ? this.parseDateSafely(profile.premium.renewedAt) : undefined,
         planId: plan.id,
         planName: plan.name,
         planPrice: plan.price,
         planInterval: plan.interval,
         stripeCustomerId: profile.stripe_customer_id,
-        stripeSubscriptionId: profile.premium.stripeSubscriptionId || profile.premium.stripe_customer_id,
-        trialStart: profile.premium.trialStart ? new Date(profile.premium.trialStart) : undefined,
-        trialEnd: profile.premium.trialEnd ? new Date(profile.premium.trialEnd) : undefined,
+        stripeSubscriptionId: profile.premium.stripeSubscriptionId || profile.premium.subscriptionId,
+        trialStart: profile.premium.trialStart ? this.parseDateSafely(profile.premium.trialStart) : undefined,
+        trialEnd: profile.premium.trialEnd ? this.parseDateSafely(profile.premium.trialEnd) : undefined,
         nextBillingDate: currentPeriodEnd,
         currency: plan.currency || 'USD',
       };
@@ -152,61 +214,62 @@ export class SubscriptionManagementService {
          };
        }
 
+       if (!subscription.stripeSubscriptionId) {
+         return {
+           success: false,
+           message: 'No Stripe subscription ID found',
+           error: 'NO_STRIPE_SUBSCRIPTION_ID'
+         };
+       }
+
        console.log('Canceling subscription for user:', userId);
-       console.log('Subscription data:', subscription);
+       console.log('Subscription ID:', subscription.stripeSubscriptionId);
 
-       // For now, just update the local database to mark as canceled
-       // TODO: Integrate with Stripe when the webhook server is properly configured
+       // Call Stripe Guardian API to cancel the subscription in Stripe
        try {
-         const now = new Date();
-         const isPeriodEnded = now > subscription.currentPeriodEnd;
-         
-         const { error: updateError } = await this.supabase
-           .from('user_profiles')
-           .update({
-             premium: {
-               isActive: !isPeriodEnded, // Set to false if period has ended, true if still active
-               planId: subscription.planId,
-               type: subscription.planName,
-               status: 'canceled',
-               currentPeriodStart: subscription.currentPeriodStart.toISOString(),
-               currentPeriodEnd: subscription.currentPeriodEnd.toISOString(),
-               trialStart: subscription.trialStart?.toISOString(),
-               trialEnd: subscription.trialEnd?.toISOString(),
-               renewedAt: new Date().toISOString(),
-               updatedAt: new Date().toISOString()
-             },
-             updated_at: new Date().toISOString()
+         const response = await fetch(`${this.stripeGuardianUrl}/stripe/cancel-subscription`, {
+           method: 'POST',
+           headers: {
+             'Content-Type': 'application/json',
+           },
+           body: JSON.stringify({
+             userId,
+             subscriptionId: subscription.stripeSubscriptionId
            })
-           .eq('id', userId);
+         });
 
-         if (updateError) {
-           console.error('Failed to update subscription status:', updateError);
+         const data = await response.json();
+
+         if (!response.ok || !data.success) {
+           console.error('Failed to cancel subscription in Stripe:', data);
            return {
              success: false,
-             message: 'Failed to update subscription status. Please try again.',
-             error: updateError.message
+             message: data.message || 'Failed to cancel subscription. Please try again.',
+             error: data.error || 'STRIPE_API_ERROR'
            };
          }
 
-         console.log('Subscription successfully marked as canceled in database');
+         console.log('Subscription successfully canceled in Stripe');
+         
+         // Refresh subscription data to get updated info
+         const updatedSubscription = await this.getCurrentSubscription(userId);
          
          return {
            success: true,
-           message: 'Subscription has been canceled. You will not be charged for the next billing period.',
-           subscription: {
+           message: data.message || 'Subscription will be canceled at the end of the current billing period. You will not be charged again.',
+           subscription: updatedSubscription || {
              ...subscription,
              status: 'canceled',
              cancelAtPeriodEnd: true,
              canceledAt: new Date()
            }
          };
-       } catch (dbError) {
-         console.error('Database update error:', dbError);
+       } catch (apiError) {
+         console.error('API call error:', apiError);
          return {
            success: false,
-           message: 'Failed to update subscription status. Please try again.',
-           error: dbError instanceof Error ? dbError.message : 'Database error'
+           message: 'Failed to connect to payment service. Please try again.',
+           error: apiError instanceof Error ? apiError.message : 'API_CONNECTION_ERROR'
          };
        }
      } catch (error) {
@@ -233,66 +296,70 @@ export class SubscriptionManagementService {
         };
       }
 
-      if (subscription.status !== 'canceled') {
+      if (!subscription.cancelAtPeriodEnd) {
         return {
           success: false,
-          message: 'Subscription is not canceled',
+          message: 'Subscription is not scheduled for cancellation',
           error: 'NOT_CANCELED'
         };
       }
 
+      if (!subscription.stripeSubscriptionId) {
+        return {
+          success: false,
+          message: 'No Stripe subscription ID found',
+          error: 'NO_STRIPE_SUBSCRIPTION_ID'
+        };
+      }
+
       console.log('Reactivating subscription for user:', userId);
-      console.log('Subscription data:', subscription);
+      console.log('Subscription ID:', subscription.stripeSubscriptionId);
 
-      // For now, just update the local database to mark as active
-      // TODO: Integrate with Stripe when the webhook server is properly configured
+      // Call Stripe Guardian API to reactivate the subscription in Stripe
       try {
-        const { error: updateError } = await this.supabase
-          .from('user_profiles')
-          .update({
-            premium: {
-              isActive: true,
-              planId: subscription.planId,
-              type: subscription.planName,
-              status: 'active',
-              currentPeriodStart: subscription.currentPeriodStart.toISOString(),
-              currentPeriodEnd: subscription.currentPeriodEnd.toISOString(),
-              trialStart: subscription.trialStart?.toISOString(),
-              trialEnd: subscription.trialEnd?.toISOString(),
-              renewedAt: undefined,
-              updatedAt: new Date().toISOString()
-            },
-            updated_at: new Date().toISOString()
+        const response = await fetch(`${this.stripeGuardianUrl}/stripe/reactivate-subscription`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId,
+            subscriptionId: subscription.stripeSubscriptionId
           })
-          .eq('id', userId);
+        });
 
-        if (updateError) {
-          console.error('Failed to update subscription status:', updateError);
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          console.error('Failed to reactivate subscription in Stripe:', data);
           return {
             success: false,
-            message: 'Failed to update subscription status. Please try again.',
-            error: updateError.message
+            message: data.message || 'Failed to reactivate subscription. Please try again.',
+            error: data.error || 'STRIPE_API_ERROR'
           };
         }
 
-        console.log('Subscription successfully reactivated in database');
+        console.log('Subscription successfully reactivated in Stripe');
+        
+        // Refresh subscription data to get updated info
+        const updatedSubscription = await this.getCurrentSubscription(userId);
 
-      return {
-        success: true,
-        message: 'Subscription has been reactivated successfully',
-        subscription: {
-          ...subscription,
-          status: 'active',
-          cancelAtPeriodEnd: false,
-          canceledAt: undefined
-        }
-      };
-      } catch (dbError) {
-        console.error('Database update error:', dbError);
+        return {
+          success: true,
+          message: data.message || 'Subscription has been reactivated successfully. You will continue to be billed.',
+          subscription: updatedSubscription || {
+            ...subscription,
+            status: 'active',
+            cancelAtPeriodEnd: false,
+            canceledAt: undefined
+          }
+        };
+      } catch (apiError) {
+        console.error('API call error:', apiError);
         return {
           success: false,
-          message: 'Failed to update subscription status. Please try again.',
-          error: dbError instanceof Error ? dbError.message : 'Database error'
+          message: 'Failed to connect to payment service. Please try again.',
+          error: apiError instanceof Error ? apiError.message : 'API_CONNECTION_ERROR'
         };
       }
     } catch (error) {

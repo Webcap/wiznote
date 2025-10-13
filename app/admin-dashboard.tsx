@@ -152,7 +152,8 @@ export default function AdminDashboardScreen() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
         
-        const guardianRes = await fetch('https://stripe-guardian.onrender.com/ready', {
+        const guardianUrl = process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL || 'https://api.webcap.media/api';
+        const guardianRes = await fetch(`${guardianUrl}/ready`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
@@ -165,7 +166,7 @@ export default function AdminDashboardScreen() {
         if (guardianRes.ok) {
           const guardianData = await guardianRes.json();
           stripeGuardianStatus = {
-            status: guardianData.guardian ? 'ready' : 'error',
+            status: guardianData.ok ? 'ready' : 'error',
             uptime: guardianData.uptime,
             timestamp: guardianData.timestamp
           };
@@ -209,7 +210,8 @@ export default function AdminDashboardScreen() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      const guardianRes = await fetch('https://stripe-guardian.onrender.com/ready', {
+      const guardianUrl = process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL || 'https://api.webcap.media/api';
+      const guardianRes = await fetch(`${guardianUrl}/ready`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -222,7 +224,7 @@ export default function AdminDashboardScreen() {
       if (guardianRes.ok) {
         const guardianData = await guardianRes.json();
         stripeGuardianStatus = {
-          status: guardianData.guardian ? 'ready' : 'error',
+          status: guardianData.ok ? 'ready' : 'error',
           uptime: guardianData.uptime,
           timestamp: guardianData.timestamp
         };

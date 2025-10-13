@@ -7,6 +7,7 @@ import {
     Modal,
     Platform,
     StyleSheet,
+    TouchableWithoutFeedback,
     View
 } from 'react-native';
 import { useSnackbar } from '../contexts/SnackbarContext';
@@ -34,6 +35,22 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [publicLink, setPublicLink] = useState<string>('');
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // Debug modal visibility
+  useEffect(() => {
+    console.log('📱 ShareModal: visible changed to:', visible);
+    if (!visible) {
+      console.log('📱 ShareModal: Modal closed, resetting state');
+      // Reset state when modal closes
+      setSearchQuery('');
+      setSelectedUser(null);
+      setSearchResults([]);
+      setPermission('read');
+      setMessage('');
+    }
+  }, [visible]);
 
   const backgroundColor = useThemeColor({}, 'background');
   const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
@@ -83,6 +100,11 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
     setSearchQuery('');
     setSearchResults([]);
     showSnackbar('Selection cleared', 'info', 1500);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   const handleShare = async () => {
@@ -139,6 +161,42 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
     }
   };
 
+  const handleCreatePublicLink = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    showSnackbar('Creating public link...', 'info', 2000);
+    
+    try {
+      const { shareUrl } = await noteSharingService.createPublicShare(
+        note!.id, 
+        user!.id
+      );
+      
+      setPublicLink(shareUrl);
+      showSnackbar('Public link created!', 'success', 3000);
+    } catch (error) {
+      console.error('Error creating public link:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create public link.';
+      showSnackbar(errorMessage, 'error', 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    if (!publicLink) return;
+    
+    navigator.clipboard.writeText(publicLink).then(() => {
+      setLinkCopied(true);
+      showSnackbar('Link copied to clipboard!', 'success', 2000);
+      
+      setTimeout(() => setLinkCopied(false), 3000);
+    }).catch(() => {
+      showSnackbar('Failed to copy link', 'error', 2000);
+    });
+  };
+
   const canShare = selectedUser || (searchQuery.includes('@') && searchQuery.length > 5);
 
   if (!visible || !note) return null;
@@ -179,8 +237,8 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
                   autoCapitalize="none"
                   type="email"
                 />
-                {searchQuery.length > 0 && (
-                  <button onClick={handleClearSelection} style={webStyles.clearButton}>
+                {searchQuery.length > 0 && !selectedUser && (
+                  <button onClick={handleClearSearch} style={webStyles.clearButton}>
                     <Ionicons name="close-circle" size={20} color={textMutedColor} />
                   </button>
                 )}
@@ -200,7 +258,10 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
                     <div
                       key={user.id}
                       style={{...webStyles.searchResultItem, borderColor}}
-                      onClick={() => handleUserSelect(user)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUserSelect(user);
+                      }}
                     >
                       <Ionicons name="person" size={20} color={textMutedColor} />
                       <div style={webStyles.userInfo}>
@@ -273,6 +334,63 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
                 rows={3}
               />
             </div>
+
+            {/* Public Link Section */}
+            <div style={webStyles.section}>
+              <h3 style={{...webStyles.sectionTitle, color: textColor}}>Public Link</h3>
+              <p style={{...webStyles.sectionSubtitle, color: textMutedColor}}>
+                Anyone with the link can view this note
+              </p>
+              
+              {!publicLink ? (
+                <button
+                  style={{
+                    ...webStyles.createLinkButton,
+                    backgroundColor: backgroundSecondary,
+                    borderColor,
+                    color: accentPrimary,
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCreatePublicLink();
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <LoadingSpinner size={20} color={accentPrimary} />
+                  ) : (
+                    <>
+                      <Ionicons name="link" size={20} color={accentPrimary} />
+                      Create Public Link
+                    </>
+                  )}
+                </button>
+              ) : (
+                <div style={{
+                  ...webStyles.linkContainer,
+                  backgroundColor: backgroundSecondary,
+                  borderColor,
+                }}>
+                  <Ionicons name="link" size={20} color={accentPrimary} />
+                  <div style={{...webStyles.linkText, color: textColor}}>
+                    {publicLink}
+                  </div>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCopyLink();
+                    }}
+                    style={webStyles.copyButton}
+                  >
+                    <Ionicons 
+                      name={linkCopied ? "checkmark-circle" : "copy"} 
+                      size={20} 
+                      color={linkCopied ? "#10B981" : accentPrimary} 
+                    />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -313,26 +431,44 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
   // Mobile modal using ShareCard
   console.log('📱 Rendering mobile ShareModal with ShareCard:', { visible, note: note?.id, platform: Platform.OS });
   
+  const handleModalClose = () => {
+    console.log('🚨 ShareModal: onClose called!');
+    console.trace('🚨 Close call stack');
+    onClose();
+  };
+  
   return (
     <Modal
       visible={visible}
       animationType="slide"
       transparent={true}
-      onRequestClose={onClose}
+      onRequestClose={() => {
+        console.log('🚨 ShareModal: onRequestClose triggered');
+        handleModalClose();
+      }}
       presentationStyle="overFullScreen"
     >
-      <View style={styles.modalOverlay}>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1, justifyContent: 'flex-end' }}
-        >
-          <ShareCard
-            note={note}
-            onClose={onClose}
-            onShareSuccess={onShareSuccess}
-          />
-        </KeyboardAvoidingView>
-      </View>
+      <TouchableWithoutFeedback onPress={() => {
+        console.log('🚨 ShareModal: Overlay touched - closing modal');
+        handleModalClose();
+      }}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={() => {
+            console.log('📱 ShareModal: Touch inside card area - preventing close');
+          }}>
+            <KeyboardAvoidingView 
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={{ flex: 1, justifyContent: 'flex-end' }}
+            >
+              <ShareCard
+                note={note}
+                onClose={handleModalClose}
+                onShareSuccess={onShareSuccess}
+              />
+            </KeyboardAvoidingView>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };
@@ -542,6 +678,59 @@ const webStyles = {
     '&:focus': {
       outline: 'none',
     },
+  },
+  sectionSubtitle: {
+    fontSize: '12px',
+    marginBottom: '12px',
+    marginTop: '0',
+  },
+  createLinkButton: {
+    display: 'flex',
+    flexDirection: 'row' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '12px 16px',
+    borderRadius: '8px',
+    borderWidth: 1,
+    borderStyle: 'solid' as const,
+    cursor: 'pointer',
+    gap: '8px',
+    fontSize: '14px',
+    fontWeight: '600',
+    transition: 'all 0.2s',
+    '&:hover': {
+      opacity: 0.8,
+    },
+    '&:disabled': {
+      cursor: 'not-allowed',
+      opacity: 0.6,
+    },
+  },
+  linkContainer: {
+    display: 'flex',
+    flexDirection: 'row' as const,
+    alignItems: 'center',
+    padding: '12px',
+    borderRadius: '8px',
+    borderWidth: 1,
+    borderStyle: 'solid' as const,
+    gap: '8px',
+  },
+  linkText: {
+    flex: 1,
+    fontSize: '12px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
+  },
+  copyButton: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actions: {
     display: 'flex',
