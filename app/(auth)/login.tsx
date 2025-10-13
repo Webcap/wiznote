@@ -329,6 +329,15 @@ export default function LoginScreen() {
                     </ThemedText>
                   </TouchableOpacity>
                 </View>
+
+                {/* Privacy Policy Link */}
+                <View style={styles.webPrivacyContainer}>
+                  <TouchableOpacity onPress={() => router.push('/privacy' as any)}>
+                    <ThemedText style={[styles.webPrivacyLink, { color: textSecondaryColor }]}>
+                      Privacy Policy
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {/* Keyboard Shortcuts */}
@@ -452,6 +461,15 @@ export default function LoginScreen() {
             <TouchableOpacity onPress={() => router.push('/(auth)/signup' as any)}>
               <ThemedText style={[styles.signupLink, { color: accentColor }]}>
                 Sign Up
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+
+          {/* Privacy Policy Link */}
+          <View style={styles.privacyContainer}>
+            <TouchableOpacity onPress={() => router.push('/privacy' as any)}>
+              <ThemedText style={[styles.privacyLink, { color: textSecondaryColor }]}>
+                Privacy Policy
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -616,6 +634,17 @@ const styles = StyleSheet.create({
   signupLink: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  privacyContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingHorizontal: 24,
+  },
+  privacyLink: {
+    fontSize: 12,
+    textDecorationLine: 'underline',
   },
   // Web specific styles
   webContainer: {
@@ -786,6 +815,16 @@ const styles = StyleSheet.create({
   webSignupLink: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  webPrivacyContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  webPrivacyLink: {
+    fontSize: 12,
+    textDecorationLine: 'underline',
   },
   webShortcutsContainer: {
     borderTopWidth: 1,

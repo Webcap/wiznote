@@ -10,6 +10,7 @@ import { AuthLoadingScreen } from '../components/AuthLoadingScreen';
 import { OfflineIndicator } from '../components/OfflineIndicator';
 import { ThemedView } from '../components/ThemedView';
 import { WebSnackbar } from '../components/web/WebSnackbar';
+import { SmartAppBanner } from '../components/web/SmartAppBanner';
 import { SnackbarProvider, useSnackbar } from '../contexts/SnackbarContext';
 import { PDFUploadProvider } from '../contexts/PDFUploadContext';
 import { useAuth } from '../hooks/useAuth';
@@ -171,6 +172,15 @@ function AppContent() {
                     margin: 0,
                     padding: 0
                   }}>
+                    {/* Smart App Banner for mobile web visitors */}
+                    <SmartAppBanner 
+                      appName="WizNote"
+                      description="Get our native app for a better experience"
+                      backgroundColor={isDark ? '#1A1A1A' : '#FFFFFF'}
+                      textColor={isDark ? '#FFFFFF' : '#000000'}
+                      buttonColor="#6A5ACD"
+                      showOnTablets={false}
+                    />
                     <Stack>
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                     <Stack.Screen name="(auth)" options={{ headerShown: false }} />

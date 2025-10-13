@@ -28,6 +28,7 @@ import { PermissionTest } from '../../components/PermissionTest';
 import { featureFlagService } from '../../services/FeatureFlagService';
 import { featureCacheService } from '../../services/FeatureCacheService';
 import { useSnackbar } from '../../contexts/SnackbarContext';
+import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 
 // Import web components
 import { UserSidebar } from '../../components/web/UserSidebar';
@@ -51,6 +52,7 @@ export default function SettingsScreen() {
   const [autoAISummaries, setAutoAISummaries] = useState(true);
   const [subscriptionDetails, setSubscriptionDetails] = useState<any>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const theme = useContext(ThemeContext);
   const setTheme = useContext(ThemeUpdateContext);
   const router = useRouter();
@@ -98,6 +100,16 @@ export default function SettingsScreen() {
       setAutoAISummaries(user.preferences.autoAISummaries ?? true);
     }
   }, [user?.preferences]);
+
+  const handleDeleteAccountSuccess = () => {
+    // After successful deletion, the user will be signed out automatically
+    // Navigate to login screen
+    if (Platform.OS === 'web') {
+      window.location.href = '/';
+    } else {
+      router.replace('/(auth)/login');
+    }
+  };
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -721,7 +733,26 @@ export default function SettingsScreen() {
               <ThemedText style={[styles.actionButtonText, styles.dangerText]}>Sign Out</ThemedText>
               <Ionicons name="chevron-forward" size={20} color={borderColor} />
             </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.dangerButton]} 
+              onPress={() => setShowDeleteAccountModal(true)}
+            >
+              <Ionicons name="trash" size={20} color="#FF6B6B" />
+              <ThemedText style={[styles.actionButtonText, styles.dangerText]}>Delete Account</ThemedText>
+              <Ionicons name="chevron-forward" size={20} color={borderColor} />
+            </TouchableOpacity>
           </View>
+
+          {/* Delete Account Modal */}
+          {currentUser && (
+            <DeleteAccountModal
+              visible={showDeleteAccountModal}
+              userId={currentUser.id}
+              userEmail={currentUser.email || ''}
+              onClose={() => setShowDeleteAccountModal(false)}
+              onDeleteSuccess={handleDeleteAccountSuccess}
+            />
+          )}
         </ScrollView>
       </WebLayout>
     );
@@ -1061,8 +1092,27 @@ export default function SettingsScreen() {
             <ThemedText style={[styles.actionButtonText, styles.dangerText]}>Sign Out</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.dangerButton]} 
+            onPress={() => setShowDeleteAccountModal(true)}
+          >
+            <Ionicons name="trash" size={20} color="#FF6B6B" />
+            <ThemedText style={[styles.actionButtonText, styles.dangerText]}>Delete Account</ThemedText>
+            <Ionicons name="chevron-forward" size={20} color={borderColor} />
+          </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Delete Account Modal */}
+      {currentUser && (
+        <DeleteAccountModal
+          visible={showDeleteAccountModal}
+          userId={currentUser.id}
+          userEmail={currentUser.email || ''}
+          onClose={() => setShowDeleteAccountModal(false)}
+          onDeleteSuccess={handleDeleteAccountSuccess}
+        />
+      )}
     </ThemedView>
   );
 }
