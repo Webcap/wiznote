@@ -346,7 +346,7 @@ export default function SignupScreen() {
                   <ThemedText style={[styles.webTermsLink, { color: accentColor }]}>Terms of Service</ThemedText>
                 </TouchableOpacity>
                 <ThemedText style={[styles.webTermsText, { color: textSecondaryColor }]}> and </ThemedText>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/privacy' as any)}>
                   <ThemedText style={[styles.webTermsLink, { color: accentColor }]}>Privacy Policy</ThemedText>
                 </TouchableOpacity>
               </View>
@@ -493,6 +493,18 @@ export default function SignupScreen() {
                 </ThemedText>
               </TouchableOpacity>
             </View>
+
+            {/* Privacy Policy Link */}
+            <View style={styles.privacyContainer}>
+              <ThemedText style={[styles.privacyText, { color: textSecondaryColor }]}>
+                By signing up, you agree to our{' '}
+              </ThemedText>
+              <TouchableOpacity onPress={() => router.push('/privacy' as any)}>
+                <ThemedText style={[styles.privacyLink, { color: accentColor }]}>
+                  Privacy Policy
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </ThemedView>
@@ -590,6 +602,22 @@ const styles = StyleSheet.create({
   },
   signinLink: {
     fontSize: 16,
+    fontWeight: '600',
+  },
+  privacyContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingHorizontal: 40,
+  },
+  privacyText: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  privacyLink: {
+    fontSize: 12,
     fontWeight: '600',
   },
   // Web specific styles

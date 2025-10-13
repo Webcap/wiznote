@@ -311,7 +311,7 @@ export default function SubscriptionManagementScreen() {
     }
   };
 
-  const formatDate = (date: Date | string | null | undefined) => {
+  const formatDate = (date: Date | string | null | undefined, includeTime: boolean = false) => {
     if (!date) return 'N/A';
     
     try {
@@ -327,14 +327,24 @@ export default function SubscriptionManagementScreen() {
         return dateObj.toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
-          year: '2-digit'
+          year: '2-digit',
+          ...(includeTime && {
+            hour: 'numeric',
+            minute: '2-digit'
+          })
         });
       }
       
+      // Web format with optional time
       return dateObj.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
-        day: 'numeric'
+        day: 'numeric',
+        ...(includeTime && {
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZoneName: 'short'
+        })
       });
     } catch (error) {
       console.error('Error formatting date:', error, date);
@@ -419,16 +429,17 @@ export default function SubscriptionManagementScreen() {
             <View style={styles.billingInfo}>
               <View style={styles.billingRow}>
                 <ThemedText style={{ color: mutedTextColor }}>Billing Period:</ThemedText>
-                <ThemedText style={{ color: textColor }}>
-                  {formatDate(subscription.currentPeriodStart)} - {formatDate(subscription.currentPeriodEnd)}
+                <ThemedText style={{ color: textColor, fontSize: 13 }}>
+                  {formatDate(subscription.currentPeriodStart, true)}
+                  {'\n'}to {formatDate(subscription.currentPeriodEnd, true)}
                 </ThemedText>
               </View>
 
-              {subscription.nextBillingDate && (
+              {subscription.nextBillingDate && !subscription.cancelAtPeriodEnd && (
                 <View style={styles.billingRow}>
                   <ThemedText style={{ color: mutedTextColor }}>Next Billing:</ThemedText>
                   <ThemedText style={{ color: textColor }}>
-                    {formatDate(subscription.nextBillingDate)}
+                    {formatDate(subscription.nextBillingDate, true)}
                   </ThemedText>
                 </View>
               )}
@@ -455,7 +466,20 @@ export default function SubscriptionManagementScreen() {
                 </ThemedText>
               </TouchableOpacity>
 
-              {subscription.status === 'active' && !subscription.cancelAtPeriodEnd ? (
+              {subscription.cancelAtPeriodEnd ? (
+                // Show reactivate button if subscription is scheduled to cancel
+                <TouchableOpacity 
+                  style={[styles.actionButton, { borderColor: successColor }]}
+                  onPress={handleReactivateSubscription}
+                  disabled={actionLoading}
+                >
+                  <Ionicons name="refresh-outline" size={20} color={successColor} />
+                  <ThemedText style={{ marginLeft: 8, color: successColor }}>
+                    {actionLoading ? 'Reactivating...' : 'Reactivate Subscription'}
+                  </ThemedText>
+                </TouchableOpacity>
+              ) : subscription.status === 'active' ? (
+                // Show cancel button if subscription is active and not scheduled to cancel
                 <TouchableOpacity 
                   style={[styles.actionButton, { borderColor: errorColor }]}
                   onPress={() => {
@@ -469,17 +493,6 @@ export default function SubscriptionManagementScreen() {
                     {actionLoading ? 'Canceling...' : 'Cancel Subscription'}
                   </ThemedText>
                 </TouchableOpacity>
-              ) : subscription.status === 'canceled' ? (
-                <TouchableOpacity 
-                  style={[styles.actionButton, { borderColor: successColor }]}
-                  onPress={handleReactivateSubscription}
-                  disabled={actionLoading}
-                >
-                  <Ionicons name="refresh-outline" size={20} color={successColor} />
-                  <ThemedText style={{ marginLeft: 8, color: successColor }}>
-                    {actionLoading ? 'Reactivating...' : 'Reactivate Subscription'}
-                  </ThemedText>
-                </TouchableOpacity>
               ) : null}
             </View>
 
@@ -487,8 +500,11 @@ export default function SubscriptionManagementScreen() {
               <View style={[styles.cancelNotice, { backgroundColor: warningColor + '20' }]}>
                 <Ionicons name="warning-outline" size={20} color={warningColor} />
                 <ThemedText style={{ marginLeft: 8, color: warningColor, flex: 1 }}>
-                  Your subscription will be canceled at the end of the current billing period on{' '}
-                  {formatDate(subscription.currentPeriodEnd)}.
+                  Your subscription will be canceled on{' '}
+                  <ThemedText style={{ fontWeight: '600', color: warningColor }}>
+                    {formatDate(subscription.currentPeriodEnd, true)}
+                  </ThemedText>
+                  . You'll keep access until then.
                 </ThemedText>
               </View>
             )}

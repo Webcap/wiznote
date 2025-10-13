@@ -165,7 +165,8 @@ export class SubscriptionManagementService {
 
       const currentPeriodStart = this.parseDateSafely(profile.premium.currentPeriodStart, defaultPeriodStart);
       const currentPeriodEnd = this.parseDateSafely(profile.premium.currentPeriodEnd, defaultPeriodEnd);
-      const isCanceled = profile.premium.status === 'canceled';
+      const cancelAtPeriodEnd = profile.premium.cancelAtPeriodEnd || false;
+      const isCanceled = profile.premium.status === 'canceled' || cancelAtPeriodEnd;
       
       // For canceled subscriptions, check if the period has ended
       const isPeriodEnded = isCanceled && now > currentPeriodEnd;
@@ -181,8 +182,8 @@ export class SubscriptionManagementService {
         status: profile.premium.status || 'active',
         currentPeriodStart: currentPeriodStart,
         currentPeriodEnd: currentPeriodEnd,
-        cancelAtPeriodEnd: isCanceled,
-        canceledAt: profile.premium.renewedAt ? this.parseDateSafely(profile.premium.renewedAt) : undefined,
+        cancelAtPeriodEnd: cancelAtPeriodEnd, // Use the actual field from database
+        canceledAt: profile.premium.canceledAt ? this.parseDateSafely(profile.premium.canceledAt) : undefined,
         planId: plan.id,
         planName: plan.name,
         planPrice: plan.price,

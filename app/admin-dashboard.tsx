@@ -47,6 +47,15 @@ export default function AdminDashboardScreen() {
     isLoading?: boolean;
   }>({});
 
+  // Subscription sync state
+  const [subscriptionSync, setSubscriptionSync] = useState<{
+    isRunning?: boolean;
+    lastSyncTime?: string;
+    syncCount?: number;
+    intervalMinutes?: number;
+    isSyncing?: boolean;
+  }>({});
+
   const iconColor = useThemeColor({}, 'text');
   const cardBg = useThemeColor({}, 'backgroundSecondary');
   const borderColor = useThemeColor({}, 'border');
@@ -136,6 +145,64 @@ export default function AdminDashboardScreen() {
     }
   }, [isAdmin]);
 
+  // Fetch subscription sync status
+  const fetchSubscriptionSyncStatus = useCallback(async () => {
+    try {
+      const guardianUrl = process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL || 'https://api.webcap.media/api';
+      const syncRes = await fetch(`${guardianUrl}/sync-status`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (syncRes.ok) {
+        const syncData = await syncRes.json();
+        if (syncData.ok && syncData.sync) {
+          setSubscriptionSync(syncData.sync);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching subscription sync status:', error);
+    }
+  }, []);
+
+  // Trigger manual subscription sync
+  const triggerManualSync = useCallback(async () => {
+    try {
+      setSubscriptionSync(prev => ({ ...prev, isSyncing: true }));
+      
+      const guardianUrl = process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL || 'https://api.webcap.media/api';
+      const syncRes = await fetch(`${guardianUrl}/sync-status`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (syncRes.ok) {
+        const syncData = await syncRes.json();
+        if (Platform.OS === 'web') {
+          showSnackbar('✅ Subscription sync triggered successfully!', 'success', 4000);
+        } else {
+          Alert.alert('Success', 'Subscription sync triggered successfully!');
+        }
+        
+        // Wait a moment then refresh status
+        setTimeout(() => {
+          fetchSubscriptionSyncStatus();
+        }, 2000);
+      } else {
+        throw new Error('Failed to trigger sync');
+      }
+    } catch (error) {
+      console.error('Error triggering manual sync:', error);
+      if (Platform.OS === 'web') {
+        showSnackbar('❌ Failed to trigger sync. Please try again.', 'error', 6000);
+      } else {
+        Alert.alert('Error', 'Failed to trigger sync. Please try again.');
+      }
+    } finally {
+      setSubscriptionSync(prev => ({ ...prev, isSyncing: false }));
+    }
+  }, [fetchSubscriptionSyncStatus, showSnackbar]);
+
   // Simple monitoring fetcher
   const fetchMonitoring = useCallback(async () => {
     try {
@@ -170,6 +237,11 @@ export default function AdminDashboardScreen() {
             uptime: guardianData.uptime,
             timestamp: guardianData.timestamp
           };
+          
+          // Extract subscription sync info from ready check
+          if (guardianData.subscriptionSync) {
+            setSubscriptionSync(guardianData.subscriptionSync);
+          }
         } else {
           stripeGuardianStatus = { status: 'error' };
         }
@@ -190,6 +262,9 @@ export default function AdminDashboardScreen() {
         stripeGuardian: stripeGuardianStatus,
         isLoading: false,
       });
+      
+      // Also fetch subscription sync status
+      fetchSubscriptionSyncStatus();
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Monitoring fetch failed';
       setMonitoring(prev => ({ 
@@ -199,7 +274,7 @@ export default function AdminDashboardScreen() {
         isLoading: false 
       }));
     }
-  }, []);
+  }, [fetchSubscriptionSyncStatus]);
 
   // Mobile-specific function to check Stripe Guardian status
   const checkStripeGuardianStatus = useCallback(async () => {
@@ -228,6 +303,11 @@ export default function AdminDashboardScreen() {
           uptime: guardianData.uptime,
           timestamp: guardianData.timestamp
         };
+        
+        // Extract subscription sync info from ready check
+        if (guardianData.subscriptionSync) {
+          setSubscriptionSync(guardianData.subscriptionSync);
+        }
       } else {
         stripeGuardianStatus = { status: 'error' };
       }
@@ -238,6 +318,9 @@ export default function AdminDashboardScreen() {
         lastUpdated: new Date(),
         error: null
       }));
+      
+      // Also fetch subscription sync status separately
+      fetchSubscriptionSyncStatus();
     } catch (guardianError: unknown) {
       console.error('Error checking Stripe Guardian:', guardianError);
       const stripeGuardianStatus: { status: 'ready' | 'error' | 'unknown'; uptime?: number; timestamp?: string } = { status: 'error' };
@@ -249,7 +332,7 @@ export default function AdminDashboardScreen() {
         error: 'Failed to check Stripe Guardian status'
       }));
     }
-  }, []);
+  }, [fetchSubscriptionSyncStatus]);
 
   useEffect(() => {
     if (isAdmin()) {
@@ -647,6 +730,92 @@ export default function AdminDashboardScreen() {
                   <Ionicons name="information-circle" size={16} color={textSecondaryColor} />
                   <ThemedText style={[styles.helpText, { color: textSecondaryColor }]}>
                     Stripe Guardian monitors and automatically fixes Stripe webhook sync issues, customer ID mismatches, and subscription problems.
+                  </ThemedText>
+                </View>
+              </View>
+            )}
+            
+            {/* Subscription Sync Status */}
+            {subscriptionSync && (
+              <View style={[styles.syncSection, { backgroundColor: cardBg + '80', marginTop: 16 }]}>
+                <View style={styles.syncHeader}>
+                  <Ionicons name="sync" size={20} color="#4CAF50" />
+                  <ThemedText style={styles.syncTitle}>Automatic Subscription Sync</ThemedText>
+                </View>
+                
+                <View style={styles.healthDetails}>
+                  <View style={styles.healthItem}>
+                    <ThemedText style={styles.healthLabel}>Sync Status</ThemedText>
+                    <View style={styles.healthValueContainer}>
+                      <Ionicons 
+                        name={subscriptionSync.isRunning ? 'checkmark-circle' : 'close-circle'} 
+                        size={16} 
+                        color={subscriptionSync.isRunning ? '#4CAF50' : '#FF6B6B'} 
+                      />
+                      <ThemedText style={[
+                        styles.healthValue, 
+                        { color: subscriptionSync.isRunning ? '#4CAF50' : '#FF6B6B' }
+                      ]}>
+                        {subscriptionSync.isRunning ? 'Running' : 'Stopped'}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  
+                  {subscriptionSync.intervalMinutes && (
+                    <View style={styles.healthItem}>
+                      <ThemedText style={styles.healthLabel}>Sync Interval</ThemedText>
+                      <ThemedText style={styles.healthValue}>
+                        Every {subscriptionSync.intervalMinutes} min
+                      </ThemedText>
+                    </View>
+                  )}
+                  
+                  {subscriptionSync.lastSyncTime && (
+                    <View style={styles.healthItem}>
+                      <ThemedText style={styles.healthLabel}>Last Sync</ThemedText>
+                      <ThemedText style={styles.healthValue}>
+                        {new Date(subscriptionSync.lastSyncTime).toLocaleTimeString()}
+                      </ThemedText>
+                    </View>
+                  )}
+                  
+                  {subscriptionSync.syncCount !== undefined && (
+                    <View style={styles.healthItem}>
+                      <ThemedText style={styles.healthLabel}>Total Syncs</ThemedText>
+                      <ThemedText style={styles.healthValue}>
+                        {subscriptionSync.syncCount}
+                      </ThemedText>
+                    </View>
+                  )}
+                </View>
+                
+                {/* Manual Sync Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.manualSyncButton,
+                    { 
+                      backgroundColor: subscriptionSync.isSyncing ? '#999' : accentPrimary,
+                      opacity: subscriptionSync.isSyncing ? 0.6 : 1
+                    }
+                  ]}
+                  onPress={triggerManualSync}
+                  disabled={subscriptionSync.isSyncing}
+                >
+                  <Ionicons 
+                    name={subscriptionSync.isSyncing ? "hourglass" : "sync"} 
+                    size={20} 
+                    color="white" 
+                  />
+                  <ThemedText style={styles.manualSyncButtonText}>
+                    {subscriptionSync.isSyncing ? 'Syncing...' : 'Trigger Manual Sync'}
+                  </ThemedText>
+                </TouchableOpacity>
+                
+                {/* Sync Info */}
+                <View style={[styles.helpTextContainer, { marginTop: 12 }]}>
+                  <Ionicons name="information-circle" size={16} color={textSecondaryColor} />
+                  <ThemedText style={[styles.helpText, { color: textSecondaryColor }]}>
+                    Automatic sync runs every {subscriptionSync.intervalMinutes || 10} minutes to check and update subscription statuses from Stripe. Use manual sync to force an immediate check.
                   </ThemedText>
                 </View>
               </View>
@@ -1172,5 +1341,36 @@ const styles = StyleSheet.create({
   mobileNoticeText: {
     fontSize: 13,
     lineHeight: 20,
+  },
+  syncSection: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  syncHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  syncTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  manualSyncButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    gap: 8,
+    marginTop: 12,
+  },
+  manualSyncButtonText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '600',
   },
 }); 
