@@ -130,4 +130,24 @@ export const PrivacyPolicyStyles = StyleSheet.create({
     lineHeight: 20,
     fontStyle: 'italic' as const,
   },
+
+  // Deletion button styles
+  deletionButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: '#FFF5F5',
+    borderWidth: 1,
+    borderColor: '#DC3545',
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginVertical: 20,
+    gap: 10,
+  },
+  deletionButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#DC3545',
+  },
 });

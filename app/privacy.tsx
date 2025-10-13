@@ -4,6 +4,7 @@ import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { PrivacyPolicyStyles as styles } from '../styles/PrivacyPolicyStyles';
+import { useRouter } from 'expo-router';
 
 // Import web components
 import { UserSidebar } from '../components/web/UserSidebar';
@@ -12,6 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 
 export default function PrivacyPolicyScreen() {
   const { isAuthenticated } = useAuth();
+  const router = useRouter();
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const textSecondaryColor = useThemeColor({}, 'textSecondary');
@@ -156,6 +158,17 @@ export default function PrivacyPolicyScreen() {
               • Opt out of certain data processing activities
               • Request a copy of your data in a portable format
             </ThemedText>
+
+            <TouchableOpacity
+              onPress={() => router.push('/delete-account-request')}
+              style={styles.deletionButton}
+            >
+              <Ionicons name="trash-outline" size={20} color="#DC3545" />
+              <ThemedText style={styles.deletionButtonText}>
+                Request Account Deletion
+              </ThemedText>
+              <Ionicons name="chevron-forward" size={20} color="#DC3545" />
+            </TouchableOpacity>
 
             <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>
               Premium Features and Usage Limits
@@ -345,6 +358,17 @@ export default function PrivacyPolicyScreen() {
           • Opt out of certain data processing activities{'\n'}
           • Request a copy of your data in a portable format
         </ThemedText>
+
+        <TouchableOpacity
+          onPress={() => router.push('/delete-account-request')}
+          style={styles.deletionButton}
+        >
+          <Ionicons name="trash-outline" size={20} color="#DC3545" />
+          <ThemedText style={styles.deletionButtonText}>
+            Request Account Deletion
+          </ThemedText>
+          <Ionicons name="chevron-forward" size={20} color="#DC3545" />
+        </TouchableOpacity>
 
         <ThemedText style={[styles.mobileSectionTitle, { color: textColor }]}>
           Premium Features and Usage Limits

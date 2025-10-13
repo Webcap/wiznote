@@ -49,7 +49,7 @@ interface SmartAppBannerProps {
 export function SmartAppBanner({
   appName = 'WizNote',
   description = 'Get our native app for a better experience',
-  iconUrl = '/icon.png',
+  iconUrl = require('../../assets/icon.png'),
   showOnTablets = false,
   backgroundColor = '#1A1A1A',
   textColor = '#FFFFFF',
