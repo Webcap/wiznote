@@ -33,11 +33,14 @@ export const NetworkDiagnostic: React.FC<NetworkDiagnosticProps> = ({ isVisible 
 
   const testSupabaseConnectivity = async () => {
     try {
+      // Support both new publishable key (EXPO_PUBLIC_SUPABASE_KEY) and legacy anon key
+      const apiKey = process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+      
       const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/rest/v1/`, {
         method: 'GET',
         headers: {
-          'apikey': process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
-          'Authorization': `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || ''}`,
+          'apikey': apiKey,
+          'Authorization': `Bearer ${apiKey}`,
         },
       });
       return response.ok;
