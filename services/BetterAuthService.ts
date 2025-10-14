@@ -716,6 +716,7 @@ export class BetterAuthService {
       
       const profileData = {
         id: supabaseUser.id,
+        email: supabaseUser.email || '',
         display_name: supabaseUser.user_metadata?.display_name || supabaseUser.email?.split('@')[0],
         role: userRole,
         preferences: {
@@ -797,6 +798,7 @@ export class BetterAuthService {
       // Create a minimal profile object without database insertion
       const minimalProfile = {
         id: supabaseUser.id,
+        email: supabaseUser.email || '',
         display_name: supabaseUser.user_metadata?.display_name || supabaseUser.email?.split('@')[0],
         role: userRole,
         preferences: {
@@ -1047,6 +1049,7 @@ export class BetterAuthService {
         throw new Error('Admin access required');
       }
 
+      // Get profiles from user_profiles table (email should be stored here)
       const { data: profiles, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -1054,6 +1057,8 @@ export class BetterAuthService {
 
       if (error) throw error;
 
+      console.log('Sample profile data:', profiles[0]);
+      
       return (profiles || []).map(profile => ({
         id: profile.id,
         email: profile.email || '',
