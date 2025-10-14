@@ -396,17 +396,17 @@ export class BetterAuthService {
         throw new Error('No user returned from sign up');
       }
 
+      // Create user profile immediately after successful sign-up (even if email verification is required)
+      // This ensures the profile exists when the user verifies their email and tries to sign in
+      console.log('Creating user profile for new user:', data.user.id);
+      const userProfile = await this.createUserProfile(data.user);
+
       // If email verification is required, inform user to check their email
       if (requireEmailVerification && !data.user.email_confirmed_at) {
         console.log('Email verification required - user must confirm email before accessing account');
-        // Note: The user profile will be created after email confirmation
-        // For now, return a minimal user object
+        console.log('User profile created successfully, waiting for email verification');
         throw new Error('Please check your email to verify your account before signing in.');
       }
-
-      // Create user profile immediately after successful sign-up
-      console.log('Creating user profile for new user:', data.user.id);
-      const userProfile = await this.createUserProfile(data.user);
       
       // Create user object
       const user: User = {
