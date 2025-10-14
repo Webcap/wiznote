@@ -3,7 +3,14 @@ import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+// Support both new publishable key format (EXPO_PUBLIC_SUPABASE_KEY) and legacy anon key
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+
+// Debug: Log which key is being used (only show prefix for security)
+console.log('🔑 Supabase Key Type:', 
+  process.env.EXPO_PUBLIC_SUPABASE_KEY ? 'NEW Publishable Key (sb_publishable_...)' : 'LEGACY Anon Key (eyJ...)'
+);
+console.log('🔑 Key prefix:', supabaseAnonKey?.substring(0, 20) + '...');
 
 // Optional environment variable to control Supabase logging
 const enableSupabaseLogs = process.env.EXPO_PUBLIC_SUPABASE_LOGS === 'true';
@@ -18,7 +25,9 @@ if (process.env.NODE_ENV === 'development' && enableSupabaseLogs) {
   console.log('NODE_ENV:', process.env.NODE_ENV);
   console.log('isTestEnvironment:', isTestEnvironment);
   console.log('EXPO_PUBLIC_SUPABASE_URL:', supabaseUrl ? 'Present' : 'Missing');
-  console.log('EXPO_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Present' : 'Missing');
+  console.log('EXPO_PUBLIC_SUPABASE_KEY:', process.env.EXPO_PUBLIC_SUPABASE_KEY ? 'Present (New Format)' : 'Missing');
+  console.log('EXPO_PUBLIC_SUPABASE_ANON_KEY:', process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ? 'Present (Legacy)' : 'Missing');
+  console.log('Using key format:', process.env.EXPO_PUBLIC_SUPABASE_KEY ? 'Publishable (New)' : 'Anon (Legacy)');
 }
 
 if (!isTestEnvironment) {
@@ -26,8 +35,10 @@ if (!isTestEnvironment) {
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error('Missing Supabase environment variables:');
     console.error('EXPO_PUBLIC_SUPABASE_URL:', supabaseUrl ? 'Present' : 'Missing');
-    console.error('EXPO_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Present' : 'Missing');
+    console.error('EXPO_PUBLIC_SUPABASE_KEY:', process.env.EXPO_PUBLIC_SUPABASE_KEY ? 'Present' : 'Missing');
+    console.error('EXPO_PUBLIC_SUPABASE_ANON_KEY:', process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ? 'Present' : 'Missing');
     console.error('Please create a .env file with your Supabase credentials');
+    console.error('Use EXPO_PUBLIC_SUPABASE_KEY=sb_publishable_xxx (new format required if legacy keys are disabled)');
     throw new Error('Supabase environment variables are required');
   }
 }

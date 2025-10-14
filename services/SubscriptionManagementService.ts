@@ -26,6 +26,23 @@ export interface BillingPortalSession {
   expiresAt: Date;
 }
 
+export interface BillingHistoryItem {
+  id: string;
+  amount: number;
+  currency: string;
+  status: 'draft' | 'open' | 'paid' | 'uncollectible' | 'void';
+  date: string;
+  periodStart?: string;
+  periodEnd?: string;
+  description: string;
+  invoiceUrl?: string;
+  invoicePdf?: string;
+  amountDue: number;
+  amountRemaining: number;
+  paid: boolean;
+  attempted: boolean;
+}
+
 export interface SubscriptionUpdateResult {
   success: boolean;
   message: string;
@@ -449,22 +466,33 @@ export class SubscriptionManagementService {
   }
 
   /**
-   * Get billing history
+   * Get billing history from Stripe
    */
-  async getBillingHistory(userId: string): Promise<any[]> {
+  async getBillingHistory(userId: string, limit: number = 10): Promise<BillingHistoryItem[]> {
     try {
-      // This would fetch billing history from Stripe
-      // For now, return placeholder data
-      return [
-        {
-          id: 'inv_1',
-          amount: 4.99,
-          currency: 'USD',
-          status: 'paid',
-          date: new Date().toISOString(), // Return as ISO string to match database format
-          description: 'Premium Weekly Subscription'
-        }
-      ];
+      console.log('Fetching billing history for user:', userId);
+      
+      // Call Stripe Guardian API to get billing history
+      const response = await fetch(`${this.stripeGuardianUrl}/stripe/get-billing-history`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          limit
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error('Failed to fetch billing history:', data);
+        return [];
+      }
+
+      console.log(`Successfully fetched ${data.billingHistory?.length || 0} billing records`);
+      return data.billingHistory || [];
     } catch (error) {
       console.error('Error fetching billing history:', error);
       return [];
