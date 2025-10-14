@@ -2,6 +2,21 @@
 
 This directory contains utility scripts for managing and maintaining the WizNote application.
 
+## Quick Reference
+
+| Script | Category | Purpose | Key Use |
+|--------|----------|---------|---------|
+| `grant-free-premium.js` | 🎁 Premium | Give free premium (no Stripe) | Staff/beta accounts |
+| `manually-activate-premium.js` | ⚡ Premium | Fix failed webhook activation | Emergency fix |
+| `import-stripe-plans.js` | 💳 Stripe | Import plans from Stripe | After creating products |
+| `sync-subscription-status.js` | 🔄 Stripe | Fix status mismatches | isActive is wrong |
+| `list-plans.js` | 📋 Info | List all plans | Get plan IDs |
+| `migrate-users-to-new-stripe.js` | 🔄 Migration | Switch Stripe accounts | Test → Live |
+| `create-stripe-customers-for-users.js` | 👥 Migration | Create customers for users | Initial Stripe setup |
+| `check-webhook-logs.js` | 📊 Debug | Check webhook status | Webhooks not working |
+| `test-rate-limiting.js` | 🔒 Security | Test rate limiting | After setup |
+| `fix-stripe-customers.js` | 🔧 Maintenance | Sync customer data | Regular maintenance |
+
 ## Available Scripts
 
 ### 🚨 delete-all-data.js
@@ -290,6 +305,451 @@ node scripts/check-test-user-usage.js --help
 
 ---
 
+## Security & Rate Limiting Scripts
+
+### 🔒 test-rate-limiting.js
+
+**Description**: Comprehensive test suite for the rate limiting system. Verifies that rate limiting enforcement can be toggled on/off via admin settings and that limits are properly enforced.
+
+**What it tests**:
+- Rate limit enforcement when enabled
+- Bypass functionality when disabled
+- Attempt tracking in database
+- Cleanup functions
+- Dynamic setting changes
+
+**Usage**:
+```bash
+node scripts/test-rate-limiting.js
+```
+
+**Environment Variables Required**:
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`)
+
+**Example Output**:
+```
+╔════════════════════════════════════════════════════════════╗
+║      WIZNOTE RATE LIMITING SYSTEM - TEST SUITE            ║
+╚════════════════════════════════════════════════════════════╝
+
+📊 Current settings:
+   Rate Limiting: ENABLED
+   Auth Attempts: 5
+   Auth Window: 15 minutes
+
+🧪 TEST 1: Rate Limit Enforcement (Enabled)
+   Attempt 1/7: 🟢 ALLOWED ✅ PASS
+   Attempt 5/7: 🟢 ALLOWED ✅ PASS
+   Attempt 6/7: 🔴 BLOCKED ✅ PASS
+   
+✅ All tests completed successfully!
+```
+
+**Common Use Cases**:
+- After implementing rate limiting
+- Testing admin toggle functionality
+- Verifying rate limits work after deployment
+- Debugging authentication issues
+
+### 🗄️ setup-rate-limiting-db.js
+
+**Description**: Sets up the database schema for rate limiting (table, functions, policies).
+
+**What it creates**:
+- `rate_limit_attempts` table
+- Database functions for checking and recording attempts
+- RLS policies for admin-only access
+
+**Usage**:
+```bash
+node scripts/setup-rate-limiting-db.js
+```
+
+**Note**: Usually you'll run the SQL file manually in Supabase SQL Editor instead.
+
+---
+
+## Stripe & Subscription Management Scripts
+
+### 💳 import-stripe-plans.js
+
+**Description**: Fetches all products and prices from your Stripe account and imports them into the `premium_plans` table.
+
+**What it does**:
+- Fetches active products from Stripe
+- Creates corresponding plans in database
+- Updates existing plans if they changed
+- Links plans by `stripe_price_id`
+
+**Usage**:
+```bash
+node scripts/import-stripe-plans.js
+```
+
+**Environment Variables Required**:
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`)
+- `STRIPE_SECRET_KEY`
+
+**Example Output**:
+```
+🔄 Starting Stripe plan import...
+
+📦 Fetching products from Stripe...
+✅ Found 3 active products
+
+📦 Processing product: WizNote Premium (prod_ABC123)
+   💰 Processing price: price_1SF... ($9.99/month)
+   ✅ Created new plan: cddf6c0b-3ec4...
+
+============================================================
+📊 Import Summary:
+✅ Imported: 3 new plans
+🔄 Updated: 0 existing plans
+============================================================
+```
+
+**Common Use Cases**:
+- After creating new products in Stripe
+- When switching from test to live keys
+- Initial setup of premium plans
+- Syncing plan changes from Stripe
+
+### 👥 create-stripe-customers-for-users.js
+
+**Description**: Creates Stripe customers for all users who don't have one yet. Useful when first setting up Stripe or switching accounts.
+
+**What it does**:
+- Finds users without `stripe_customer_id`
+- Creates Stripe customers with user email/metadata
+- Updates database with new customer IDs
+- Skips users who already have customers (idempotent)
+
+**Usage**:
+```bash
+# Preview first (recommended)
+node scripts/create-stripe-customers-for-users.js --dry-run
+
+# Execute
+node scripts/create-stripe-customers-for-users.js
+```
+
+**Environment Variables Required**:
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SECRET_KEY`
+- `STRIPE_SECRET_KEY`
+
+**Example Output**:
+```
+╔════════════════════════════════════════════════════════════╗
+║     CREATE STRIPE CUSTOMERS FOR EXISTING USERS            ║
+╚════════════════════════════════════════════════════════════╝
+
+⚠️  Stripe Mode: 🔴 LIVE
+
+📊 Current Status:
+   Total users: 150
+   Users without Stripe customer: 50
+
+🚀 Processing 50 users...
+
+[1/50] Processing user: user1@example.com
+   ✅ Stripe customer created: cus_ABC123
+   ✅ Database updated
+
+═══════════════════════════════════════════════════════════
+📊 EXECUTION SUMMARY
+Stripe customers created: 50
+Errors: 0
+✅ Migration complete!
+```
+
+**Common Use Cases**:
+- Initial Stripe setup
+- Adding Stripe to existing app
+- After user import
+
+### 🔄 migrate-users-to-new-stripe.js
+
+**Description**: Migrates ALL users from old Stripe account to new one. Clears old customer IDs and creates new ones.
+
+**What it does**:
+- Clears ALL existing `stripe_customer_id` values
+- Creates NEW Stripe customers for ALL users
+- Updates database with new IDs
+
+**Usage**:
+```bash
+# Preview first (REQUIRED!)
+node scripts/migrate-users-to-new-stripe.js --dry-run
+
+# Execute (10-second warning for live mode)
+node scripts/migrate-users-to-new-stripe.js
+```
+
+**⚠️ WARNING**: This is irreversible! Old customer IDs will be lost.
+
+**Environment Variables Required**:
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SECRET_KEY`
+- `STRIPE_SECRET_KEY` (your NEW Stripe account)
+
+**Common Use Cases**:
+- Switching from test to live Stripe
+- Moving to new Stripe account
+- Starting fresh with Stripe
+
+### 🔄 sync-subscription-status.js
+
+**Description**: Syncs subscription status from Stripe to fix mismatches where database shows inactive but Stripe shows active (or vice versa).
+
+**What it does**:
+- Fetches real status from Stripe
+- Calculates correct `isActive` value
+- Updates `user_profiles.premium` if mismatch detected
+
+**Usage**:
+```bash
+# Sync specific subscription
+node scripts/sync-subscription-status.js sub_1SGA55J8pJSkCNufzOc3CDcA
+
+# Sync by customer ID
+node scripts/sync-subscription-status.js --customer cus_TCYjEAaM6y8QeI
+
+# Sync ALL subscriptions
+node scripts/sync-subscription-status.js --all
+```
+
+**Example Output**:
+```
+🔄 Syncing subscription: sub_1SGA55...
+
+📊 Current Database State:
+   Status: active
+   isActive: false          ← WRONG!
+
+📊 Stripe State:
+   Status: active
+
+🧮 Calculated isActive: true
+
+⚠️  Mismatch detected - updating database...
+✅ Database updated successfully!
+
+📊 New State:
+   isActive: true          ← FIXED!
+```
+
+**Common Use Cases**:
+- After webhook failures
+- User reports premium not working
+- Subscription status mismatches
+- After manual Stripe changes
+
+### ⚡ manually-activate-premium.js
+
+**Description**: Manually activates premium for a user by fetching their Stripe subscription and updating the database. Emergency fix for webhook failures.
+
+**What it does**:
+- Finds user by email
+- Fetches subscription from Stripe
+- Updates `user_profiles.premium` with correct data
+- Verifies activation
+
+**Usage**:
+```bash
+node scripts/manually-activate-premium.js user@example.com
+```
+
+**Example Output**:
+```
+🔍 Looking up user: user@example.com
+✅ User found: John Doe
+
+🔍 Fetching subscriptions from Stripe...
+✅ Found 1 subscription(s)
+
+📊 Subscription Details:
+   ID: sub_1SIDEN...
+   Status: active
+   Period End: Oct 14, 2025
+
+💾 Updating database...
+✅ Database updated successfully!
+
+✅ Premium activated successfully!
+```
+
+**Common Use Cases**:
+- Webhooks failed after purchase
+- User paid but premium not active
+- Emergency activation
+- Testing
+
+### 🎁 grant-free-premium.js
+
+**Description**: Grants free premium access without Stripe. Perfect for staff, beta testers, or promotional accounts.
+
+**What it does**:
+- Activates premium in database
+- No Stripe subscription created
+- No charges ever
+- Custom duration or lifetime
+
+**Usage**:
+```bash
+# 1 year free
+node scripts/grant-free-premium.js user@example.com 365
+
+# 30 days free
+node scripts/grant-free-premium.js user@example.com 30
+
+# Lifetime access
+node scripts/grant-free-premium.js user@example.com lifetime
+```
+
+**Example Output**:
+```
+╔════════════════════════════════════════════════════════════╗
+║           GRANT FREE PREMIUM ACCESS                       ║
+╚════════════════════════════════════════════════════════════╝
+
+🎁 Granting LIFETIME premium access
+   Valid until: Jan 01, 2125
+
+✅ Premium access granted successfully!
+```
+
+**Common Use Cases**:
+- Staff/team accounts
+- Beta testers
+- Influencer/promotional accounts
+- Customer compensation
+- Lifetime deals
+
+### 💰 create-free-stripe-subscription.js
+
+**Description**: Creates a real Stripe subscription at $0.00 using a 100% coupon. Appears in Stripe Dashboard and auto-renews.
+
+**What it does**:
+- Creates Stripe customer if needed
+- Creates 100% off coupon
+- Creates subscription with coupon
+- Updates database
+
+**Usage**:
+```bash
+# First, list available plans
+node scripts/list-plans.js
+
+# Then create free subscription
+node scripts/create-free-stripe-subscription.js user@example.com <plan-id>
+```
+
+**Common Use Cases**:
+- Free accounts you want to track in Stripe
+- Auto-renewing free access
+- Appears in user's billing history
+
+### 📋 list-plans.js
+
+**Description**: Lists all premium plans from the database with their details and Stripe sync status.
+
+**Usage**:
+```bash
+node scripts/list-plans.js
+```
+
+**Example Output**:
+```
+╔════════════════════════════════════════════════════════════╗
+║              AVAILABLE PREMIUM PLANS                      ║
+╚════════════════════════════════════════════════════════════╝
+
+Plan 1: WizNote Pro
+   ID: cddf6c0b-3ec4-4a68-b137-dfe58ce17c1a
+   Price: $9.99/monthly
+   Status: ✅ Active
+   Stripe Synced: ✅ price_1SFNXSJ8pJSkCNufdNODhET9
+
+Total Plans: 3
+```
+
+**Common Use Cases**:
+- Before granting free premium
+- Checking plan IDs for scripts
+- Verifying Stripe sync status
+
+### 📊 check-webhook-logs.js
+
+**Description**: Checks Stripe webhook configuration and recent webhook events to help debug why premium isn't activating after purchase.
+
+**What it shows**:
+- Configured webhook endpoints
+- Recent webhook events
+- Failed webhooks
+- Pending webhooks
+
+**Usage**:
+```bash
+node scripts/check-webhook-logs.js
+```
+
+**Environment Variables Required**:
+- `STRIPE_SECRET_KEY`
+
+**Example Output**:
+```
+╔════════════════════════════════════════════════════════════╗
+║           STRIPE WEBHOOK DIAGNOSTICS                     ║
+╚════════════════════════════════════════════════════════════╝
+
+🔍 Fetching webhook endpoints...
+✅ Found 1 webhook endpoint(s)
+
+Webhook 1:
+   URL: https://api.webcap.media/api/stripe/webhook
+   Status: enabled
+   Events: checkout.session.completed, customer.subscription.updated...
+
+📊 Recent Webhook Events (last 10):
+
+✅ Event 1:
+   Type: customer.subscription.created
+   Created: 10/14/2025, 10:30:00 AM
+   Pending webhooks: 0
+
+⚠️  Found 2 events with pending webhooks
+💡 Check Stripe Dashboard → Webhooks for detailed error logs
+```
+
+**Common Use Cases**:
+- Debugging webhook failures
+- Premium not activating after purchase
+- Verifying webhook configuration
+- Checking for failed events
+
+### 📧 test-email-verification-settings.js
+
+**Description**: Tests the email verification system settings to ensure they properly control signup flow and override Supabase dashboard settings.
+
+**Usage**:
+```bash
+node scripts/test-email-verification-settings.js
+```
+
+**Environment Variables Required**:
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`)
+
+**Common Use Cases**:
+- After implementing email verification
+- Testing system settings changes
+- Verifying email verification works
+
+---
+
 ## Running Scripts
 
 ### Prerequisites
@@ -469,7 +929,20 @@ If you encounter issues:
 ## Security Notes
 
 - **Never commit** `.env` files or API keys to version control
-- **Use service role keys** only for server-side operations
+- **Use secret keys** (new `sb_secret_...` format) or service role keys only for server-side operations
 - **Limit API key permissions** to only what's necessary
 - **Monitor script execution** and review changes before applying
 - **Use dry-run mode** to preview changes in production environments
+
+### API Key Formats
+
+**Supabase** (New format recommended):
+- `SUPABASE_SECRET_KEY=sb_secret_...` - NEW format, better security
+- `SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...` - LEGACY format (may be disabled)
+- Scripts support both formats automatically
+
+**Stripe**:
+- Test: `STRIPE_SECRET_KEY=sk_test_...`
+- Live: `STRIPE_SECRET_KEY=sk_live_...`
+
+Always verify which environment (test/live) you're using before running scripts!

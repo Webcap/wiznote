@@ -327,6 +327,31 @@ export class BetterAuthService {
     try {
       console.log('Signing in with credentials...');
       
+      // Import auth helpers
+      const { 
+        shouldRequireEmailVerification, 
+        checkAuthRateLimit, 
+        formatRateLimitError 
+      } = await import('../lib/auth');
+
+      // Check rate limit BEFORE attempting authentication
+      const rateLimitCheck = await checkAuthRateLimit(credentials.email, 'auth_signin');
+      
+      if (!rateLimitCheck.allowed) {
+        console.warn('Sign-in rate limit exceeded:', {
+          email: credentials.email,
+          attempts: rateLimitCheck.attemptCount,
+          maxAttempts: rateLimitCheck.maxAttempts,
+        });
+        throw new Error(formatRateLimitError(rateLimitCheck));
+      }
+
+      console.log('Rate limit check passed:', {
+        enabled: rateLimitCheck.attemptCount > 0,
+        attempts: rateLimitCheck.attemptCount,
+        maxAttempts: rateLimitCheck.maxAttempts,
+      });
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email: credentials.email,
         password: credentials.password,
@@ -341,7 +366,6 @@ export class BetterAuthService {
       }
 
       // Check if email verification is required per system settings
-      const { shouldRequireEmailVerification } = await import('../lib/auth');
       const requireEmailVerification = await shouldRequireEmailVerification();
       
       // If email verification is required but user hasn't verified their email, reject sign-in
@@ -369,8 +393,31 @@ export class BetterAuthService {
     try {
       console.log('Signing up with credentials...');
       
-      // Import the helper function to check email verification requirement
-      const { shouldRequireEmailVerification } = await import('../lib/auth');
+      // Import the helper functions
+      const { 
+        shouldRequireEmailVerification,
+        checkAuthRateLimit,
+        formatRateLimitError 
+      } = await import('../lib/auth');
+
+      // Check rate limit BEFORE attempting signup
+      const rateLimitCheck = await checkAuthRateLimit(credentials.email, 'auth_signup');
+      
+      if (!rateLimitCheck.allowed) {
+        console.warn('Sign-up rate limit exceeded:', {
+          email: credentials.email,
+          attempts: rateLimitCheck.attemptCount,
+          maxAttempts: rateLimitCheck.maxAttempts,
+        });
+        throw new Error(formatRateLimitError(rateLimitCheck));
+      }
+
+      console.log('Rate limit check passed:', {
+        enabled: rateLimitCheck.attemptCount > 0,
+        attempts: rateLimitCheck.attemptCount,
+        maxAttempts: rateLimitCheck.maxAttempts,
+      });
+      
       const requireEmailVerification = await shouldRequireEmailVerification();
       
       console.log('Email verification required:', requireEmailVerification);

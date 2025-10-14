@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.1]
+
+### Added
+
+#### Infrastructure & Security
+- **Supabase Secret Keys Support** - Implemented support for new `sb_secret_...` API key format
+  - Created `lib/supabase-admin.ts` for server-side admin operations with automatic key detection
+  - Auto-detects and prefers new secret keys over legacy JWT-based service_role keys
+  - Full backward compatibility - legacy keys continue to work
+  - Helper functions: `getAdminKeyInfo()`, `validateAdminKey()` for key management
+  - Added `SUPABASE_SECRET_KEY` environment variable support
+  - Updated environment templates with new key format
+  - Comprehensive migration documentation in `SUPABASE_API_KEY_MIGRATION.md`
+  - Step-by-step setup guide in `docs/SUPABASE_SECRET_KEYS_SETUP.md`
+  - Example usage script: `scripts/example-admin-usage.js`
+
+### Changed
+
+#### Security Improvements
+- Enhanced API key security following [Supabase's latest recommendations](https://supabase.com/docs/guides/api/api-keys)
+- Improved key rotation capabilities - can now rotate keys without downtime
+- Better audit trail with logging of which key type is being used
+- Browser detection prevents secret keys from working in client-side contexts
+
+### Technical Details
+
+#### Benefits of New Secret Keys
+- ✅ **Individual rotation** - Rotate keys independently without affecting others
+- ✅ **Zero downtime migration** - Run both old and new keys simultaneously
+- ✅ **Better security** - Not tied to JWT secret, can revoke individual keys
+- ✅ **Mobile friendly** - No app store review delays for key rotation
+- ✅ **Browser protection** - Secret keys won't work in browsers
+
+#### Migration Path
+- Phase 1: Add `SUPABASE_SECRET_KEY` alongside `SUPABASE_SERVICE_ROLE_KEY`
+- Phase 2: Test all server-side scripts and admin operations
+- Phase 3: Remove legacy key when ready (optional)
+
+#### Files Updated
+- `lib/supabase-admin.ts` - NEW admin client with dual key support
+- `env.template` - Added `SUPABASE_SECRET_KEY` configuration
+- `SUPABASE_API_KEY_MIGRATION.md` - Updated with server-side migration guide
+- `docs/SUPABASE_SECRET_KEYS_SETUP.md` - NEW comprehensive setup guide
+- `scripts/example-admin-usage.js` - NEW example script for testing
+
+### Documentation
+
+#### New Documentation
+- Complete migration guide with step-by-step instructions
+- Security best practices for handling secret keys
+- Troubleshooting guide for common issues
+- Visual guides for obtaining keys from Supabase dashboard
+- Zero-downtime migration strategy
+
+---
+
 ## [1.3.0] - 2024-10-13
 
 ### 🎉 Initial Release
@@ -177,9 +233,7 @@ This is the first public release of WizNote on the Google Play Store!
 
 ---
 
-## [Unreleased]
-
-### Planned Features
+## Future Planned Features
 - Image support in notes
 - Handwriting recognition
 - Folders and notebooks

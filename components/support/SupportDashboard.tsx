@@ -18,6 +18,7 @@ import BulkUserManagement from './BulkUserManagement';
 import RealTimeMonitoring from './RealTimeMonitoring';
 import SupportAnalytics from './SupportAnalytics';
 import UserDeletionTool from './UserDeletionTool';
+import PremiumManagement from './PremiumManagement';
 
 interface SupportDashboardProps {
   supportAgentId: string;
@@ -66,17 +67,36 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     
+    console.log('SupportDashboard: Starting search for:', searchQuery);
     setLoading(true);
     try {
       const user = await supportService.searchUser(searchQuery);
+      console.log('SupportDashboard: Search result:', user);
+      
       if (user) {
+        console.log('SupportDashboard: User found, switching to details view');
         setSelectedUser(user);
+        setCurrentView('user-details'); // Switch to user details view
+        
+        if (Platform.OS === 'web') {
+          showSnackbar(`✅ User found: ${user.email}`, 'success');
+        }
       } else {
-        Alert.alert('No Users Found', 'No users found matching your search criteria.');
+        console.log('SupportDashboard: No user found');
+        if (Platform.OS === 'web') {
+          showSnackbar('No users found matching your search criteria', 'error');
+        } else {
+          Alert.alert('No Users Found', 'No users found matching your search criteria.');
+        }
       }
     } catch (error) {
-      console.error('Search error:', error);
-      Alert.alert('Search Error', 'Failed to search for users.');
+      console.error('SupportDashboard: Search error:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to search for users';
+      if (Platform.OS === 'web') {
+        showSnackbar(`Search Error: ${errorMsg}`, 'error');
+      } else {
+        Alert.alert('Search Error', errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -316,6 +336,19 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
               Last Active: {selectedUser.lastActive.toLocaleDateString()}
             </Text>
           </View>
+
+          {/* Premium Management Section */}
+          <PremiumManagement
+            user={selectedUser}
+            supportAgentId={supportAgentId}
+            onPremiumUpdated={async () => {
+              // Refresh user data after premium changes
+              const updatedUser = await supportService.searchUser(selectedUser.email);
+              if (updatedUser) {
+                setSelectedUser(updatedUser);
+              }
+            }}
+          />
 
           {userFeatureStatus && (
             <View style={[styles.statusCard, { backgroundColor: backgroundSecondary, borderColor: borderColor }]}>

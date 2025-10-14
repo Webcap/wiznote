@@ -17,14 +17,16 @@ require('dotenv').config();
 
 // Configuration
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Support both new secret keys (sb_secret_...) and legacy service role keys
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !STRIPE_SECRET_KEY) {
   console.error('❌ Missing required environment variables:');
   console.error('EXPO_PUBLIC_SUPABASE_URL:', SUPABASE_URL ? '✓' : '✗');
-  console.error('SUPABASE_SERVICE_ROLE_KEY:', SUPABASE_SERVICE_KEY ? '✓' : '✗');
+  console.error('SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY):', SUPABASE_SERVICE_KEY ? '✓' : '✗');
   console.error('STRIPE_SECRET_KEY:', STRIPE_SECRET_KEY ? '✓' : '✗');
+  console.error('\n💡 Tip: Get your secret key from Supabase Dashboard → Settings → API');
   process.exit(1);
 }
 
@@ -297,7 +299,7 @@ Examples:
 
 Environment Variables Required:
   EXPO_PUBLIC_SUPABASE_URL
-  SUPABASE_SERVICE_ROLE_KEY
+  SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY for legacy)
   STRIPE_SECRET_KEY
     `);
     process.exit(0);

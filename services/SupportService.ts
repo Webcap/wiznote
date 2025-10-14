@@ -78,36 +78,78 @@ export class SupportService {
     try {
       console.log(`SupportService: Searching for user with query: ${query}`);
 
-      // Check if query looks like an email
+      // First, try using the database function to search by email or name
+      try {
+        const { data: searchResults, error: searchError } = await supabase
+          .rpc('search_users_by_email_or_name', { search_query: query });
+
+        if (!searchError && searchResults && searchResults.length > 0) {
+          const user = searchResults[0];
+          console.log(`SupportService: Found user via RPC:`, user);
+
+          // Now get the full profile
+          const { data: profile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+          if (!profileError && profile) {
+            return {
+              id: profile.id,
+              email: user.email || profile.email || 'Unknown',
+              displayName: profile.display_name || user.display_name || 'Unknown User',
+              createdAt: new Date(profile.created_at || Date.now()),
+              lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
+              premium: profile.premium ? {
+                isActive: profile.premium.isActive || false,
+                planName: profile.premium.planName || profile.premium.type || 'Free',
+                expiresAt: profile.premium.currentPeriodEnd ? new Date(profile.premium.currentPeriodEnd) : undefined,
+              } : {
+                isActive: false,
+                planName: 'Free',
+                expiresAt: undefined,
+              },
+            };
+          }
+        }
+      } catch (rpcError) {
+        console.warn(`SupportService: RPC search failed, falling back to direct search:`, rpcError);
+      }
+
+      // Fallback: Check if email column exists in user_profiles and search directly
       const isEmail = query.includes('@');
-      
       if (isEmail) {
-        // For email searches, we need to find a way to get the user ID
-        // Since we can't use auth.admin methods, let's try a different approach
+        console.log(`SupportService: Email search detected, trying user_profiles.email column for: ${query}`);
         
-        // First, try to find any user profile that might have this email stored somewhere
-        // This is a fallback since the ideal approach (auth.admin) isn't working
-        
-        console.log(`SupportService: Email search detected, trying alternative approach for: ${query}`);
-        
-        // For now, return a mock user since we can't access auth data
-        // In a real implementation, you'd need to either:
-        // 1. Have admin access to use auth.admin methods
-        // 2. Store email in user_profiles table
-        // 3. Use a different search strategy
-        
-        return {
-          id: `mock_${Date.now()}`,
-          email: query,
-          displayName: query.split('@')[0],
-          createdAt: new Date(),
-          lastActive: new Date(),
-          premium: {
-            isActive: false,
-            planName: 'Free',
-            expiresAt: undefined,
-          },
-        };
+        try {
+          const { data: profile, error: emailError } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('email', query)
+            .single();
+
+          if (!emailError && profile) {
+            return {
+              id: profile.id,
+              email: profile.email || query,
+              displayName: profile.display_name || query.split('@')[0],
+              createdAt: new Date(profile.created_at || Date.now()),
+              lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
+              premium: profile.premium ? {
+                isActive: profile.premium.isActive || false,
+                planName: profile.premium.planName || profile.premium.type || 'Free',
+                expiresAt: profile.premium.currentPeriodEnd ? new Date(profile.premium.currentPeriodEnd) : undefined,
+              } : {
+                isActive: false,
+                planName: 'Free',
+                expiresAt: undefined,
+              },
+            };
+          }
+        } catch (emailError) {
+          console.log(`SupportService: Email column search failed:`, emailError);
+        }
       }
 
       // If not an email, try searching by user ID (UUID format)
@@ -122,14 +164,14 @@ export class SupportService {
           if (!profileError && profile) {
             return {
               id: profile.id,
-              email: profile.id, // Use ID as email since we can't get real email
+              email: profile.email || profile.id,
               displayName: profile.display_name || 'Unknown User',
               createdAt: new Date(profile.created_at || Date.now()),
               lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
               premium: profile.premium ? {
                 isActive: profile.premium.isActive || false,
-                planName: profile.premium.type || 'Free',
-                expiresAt: undefined,
+                planName: profile.premium.planName || profile.premium.type || 'Free',
+                expiresAt: profile.premium.currentPeriodEnd ? new Date(profile.premium.currentPeriodEnd) : undefined,
               } : {
                 isActive: false,
                 planName: 'Free',
