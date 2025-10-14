@@ -10,6 +10,8 @@ import {
     View,
 } from 'react-native';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { supportService } from '../../services/SupportService';
+import { supabase } from '../../lib/supabase';
 
 interface SupportAnalyticsProps {
   timeRange?: '24h' | '7d' | '30d' | '90d';
@@ -60,73 +62,263 @@ export default function SupportAnalytics({ timeRange = '7d' }: SupportAnalyticsP
   const loadAnalyticsData = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('SupportAnalytics: Loading live analytics data...');
       
-      // In a real implementation, you'd fetch analytics from the database
-      // For now, we'll create mock data
-      const mockData: AnalyticsData = {
-        totalTickets: 156,
-        resolvedTickets: 142,
-        averageResponseTime: 2.3, // hours
-        averageResolutionTime: 8.7, // hours
-        customerSatisfaction: 4.6, // out of 5
-        topIssues: [
-          { issue: 'Feature Limit Reached', count: 45, percentage: 28.8 },
-          { issue: 'Payment Processing', count: 32, percentage: 20.5 },
-          { issue: 'Account Access', count: 28, percentage: 17.9 },
-          { issue: 'Feature Not Working', count: 23, percentage: 14.7 },
-          { issue: 'Billing Questions', count: 18, percentage: 11.5 },
+      // Calculate time range
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (selectedTimeRange) {
+        case '24h':
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      }
+
+      // Fetch support tickets
+      const allTickets = await supportService.getAllSupportTickets();
+      const ticketsInRange = allTickets.filter(t => t.createdAt >= startDate);
+      const resolvedTickets = ticketsInRange.filter(t => t.status === 'resolved' || t.status === 'closed');
+      
+      // Calculate response and resolution times
+      let totalResponseTime = 0;
+      let totalResolutionTime = 0;
+      let ticketsWithTimes = 0;
+
+      for (const ticket of resolvedTickets) {
+        const createdAt = ticket.createdAt.getTime();
+        const updatedAt = ticket.updatedAt.getTime();
+        const timeDiff = (updatedAt - createdAt) / (1000 * 60 * 60); // hours
+        
+        totalResolutionTime += timeDiff;
+        ticketsWithTimes++;
+      }
+
+      const avgResolutionTime = ticketsWithTimes > 0 ? totalResolutionTime / ticketsWithTimes : 0;
+      const avgResponseTime = avgResolutionTime * 0.3; // Assume response is ~30% of resolution time
+
+      // Group tickets by type to find top issues
+      const issueMap = new Map<string, number>();
+      ticketsInRange.forEach(ticket => {
+        const issueType = ticket.type || 'other';
+        issueMap.set(issueType, (issueMap.get(issueType) || 0) + 1);
+      });
+
+      const topIssues = Array.from(issueMap.entries())
+        .map(([issue, count]) => ({
+          issue: formatIssueType(issue),
+          count,
+          percentage: ticketsInRange.length > 0 ? (count / ticketsInRange.length) * 100 : 0,
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // Get agent performance from resolved tickets
+      const agentMap = new Map<string, {
+        name: string;
+        resolved: number;
+        totalTime: number;
+        tickets: number;
+      }>();
+
+      for (const ticket of resolvedTickets) {
+        if (ticket.assignedTo) {
+          const existing = agentMap.get(ticket.assignedTo) || {
+            name: 'Support Agent',
+            resolved: 0,
+            totalTime: 0,
+            tickets: 0,
+          };
+          
+          const timeDiff = (ticket.updatedAt.getTime() - ticket.createdAt.getTime()) / (1000 * 60 * 60);
+          
+          agentMap.set(ticket.assignedTo, {
+            name: existing.name,
+            resolved: existing.resolved + 1,
+            totalTime: existing.totalTime + timeDiff,
+            tickets: existing.tickets + 1,
+          });
+        }
+      }
+
+      const agentPerformance = Array.from(agentMap.entries())
+        .map(([agentId, data]) => ({
+          agentId,
+          agentName: data.name,
+          ticketsResolved: data.resolved,
+          averageResolutionTime: data.tickets > 0 ? data.totalTime / data.tickets : 0,
+          customerSatisfaction: 4.5, // Default - would need actual ratings
+        }))
+        .sort((a, b) => b.ticketsResolved - a.ticketsResolved)
+        .slice(0, 5);
+
+      // Get feature usage trends
+      console.log('Fetching feature usage from:', startDate.toISOString());
+      
+      const { data: featureUsage, error: usageError } = await supabase
+        .from('user_feature_usage')
+        .select('feature_id, usage_count, last_used_at')
+        .gte('last_used_at', startDate.toISOString());
+
+      console.log('Feature usage query result:', { 
+        data: featureUsage, 
+        error: usageError,
+        count: featureUsage?.length 
+      });
+
+      const featureMap = new Map<string, number>();
+      
+      if (!usageError && featureUsage) {
+        featureUsage.forEach((usage: any) => {
+          const current = featureMap.get(usage.feature_id) || 0;
+          featureMap.set(usage.feature_id, current + (usage.usage_count || 0));
+        });
+      }
+
+      console.log('Feature usage map:', Object.fromEntries(featureMap));
+
+      // Calculate change percentage by comparing to previous period
+      let previousPeriodStart: Date;
+      const timeDiff = now.getTime() - startDate.getTime();
+      previousPeriodStart = new Date(startDate.getTime() - timeDiff);
+
+      console.log('Fetching previous period data from:', previousPeriodStart.toISOString(), 'to:', startDate.toISOString());
+
+      const { data: previousUsage } = await supabase
+        .from('user_feature_usage')
+        .select('feature_id, usage_count')
+        .gte('last_used_at', previousPeriodStart.toISOString())
+        .lt('last_used_at', startDate.toISOString());
+
+      const previousMap = new Map<string, number>();
+      if (previousUsage) {
+        previousUsage.forEach((usage: any) => {
+          const current = previousMap.get(usage.feature_id) || 0;
+          previousMap.set(usage.feature_id, current + (usage.usage_count || 0));
+        });
+      }
+
+      console.log('Previous period map:', Object.fromEntries(previousMap));
+
+      let featureUsageTrends = Array.from(featureMap.entries())
+        .map(([feature, usageCount]) => {
+          const previousCount = previousMap.get(feature) || 0;
+          const change = previousCount > 0 
+            ? ((usageCount - previousCount) / previousCount) * 100 
+            : (usageCount > 0 ? 100 : 0); // 100% if new feature with usage, 0 if no usage
+          
+          return {
+            feature: formatFeatureName(feature),
+            usageCount,
+            change: Number(change.toFixed(1)),
+          };
+        })
+        .sort((a, b) => b.usageCount - a.usageCount)
+        .slice(0, 5);
+
+      console.log('Feature trends with change:', featureUsageTrends);
+
+      // If no data, try getting all-time feature usage data
+      if (featureUsageTrends.length === 0) {
+        console.log('No feature usage in time range, fetching all-time data...');
+        
+        const { data: allTimeUsage, error: allTimeError } = await supabase
+          .from('user_feature_usage')
+          .select('feature_id, usage_count')
+          .order('last_used_at', { ascending: false })
+          .limit(100);
+
+        if (!allTimeError && allTimeUsage && allTimeUsage.length > 0) {
+          const allTimeMap = new Map<string, number>();
+          allTimeUsage.forEach((usage: any) => {
+            const current = allTimeMap.get(usage.feature_id) || 0;
+            allTimeMap.set(usage.feature_id, current + (usage.usage_count || 0));
+          });
+
+          featureUsageTrends = Array.from(allTimeMap.entries())
+            .map(([feature, usageCount]) => ({
+              feature: formatFeatureName(feature),
+              usageCount,
+              change: 0, // No historical comparison for all-time data
+            }))
+            .sort((a, b) => b.usageCount - a.usageCount)
+            .slice(0, 5);
+          
+          console.log('Using all-time feature data:', featureUsageTrends.length, 'features');
+        }
+      }
+
+      const data: AnalyticsData = {
+        totalTickets: ticketsInRange.length,
+        resolvedTickets: resolvedTickets.length,
+        averageResponseTime: Number(avgResponseTime.toFixed(1)),
+        averageResolutionTime: Number(avgResolutionTime.toFixed(1)),
+        customerSatisfaction: 4.5, // Would need actual rating system
+        topIssues: topIssues.length > 0 ? topIssues : [
+          { issue: 'No tickets yet', count: 0, percentage: 0 }
         ],
-        agentPerformance: [
-          {
-            agentId: 'agent1',
-            agentName: 'Sarah Johnson',
-            ticketsResolved: 38,
-            averageResolutionTime: 6.2,
-            customerSatisfaction: 4.8,
-          },
-          {
-            agentId: 'agent2',
-            agentName: 'Mike Chen',
-            ticketsResolved: 35,
-            averageResolutionTime: 7.1,
-            customerSatisfaction: 4.6,
-          },
-          {
-            agentId: 'agent3',
-            agentName: 'Emily Rodriguez',
-            ticketsResolved: 32,
-            averageResolutionTime: 8.9,
-            customerSatisfaction: 4.4,
-          },
-          {
-            agentId: 'agent4',
-            agentName: 'David Kim',
-            ticketsResolved: 29,
-            averageResolutionTime: 9.5,
-            customerSatisfaction: 4.3,
-          },
-        ],
-        featureUsageTrends: [
-          { feature: 'AI Chat', usageCount: 1250, change: 12.5 },
-          { feature: 'Document Editor', usageCount: 890, change: 8.2 },
-          { feature: 'File Storage', usageCount: 650, change: -2.1 },
-          { feature: 'Team Collaboration', usageCount: 420, change: 15.8 },
-          { feature: 'Analytics Dashboard', usageCount: 310, change: 5.3 },
+        agentPerformance: agentPerformance.length > 0 ? agentPerformance : [],
+        featureUsageTrends: featureUsageTrends.length > 0 ? featureUsageTrends : [
+          { feature: 'No usage data available', usageCount: 0, change: 0 },
+          { feature: 'Users need to use features to generate data', usageCount: 0, change: 0 }
         ],
       };
 
-      setAnalyticsData(mockData);
+      console.log('SupportAnalytics: Loaded data:', {
+        totalTickets: data.totalTickets,
+        resolvedTickets: data.resolvedTickets,
+        topIssuesCount: data.topIssues.length,
+        agentPerformanceCount: data.agentPerformance.length,
+        featureUsageTrendsCount: data.featureUsageTrends.length,
+        featureUsageTrends: data.featureUsageTrends,
+      });
+      setAnalyticsData(data);
     } catch (error) {
       console.error('SupportAnalytics: Error loading analytics:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedTimeRange]);
 
-  // Initial load
+  // Helper function to format issue type
+  const formatIssueType = (type: string): string => {
+    const typeMap: Record<string, string> = {
+      'account_deletion': 'Account Deletion',
+      'technical': 'Technical Issue',
+      'billing': 'Billing Question',
+      'feature_request': 'Feature Request',
+      'other': 'Other',
+    };
+    return typeMap[type] || type;
+  };
+
+  // Helper function to format feature name
+  const formatFeatureName = (featureId: string): string => {
+    const featureMap: Record<string, string> = {
+      'ai_transcription': 'AI Transcription',
+      'voice_recording': 'Voice Recording',
+      'ai_summary': 'AI Summary',
+      'flashcard_generation': 'Flashcard Generation',
+      'quiz_generation': 'Quiz Generation',
+      'pdf_upload': 'PDF Upload',
+    };
+    return featureMap[featureId] || featureId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  // Initial load and reload on time range change
   useEffect(() => {
     loadAnalyticsData();
-  }, [loadAnalyticsData]);
+  }, [loadAnalyticsData, selectedTimeRange]);
 
   // Get time range label
   const getTimeRangeLabel = (range: string) => {

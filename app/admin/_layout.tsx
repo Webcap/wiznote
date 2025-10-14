@@ -8,6 +8,8 @@ export default function AdminLayout() {
       <Stack.Screen name="feature-limits" />
       <Stack.Screen name="usage-stats" />
       <Stack.Screen name="support" />
+      <Stack.Screen name="analytics" />
+      <Stack.Screen name="system-settings" />
     </Stack>
   );
 } 

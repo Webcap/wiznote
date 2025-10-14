@@ -73,6 +73,13 @@ CREATE POLICY "Admins can update tickets"
       WHERE id = auth.uid()
       AND (role = 'admin' OR role = 'support')
     )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM user_profiles
+      WHERE id = auth.uid()
+      AND (role = 'admin' OR role = 'support')
+    )
   );
 
 -- Policy: Only admins can delete tickets

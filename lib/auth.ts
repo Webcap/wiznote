@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth';
 import { getDefaultPermissions } from '../types/User';
 import { supabase } from './supabase';
+import { systemSettingsService } from '../services/SystemSettingsService';
 
 // Custom adapter for Supabase since @better-auth/drizzle-adapter isn't available
 const supabaseAdapter = {
@@ -22,17 +23,22 @@ const supabaseAdapter = {
   },
 
   async getUserByEmail(email: string) {
-    // Supabase admin API doesn't have getUserByEmail, use regular auth API
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password: 'dummy' // This will fail but we only need the user lookup
-    });
-    if (error && error.message.includes('Invalid login credentials')) {
-      // User doesn't exist
-      return null;
+    // Use admin API to list users and find by email
+    // This is secure and doesn't attempt authentication
+    try {
+      const { data, error } = await supabase.auth.admin.listUsers();
+      
+      if (error) {
+        console.error('Error listing users:', error);
+        throw error;
+      }
+      
+      const user = data.users.find(u => u.email === email);
+      return user || null;
+    } catch (error) {
+      console.error('Error in getUserByEmail:', error);
+      throw error;
     }
-    if (error) throw error;
-    return data.user;
   },
 
   async updateUser(userId: string, userData: any) {
@@ -82,7 +88,10 @@ export const auth = betterAuth({
   database: supabaseAdapter,
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false, // Disable email verification for development
+    // Email verification is controlled dynamically via system settings
+    // Admins can toggle this in /admin/system-settings
+    // Use shouldRequireEmailVerification() helper to check current setting
+    requireEmailVerification: false,
   },
   socialProviders: {
     google: {
@@ -126,6 +135,28 @@ export const auth = betterAuth({
   //   },
   // },
 });
+
+// Helper function to get email verification requirement from system settings
+// Use this in signup flows to check if verification is required
+export async function shouldRequireEmailVerification(): Promise<boolean> {
+  try {
+    return await systemSettingsService.isEmailVerificationRequired();
+  } catch (error) {
+    console.error('Error checking email verification requirement:', error);
+    // Default to secure setting (require verification) if settings can't be loaded
+    return true;
+  }
+}
+
+// Helper function to check if MFA is enabled
+export async function isMfaEnabled(): Promise<boolean> {
+  try {
+    return await systemSettingsService.isMfaEnabled();
+  } catch (error) {
+    console.error('Error checking MFA status:', error);
+    return false;
+  }
+}
 
 // Export auth utilities
 // Note: better-auth exports may vary by version

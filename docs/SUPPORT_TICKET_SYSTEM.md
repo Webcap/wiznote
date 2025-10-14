@@ -6,17 +6,23 @@ WizNote now has an integrated support ticket system for handling account deletio
 
 ## Setup
 
-### 1. Create the Database Table
+### 1. Create the Database Tables and Functions
 
-Run the SQL setup file in your Supabase SQL editor:
+Run these SQL setup files in your Supabase SQL editor **in order**:
 
 ```sql
--- Run this file:
+-- File 1: Create support tickets table
 database/support-tickets-setup.sql
+
+-- File 2: Create user deletion functions
+database/delete-auth-user-function.sql
 ```
 
 This creates:
 - `support_tickets` table
+- `user_deletion_audit` table (audit log)
+- `delete_auth_user()` function (deletes from auth.users)
+- `log_user_deletion()` function (creates audit trail)
 - Indexes for performance
 - Row Level Security policies
 - Auto-update triggers

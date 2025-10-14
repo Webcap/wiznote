@@ -3,6 +3,7 @@ import { useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -11,23 +12,27 @@ import {
     View,
 } from 'react-native';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { useSnackbar } from '../../contexts/SnackbarContext';
 import { FeatureLimitDebugInfo, LimitOverride, supportService, UserFeatureStatus, UserProfile } from '../../services/SupportService';
 import BulkUserManagement from './BulkUserManagement';
 import RealTimeMonitoring from './RealTimeMonitoring';
 import SupportAnalytics from './SupportAnalytics';
+import UserDeletionTool from './UserDeletionTool';
 
 interface SupportDashboardProps {
   supportAgentId: string;
 }
 
 export default function SupportDashboard({ supportAgentId }: SupportDashboardProps) {
+  const { showSnackbar } = useSnackbar();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userFeatureStatus, setUserFeatureStatus] = useState<UserFeatureStatus | null>(null);
   const [activeOverrides, setActiveOverrides] = useState<LimitOverride[]>([]);
   const [debugInfo, setDebugInfo] = useState<FeatureLimitDebugInfo | null>(null);
   const [loading, setLoading] = useState(false);
-  const [currentView, setCurrentView] = useState<'search' | 'user-details' | 'overrides' | 'debug' | 'real-time' | 'bulk-management' | 'analytics' | 'tickets'>('search');
+  const [updatingTicket, setUpdatingTicket] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<'search' | 'user-details' | 'overrides' | 'debug' | 'real-time' | 'bulk-management' | 'analytics' | 'tickets' | 'user-deletion'>('search');
   const [supportTickets, setSupportTickets] = useState<any[]>([]);
 
   // Theme colors
@@ -269,7 +274,16 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
           >
             <Ionicons name="mail" size={32} color={accentDanger} />
             <Text style={[styles.navCardTitle, { color: textColor }]}>Support Tickets</Text>
-            <Text style={[styles.navCardSubtitle, { color: textSecondary }]}>View deletion requests</Text>
+            <Text style={[styles.navCardSubtitle, { color: textSecondary }]}>View all tickets</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.navCard, { backgroundColor: backgroundColor, borderColor: borderColor }]}
+            onPress={() => setCurrentView('user-deletion')}
+          >
+            <Ionicons name="trash-bin" size={32} color={accentDanger} />
+            <Text style={[styles.navCardTitle, { color: textColor }]}>Account Deletion</Text>
+            <Text style={[styles.navCardSubtitle, { color: textSecondary }]}>Process deletion requests</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -424,6 +438,9 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
   );
 
   const handleUpdateTicketStatus = async (ticketId: string, newStatus: string) => {
+    console.log('Updating ticket:', ticketId, 'to status:', newStatus);
+    setUpdatingTicket(ticketId);
+    
     try {
       await supportService.updateTicketStatus(
         ticketId,
@@ -434,14 +451,35 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
         }
       );
       
+      console.log('Ticket updated successfully, refreshing list...');
+      
       // Refresh tickets
       const tickets = await supportService.getAllSupportTickets();
+      console.log('Tickets refreshed:', tickets.length);
       setSupportTickets(tickets);
       
-      Alert.alert('Success', 'Ticket status updated successfully');
+      // Show success message
+      const message = 'Ticket status updated successfully';
+      if (Platform.OS === 'web') {
+        showSnackbar(message, 'success', 3000);
+      } else {
+        Alert.alert('Success', message);
+      }
     } catch (error) {
-      console.error('Error updating ticket:', error);
-      Alert.alert('Error', 'Failed to update ticket status');
+      console.error('Error updating ticket - Full error object:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error keys:', error ? Object.keys(error) : 'null');
+      
+      const errorMsg = error instanceof Error ? error.message : 'Failed to update ticket status';
+      console.error('Error message:', errorMsg);
+      
+      if (Platform.OS === 'web') {
+        showSnackbar(`Error: ${errorMsg}`, 'error', 8000);
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
+    } finally {
+      setUpdatingTicket(null);
     }
   };
 
@@ -519,24 +557,39 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
                   <TouchableOpacity
                     style={[styles.ticketActionButton, { backgroundColor: accentWarning }]}
                     onPress={() => handleUpdateTicketStatus(ticket.id, 'in_progress')}
+                    disabled={updatingTicket === ticket.id}
                   >
-                    <Text style={styles.ticketActionButtonText}>Start Processing</Text>
+                    {updatingTicket === ticket.id ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.ticketActionButtonText}>Start Processing</Text>
+                    )}
                   </TouchableOpacity>
                 )}
                 {ticket.status === 'in_progress' && (
                   <TouchableOpacity
                     style={[styles.ticketActionButton, { backgroundColor: accentSuccess }]}
                     onPress={() => handleUpdateTicketStatus(ticket.id, 'resolved')}
+                    disabled={updatingTicket === ticket.id}
                   >
-                    <Text style={styles.ticketActionButtonText}>Mark Resolved</Text>
+                    {updatingTicket === ticket.id ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.ticketActionButtonText}>Mark Resolved</Text>
+                    )}
                   </TouchableOpacity>
                 )}
-                {ticket.status !== 'cancelled' && (
+                {ticket.status !== 'cancelled' && ticket.status !== 'resolved' && (
                   <TouchableOpacity
                     style={[styles.ticketActionButton, { backgroundColor: accentDanger }]}
                     onPress={() => handleUpdateTicketStatus(ticket.id, 'cancelled')}
+                    disabled={updatingTicket === ticket.id}
                   >
-                    <Text style={styles.ticketActionButtonText}>Cancel</Text>
+                    {updatingTicket === ticket.id ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.ticketActionButtonText}>Cancel</Text>
+                    )}
                   </TouchableOpacity>
                 )}
               </View>
@@ -600,6 +653,22 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
       case 'tickets':
         return renderTicketsView();
       
+      case 'user-deletion':
+        return (
+          <View style={[styles.container, { backgroundColor }]}>
+            <View style={[styles.header, { backgroundColor: backgroundSecondary, borderBottomColor: borderColor }]}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => setCurrentView('search')}
+              >
+                <Ionicons name="arrow-back" size={24} color={accentPrimary} />
+              </TouchableOpacity>
+              <Text style={[styles.title, { color: textColor }]}>Account Deletion Requests</Text>
+            </View>
+            <UserDeletionTool supportAgentId={supportAgentId} />
+          </View>
+        );
+      
       default:
         return null;
     }
@@ -611,7 +680,7 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
       {currentView === 'user-details' && renderUserDetailsView()}
       {currentView === 'overrides' && renderOverridesView()}
       {currentView === 'debug' && renderDebugView()}
-      {(currentView === 'real-time' || currentView === 'bulk-management' || currentView === 'analytics' || currentView === 'tickets') && renderPhase2View()}
+      {(currentView === 'real-time' || currentView === 'bulk-management' || currentView === 'analytics' || currentView === 'tickets' || currentView === 'user-deletion') && renderPhase2View()}
     </View>
   );
 }

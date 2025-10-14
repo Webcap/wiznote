@@ -387,13 +387,11 @@ export default function AdminDashboardScreen() {
   };
 
   const handleSystemSettings = () => {
-    // TODO: Implement system settings
-    console.log('AdminDashboard: System settings clicked');
+    router.push('/admin/system-settings');
   };
 
   const handleAnalytics = () => {
-    // TODO: Implement analytics
-    console.log('AdminDashboard: Analytics clicked');
+    router.push('/admin/analytics');
   };
 
   const handleSupportTools = () => {
