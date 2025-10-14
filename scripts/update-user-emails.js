@@ -4,9 +4,18 @@
 const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Supabase with service role key for admin access
+// IMPORTANT: Never commit your service role key to git!
+// Set these as environment variables before running this script
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('❌ ERROR: Missing required environment variables!');
+  console.error('Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
+  console.error('Example: SUPABASE_URL=https://xxx.supabase.co SUPABASE_SERVICE_ROLE_KEY=xxx node scripts/update-user-emails.js');
+  process.exit(1);
+}
+
 const supabase = createClient(
-  process.env.SUPABASE_URL || 'https://kmzubtegijexwguadyfw.supabase.co',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttenVidGVnaWpleHdndWFkeWZ3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNzI5NjY3NSwiZXhwIjoyMDUyODcyNjc1fQ.XiG5kHZ5cL8qHdQ2oGvP8K9L0M1N2O3P4Q5R6S7T8U9V0W1X2Y3Z4A5B6C7D8E9F0'
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 async function updateUserEmails() {
