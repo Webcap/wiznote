@@ -138,10 +138,18 @@ export default function PrivacyPolicyScreen() {
               your information only in the following circumstances:
             </ThemedText>
             <ThemedText style={[styles.webSectionContent, { color: textColor }]}>
-              • With your explicit consent (e.g., when you share a note with another user)
-              • With service providers who assist us in operating our application (under strict confidentiality agreements)
-              • When required by law or to protect our rights and safety
+              • With your explicit consent (e.g., when you share a note with another user){'\n'}
+              • With service providers who assist us in operating our application (under strict confidentiality agreements):{'\n'}
+                - Supabase: Cloud hosting, database, and authentication services{'\n'}
+                - Stripe: Payment processing for Premium subscriptions (collects payment info, device identifiers for fraud prevention){'\n'}
+                - Google Gemini: AI processing for transcription, summaries, and content generation{'\n'}
+              • When required by law or to protect our rights and safety{'\n'}
               • In connection with a business transfer or acquisition
+            </ThemedText>
+            <ThemedText style={[styles.webSectionContent, { color: textColor }]}>
+              Note: Stripe, our payment processor, automatically collects device identifiers and network 
+              information to prevent fraud and ensure secure transactions. This is a standard security 
+              practice required by payment processors.
             </ThemedText>
 
             <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>
@@ -341,9 +349,16 @@ export default function PrivacyPolicyScreen() {
           We do not sell, trade, or rent your personal information to third parties. We may share 
           your information only in the following circumstances:{'\n'}
           • With your explicit consent (e.g., when you share a note with another user){'\n'}
-          • With service providers who assist us in operating our application (under strict confidentiality agreements){'\n'}
+          • With service providers who assist us in operating our application (under strict confidentiality agreements):{'\n'}
+            - Supabase: Cloud hosting, database, and authentication services{'\n'}
+            - Stripe: Payment processing for Premium subscriptions (collects payment info, device identifiers for fraud prevention){'\n'}
+            - Google Gemini: AI processing for transcription, summaries, and content generation{'\n'}
           • When required by law or to protect our rights and safety{'\n'}
-          • In connection with a business transfer or acquisition
+          • In connection with a business transfer or acquisition{'\n'}
+          {'\n'}
+          Note: Stripe, our payment processor, automatically collects device identifiers and network 
+          information to prevent fraud and ensure secure transactions. This is a standard security 
+          practice required by payment processors.
         </ThemedText>
 
         <ThemedText style={[styles.mobileSectionTitle, { color: textColor }]}>

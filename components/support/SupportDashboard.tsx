@@ -3,6 +3,7 @@ import { useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -11,23 +12,28 @@ import {
     View,
 } from 'react-native';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { useSnackbar } from '../../contexts/SnackbarContext';
 import { FeatureLimitDebugInfo, LimitOverride, supportService, UserFeatureStatus, UserProfile } from '../../services/SupportService';
 import BulkUserManagement from './BulkUserManagement';
 import RealTimeMonitoring from './RealTimeMonitoring';
 import SupportAnalytics from './SupportAnalytics';
+import UserDeletionTool from './UserDeletionTool';
 
 interface SupportDashboardProps {
   supportAgentId: string;
 }
 
 export default function SupportDashboard({ supportAgentId }: SupportDashboardProps) {
+  const { showSnackbar } = useSnackbar();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userFeatureStatus, setUserFeatureStatus] = useState<UserFeatureStatus | null>(null);
   const [activeOverrides, setActiveOverrides] = useState<LimitOverride[]>([]);
   const [debugInfo, setDebugInfo] = useState<FeatureLimitDebugInfo | null>(null);
   const [loading, setLoading] = useState(false);
-  const [currentView, setCurrentView] = useState<'search' | 'user-details' | 'overrides' | 'debug' | 'real-time' | 'bulk-management' | 'analytics'>('search');
+  const [updatingTicket, setUpdatingTicket] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<'search' | 'user-details' | 'overrides' | 'debug' | 'real-time' | 'bulk-management' | 'analytics' | 'tickets' | 'user-deletion'>('search');
+  const [supportTickets, setSupportTickets] = useState<any[]>([]);
 
   // Theme colors
   const backgroundColor = useThemeColor({}, 'background');
@@ -249,6 +255,36 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
             <Text style={[styles.navCardTitle, { color: textColor }]}>Debug Tools</Text>
             <Text style={[styles.navCardSubtitle, { color: textSecondary }]}>Troubleshoot issues</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.navCard, { backgroundColor: backgroundColor, borderColor: borderColor }]}
+            onPress={async () => {
+              setLoading(true);
+              try {
+                const tickets = await supportService.getAllSupportTickets();
+                setSupportTickets(tickets);
+                setCurrentView('tickets');
+              } catch (error) {
+                console.error('Error loading tickets:', error);
+                Alert.alert('Error', 'Failed to load support tickets');
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            <Ionicons name="mail" size={32} color={accentDanger} />
+            <Text style={[styles.navCardTitle, { color: textColor }]}>Support Tickets</Text>
+            <Text style={[styles.navCardSubtitle, { color: textSecondary }]}>View all tickets</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.navCard, { backgroundColor: backgroundColor, borderColor: borderColor }]}
+            onPress={() => setCurrentView('user-deletion')}
+          >
+            <Ionicons name="trash-bin" size={32} color={accentDanger} />
+            <Text style={[styles.navCardTitle, { color: textColor }]}>Account Deletion</Text>
+            <Text style={[styles.navCardSubtitle, { color: textSecondary }]}>Process deletion requests</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -401,6 +437,169 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
     </View>
   );
 
+  const handleUpdateTicketStatus = async (ticketId: string, newStatus: string) => {
+    console.log('Updating ticket:', ticketId, 'to status:', newStatus);
+    setUpdatingTicket(ticketId);
+    
+    try {
+      await supportService.updateTicketStatus(
+        ticketId,
+        newStatus as any,
+        {
+          assignedTo: supportAgentId,
+          resolvedBy: newStatus === 'resolved' ? supportAgentId : undefined,
+        }
+      );
+      
+      console.log('Ticket updated successfully, refreshing list...');
+      
+      // Refresh tickets
+      const tickets = await supportService.getAllSupportTickets();
+      console.log('Tickets refreshed:', tickets.length);
+      setSupportTickets(tickets);
+      
+      // Show success message
+      const message = 'Ticket status updated successfully';
+      if (Platform.OS === 'web') {
+        showSnackbar(message, 'success', 3000);
+      } else {
+        Alert.alert('Success', message);
+      }
+    } catch (error) {
+      console.error('Error updating ticket - Full error object:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error keys:', error ? Object.keys(error) : 'null');
+      
+      const errorMsg = error instanceof Error ? error.message : 'Failed to update ticket status';
+      console.error('Error message:', errorMsg);
+      
+      if (Platform.OS === 'web') {
+        showSnackbar(`Error: ${errorMsg}`, 'error', 8000);
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
+    } finally {
+      setUpdatingTicket(null);
+    }
+  };
+
+  const renderTicketsView = () => (
+    <View style={[styles.container, { backgroundColor }]}>
+      <View style={[styles.header, { backgroundColor: backgroundSecondary, borderBottomColor: borderColor }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => setCurrentView('search')}
+        >
+          <Ionicons name="arrow-back" size={24} color={accentPrimary} />
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: textColor }]}>Support Tickets ({supportTickets.length})</Text>
+      </View>
+
+      <ScrollView style={styles.content}>
+        {supportTickets.length === 0 ? (
+          <View style={styles.noData}>
+            <Ionicons name="mail-outline" size={64} color={textSecondary} />
+            <Text style={[styles.noDataText, { color: textSecondary }]}>No support tickets yet</Text>
+          </View>
+        ) : (
+          supportTickets.map((ticket, index) => (
+            <View key={index} style={[styles.ticketCard, { backgroundColor: backgroundSecondary, borderColor: borderColor }]}>
+              <View style={styles.ticketHeader}>
+                <View style={styles.ticketHeaderLeft}>
+                  <View style={[
+                    styles.typeBadge,
+                    { backgroundColor: ticket.type === 'account_deletion' ? accentDanger : accentPrimary }
+                  ]}>
+                    <Text style={styles.typeBadgeText}>{ticket.type.toUpperCase()}</Text>
+                  </View>
+                  <View style={[
+                    styles.statusBadge,
+                    { 
+                      backgroundColor: 
+                        ticket.status === 'resolved' ? accentSuccess :
+                        ticket.status === 'in_progress' ? accentWarning :
+                        ticket.status === 'pending' ? accentPrimary :
+                        textSecondary
+                    }
+                  ]}>
+                    <Text style={styles.statusBadgeText}>{ticket.status.toUpperCase()}</Text>
+                  </View>
+                  <View style={[
+                    styles.priorityBadge,
+                    { 
+                      backgroundColor: 
+                        ticket.priority === 'high' || ticket.priority === 'urgent' ? accentDanger :
+                        ticket.priority === 'medium' ? accentWarning :
+                        textSecondary
+                    }
+                  ]}>
+                    <Text style={styles.priorityBadgeText}>{ticket.priority.toUpperCase()}</Text>
+                  </View>
+                </View>
+              </View>
+              
+              <Text style={[styles.ticketSubject, { color: textColor }]}>{ticket.subject}</Text>
+              <Text style={[styles.ticketEmail, { color: textSecondary }]}>From: {ticket.userEmail}</Text>
+              <Text style={[styles.ticketId, { color: textSecondary }]}>Ticket ID: {ticket.id}</Text>
+              
+              {ticket.description && (
+                <Text style={[styles.ticketDescription, { color: textSecondary }]} numberOfLines={3}>
+                  {ticket.description}
+                </Text>
+              )}
+              
+              <Text style={[styles.ticketDate, { color: textSecondary }]}>
+                Created: {ticket.createdAt.toLocaleString()}
+              </Text>
+
+              <View style={styles.ticketActions}>
+                {ticket.status === 'pending' && (
+                  <TouchableOpacity
+                    style={[styles.ticketActionButton, { backgroundColor: accentWarning }]}
+                    onPress={() => handleUpdateTicketStatus(ticket.id, 'in_progress')}
+                    disabled={updatingTicket === ticket.id}
+                  >
+                    {updatingTicket === ticket.id ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.ticketActionButtonText}>Start Processing</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+                {ticket.status === 'in_progress' && (
+                  <TouchableOpacity
+                    style={[styles.ticketActionButton, { backgroundColor: accentSuccess }]}
+                    onPress={() => handleUpdateTicketStatus(ticket.id, 'resolved')}
+                    disabled={updatingTicket === ticket.id}
+                  >
+                    {updatingTicket === ticket.id ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.ticketActionButtonText}>Mark Resolved</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+                {ticket.status !== 'cancelled' && ticket.status !== 'resolved' && (
+                  <TouchableOpacity
+                    style={[styles.ticketActionButton, { backgroundColor: accentDanger }]}
+                    onPress={() => handleUpdateTicketStatus(ticket.id, 'cancelled')}
+                    disabled={updatingTicket === ticket.id}
+                  >
+                    {updatingTicket === ticket.id ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.ticketActionButtonText}>Cancel</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          ))
+        )}
+      </ScrollView>
+    </View>
+  );
+
   const renderPhase2View = () => {
     switch (currentView) {
       case 'real-time':
@@ -451,6 +650,25 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
           </View>
         );
       
+      case 'tickets':
+        return renderTicketsView();
+      
+      case 'user-deletion':
+        return (
+          <View style={[styles.container, { backgroundColor }]}>
+            <View style={[styles.header, { backgroundColor: backgroundSecondary, borderBottomColor: borderColor }]}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => setCurrentView('search')}
+              >
+                <Ionicons name="arrow-back" size={24} color={accentPrimary} />
+              </TouchableOpacity>
+              <Text style={[styles.title, { color: textColor }]}>Account Deletion Requests</Text>
+            </View>
+            <UserDeletionTool supportAgentId={supportAgentId} />
+          </View>
+        );
+      
       default:
         return null;
     }
@@ -462,7 +680,7 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
       {currentView === 'user-details' && renderUserDetailsView()}
       {currentView === 'overrides' && renderOverridesView()}
       {currentView === 'debug' && renderDebugView()}
-      {(currentView === 'real-time' || currentView === 'bulk-management' || currentView === 'analytics') && renderPhase2View()}
+      {(currentView === 'real-time' || currentView === 'bulk-management' || currentView === 'analytics' || currentView === 'tickets' || currentView === 'user-deletion') && renderPhase2View()}
     </View>
   );
 }
@@ -700,5 +918,95 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 8,
     fontFamily: 'monospace',
+  },
+  ticketCard: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  ticketHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  ticketHeaderLeft: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  typeBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  statusBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  priorityBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  ticketSubject: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  ticketEmail: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  ticketId: {
+    fontSize: 12,
+    marginBottom: 8,
+    fontFamily: 'monospace',
+  },
+  ticketDescription: {
+    fontSize: 14,
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  ticketDate: {
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  ticketActions: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  ticketActionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  ticketActionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

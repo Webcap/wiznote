@@ -116,15 +116,14 @@ export function checkAppInstalled(
  * Get the app store URL based on platform
  */
 export function getAppStoreUrl(mobileInfo: MobileInfo): string | null {
-  // Replace these with your actual App Store URLs
   if (mobileInfo.isIOS || mobileInfo.isIPad) {
-    // Replace with your actual App Store ID
+    // iOS App Store - Coming soon
     return 'https://apps.apple.com/app/wiznote/id123456789';
   }
   
   if (mobileInfo.isAndroid) {
-    // Replace with your actual package name
-    return 'https://play.google.com/store/apps/details?id=com.wiznote.app';
+    // Android Google Play Store - LIVE
+    return 'https://play.google.com/store/apps/details?id=com.WizNote.app';
   }
   
   return null;

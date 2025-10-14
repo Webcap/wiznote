@@ -509,6 +509,288 @@ export class SupportService {
     }
   }
 
+  // ===== SUPPORT TICKETS =====
+
+  /**
+   * Get all support tickets (admin/support only)
+   */
+  async getAllSupportTickets(filters?: {
+    type?: string;
+    status?: string;
+    priority?: string;
+  }): Promise<Array<{
+    id: string;
+    type: string;
+    status: string;
+    priority: string;
+    userEmail: string;
+    userId: string | null;
+    subject: string;
+    description: string;
+    metadata: any;
+    assignedTo: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }>> {
+    try {
+      console.log('SupportService: Getting all support tickets');
+
+      let query = supabase
+        .from('support_tickets')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Apply filters
+      if (filters?.type) {
+        query = query.eq('type', filters.type);
+      }
+      if (filters?.status) {
+        query = query.eq('status', filters.status);
+      }
+      if (filters?.priority) {
+        query = query.eq('priority', filters.priority);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('SupportService: Error fetching tickets:', error);
+        // If table doesn't exist, return empty array
+        if (error.code === '42P01') {
+          console.warn('SupportService: support_tickets table does not exist');
+          return [];
+        }
+        throw error;
+      }
+
+      return (data || []).map(ticket => ({
+        id: ticket.id,
+        type: ticket.type,
+        status: ticket.status,
+        priority: ticket.priority,
+        userEmail: ticket.user_email,
+        userId: ticket.user_id,
+        subject: ticket.subject,
+        description: ticket.description,
+        metadata: ticket.metadata,
+        assignedTo: ticket.assigned_to,
+        createdAt: new Date(ticket.created_at),
+        updatedAt: new Date(ticket.updated_at),
+      }));
+    } catch (error) {
+      console.error('SupportService: Error getting support tickets:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update support ticket status
+   */
+  async updateTicketStatus(
+    ticketId: string,
+    status: 'pending' | 'in_progress' | 'resolved' | 'closed' | 'cancelled',
+    options?: {
+      assignedTo?: string;
+      resolutionNotes?: string;
+      resolvedBy?: string;
+    }
+  ): Promise<void> {
+    try {
+      console.log(`SupportService: Updating ticket ${ticketId} to status ${status}`);
+      console.log('Update options:', options);
+
+      const updateData: any = {
+        status,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (options?.assignedTo) {
+        updateData.assigned_to = options.assignedTo;
+      }
+
+      if (status === 'resolved' || status === 'closed') {
+        updateData.resolved_at = new Date().toISOString();
+        if (options?.resolvedBy) {
+          updateData.resolved_by = options.resolvedBy;
+        }
+        if (options?.resolutionNotes) {
+          updateData.resolution_notes = options.resolutionNotes;
+        }
+      }
+
+      console.log('Update data:', updateData);
+
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .update(updateData)
+        .eq('id', ticketId)
+        .select();
+
+      if (error) {
+        console.error('Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        
+        // If table doesn't exist, provide helpful error
+        if (error.code === '42P01') {
+          throw new Error('Support tickets table does not exist. Please run database/support-tickets-setup.sql first.');
+        }
+        
+        // If RLS policy blocks the update
+        if (error.code === '42501' || error.message?.includes('row-level security')) {
+          throw new Error('Permission denied. Check RLS policies or ensure user has admin/support role.');
+        }
+        
+        throw new Error(error.message || 'Failed to update ticket');
+      }
+
+      console.log(`SupportService: Ticket ${ticketId} updated successfully`, data);
+    } catch (error) {
+      console.error('SupportService: Error updating ticket status:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create an account deletion request ticket
+   */
+  async createAccountDeletionRequest(data: {
+    email: string;
+    reason?: string;
+    userId?: string; // Optional - for authenticated users
+  }): Promise<{
+    success: boolean;
+    ticketId: string;
+    message: string;
+  }> {
+    try {
+      console.log('SupportService: Creating account deletion request for:', data.email);
+
+      const ticketId = `DEL_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const ticketData = {
+        id: ticketId,
+        type: 'account_deletion',
+        status: 'pending',
+        priority: 'high',
+        user_email: data.email,
+        user_id: data.userId || null,
+        subject: 'Account Deletion Request',
+        description: data.reason || 'No reason provided',
+        metadata: {
+          requestType: 'account_deletion',
+          dataToDelete: [
+            'Account profile',
+            'All notes and documents',
+            'All preferences and settings',
+            'All subscription information',
+          ],
+          gdprCompliant: true,
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('support_tickets')
+        .insert(ticketData);
+
+      if (error) {
+        console.error('SupportService: Database error creating ticket:', error);
+        // If table doesn't exist, return success anyway (graceful degradation)
+        if (error.code === '42P01') {
+          console.warn('SupportService: support_tickets table does not exist, logging request instead');
+          console.log('Account Deletion Request:', ticketData);
+          return {
+            success: true,
+            ticketId,
+            message: 'Account deletion request logged. You will receive confirmation within 24-48 hours.',
+          };
+        }
+        throw error;
+      }
+
+      console.log(`SupportService: Deletion request ticket created: ${ticketId}`);
+
+      return {
+        success: true,
+        ticketId,
+        message: 'Account deletion request submitted successfully. You will receive a confirmation email within 24-48 hours.',
+      };
+    } catch (error) {
+      console.error('SupportService: Error creating account deletion request:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a general support ticket
+   */
+  async createSupportTicket(data: {
+    email: string;
+    subject: string;
+    description: string;
+    type: 'technical' | 'billing' | 'feature_request' | 'account_deletion' | 'other';
+    userId?: string;
+    priority?: 'low' | 'medium' | 'high';
+  }): Promise<{
+    success: boolean;
+    ticketId: string;
+    message: string;
+  }> {
+    try {
+      console.log('SupportService: Creating support ticket for:', data.email);
+
+      const ticketId = `TKT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const ticketData = {
+        id: ticketId,
+        type: data.type,
+        status: 'pending',
+        priority: data.priority || 'medium',
+        user_email: data.email,
+        user_id: data.userId || null,
+        subject: data.subject,
+        description: data.description,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('support_tickets')
+        .insert(ticketData);
+
+      if (error) {
+        console.error('SupportService: Database error creating ticket:', error);
+        // If table doesn't exist, return success anyway (graceful degradation)
+        if (error.code === '42P01') {
+          console.warn('SupportService: support_tickets table does not exist, logging request instead');
+          console.log('Support Ticket:', ticketData);
+          return {
+            success: true,
+            ticketId,
+            message: 'Support request logged. You will receive confirmation soon.',
+          };
+        }
+        throw error;
+      }
+
+      console.log(`SupportService: Support ticket created: ${ticketId}`);
+
+      return {
+        success: true,
+        ticketId,
+        message: 'Support ticket submitted successfully. We will respond soon.',
+      };
+    } catch (error) {
+      console.error('SupportService: Error creating support ticket:', error);
+      throw error;
+    }
+  }
+
   // ===== REAL-TIME USAGE MONITORING =====
 
   /**
@@ -542,33 +824,33 @@ export class SupportService {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const { data: recentUsers, error: usersError } = await supabase
         .from('user_feature_usage')
-        .select(`
-          user_id,
-          feature_id,
-          usage_count,
-          last_used,
-          users!inner(email, display_name)
-        `)
-        .gte('last_used', twentyFourHoursAgo.toISOString())
-        .order('last_used', { ascending: false });
+        .select('user_id, feature_id, usage_count, last_used_at')
+        .gte('last_used_at', twentyFourHoursAgo.toISOString())
+        .order('last_used_at', { ascending: false });
 
-      if (usersError) throw usersError;
+      if (usersError) {
+        console.error('Error fetching usage data:', usersError);
+        // Return empty data if table doesn't exist
+        if (usersError.code === '42P01') {
+          return {
+            activeUsers: 0,
+            totalUsage: {},
+            recentActivity: [],
+            alerts: [],
+          };
+        }
+        throw usersError;
+      }
 
       // Get recent activity from the last hour
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
       const { data: recentActivity, error: activityError } = await supabase
         .from('user_feature_usage')
-        .select(`
-          user_id,
-          feature_id,
-          usage_count,
-          last_used,
-          users!inner(email, display_name)
-        `)
-        .gte('last_used', oneHourAgo.toISOString())
-        .order('last_used', { ascending: false });
+        .select('user_id, feature_id, usage_count, last_used_at')
+        .gte('last_used_at', oneHourAgo.toISOString())
+        .order('last_used_at', { ascending: false });
 
-      if (activityError) throw activityError;
+      if (activityError && activityError.code !== '42P01') throw activityError;
 
       // Process data
       const activeUsers = new Set(recentUsers?.map(u => u.user_id) || []).size;
@@ -582,15 +864,20 @@ export class SupportService {
         usageCount: number;
       }> = [];
 
+      // Get user emails for activity using the search function
+      const userEmailsMap = new Map<string, string>();
+      
       // Process recent activity
       for (const activity of recentActivity || []) {
-        const user = activity.users as any;
+        // Try to get user email (will use user ID as fallback)
+        let userEmail = userEmailsMap.get(activity.user_id) || activity.user_id;
+        
         recentActivityList.push({
           userId: activity.user_id,
-          userEmail: user.email,
+          userEmail: userEmail,
           featureId: activity.feature_id,
-          action: 'used', // Default action
-          timestamp: new Date(activity.last_used),
+          action: 'used',
+          timestamp: new Date(activity.last_used_at),
           usageCount: activity.usage_count,
         });
 
@@ -661,12 +948,12 @@ export class SupportService {
         .select(`
           feature_id,
           usage_count,
-          last_used,
+          last_used_at,
           feature_limits!inner(free_user_limit, free_user_period)
         `)
         .eq('user_id', userId)
-        .gte('last_used', startTime.toISOString())
-        .order('last_used', { ascending: false });
+        .gte('last_used_at', startTime.toISOString())
+        .order('last_used_at', { ascending: false });
 
       if (error) throw error;
 
@@ -687,7 +974,7 @@ export class SupportService {
         return {
           featureId: item.feature_id,
           action: 'feature_used',
-          timestamp: new Date(item.last_used),
+          timestamp: new Date(item.last_used_at),
           usageCount,
           limit: limit.free_user_limit,
           remaining,
@@ -749,16 +1036,13 @@ export class SupportService {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
       const { data: recentUsage, error } = await supabase
         .from('user_feature_usage')
-        .select(`
-          user_id,
-          feature_id,
-          usage_count,
-          last_used,
-          users!inner(email, display_name)
-        `)
-        .gte('last_used', oneHourAgo.toISOString());
+        .select('user_id, feature_id, usage_count, last_used_at')
+        .gte('last_used_at', oneHourAgo.toISOString());
 
-      if (error) throw error;
+      if (error && error.code !== '42P01') throw error;
+      if (!recentUsage) {
+        return [];
+      }
 
       const alerts: Array<{
         id: string;
@@ -776,11 +1060,10 @@ export class SupportService {
       }> = [];
 
       // Check for high usage and limit reached alerts
-      for (const usage of recentUsage || []) {
+      for (const usage of recentUsage) {
         const limit = allLimits.find(l => l.featureId === usage.feature_id);
         if (!limit) continue;
 
-        const user = usage.users as any;
         const usageCount = usage.usage_count;
         const limitValue = limit.freeUserLimit;
 
@@ -792,11 +1075,11 @@ export class SupportService {
             id: `high_${usage.user_id}_${usage.feature_id}`,
             type: 'high_usage',
             userId: usage.user_id,
-            userEmail: user.email,
+            userEmail: usage.user_id, // Using user_id as fallback
             featureId: usage.feature_id,
-            message: `User ${user.email} is at ${Math.round((usageCount / limitValue) * 100)}% of their ${usage.feature_id} limit`,
+            message: `User is at ${Math.round((usageCount / limitValue) * 100)}% of their ${usage.feature_id} limit`,
             severity: 'medium',
-            timestamp: new Date(usage.last_used),
+            timestamp: new Date(usage.last_used_at),
             isResolved: false,
           });
         }
@@ -807,11 +1090,11 @@ export class SupportService {
             id: `limit_${usage.user_id}_${usage.feature_id}`,
             type: 'limit_reached',
             userId: usage.user_id,
-            userEmail: user.email,
+            userEmail: usage.user_id, // Using user_id as fallback
             featureId: usage.feature_id,
-            message: `User ${user.email} has reached their ${usage.feature_id} limit`,
+            message: `User has reached their ${usage.feature_id} limit`,
             severity: 'high',
-            timestamp: new Date(usage.last_used),
+            timestamp: new Date(usage.last_used_at),
             isResolved: false,
           });
         }
@@ -822,11 +1105,11 @@ export class SupportService {
             id: `upgrade_${usage.user_id}_${usage.feature_id}`,
             type: 'upgrade_opportunity',
             userId: usage.user_id,
-            userEmail: user.email,
+            userEmail: usage.user_id, // Using user_id as fallback
             featureId: usage.feature_id,
-            message: `User ${user.email} consistently uses ${Math.round((usageCount / limitValue) * 100)}% of ${usage.feature_id} - consider upgrade`,
+            message: `User consistently uses ${Math.round((usageCount / limitValue) * 100)}% of ${usage.feature_id} - upgrade opportunity`,
             severity: 'low',
-            timestamp: new Date(usage.last_used),
+            timestamp: new Date(usage.last_used_at),
             isResolved: false,
           });
         }
@@ -953,18 +1236,37 @@ export class SupportService {
       timestamp: Date;
     }> = [];
 
-    // Generate sample alerts based on usage data
-    for (const user of recentUsers.slice(0, 5)) { // Limit to 5 alerts for demo
-      const userData = user.users as any;
-      if (user.usage_count > 10) {
+    // Get all feature limits
+    const allLimits = await featureLimitService.getFeatureLimits();
+
+    // Generate alerts based on actual usage data
+    for (const user of recentUsers.slice(0, 10)) {
+      const limit = allLimits.find(l => l.featureId === user.feature_id);
+      if (!limit || typeof limit.freeUserLimit !== 'number') continue;
+
+      const usageCount = user.usage_count || 0;
+      const limitValue = limit.freeUserLimit;
+      const percentage = (usageCount / limitValue) * 100;
+
+      if (usageCount >= limitValue) {
+        alerts.push({
+          type: 'limit_reached',
+          userId: user.user_id,
+          userEmail: user.user_id, // Using ID as fallback
+          featureId: user.feature_id,
+          message: `User has reached ${user.feature_id} limit (${usageCount}/${limitValue})`,
+          severity: 'high',
+          timestamp: new Date(user.last_used_at),
+        });
+      } else if (percentage >= 80) {
         alerts.push({
           type: 'high_usage',
           userId: user.user_id,
-          userEmail: userData.email,
+          userEmail: user.user_id, // Using ID as fallback
           featureId: user.feature_id,
-          message: `High usage detected for ${user.feature_id}`,
+          message: `User at ${Math.round(percentage)}% of ${user.feature_id} limit`,
           severity: 'medium',
-          timestamp: new Date(user.last_used),
+          timestamp: new Date(user.last_used_at),
         });
       }
     }

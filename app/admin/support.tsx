@@ -4,10 +4,12 @@ import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { AdminSidebar } from '../../components/web/AdminSidebar';
 import { WebLayout } from '../../components/web/WebLayout';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function SupportPage() {
-  // In a real app, you'd get this from authentication context
-  const supportAgentId = 'admin_support_agent';
+  const { user } = useAuth();
+  // Use the current admin/support user's actual ID
+  const supportAgentId = user?.id || '';
   
   return (
     <WebLayout

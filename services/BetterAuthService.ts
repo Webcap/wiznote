@@ -340,6 +340,21 @@ export class BetterAuthService {
         throw new Error('No user returned from sign in');
       }
 
+      // Check if email verification is required per system settings
+      const { shouldRequireEmailVerification } = await import('../lib/auth');
+      const requireEmailVerification = await shouldRequireEmailVerification();
+      
+      // If email verification is required but user hasn't verified their email, reject sign-in
+      if (requireEmailVerification && !data.user.email_confirmed_at) {
+        console.log('Sign-in blocked: Email verification required but not completed');
+        throw new Error('Email not confirmed. Please check your email inbox and click the verification link before signing in.');
+      }
+
+      console.log('Email verification check passed:', {
+        required: requireEmailVerification,
+        confirmed: !!data.user.email_confirmed_at
+      });
+
       // For regular sign-in, use the handleSignIn method that doesn't create profiles
       await this.handleSignIn(data.user);
       return this.currentUser!;
@@ -354,6 +369,12 @@ export class BetterAuthService {
     try {
       console.log('Signing up with credentials...');
       
+      // Import the helper function to check email verification requirement
+      const { shouldRequireEmailVerification } = await import('../lib/auth');
+      const requireEmailVerification = await shouldRequireEmailVerification();
+      
+      console.log('Email verification required:', requireEmailVerification);
+      
       const { data, error } = await supabase.auth.signUp({
         email: credentials.email,
         password: credentials.password,
@@ -361,6 +382,9 @@ export class BetterAuthService {
           data: {
             display_name: credentials.displayName,
           },
+          emailRedirectTo: typeof window !== 'undefined' 
+            ? `${window.location.origin}/auth/callback`
+            : undefined,
         },
       });
 
@@ -372,9 +396,17 @@ export class BetterAuthService {
         throw new Error('No user returned from sign up');
       }
 
-      // Create user profile immediately after successful sign-up
+      // Create user profile immediately after successful sign-up (even if email verification is required)
+      // This ensures the profile exists when the user verifies their email and tries to sign in
       console.log('Creating user profile for new user:', data.user.id);
       const userProfile = await this.createUserProfile(data.user);
+
+      // If email verification is required, inform user to check their email
+      if (requireEmailVerification && !data.user.email_confirmed_at) {
+        console.log('Email verification required - user must confirm email before accessing account');
+        console.log('User profile created successfully, waiting for email verification');
+        throw new Error('Please check your email to verify your account before signing in.');
+      }
       
       // Create user object
       const user: User = {

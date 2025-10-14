@@ -181,24 +181,47 @@ note taking, ai notes, voice notes, transcription, audio to text, study tools, f
 **Data Safety Section:**
 
 **Data Collected:**
-✓ Email address (for authentication)
-✓ User-created content (notes, audio)
-✓ Usage statistics (app analytics)
+✓ Personal Information:
+  - Email address (required, authentication & account management)
+  - User IDs (required, account management)
+✓ Financial Information:
+  - Payment info (optional, payment processing via Stripe)
+  - Purchase history (optional, subscription management)
+✓ Files and Docs:
+  - User-created content (notes, PDFs - required for app functionality)
+  - Voice recordings (optional, transcription feature)
+✓ App Activity:
+  - App interactions (required, analytics & personalization)
+✓ Device or Other IDs:
+  - Device identifiers (required, fraud prevention via Stripe)
+✓ App Info and Performance:
+  - Crash logs (required, bug fixes)
+  - Diagnostics (required, app optimization)
+  - Network/connectivity data (required, app functionality)
 
 **Data Security:**
-✓ Data encrypted in transit
-✓ Data encrypted at rest
-✓ Secure authentication
+✓ All data encrypted in transit (HTTPS/TLS)
+✓ User content encrypted at rest
+✓ Secure authentication (Supabase Auth)
 ✓ No data sold to third parties
-✓ No data shared with third parties
-✓ User can request data deletion
-✓ GDPR compliant
+⚠️ Data shared with service providers:
+  - Stripe (payment processing, fraud prevention)
+  - Supabase (backend services, data storage)
+✓ User can request data deletion (Settings > Delete Account)
+✓ GDPR & CCPA compliant
 
 **Data Usage:**
 - Provide app functionality
-- AI processing (transcription, summaries)
+- AI processing (transcription, summaries, flashcards)
 - User account management
-- Service improvement
+- Payment processing (Stripe)
+- Fraud prevention (Stripe)
+- Service improvement & analytics
+- Bug fixes and performance optimization
+
+**Third-Party Data Sharing:**
+- Stripe (Payment processor) - receives payment info, device IDs, purchase history
+- Supabase (Backend service) - receives email, user content, app data
 
 ---
 
