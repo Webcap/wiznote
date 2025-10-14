@@ -113,10 +113,37 @@ export default function SignupScreen() {
     } catch (error) {
       console.error('SignupScreen: Sign up error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to create account';
-      if (Platform.OS === 'web') {
-        showSnackbar(errorMessage, 'error', 6000);
+      
+      // Check if this is the email verification required message
+      if (errorMessage.includes('Please check your email to verify your account') || 
+          errorMessage.includes('verify your account before signing in')) {
+        // This is expected when email verification is enabled
+        console.log('SignupScreen: Email verification required - redirecting to login');
+        
+        const successMessage = `Account created! We've sent a verification email to ${email.trim()}. Please check your inbox and click the link to verify your account, then sign in.`;
+        
+        if (Platform.OS === 'web') {
+          showSnackbar(successMessage, 'success', 10000);
+        } else {
+          Alert.alert(
+            'Verify Your Email',
+            successMessage,
+            [{ text: 'OK', onPress: () => router.replace('/(auth)/login' as any) }]
+          );
+        }
+        
+        // Redirect to login page after showing message
+        setTimeout(() => {
+          router.replace('/(auth)/login' as any);
+        }, Platform.OS === 'web' ? 3000 : 0); // 3 seconds on web, immediate on mobile (after user closes alert)
+        
       } else {
-        Alert.alert('Error', errorMessage);
+        // This is an actual error
+        if (Platform.OS === 'web') {
+          showSnackbar(errorMessage, 'error', 6000);
+        } else {
+          Alert.alert('Error', errorMessage);
+        }
       }
     } finally {
       setIsLoading(false);
