@@ -18,6 +18,7 @@ import BulkUserManagement from './BulkUserManagement';
 import RealTimeMonitoring from './RealTimeMonitoring';
 import SupportAnalytics from './SupportAnalytics';
 import UserDeletionTool from './UserDeletionTool';
+import PremiumManagement from './PremiumManagement';
 
 interface SupportDashboardProps {
   supportAgentId: string;
@@ -316,6 +317,19 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
               Last Active: {selectedUser.lastActive.toLocaleDateString()}
             </Text>
           </View>
+
+          {/* Premium Management Section */}
+          <PremiumManagement
+            user={selectedUser}
+            supportAgentId={supportAgentId}
+            onPremiumUpdated={async () => {
+              // Refresh user data after premium changes
+              const updatedUser = await supportService.searchUser(selectedUser.email);
+              if (updatedUser) {
+                setSelectedUser(updatedUser);
+              }
+            }}
+          />
 
           {userFeatureStatus && (
             <View style={[styles.statusCard, { backgroundColor: backgroundSecondary, borderColor: borderColor }]}>
