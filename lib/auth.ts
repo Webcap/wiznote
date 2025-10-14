@@ -6,6 +6,7 @@
  */
 
 import { systemSettingsService } from '../services/SystemSettingsService';
+import { rateLimitService, type RateLimitCheck } from '../services/RateLimitService';
 
 // Helper function to get email verification requirement from system settings
 // Use this in signup flows to check if verification is required
@@ -29,5 +30,48 @@ async function isMfaEnabled(): Promise<boolean> {
   }
 }
 
+// Helper function to check if rate limiting is enabled
+async function isRateLimitEnabled(): Promise<boolean> {
+  try {
+    return await systemSettingsService.isRateLimitEnabled();
+  } catch (error) {
+    console.error('Error checking rate limiting status:', error);
+    return true; // Secure default
+  }
+}
+
+// Helper function to check rate limit for authentication
+async function checkAuthRateLimit(
+  email: string,
+  attemptType: 'auth_signin' | 'auth_signup'
+): Promise<RateLimitCheck> {
+  try {
+    return await rateLimitService.checkAndRecordAuthAttempt(email, attemptType);
+  } catch (error) {
+    console.error('Error checking auth rate limit:', error);
+    // On error, allow the request (fail open)
+    return {
+      allowed: true,
+      isLimited: false,
+      attemptCount: 0,
+      maxAttempts: 5,
+      windowMinutes: 15,
+      windowStart: new Date(),
+      windowEnd: new Date(),
+    };
+  }
+}
+
+// Helper function to format rate limit error
+function formatRateLimitError(rateLimitCheck: RateLimitCheck): string {
+  return rateLimitService.formatRateLimitError(rateLimitCheck);
+}
+
 // Export the helper functions for use in other modules
-export { shouldRequireEmailVerification, isMfaEnabled }; 
+export { 
+  shouldRequireEmailVerification, 
+  isMfaEnabled,
+  isRateLimitEnabled,
+  checkAuthRateLimit,
+  formatRateLimitError,
+}; 

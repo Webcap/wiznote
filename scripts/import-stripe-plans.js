@@ -18,8 +18,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 // Initialize Supabase
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.EXPO_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 async function importStripePlans() {
