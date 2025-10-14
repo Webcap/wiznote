@@ -17,7 +17,7 @@ import { useSnackbar } from '../contexts/SnackbarContext';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { featureLimitService } from '../services/FeatureLimitService';
-import { subscriptionManagementService } from '../services/SubscriptionManagementService';
+import { subscriptionManagementService, BillingHistoryItem } from '../services/SubscriptionManagementService';
 import { User, UserRole } from '../types/User';
 
 interface UserWithStats extends User {
@@ -29,8 +29,11 @@ interface UserWithStats extends User {
   subscriptionStatus?: {
     isActive: boolean;
     planType: string;
+    planName: string;
     nextBilling: Date;
+    status: string;
   };
+  billingHistory?: BillingHistoryItem[];
   isBanned?: boolean;
 }
 
@@ -65,6 +68,8 @@ export default function UserManagementScreen() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserWithStats | null>(null);
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [expandedBillingHistory, setExpandedBillingHistory] = useState<Set<string>>(new Set());
+  const [loadingBillingHistory, setLoadingBillingHistory] = useState<Set<string>>(new Set());
 
   // Theme colors
   const iconColor = useThemeColor({}, 'text');
@@ -128,8 +133,11 @@ export default function UserManagementScreen() {
               subscriptionStatus: {
                 isActive: user.premium?.isActive || false,
                 planType: user.premium?.type || 'Free',
+                planName: user.premium?.planId || 'Free Plan',
                 nextBilling: user.premium?.currentPeriodEnd ? new Date(user.premium.currentPeriodEnd) : new Date(),
-              }
+                status: user.premium?.status || 'inactive',
+              },
+              billingHistory: []
             };
           } catch (error) {
             console.warn(`Failed to get stats for user ${user.id}:`, error);
@@ -356,6 +364,54 @@ export default function UserManagementScreen() {
       showSnackbar('Failed to cancel subscription', 'error', 6000);
     }
   }, [subscriptionManagementService, showSnackbar, fetchUsers]);
+
+  // Fetch billing history for a user
+  const fetchBillingHistory = useCallback(async (userId: string) => {
+    if (loadingBillingHistory.has(userId)) return;
+    
+    try {
+      setLoadingBillingHistory(prev => new Set(prev).add(userId));
+      console.log('Fetching billing history for user:', userId);
+      
+      const history = await subscriptionManagementService.getBillingHistory(userId, 20);
+      
+      // Update the user's billing history in the users state
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.id === userId ? { ...user, billingHistory: history } : user
+        )
+      );
+      
+      console.log('Billing history fetched:', history.length, 'records');
+    } catch (error) {
+      console.error('Error fetching billing history:', error);
+      showSnackbar('Failed to load billing history', 'error', 4000);
+    } finally {
+      setLoadingBillingHistory(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
+    }
+  }, [loadingBillingHistory, showSnackbar]);
+
+  // Toggle billing history expansion
+  const toggleBillingHistory = useCallback((userId: string) => {
+    setExpandedBillingHistory(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        newSet.delete(userId);
+      } else {
+        newSet.add(userId);
+        // Fetch billing history if not already loaded
+        const user = users.find(u => u.id === userId);
+        if (user && (!user.billingHistory || user.billingHistory.length === 0)) {
+          fetchBillingHistory(userId);
+        }
+      }
+      return newSet;
+    });
+  }, [users, fetchBillingHistory]);
 
   // Selection handlers
   const handleUserSelect = useCallback((user: UserWithStats) => {
@@ -680,10 +736,14 @@ export default function UserManagementScreen() {
                       <Ionicons name="person" size={24} color={iconColor} />
                     </View>
                     <View style={styles.userDetails}>
-                      <ThemedText style={styles.userName}>
-                        {user.displayName || 'No Name'}
-                      </ThemedText>
-                      <ThemedText style={styles.userEmail}>{user.email}</ThemedText>
+                      <View style={styles.userNameEmailContainer}>
+                        <ThemedText style={styles.userName}>
+                          {user.displayName || 'No Name'}
+                        </ThemedText>
+                        <ThemedText style={styles.userEmail}>
+                          {user.email || 'Email not available'}
+                        </ThemedText>
+                      </View>
                       <View style={styles.userMeta}>
                         <ThemedText style={styles.userMetaText}>
                           Joined: {new Date(user.createdAt).toLocaleDateString()}
@@ -701,11 +761,158 @@ export default function UserManagementScreen() {
                     {user.subscriptionStatus?.isActive && (
                       <View style={styles.premiumBadge}>
                         <Ionicons name="star" size={12} color="#FFD700" />
-                        <ThemedText style={styles.premiumText}>Premium</ThemedText>
+                        <ThemedText style={styles.premiumText}>
+                          {user.subscriptionStatus.planType || 'Premium'}
+                        </ThemedText>
                       </View>
                     )}
                   </View>
                 </View>
+                
+                {/* Subscription Overview (always visible) */}
+                <View style={styles.subscriptionOverview}>
+                  <View style={styles.overviewRow}>
+                    <View style={styles.overviewItem}>
+                      <ThemedText style={styles.overviewLabel}>Status:</ThemedText>
+                      <View style={[
+                        styles.statusBadge,
+                        { backgroundColor: user.subscriptionStatus?.isActive ? '#28A74520' : '#DC354520' }
+                      ]}>
+                        <ThemedText style={[
+                          styles.statusText,
+                          { color: user.subscriptionStatus?.isActive ? '#28A745' : '#DC3545' }
+                        ]}>
+                          {user.subscriptionStatus?.isActive ? 
+                            (user.subscriptionStatus.status === 'trialing' ? 'Trial' : 'Active') : 
+                            'Inactive'}
+                        </ThemedText>
+                      </View>
+                    </View>
+                    
+                    {user.subscriptionStatus?.isActive && (
+                      <>
+                        <View style={styles.overviewItem}>
+                          <ThemedText style={styles.overviewLabel}>Plan:</ThemedText>
+                          <ThemedText style={styles.overviewValue}>
+                            {user.subscriptionStatus.planType || 'Free'}
+                          </ThemedText>
+                        </View>
+                        
+                        <View style={styles.overviewItem}>
+                          <ThemedText style={styles.overviewLabel}>Next Billing:</ThemedText>
+                          <ThemedText style={styles.overviewValue}>
+                            {new Date(user.subscriptionStatus.nextBilling).toLocaleDateString()}
+                          </ThemedText>
+                        </View>
+                      </>
+                    )}
+                    
+                    <View style={styles.overviewItem}>
+                      <TouchableOpacity
+                        style={styles.billingHistoryButton}
+                        onPress={() => toggleBillingHistory(user.id)}
+                      >
+                        <Ionicons 
+                          name="receipt" 
+                          size={16} 
+                          color="#6A5ACD" 
+                        />
+                        <ThemedText style={styles.billingHistoryButtonText}>
+                          {expandedBillingHistory.has(user.id) ? 'Hide' : 'View'} Billing History
+                        </ThemedText>
+                        <Ionicons 
+                          name={expandedBillingHistory.has(user.id) ? 'chevron-up' : 'chevron-down'} 
+                          size={16} 
+                          color="#6A5ACD" 
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+                
+                {/* Billing History (expandable) */}
+                {expandedBillingHistory.has(user.id) && (
+                  <View style={styles.billingHistorySection}>
+                    <ThemedText style={styles.billingHistoryTitle}>Billing History</ThemedText>
+                    
+                    {loadingBillingHistory.has(user.id) ? (
+                      <View style={styles.billingHistoryLoading}>
+                        <ThemedText style={styles.billingHistoryLoadingText}>
+                          Loading billing history...
+                        </ThemedText>
+                      </View>
+                    ) : user.billingHistory && user.billingHistory.length > 0 ? (
+                      <View style={styles.billingHistoryList}>
+                        {user.billingHistory.map((item, index) => (
+                          <View 
+                            key={item.id} 
+                            style={[
+                              styles.billingHistoryItem,
+                              index === user.billingHistory!.length - 1 && styles.billingHistoryItemLast
+                            ]}
+                          >
+                            <View style={styles.billingHistoryItemHeader}>
+                              <View style={styles.billingHistoryItemLeft}>
+                                <ThemedText style={styles.billingHistoryItemAmount}>
+                                  ${item.amount.toFixed(2)} {item.currency}
+                                </ThemedText>
+                                <ThemedText style={styles.billingHistoryItemDescription}>
+                                  {item.description}
+                                </ThemedText>
+                              </View>
+                              
+                              <View style={styles.billingHistoryItemRight}>
+                                <ThemedText style={styles.billingHistoryItemDate}>
+                                  {new Date(item.date).toLocaleDateString()}
+                                </ThemedText>
+                                <View style={[
+                                  styles.billingHistoryItemStatus,
+                                  { backgroundColor: item.status === 'paid' ? '#28A74520' : '#FFC10720' }
+                                ]}>
+                                  <ThemedText style={[
+                                    styles.billingHistoryItemStatusText,
+                                    { color: item.status === 'paid' ? '#28A745' : '#FFC107' }
+                                  ]}>
+                                    {item.status.toUpperCase()}
+                                  </ThemedText>
+                                </View>
+                              </View>
+                            </View>
+                            
+                            {item.periodStart && item.periodEnd && (
+                              <ThemedText style={styles.billingHistoryItemPeriod}>
+                                Period: {new Date(item.periodStart).toLocaleDateString()} - {new Date(item.periodEnd).toLocaleDateString()}
+                              </ThemedText>
+                            )}
+                            
+                            {item.invoiceUrl && (
+                              <TouchableOpacity
+                                style={styles.billingHistoryItemLink}
+                                onPress={() => {
+                                  if (Platform.OS === 'web' && item.invoiceUrl) {
+                                    window.open(item.invoiceUrl, '_blank');
+                                  }
+                                }}
+                              >
+                                <Ionicons name="document-text" size={14} color="#6A5ACD" />
+                                <ThemedText style={styles.billingHistoryItemLinkText}>
+                                  View Invoice
+                                </ThemedText>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <View style={styles.billingHistoryEmpty}>
+                        <Ionicons name="receipt-outline" size={32} color="#999" />
+                        <ThemedText style={styles.billingHistoryEmptyText}>
+                          No billing history found
+                        </ThemedText>
+                      </View>
+                    )}
+                  </View>
+                )}
                 
                 {/* User Actions (shown when selected) */}
                 {selectedUser?.id === user.id && (
@@ -819,6 +1026,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 8,
     borderRadius: 6,
     backgroundColor: 'rgba(255,255,255,0.1)',
@@ -1081,15 +1290,24 @@ const styles = StyleSheet.create({
   userDetails: {
     flex: 1,
   },
+  userNameEmailContainer: {
+    marginBottom: 8,
+  },
   userName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   userEmail: {
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 4,
+    fontSize: 15,
+    opacity: 1,
+    fontWeight: '600',
+    color: '#6A5ACD',
+    backgroundColor: 'rgba(106,90,205,0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 4,
   },
   userMeta: {
     flexDirection: 'row',
@@ -1220,5 +1438,153 @@ const styles = StyleSheet.create({
   resetFeatureButtonText: {
     fontSize: 12,
     color: '#333',
+  },
+  
+  // Subscription Overview
+  subscriptionOverview: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  overviewRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    alignItems: 'center',
+  },
+  overviewItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  overviewLabel: {
+    fontSize: 13,
+    opacity: 0.7,
+    fontWeight: '500',
+  },
+  overviewValue: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  billingHistoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#6A5ACD',
+    backgroundColor: 'rgba(106,90,205,0.1)',
+  },
+  billingHistoryButtonText: {
+    fontSize: 13,
+    color: '#6A5ACD',
+    fontWeight: '600',
+  },
+  
+  // Billing History Section
+  billingHistorySection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  billingHistoryTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  billingHistoryLoading: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  billingHistoryLoadingText: {
+    fontSize: 14,
+    opacity: 0.6,
+  },
+  billingHistoryList: {
+    gap: 12,
+  },
+  billingHistoryItem: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.02)',
+  },
+  billingHistoryItemLast: {
+    marginBottom: 0,
+  },
+  billingHistoryItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  billingHistoryItemLeft: {
+    flex: 1,
+  },
+  billingHistoryItemRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  billingHistoryItemAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  billingHistoryItemDescription: {
+    fontSize: 13,
+    opacity: 0.7,
+  },
+  billingHistoryItemDate: {
+    fontSize: 12,
+    opacity: 0.6,
+    marginBottom: 4,
+  },
+  billingHistoryItemStatus: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  billingHistoryItemStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  billingHistoryItemPeriod: {
+    fontSize: 12,
+    opacity: 0.5,
+    marginBottom: 8,
+  },
+  billingHistoryItemLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+  },
+  billingHistoryItemLinkText: {
+    fontSize: 12,
+    color: '#6A5ACD',
+    fontWeight: '500',
+  },
+  billingHistoryEmpty: {
+    padding: 40,
+    alignItems: 'center',
+    gap: 12,
+  },
+  billingHistoryEmptyText: {
+    fontSize: 14,
+    opacity: 0.5,
   },
 }); 
