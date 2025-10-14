@@ -67,17 +67,36 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     
+    console.log('SupportDashboard: Starting search for:', searchQuery);
     setLoading(true);
     try {
       const user = await supportService.searchUser(searchQuery);
+      console.log('SupportDashboard: Search result:', user);
+      
       if (user) {
+        console.log('SupportDashboard: User found, switching to details view');
         setSelectedUser(user);
+        setCurrentView('user-details'); // Switch to user details view
+        
+        if (Platform.OS === 'web') {
+          showSnackbar(`✅ User found: ${user.email}`, 'success');
+        }
       } else {
-        Alert.alert('No Users Found', 'No users found matching your search criteria.');
+        console.log('SupportDashboard: No user found');
+        if (Platform.OS === 'web') {
+          showSnackbar('No users found matching your search criteria', 'error');
+        } else {
+          Alert.alert('No Users Found', 'No users found matching your search criteria.');
+        }
       }
     } catch (error) {
-      console.error('Search error:', error);
-      Alert.alert('Search Error', 'Failed to search for users.');
+      console.error('SupportDashboard: Search error:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to search for users';
+      if (Platform.OS === 'web') {
+        showSnackbar(`Search Error: ${errorMsg}`, 'error');
+      } else {
+        Alert.alert('Search Error', errorMsg);
+      }
     } finally {
       setLoading(false);
     }

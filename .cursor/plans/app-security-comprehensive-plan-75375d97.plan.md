@@ -203,7 +203,7 @@ return user || null;
 - Default: Enforcement ENABLED (secure default)
 - Cleanup: 30-day retention (configurable)
 
-**Impact**: 
+**Impact**:
 
 - Prevents brute force attacks on authentication
 - Admin-controlled without code deployment

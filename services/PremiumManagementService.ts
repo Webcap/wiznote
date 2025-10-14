@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase';
-import { supabaseAdmin } from '../lib/supabase-admin';
 
 /**
  * Premium Management Service
@@ -120,8 +119,9 @@ class PremiumManagementService {
         grantedReason: params.reason,
       };
 
-      // Update user profile using admin client
-      const { error: updateError } = await supabaseAdmin
+      // Update user profile
+      // Note: This requires appropriate RLS policies for admin/support roles
+      const { error: updateError } = await supabase
         .from('user_profiles')
         .update({
           premium: premiumData,
@@ -169,7 +169,8 @@ class PremiumManagementService {
     try {
       console.log('PremiumManagementService: Revoking premium:', userId);
 
-      const { error: updateError } = await supabaseAdmin
+      // Revoke premium by setting to null
+      const { error: updateError } = await supabase
         .from('user_profiles')
         .update({
           premium: null,
@@ -226,24 +227,29 @@ class PremiumManagementService {
    */
   private async logPremiumAction(log: Omit<PremiumAuditLog, 'id' | 'timestamp' | 'grantedByEmail'>): Promise<void> {
     try {
-      // Get granted by user's email
-      const { data: grantedByUser } = await supabase
-        .from('user_profiles')
-        .select('email')
-        .eq('id', log.grantedBy)
-        .single();
-
-      // For now, just log to console
-      // TODO: Create premium_audit_logs table for proper tracking
-      console.log('Premium Action Audit Log:', {
-        ...log,
-        grantedByEmail: grantedByUser?.email || 'unknown',
-        timestamp: new Date().toISOString(),
+      // Use database function to log (if available)
+      const { error } = await supabase.rpc('log_premium_action', {
+        p_user_id: log.userId,
+        p_user_email: log.userEmail,
+        p_action: log.action,
+        p_duration: log.duration || null,
+        p_plan_id: log.planId || null,
+        p_reason: log.reason,
+        p_granted_by: log.grantedBy,
+        p_metadata: null,
       });
 
-      // You can extend this to write to a dedicated audit table
+      if (error) {
+        // If function doesn't exist yet, just log to console
+        console.log('Premium Action Audit Log:', {
+          ...log,
+          timestamp: new Date().toISOString(),
+        });
+      }
     } catch (error) {
       console.error('Failed to log premium action:', error);
+      // Fallback to console logging
+      console.log('Premium Action (fallback):', log);
     }
   }
 

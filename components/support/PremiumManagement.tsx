@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -198,9 +198,9 @@ export default function PremiumManagement({ user, supportAgentId, onPremiumUpdat
   };
 
   // Load premium status on mount
-  useState(() => {
+  useEffect(() => {
     refreshPremiumStatus();
-  });
+  }, [user.id]);
 
   const currentPremium = premiumStatus || user.premium;
   const isPremiumActive = currentPremium?.isActive || false;
