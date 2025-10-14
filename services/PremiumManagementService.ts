@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase';
+import { validateGrantPremium, validateRevokePremium } from '../schemas/SupportSchema';
+import { sanitizeEmail } from '../utils/sanitization';
 
 /**
  * Premium Management Service
@@ -67,25 +69,40 @@ class PremiumManagementService {
     try {
       console.log('PremiumManagementService: Granting free premium:', params);
 
+      // ✅ STEP 1: Validate and sanitize input
+      console.log('Validating premium grant params...');
+      const validated = validateGrantPremium({
+        userId: params.userId,
+        userEmail: params.userEmail,
+        duration: params.duration,
+        planId: params.planId,
+        reason: params.reason,
+        grantedBy: params.grantedBy,
+      });
+      
+      // Sanitize email
+      const sanitizedEmail = sanitizeEmail(validated.userEmail);
+      console.log('✅ Premium grant validation passed');
+
       // Calculate period end
       const now = new Date();
       let periodEnd: Date;
 
-      if (params.duration === 'lifetime') {
+      if (validated.duration === 'lifetime') {
         // 100 years = lifetime
         periodEnd = new Date(now.getFullYear() + 100, now.getMonth(), now.getDate());
       } else {
-        const days = parseInt(params.duration.toString());
+        const days = parseInt(validated.duration.toString());
         periodEnd = new Date(now.getTime() + (days * 24 * 60 * 60 * 1000));
       }
 
       // Get plan details if planId provided, otherwise use default
       let plan = null;
-      if (params.planId) {
+      if (validated.planId) {
         const { data } = await supabase
           .from('premium_plans')
           .select('*')
-          .eq('id', params.planId)
+          .eq('id', validated.planId)
           .single();
         plan = data;
       }
@@ -114,9 +131,9 @@ class PremiumManagementService {
         currentPeriodStart: now.toISOString(),
         cancelAtPeriodEnd: false,
         isFree: true,
-        grantedBy: params.grantedBy,
+        grantedBy: validated.grantedBy,
         grantedAt: now.toISOString(),
-        grantedReason: params.reason,
+        grantedReason: validated.reason,
       };
 
       // Update user profile
@@ -127,7 +144,7 @@ class PremiumManagementService {
           premium: premiumData,
           updated_at: now.toISOString(),
         })
-        .eq('id', params.userId);
+        .eq('id', validated.userId);
 
       if (updateError) {
         console.error('PremiumManagementService: Error updating user:', updateError);
@@ -136,13 +153,13 @@ class PremiumManagementService {
 
       // Log the action
       await this.logPremiumAction({
-        userId: params.userId,
-        userEmail: params.userEmail,
+        userId: validated.userId,
+        userEmail: sanitizedEmail,
         action: 'granted',
-        duration: params.duration === 'lifetime' ? 'lifetime' : `${params.duration} days`,
+        duration: validated.duration === 'lifetime' ? 'lifetime' : `${validated.duration} days`,
         planId: planId,
-        reason: params.reason,
-        grantedBy: params.grantedBy,
+        reason: validated.reason,
+        grantedBy: validated.grantedBy,
       });
 
       console.log('PremiumManagementService: Free premium granted successfully');
@@ -169,6 +186,19 @@ class PremiumManagementService {
     try {
       console.log('PremiumManagementService: Revoking premium:', userId);
 
+      // ✅ STEP 1: Validate input
+      console.log('Validating premium revoke params...');
+      const validated = validateRevokePremium({
+        userId,
+        userEmail,
+        reason,
+        revokedBy,
+      });
+      
+      // Sanitize email
+      const sanitizedEmail = sanitizeEmail(validated.userEmail);
+      console.log('✅ Premium revoke validation passed');
+
       // Revoke premium by setting to null
       const { error: updateError } = await supabase
         .from('user_profiles')
@@ -176,7 +206,7 @@ class PremiumManagementService {
           premium: null,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', userId);
+        .eq('id', validated.userId);
 
       if (updateError) {
         return { success: false, error: updateError.message };
@@ -184,11 +214,11 @@ class PremiumManagementService {
 
       // Log the action
       await this.logPremiumAction({
-        userId,
-        userEmail,
+        userId: validated.userId,
+        userEmail: sanitizedEmail,
         action: 'revoked',
-        reason,
-        grantedBy: revokedBy,
+        reason: validated.reason,
+        grantedBy: validated.revokedBy,
       });
 
       return { success: true };

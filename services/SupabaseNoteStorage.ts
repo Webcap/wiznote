@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { Note, SharePermission, UpdateNoteData } from '../types/Note';
+import { validateNoteTitle, validateNoteContent, NoteIdSchema } from '../schemas/NoteSchema';
+import { sanitizeNoteTitle, sanitizeNoteContent } from '../utils/sanitization';
 
 export class SupabaseNoteStorage {
   private currentUser: string | null = null;
@@ -314,6 +316,16 @@ export class SupabaseNoteStorage {
     }
 
     try {
+      // ✅ STEP 1: Validate and sanitize note title and content
+      console.log('Validating note data...');
+      const validatedTitle = validateNoteTitle(noteData.title);
+      const validatedContent = validateNoteContent(noteData.content || '');
+      
+      // Sanitize HTML content to prevent XSS
+      const sanitizedTitle = sanitizeNoteTitle(validatedTitle);
+      const sanitizedContent = sanitizeNoteContent(validatedContent);
+      console.log('✅ Note validation passed');
+      
       // Generate a unique ID for the note
       const noteId = `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
@@ -336,8 +348,8 @@ export class SupabaseNoteStorage {
       const noteToCreate = {
         id: noteId,
         user_id: this.currentUser,
-        title: noteData.title,
-        content: noteData.content || '',
+        title: sanitizedTitle, // Use sanitized title
+        content: sanitizedContent, // Use sanitized content
         type: noteData.type || 'text',
         tags: noteData.tags || [],
         is_pinned: noteData.isPinned || false,
@@ -391,13 +403,22 @@ export class SupabaseNoteStorage {
     }
 
     try {
+      // ✅ STEP 1: Validate note ID
+      NoteIdSchema.parse(noteId);
+      
       const updateData: any = {
         updated_at: new Date().toISOString(),
       };
 
-      // Only include fields that are being updated
-      if (updates.title !== undefined) updateData.title = updates.title;
-      if (updates.content !== undefined) updateData.content = updates.content;
+      // ✅ STEP 2: Validate and sanitize fields that are being updated
+      if (updates.title !== undefined) {
+        const validatedTitle = validateNoteTitle(updates.title);
+        updateData.title = sanitizeNoteTitle(validatedTitle);
+      }
+      if (updates.content !== undefined) {
+        const validatedContent = validateNoteContent(updates.content);
+        updateData.content = sanitizeNoteContent(validatedContent);
+      }
       if (updates.type !== undefined) updateData.type = updates.type;
       if (updates.tags !== undefined) updateData.tags = updates.tags;
       if (updates.isPinned !== undefined) updateData.is_pinned = updates.isPinned;

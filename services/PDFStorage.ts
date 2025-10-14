@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { PDFFile } from '../types/Note';
 import { PDF_CONFIG } from '../constants/PDFConfig';
+import { safeValidateFile, sanitizeFilename, isAllowedMimeType } from '../schemas/FileSchema';
 
 export class PDFStorage {
   private bucketName = PDF_CONFIG.BUCKET_NAME;
@@ -97,6 +98,30 @@ export class PDFStorage {
         throw new Error('Note ID is required for upload');
       }
       
+      // ✅ STEP 1: Validate file based on platform
+      if (typeof fileOrUri !== 'string') {
+        // Web: Validate File/Blob object
+        const file = fileOrUri instanceof File ? fileOrUri : null;
+        if (file) {
+          console.log('Validating PDF file...');
+          const validationResult = safeValidateFile({
+            name: file.name,
+            size: file.size,
+            type: file.type,
+          }, 'pdf');
+          
+          if (!validationResult.success) {
+            throw new Error(`Invalid PDF file: ${validationResult.error}`);
+          }
+          console.log('✅ PDF file validation passed');
+        } else {
+          // Blob - check size at least
+          if (fileOrUri.size > PDF_CONFIG.MAX_FILE_SIZE_BYTES) {
+            throw new Error(`PDF file too large. Maximum size is ${PDF_CONFIG.MAX_FILE_SIZE_BYTES / 1024 / 1024}MB`);
+          }
+        }
+      }
+      
       // Check if bucket exists
       const bucketExists = await this.checkBucketExists();
       if (!bucketExists) {
@@ -112,15 +137,27 @@ export class PDFStorage {
         // Mobile: fileOrUri is a URI string
         console.log('PDFStorage: Processing mobile file URI');
         
-        // Get filename from originalFilename or URI
+        // ✅ Validate and sanitize filename
         const uriFilename = originalFilename || fileOrUri.split('/').pop() || 'document.pdf';
-        const sanitizedFilename = uriFilename.replace(/[^a-zA-Z0-9.-]/g, '_');
-        filename = `${userId}/${noteId}/pdf_${timestamp}_${sanitizedFilename}`;
+        
+        // Check file extension
+        if (!uriFilename.toLowerCase().endsWith('.pdf')) {
+          throw new Error('File must be a PDF (.pdf extension required)');
+        }
+        
+        const cleanFilename = sanitizeFilename(uriFilename);
+        filename = `${userId}/${noteId}/pdf_${timestamp}_${cleanFilename}`;
         
         // Read file from mobile filesystem
         const base64Data = await FileSystem.readAsStringAsync(fileOrUri, {
           encoding: FileSystem.EncodingType.Base64,
         });
+        
+        // ✅ Validate file size on mobile
+        const fileSize = (base64Data.length * 3) / 4; // Approximate size from base64
+        if (fileSize > PDF_CONFIG.MAX_FILE_SIZE_BYTES) {
+          throw new Error(`PDF file too large. Maximum size is ${PDF_CONFIG.MAX_FILE_SIZE_BYTES / 1024 / 1024}MB`);
+        }
         
         // Convert base64 to Uint8Array
         const binaryString = atob(base64Data);
@@ -132,9 +169,10 @@ export class PDFStorage {
         // Web: fileOrUri is a File or Blob object
         console.log('PDFStorage: Processing web file object');
         
+        // ✅ Sanitize filename
         const webFilename = fileOrUri instanceof File ? fileOrUri.name : 'document.pdf';
-        const sanitizedFilename = webFilename.replace(/[^a-zA-Z0-9.-]/g, '_');
-        filename = `${userId}/${noteId}/pdf_${timestamp}_${sanitizedFilename}`;
+        const cleanFilename = sanitizeFilename(webFilename);
+        filename = `${userId}/${noteId}/pdf_${timestamp}_${cleanFilename}`;
         
         // Read file data
         const arrayBuffer = await fileOrUri.arrayBuffer();

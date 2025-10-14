@@ -11,6 +11,8 @@ import {
     throttle
 } from '../utils/webSessionUtils';
 import { roleService } from './RoleService';
+import { validateSignIn, validateSignUp, validateEmail } from '../schemas/AuthSchema';
+import { sanitizeEmail } from '../utils/sanitization';
 
 export class BetterAuthService {
   private currentUser: User | null = null;
@@ -327,6 +329,17 @@ export class BetterAuthService {
     try {
       console.log('Signing in with credentials...');
       
+      // ✅ STEP 1: Validate and sanitize input
+      console.log('Validating sign-in credentials...');
+      const validatedCredentials = validateSignIn({
+        email: credentials.email,
+        password: credentials.password,
+      });
+      
+      // Sanitize email (normalize to lowercase, trim)
+      const sanitizedEmail = sanitizeEmail(validatedCredentials.email);
+      console.log('✅ Sign-in validation passed');
+      
       // Import auth helpers
       const { 
         shouldRequireEmailVerification, 
@@ -335,11 +348,11 @@ export class BetterAuthService {
       } = await import('../lib/auth');
 
       // Check rate limit BEFORE attempting authentication
-      const rateLimitCheck = await checkAuthRateLimit(credentials.email, 'auth_signin');
+      const rateLimitCheck = await checkAuthRateLimit(sanitizedEmail, 'auth_signin');
       
       if (!rateLimitCheck.allowed) {
         console.warn('Sign-in rate limit exceeded:', {
-          email: credentials.email,
+          email: sanitizedEmail,
           attempts: rateLimitCheck.attemptCount,
           maxAttempts: rateLimitCheck.maxAttempts,
         });
@@ -352,9 +365,10 @@ export class BetterAuthService {
         maxAttempts: rateLimitCheck.maxAttempts,
       });
       
+      // Use sanitized email for authentication
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password,
+        email: sanitizedEmail,
+        password: validatedCredentials.password, // Use validated password
       });
 
       if (error) {
@@ -393,6 +407,19 @@ export class BetterAuthService {
     try {
       console.log('Signing up with credentials...');
       
+      // ✅ STEP 1: Validate and sanitize input
+      console.log('Validating sign-up credentials...');
+      const validatedCredentials = validateSignUp({
+        email: credentials.email,
+        password: credentials.password,
+        displayName: credentials.displayName,
+        acceptTerms: true, // Assume terms accepted if they got here
+      });
+      
+      // Sanitize email and display name
+      const sanitizedEmail = sanitizeEmail(validatedCredentials.email);
+      console.log('✅ Sign-up validation passed');
+      
       // Import the helper functions
       const { 
         shouldRequireEmailVerification,
@@ -401,11 +428,11 @@ export class BetterAuthService {
       } = await import('../lib/auth');
 
       // Check rate limit BEFORE attempting signup
-      const rateLimitCheck = await checkAuthRateLimit(credentials.email, 'auth_signup');
+      const rateLimitCheck = await checkAuthRateLimit(sanitizedEmail, 'auth_signup');
       
       if (!rateLimitCheck.allowed) {
         console.warn('Sign-up rate limit exceeded:', {
-          email: credentials.email,
+          email: sanitizedEmail,
           attempts: rateLimitCheck.attemptCount,
           maxAttempts: rateLimitCheck.maxAttempts,
         });
@@ -422,12 +449,13 @@ export class BetterAuthService {
       
       console.log('Email verification required:', requireEmailVerification);
       
+      // Use validated and sanitized credentials
       const { data, error } = await supabase.auth.signUp({
-        email: credentials.email,
-        password: credentials.password,
+        email: sanitizedEmail,
+        password: validatedCredentials.password,
         options: {
           data: {
-            display_name: credentials.displayName,
+            display_name: validatedCredentials.displayName || '',
           },
           emailRedirectTo: typeof window !== 'undefined' 
             ? `${window.location.origin}/auth/callback`
