@@ -416,6 +416,17 @@ export class BetterAuthService {
       // For regular sign-in, use the handleSignIn method that doesn't create profiles
       await this.handleSignIn(data.user);
       
+      // ✅ Track session
+      const { trackSession } = await import('../lib/auth');
+      if (data.session) {
+        await trackSession(
+          data.user.id,
+          sanitizedEmail,
+          data.session.access_token,
+          false // isRememberMe - can be enhanced later with checkbox
+        );
+      }
+      
       // ✅ Log successful sign-in
       await logAuthEvent(
         'auth.login.success',
@@ -672,6 +683,15 @@ export class BetterAuthService {
   async signOut(): Promise<void> {
     try {
       console.log('🔄 BetterAuthService: Starting sign out process...');
+      
+      // ✅ Terminate session tracking
+      const { terminateSession } = await import('../lib/auth');
+      if (this.currentUser) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await terminateSession(session.access_token, this.currentUser.id, 'logout');
+        }
+      }
       
       // ✅ Log logout event before clearing user data
       const { logAuthEvent } = await import('../lib/auth');

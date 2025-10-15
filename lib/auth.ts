@@ -449,6 +449,98 @@ async function getLockoutHistory(
   }
 }
 
+// =====================================================
+// SESSION MANAGEMENT HELPERS
+// =====================================================
+
+/**
+ * Create or update session tracking
+ */
+async function trackSession(
+  userId: string,
+  userEmail: string,
+  sessionId: string,
+  isRememberMe: boolean = false
+): Promise<string | null> {
+  try {
+    const { sessionManagementService } = await import('../services/SessionManagementService');
+    return await sessionManagementService.createOrUpdateSession(userId, userEmail, sessionId, isRememberMe);
+  } catch (error) {
+    console.error('Error tracking session:', error);
+    return null;
+  }
+}
+
+/**
+ * Terminate a session
+ */
+async function terminateSession(
+  sessionId: string,
+  userId: string,
+  reason?: 'logout' | 'timeout' | 'password_changed' | 'admin_revoke' | 'force_logout'
+): Promise<boolean> {
+  try {
+    const { sessionManagementService } = await import('../services/SessionManagementService');
+    return await sessionManagementService.terminateSession(sessionId, userId, reason);
+  } catch (error) {
+    console.error('Error terminating session:', error);
+    return false;
+  }
+}
+
+/**
+ * Terminate all sessions for a user (force logout)
+ */
+async function terminateAllSessions(
+  userId: string,
+  reason?: 'password_changed' | 'admin_revoke' | 'force_logout'
+): Promise<number> {
+  try {
+    const { sessionManagementService } = await import('../services/SessionManagementService');
+    return await sessionManagementService.terminateAllUserSessions(userId, reason);
+  } catch (error) {
+    console.error('Error terminating all sessions:', error);
+    return 0;
+  }
+}
+
+/**
+ * Get active sessions for a user
+ */
+async function getActiveSessions(userId: string): Promise<Array<{
+  id: string;
+  sessionId: string;
+  deviceType?: string;
+  platform?: string;
+  browser?: string;
+  os?: string;
+  lastActivityAt: Date;
+  createdAt: Date;
+  expiresAt: Date;
+  isRememberMe: boolean;
+}>> {
+  try {
+    const { sessionManagementService } = await import('../services/SessionManagementService');
+    return await sessionManagementService.getActiveSessions(userId);
+  } catch (error) {
+    console.error('Error getting active sessions:', error);
+    return [];
+  }
+}
+
+/**
+ * Check if session is expired
+ */
+async function isSessionExpired(sessionId: string, userId: string): Promise<boolean> {
+  try {
+    const { sessionManagementService } = await import('../services/SessionManagementService');
+    return await sessionManagementService.isSessionExpired(sessionId, userId);
+  } catch (error) {
+    console.error('Error checking session expiry:', error);
+    return false;
+  }
+}
+
 // Export the helper functions for use in other modules
 export { 
   shouldRequireEmailVerification, 
@@ -478,4 +570,10 @@ export {
   shouldLockAccount,
   formatLockoutMessage,
   getLockoutHistory,
+  // Session management helpers
+  trackSession,
+  terminateSession,
+  terminateAllSessions,
+  getActiveSessions,
+  isSessionExpired,
 }; 
