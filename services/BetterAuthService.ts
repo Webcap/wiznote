@@ -344,7 +344,8 @@ export class BetterAuthService {
       const { 
         shouldRequireEmailVerification, 
         checkAuthRateLimit, 
-        formatRateLimitError 
+        formatRateLimitError,
+        logAuthEvent 
       } = await import('../lib/auth');
 
       // Check rate limit BEFORE attempting authentication
@@ -395,10 +396,32 @@ export class BetterAuthService {
 
       // For regular sign-in, use the handleSignIn method that doesn't create profiles
       await this.handleSignIn(data.user);
+      
+      // ✅ Log successful sign-in
+      await logAuthEvent(
+        'auth.login.success',
+        data.user.id,
+        sanitizedEmail,
+        true,
+        undefined,
+        { email_verified: !!data.user.email_confirmed_at }
+      );
+      
       return this.currentUser!;
       
     } catch (error) {
       console.error('Error signing in:', error);
+      
+      // ✅ Log failed sign-in
+      const { logAuthEvent: logAuthEventFallback } = await import('../lib/auth');
+      await logAuthEventFallback(
+        'auth.login.failure',
+        undefined,
+        credentials.email,
+        false,
+        error instanceof Error ? error.message : 'Unknown error'
+      );
+      
       this.handleError(error, 'Sign In');
     }
   }
@@ -424,7 +447,8 @@ export class BetterAuthService {
       const { 
         shouldRequireEmailVerification,
         checkAuthRateLimit,
-        formatRateLimitError 
+        formatRateLimitError,
+        logAuthEvent 
       } = await import('../lib/auth');
 
       // Check rate limit BEFORE attempting signup
@@ -512,10 +536,35 @@ export class BetterAuthService {
       }
       
       console.log('User signed up successfully:', user.id);
+      
+      // ✅ Log successful sign-up
+      await logAuthEvent(
+        'auth.signup.success',
+        data.user.id,
+        sanitizedEmail,
+        true,
+        undefined,
+        { 
+          email_verified: !!data.user.email_confirmed_at,
+          display_name: validatedCredentials.displayName 
+        }
+      );
+      
       return user;
       
     } catch (error) {
       console.error('Error signing up:', error);
+      
+      // ✅ Log failed sign-up
+      const { logAuthEvent: logAuthEventFallback } = await import('../lib/auth');
+      await logAuthEventFallback(
+        'auth.signup.failure',
+        undefined,
+        credentials.email,
+        false,
+        error instanceof Error ? error.message : 'Unknown error'
+      );
+      
       this.handleError(error, 'Sign Up');
     }
   }
@@ -558,6 +607,17 @@ export class BetterAuthService {
   async signOut(): Promise<void> {
     try {
       console.log('🔄 BetterAuthService: Starting sign out process...');
+      
+      // ✅ Log logout event before clearing user data
+      const { logAuthEvent } = await import('../lib/auth');
+      if (this.currentUser) {
+        await logAuthEvent(
+          'auth.logout',
+          this.currentUser.id,
+          this.currentUser.email,
+          true
+        );
+      }
       
       // Set flag to prevent session recovery during sign out
       this.isSigningOut = true;
