@@ -18,6 +18,10 @@ export interface SystemSettings {
   rateLimitAuthWindowMinutes: number;
   rateLimitApiRequests: number;
   rateLimitApiWindowMinutes: number;
+  // CSRF Protection
+  csrfProtectionEnabled: boolean;
+  csrfOriginCheckEnabled: boolean;
+  csrfTokenExpiryMinutes: number;
   // Feature Flags
   maintenanceMode: boolean;
   newUserRegistrationEnabled: boolean;
@@ -55,6 +59,9 @@ export interface UpdateSystemSettingsParams {
   rateLimitAuthWindowMinutes?: number;
   rateLimitApiRequests?: number;
   rateLimitApiWindowMinutes?: number;
+  csrfProtectionEnabled?: boolean;
+  csrfOriginCheckEnabled?: boolean;
+  csrfTokenExpiryMinutes?: number;
   maintenanceMode?: boolean;
   newUserRegistrationEnabled?: boolean;
 }
@@ -122,6 +129,9 @@ class SystemSettingsService {
         rateLimitAuthWindowMinutes: data.rate_limit_auth_window_minutes,
         rateLimitApiRequests: data.rate_limit_api_requests,
         rateLimitApiWindowMinutes: data.rate_limit_api_window_minutes,
+        csrfProtectionEnabled: data.csrf_protection_enabled ?? true,
+        csrfOriginCheckEnabled: data.csrf_origin_check_enabled ?? true,
+        csrfTokenExpiryMinutes: data.csrf_token_expiry_minutes ?? 60,
         maintenanceMode: data.maintenance_mode,
         newUserRegistrationEnabled: data.new_user_registration_enabled,
         updatedBy: data.updated_by,
@@ -160,6 +170,9 @@ class SystemSettingsService {
       rateLimitAuthWindowMinutes: 15,
       rateLimitApiRequests: 100,
       rateLimitApiWindowMinutes: 1,
+      csrfProtectionEnabled: true, // Secure default
+      csrfOriginCheckEnabled: true, // Secure default
+      csrfTokenExpiryMinutes: 60, // 1 hour default
       maintenanceMode: false,
       newUserRegistrationEnabled: true,
       updatedBy: null,
@@ -239,6 +252,15 @@ class SystemSettingsService {
       }
       if (updates.rateLimitApiWindowMinutes !== undefined) {
         dbUpdates.rate_limit_api_window_minutes = updates.rateLimitApiWindowMinutes;
+      }
+      if (updates.csrfProtectionEnabled !== undefined) {
+        dbUpdates.csrf_protection_enabled = updates.csrfProtectionEnabled;
+      }
+      if (updates.csrfOriginCheckEnabled !== undefined) {
+        dbUpdates.csrf_origin_check_enabled = updates.csrfOriginCheckEnabled;
+      }
+      if (updates.csrfTokenExpiryMinutes !== undefined) {
+        dbUpdates.csrf_token_expiry_minutes = updates.csrfTokenExpiryMinutes;
       }
       if (updates.maintenanceMode !== undefined) {
         dbUpdates.maintenance_mode = updates.maintenanceMode;
@@ -379,6 +401,38 @@ class SystemSettingsService {
       enabled: settings.accountLockoutEnabled,
       attempts: settings.accountLockoutAttempts,
       durationMinutes: settings.accountLockoutDurationMinutes,
+    };
+  }
+
+  /**
+   * Helper: Check if CSRF protection is enabled
+   */
+  async isCsrfEnabled(): Promise<boolean> {
+    const settings = await this.getSettings();
+    return settings.csrfProtectionEnabled;
+  }
+
+  /**
+   * Helper: Check if CSRF origin verification is enabled
+   */
+  async isCsrfOriginCheckEnabled(): Promise<boolean> {
+    const settings = await this.getSettings();
+    return settings.csrfOriginCheckEnabled;
+  }
+
+  /**
+   * Helper: Get CSRF configuration
+   */
+  async getCsrfConfig(): Promise<{
+    enabled: boolean;
+    originCheckEnabled: boolean;
+    tokenExpiryMinutes: number;
+  }> {
+    const settings = await this.getSettings();
+    return {
+      enabled: settings.csrfProtectionEnabled,
+      originCheckEnabled: settings.csrfOriginCheckEnabled,
+      tokenExpiryMinutes: settings.csrfTokenExpiryMinutes,
     };
   }
 }

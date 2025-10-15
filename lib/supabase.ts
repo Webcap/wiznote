@@ -81,6 +81,16 @@ export const supabase = createClient(
       storageKey: 'supabase.auth.token',
       // Disable debug mode to suppress GoTrueClient console logs
       debug: false,
+      // CSRF Protection: Configure secure cookie settings for web
+      ...(Platform.OS === 'web' && {
+        // Note: Supabase handles cookie configuration on the server side
+        // These settings should be configured in your Supabase dashboard:
+        // - Go to Authentication > Settings
+        // - Enable "Use Secure Cookies" (HTTPS only)
+        // - SameSite attribute is automatically set to "Lax" by Supabase
+        // For stricter CSRF protection, you can use custom cookie handling
+        // via the auth.onAuthStateChange callback
+      }),
     },
     // Optimize global configuration
     global: {
