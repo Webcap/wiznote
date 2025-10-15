@@ -331,6 +331,124 @@ async function detectSuspiciousActivity(
   }
 }
 
+// =====================================================
+// ACCOUNT LOCKOUT HELPERS
+// =====================================================
+
+/**
+ * Check if account is locked
+ */
+async function isAccountLocked(userEmail: string): Promise<{
+  isLocked: boolean;
+  lockedUntil: Date | null;
+  lockReason: string | null;
+  failedAttempts: number;
+  remainingMinutes?: number;
+}> {
+  try {
+    const { accountLockoutService } = await import('../services/AccountLockoutService');
+    return await accountLockoutService.isAccountLocked(userEmail);
+  } catch (error) {
+    console.error('Error checking account lock status:', error);
+    return {
+      isLocked: false,
+      lockedUntil: null,
+      lockReason: null,
+      failedAttempts: 0,
+    };
+  }
+}
+
+/**
+ * Lock an account
+ */
+async function lockAccount(
+  userId: string,
+  userEmail: string,
+  options?: {
+    failedAttempts?: number;
+    lockReason?: string;
+    durationMinutes?: number;
+    ipAddresses?: string[];
+  }
+): Promise<string | null> {
+  try {
+    const { accountLockoutService } = await import('../services/AccountLockoutService');
+    return await accountLockoutService.lockAccount(userId, userEmail, options);
+  } catch (error) {
+    console.error('Error locking account:', error);
+    return null;
+  }
+}
+
+/**
+ * Unlock an account
+ */
+async function unlockAccount(
+  userEmail: string,
+  unlockMethod?: 'admin' | 'email' | 'auto'
+): Promise<boolean> {
+  try {
+    const { accountLockoutService } = await import('../services/AccountLockoutService');
+    return await accountLockoutService.unlockAccount(userEmail, { unlockMethod });
+  } catch (error) {
+    console.error('Error unlocking account:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if account should be locked based on failed attempts
+ */
+async function shouldLockAccount(userEmail: string): Promise<boolean> {
+  try {
+    const { accountLockoutService } = await import('../services/AccountLockoutService');
+    return await accountLockoutService.shouldLockAccount(userEmail);
+  } catch (error) {
+    console.error('Error checking if should lock account:', error);
+    return false;
+  }
+}
+
+/**
+ * Format lockout error message
+ */
+async function formatLockoutMessage(userEmail: string): Promise<string> {
+  try {
+    const { accountLockoutService } = await import('../services/AccountLockoutService');
+    const status = await accountLockoutService.isAccountLocked(userEmail);
+    return accountLockoutService.formatLockoutMessage(status);
+  } catch (error) {
+    console.error('Error formatting lockout message:', error);
+    return 'Account temporarily locked. Please try again later.';
+  }
+}
+
+/**
+ * Get lockout history for a user
+ */
+async function getLockoutHistory(
+  userEmail: string,
+  limit: number = 10
+): Promise<Array<{
+  id: string;
+  lockedAt: Date;
+  lockedUntil: Date;
+  unlockedAt: Date | null;
+  isLocked: boolean;
+  lockReason: string;
+  failedAttempts: number;
+  unlockMethod: string | null;
+}>> {
+  try {
+    const { accountLockoutService } = await import('../services/AccountLockoutService');
+    return await accountLockoutService.getLockoutHistory(userEmail, limit);
+  } catch (error) {
+    console.error('Error getting lockout history:', error);
+    return [];
+  }
+}
+
 // Export the helper functions for use in other modules
 export { 
   shouldRequireEmailVerification, 
@@ -353,4 +471,11 @@ export {
   logSystemSettingsChange,
   getRecentFailedLogins,
   detectSuspiciousActivity,
+  // Account lockout helpers
+  isAccountLocked,
+  lockAccount,
+  unlockAccount,
+  shouldLockAccount,
+  formatLockoutMessage,
+  getLockoutHistory,
 }; 

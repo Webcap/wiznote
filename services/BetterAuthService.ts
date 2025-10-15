@@ -345,10 +345,29 @@ export class BetterAuthService {
         shouldRequireEmailVerification, 
         checkAuthRateLimit, 
         formatRateLimitError,
-        logAuthEvent 
+        logAuthEvent,
+        isAccountLocked,
+        formatLockoutMessage 
       } = await import('../lib/auth');
 
-      // Check rate limit BEFORE attempting authentication
+      // ✅ STEP 2: Check if account is locked
+      const lockoutStatus = await isAccountLocked(sanitizedEmail);
+      if (lockoutStatus.isLocked) {
+        const lockoutMessage = await formatLockoutMessage(sanitizedEmail);
+        console.warn('Sign-in blocked: Account is locked:', {
+          email: sanitizedEmail,
+          lockedUntil: lockoutStatus.lockedUntil,
+          remainingMinutes: lockoutStatus.remainingMinutes,
+        });
+        throw new Error(lockoutMessage);
+      }
+
+      console.log('Account lockout check passed:', {
+        email: sanitizedEmail,
+        isLocked: false,
+      });
+
+      // ✅ STEP 3: Check rate limit BEFORE attempting authentication
       const rateLimitCheck = await checkAuthRateLimit(sanitizedEmail, 'auth_signin');
       
       if (!rateLimitCheck.allowed) {
@@ -412,15 +431,61 @@ export class BetterAuthService {
     } catch (error) {
       console.error('Error signing in:', error);
       
+      const sanitizedEmail = sanitizeEmail(credentials.email);
+      
       // ✅ Log failed sign-in
-      const { logAuthEvent: logAuthEventFallback } = await import('../lib/auth');
+      const { 
+        logAuthEvent: logAuthEventFallback,
+        shouldLockAccount,
+        lockAccount,
+        getRecentFailedLogins 
+      } = await import('../lib/auth');
+      
       await logAuthEventFallback(
         'auth.login.failure',
         undefined,
-        credentials.email,
+        sanitizedEmail,
         false,
         error instanceof Error ? error.message : 'Unknown error'
       );
+      
+      // ✅ Check if account should be locked (only for authentication failures, not rate limit/lockout errors)
+      const isAuthError = error instanceof Error && 
+        !error.message.includes('rate limit') && 
+        !error.message.includes('locked') &&
+        !error.message.includes('Email not confirmed');
+      
+      if (isAuthError) {
+        const shouldLock = await shouldLockAccount(sanitizedEmail);
+        
+        if (shouldLock) {
+          console.warn(`[BetterAuthService] Locking account ${sanitizedEmail} due to too many failed attempts`);
+          
+          // Get failed login info for context
+          const failedLogins = await getRecentFailedLogins(sanitizedEmail, 15);
+          
+          // Find user ID from Supabase (best effort)
+          let userId: string | undefined;
+          try {
+            const { data: userData } = await supabase.auth.admin.listUsers();
+            const userRecord = userData.users.find(u => u.email?.toLowerCase() === sanitizedEmail);
+            userId = userRecord?.id;
+          } catch (e) {
+            console.warn('[BetterAuthService] Could not find user ID for lockout');
+          }
+          
+          if (userId) {
+            // Lock the account
+            await lockAccount(userId, sanitizedEmail, {
+              failedAttempts: failedLogins.attemptCount,
+              lockReason: 'too_many_failed_attempts',
+              ipAddresses: failedLogins.ipAddresses,
+            });
+            
+            console.log(`[BetterAuthService] ✅ Account ${sanitizedEmail} locked successfully`);
+          }
+        }
+      }
       
       this.handleError(error, 'Sign In');
     }

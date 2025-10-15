@@ -1,5 +1,60 @@
 # WizNote - Release Notes
 
+## Version 1.3.2 - Security Enhancement Update
+**Release Date:** October 15, 2025
+
+### 🔒 Enhanced Security & Protection
+
+This update significantly upgrades WizNote's security infrastructure to keep your notes and account safer than ever!
+
+#### What's New
+
+**🛡️ Advanced Security Monitoring**
+- Comprehensive account activity tracking and monitoring
+- Real-time detection of suspicious login patterns
+- Automatic protection against unauthorized access
+- 24/7 security event monitoring for your account
+
+**🔐 Enhanced Login Protection**
+- Failed login attempt tracking prevents brute force attacks
+- IP address monitoring detects unusual login locations
+- Multi-device login tracking for account safety
+- Automatic suspicious activity detection and prevention
+
+**📊 Activity Tracking**
+- Detailed logging of authentication events (login, logout, signup)
+- Track successful and failed access attempts
+- Monitor important account changes
+- Complete audit trail for security compliance
+
+**🚨 Automatic Threat Detection**
+- Protection against multiple failed login attempts
+- Detection of login from suspicious locations
+- Unusual access pattern recognition
+- Prevention of unauthorized admin access
+
+**⚡ Performance Improvements**
+- Optimized database queries for faster performance
+- Improved caching reduces load times
+- Better error handling and reliability
+- Enhanced offline support and sync
+
+#### Your Privacy is Protected
+- Only security-relevant events are logged
+- Your notes remain private and encrypted
+- We never sell or share your data
+- Full GDPR compliance maintained
+
+#### What Stays the Same
+✅ All your favorite features work exactly as before
+✅ No changes to how you create or manage notes
+✅ Same great AI features you love
+✅ Same intuitive interface
+
+Thank you for using WizNote! Your security is our priority. 🔒✨
+
+---
+
 ## Version 1.3.0 - Initial Release
 **Release Date:** October 2024
 
