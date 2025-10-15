@@ -90,6 +90,7 @@ function AppContent() {
         const isCreateAudioPage = currentPath.startsWith('/create-audio');
         const isSubscriptionManagementPage = currentPath.startsWith('/subscription-management');
         const isPrivacyPage = currentPath.startsWith('/privacy');
+        const isTermsPage = currentPath.startsWith('/terms');
         const isSharedPage = currentPath.startsWith('/shared/');
         const isDeleteAccountRequestPage = currentPath.startsWith('/delete-account-request');
         
@@ -100,7 +101,7 @@ function AppContent() {
           isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage;
         
         // Check if current path is a public route (accessible without authentication)
-        const isPublicRoute = isPrivacyPage || isSharedPage || isDeleteAccountRequestPage;
+        const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage;
         
         console.log('Layout: Current path:', currentPath);
         console.log('Layout: Is payment page:', isPaymentPage);
@@ -208,6 +209,7 @@ function AppContent() {
                     <Stack.Screen name="join-premium" options={{ headerShown: false }} />
                     <Stack.Screen name="subscription-management" options={{ headerShown: false }} />
                     <Stack.Screen name="privacy" options={{ headerShown: false }} />
+                    <Stack.Screen name="terms" options={{ headerShown: false }} />
                     <Stack.Screen name="delete-account-request" options={{ headerShown: false }} />
                     <Stack.Screen name="admin" options={{ headerShown: false }} />
 

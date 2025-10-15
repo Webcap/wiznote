@@ -157,6 +157,13 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
       isActive: activePage === 'analytics',
     },
     {
+      id: 'security-dashboard',
+      label: 'Security Dashboard',
+      icon: 'shield-checkmark' as const,
+      onPress: () => router.push('/admin/security-dashboard'),
+      isActive: activePage === 'security-dashboard',
+    },
+    {
       id: 'support',
       label: 'Support Tools',
       icon: 'headset' as const,
