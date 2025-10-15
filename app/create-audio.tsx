@@ -20,6 +20,7 @@ import { useThemeColor } from '../hooks/useThemeColor';
 import { useFeatureLimits } from '../hooks/useFeatureLimits';
 import { AudioUtils } from '../services/AudioUtils';
 import { supabaseNoteStorage } from '../services/SupabaseNoteStorage';
+import { useAudioUpload } from '../contexts/AudioUploadContext';
 
 // Import web components
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -29,6 +30,7 @@ import { WebLayout } from '../components/web/WebLayout';
 export default function CreateAudioNoteScreen() {
   const { user, isLoading: authLoading } = useAuth();
   const { canUseFeature, isPremium: hookIsPremium } = useFeatureLimits();
+  const { setUploadingAudio, updateUploadProgress, updateUploadStatus } = useAudioUpload();
   
   // Use direct premium check as primary method since hook has issues with canceled subscriptions
   const isPremium = Boolean(user?.premium?.isActive && user?.premium?.status !== 'canceled');
@@ -268,148 +270,146 @@ export default function CreateAudioNoteScreen() {
     try {
       console.log('[CreateAudio] Recording completed:', audioFile);
       
-      setShowProgressBar(true);
-      setProgress(10);
-      setProgressMessage('Preparing audio file...');
-      console.log('[CreateAudio] Progress set to 10% - Preparing audio file...');
-      setHasRecording(true);
-      setAudioUri(audioFile.filename);
-      setRecordingDuration(audioFile.duration);
-
       // Record audio usage tracking
       try {
         console.log('[CreateAudio] ===== STARTING USAGE TRACKING =====');
-        console.log('[CreateAudio] Audio file details:', {
-          duration: audioFile.duration,
-          filename: audioFile.filename,
-          userId: user?.id,
-          userPremium: user?.premium
-        });
-        
-        // Use the service directly since we're in a callback
         const { featureLimitService } = await import('../services/FeatureLimitService');
         await featureLimitService.initialize();
         
-        // Use direct premium check as primary method since hook has issues with canceled subscriptions
         const directPremiumCheck = Boolean(user?.premium?.isActive && user?.premium?.status !== 'canceled');
-        
-        // Convert duration from seconds to minutes and round to nearest minute
         const durationInMinutes = Math.round(audioFile.duration / 60);
-        
-        console.log('[CreateAudio] About to record usage:', {
-          userId: user?.id,
-          featureId: 'voice_recording',
-          originalDuration: audioFile.duration,
-          durationInMinutes: durationInMinutes,
-          isPremium: directPremiumCheck,
-          usageType: 'duration'
-        });
         
         await featureLimitService.recordFeatureUsage(
           user?.id || '',
           'voice_recording',
-          durationInMinutes, // Record duration in minutes
+          durationInMinutes,
           directPremiumCheck,
           'duration'
         );
         
-        console.log(`[CreateAudio] ✅ SUCCESS: Recorded audio usage: ${durationInMinutes} minutes (${audioFile.duration} seconds) for user ${user?.id}`);
+        console.log(`[CreateAudio] ✅ SUCCESS: Recorded audio usage: ${durationInMinutes} minutes`);
         
-        // Invalidate cache after recording usage
+        // Invalidate cache
         const { featureCacheService } = await import('../services/FeatureCacheService');
         const cacheKey = `voice_recording_usage_${user?.id}_${directPremiumCheck}`;
         await featureCacheService.remove(cacheKey);
-        console.log('[CreateAudio] Invalidated usage cache after recording');
         console.log('[CreateAudio] ===== USAGE TRACKING COMPLETE =====');
       } catch (usageError) {
         console.error('[CreateAudio] ❌ ERROR recording audio usage:', usageError);
-        console.error('[CreateAudio] Usage tracking failed, but continuing with note creation');
-        // Don't block the user experience if usage tracking fails
       }
 
-      // Upload audio file to Supabase storage first
-      setProgress(30);
-      setProgressMessage('Uploading audio file...');
-      console.log('[CreateAudio] Uploading blob to Supabase storage...');
-      
-      // Generate temporary note ID for upload path
+      // Upload audio file to Supabase storage
+      console.log('[CreateAudio] Uploading audio to storage...');
       const tempNoteId = `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       const { audioStorage } = await import('../services/AudioStorage');
       const uploadedAudioUrl = await audioStorage.uploadAudioFile(
-        audioFile.filename, // blob URL
+        audioFile.filename,
         userId,
         tempNoteId
       );
       
       console.log('[CreateAudio] Audio uploaded successfully:', uploadedAudioUrl);
 
-      // Create note with uploaded audio URL (not blob URL)
-      setProgress(50);
-      setProgressMessage('Creating note...');
-      const note = await supabaseNoteStorage.createNote({
-        title: title.trim() || 'Audio Note',
-        content: '',
+      // Calculate file size for display
+      const fileSizeKB = (audioFile.duration * 16) / 1000; // Rough estimate: 16KB per second
+      const fileSize = fileSizeKB > 1024 
+        ? `${(fileSizeKB / 1024).toFixed(1)} MB` 
+        : `${fileSizeKB.toFixed(0)} KB`;
+
+      // Set uploading audio state to show card on home screen
+      setUploadingAudio({
+        fileName: title.trim() || 'Audio Note',
+        fileSize: `${Math.floor(audioFile.duration / 60)}:${String(Math.floor(audioFile.duration % 60)).padStart(2, '0')} • ${fileSize}`,
+        duration: audioFile.duration,
+        audioUrl: uploadedAudioUrl,
+        progress: 10,
+        status: 'uploading',
+        statusMessage: 'Audio uploaded, ready to process...',
+        title: title.trim(),
         tags: tags,
-        summary: '',
-        audioUrl: uploadedAudioUrl, // Use uploaded URL instead of blob
-        audioDuration: audioFile.duration,
       });
 
-      setProgress(60);
-      setProgressMessage('Saving to database...');
-      console.log('[CreateAudio] Progress set to 60% - Saving to database...');
-      setNoteId(note.id);
+      // Navigate back to home screen to show the uploading card
+      router.replace('/(tabs)');
 
-      // Process audio for transcription and summary if needed
+      // Process in background
+      processAudioInBackground(uploadedAudioUrl, audioFile.duration, tempNoteId, title.trim(), tags);
+
+    } catch (error) {
+      console.error('[CreateAudio] Error processing recording:', error);
+      Alert.alert('Error', 'Failed to process recording. Please try again.');
+    }
+  };
+
+  // Process audio in background after navigating to home
+  const processAudioInBackground = async (
+    audioUrl: string,
+    duration: number,
+    tempNoteId: string,
+    noteTitle: string,
+    noteTags: string[]
+  ) => {
+    try {
+      // Create note first
+      updateUploadProgress(30, 'Creating note...');
+      
+      const note = await supabaseNoteStorage.createNote({
+        title: noteTitle || 'Audio Note',
+        content: '',
+        tags: noteTags,
+        summary: '',
+        audioUrl: audioUrl,
+        audioDuration: duration,
+      });
+
+      updateUploadProgress(50, 'Note created successfully!');
+      console.log('[CreateAudio] Note created:', note.id);
+
+      // Process audio for transcription and summary
       try {
-        setProgress(80);
-        setProgressMessage('AI is processing your audio...');
-        console.log('[CreateAudio] Progress set to 80% - AI is processing your audio...');
+        updateUploadStatus('processing', 'AI is processing your audio...');
+        updateUploadProgress(60, 'Transcribing audio...');
+        
         const processingResult = await AudioUtils.processAudioForTranscription(
-          uploadedAudioUrl, // Use uploaded URL for transcription
+          audioUrl,
           userId,
           note.id,
           (message, progress) => {
-            setProgressMessage(message);
-            setProgress(80 + (progress * 0.2)); // Scale 0-100 to 80-100
-            console.log('[CreateAudio] AI Progress:', message, progress);
+            updateUploadProgress(60 + (progress * 0.4), message); // Scale 0-100 to 60-100
           }
         );
 
         if (processingResult.success) {
           // Update note with processed content
-          setProgressMessage('Updating note with AI content...');
+          updateUploadProgress(95, 'Saving AI-generated content...');
           await supabaseNoteStorage.updateNote(note.id, {
-            title: processingResult.title || title.trim() || 'Audio Note',
+            title: processingResult.title || noteTitle || 'Audio Note',
             content: processingResult.transcription || '',
             summary: processingResult.summary || '',
             keyDetails: processingResult.keyDetails || [],
           });
-
-          // Update local state with AI-generated content
-          if (processingResult.title) {
-            setTitle(processingResult.title);
-          }
         }
       } catch (processingError) {
-        console.warn('[CreateAudio] Audio processing failed, continuing with basic note:', processingError);
+        console.warn('[CreateAudio] Audio processing failed:', processingError);
       }
 
-      setProgress(100);
-      setProgressMessage('Complete!');
-      setShowProgressBar(false);
+      // Mark as complete
+      updateUploadStatus('completed', 'Audio note created successfully!');
+      updateUploadProgress(100, 'Complete!');
 
-      // Refresh usage information after recording
-      await loadRecordingUsage();
+      // Refresh notes list to show the new note
+      console.log('[CreateAudio] Refreshing notes list...');
+      await supabaseNoteStorage.getNotes();
 
-      // Navigate to the note page (replace to avoid back button going to create-audio)
-      router.replace(`/note/${note.id}` as any);
+      // Clear the uploading state after 2 seconds
+      setTimeout(() => {
+        setUploadingAudio(null);
+      }, 2000);
 
     } catch (error) {
-      console.error('[CreateAudio] Error processing recording:', error);
-      setShowProgressBar(false);
-      Alert.alert('Error', 'Failed to process recording. Please try again.');
+      console.error('[CreateAudio] Error in background processing:', error);
+      updateUploadStatus('error', 'Failed to process audio. Please try again.');
     }
   };
 

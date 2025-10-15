@@ -97,12 +97,22 @@ export default function AdminDashboardScreen() {
         }).length;
         const premiumUsers = users.filter(u => u.premium?.isActive).length;
         
+        // Fetch real outstanding support tickets count
+        let outstandingTickets = 0;
+        try {
+          const { supportService } = await import('../services/SupportService');
+          const tickets = await supportService.getAllSupportTickets();
+          outstandingTickets = tickets.filter(t => t.status === 'pending' || t.status === 'in_progress').length;
+        } catch (error) {
+          console.error('Error fetching tickets:', error);
+        }
+        
         setStats({
           totalUsers,
           activeUsers,
-          totalNotes: 15678, // TODO: Implement real note count
+          totalNotes: 0, // Removed - not displayed
           premiumUsers,
-          supportTickets: 45, // TODO: Implement real support ticket count
+          supportTickets: outstandingTickets,
           systemHealth: 'Good'
         });
         
@@ -113,7 +123,7 @@ export default function AdminDashboardScreen() {
         });
       } catch (error) {
         console.error('AdminDashboard: Error fetching user stats:', error);
-        // Fallback to mock data if there's an error
+        // Fallback to default data if there's an error
         setStats({
           totalUsers: 0,
           activeUsers: 0,
@@ -543,13 +553,19 @@ export default function AdminDashboardScreen() {
               <ThemedText style={styles.statLabel}>Active Users</ThemedText>
             </View>
             
-            <View style={[styles.statCard, { backgroundColor: cardBg }]}>
+            <TouchableOpacity 
+              style={[styles.statCard, { backgroundColor: cardBg }]}
+              onPress={() => router.push('/admin/support')}
+            >
               <View style={styles.statHeader}>
-                <Ionicons name="document-text" size={24} color="#FF8C00" />
-                <ThemedText style={styles.statNumber}>{stats.totalNotes}</ThemedText>
+                <Ionicons name="mail-unread" size={24} color="#FF8C00" />
+                <ThemedText style={styles.statNumber}>{stats.supportTickets}</ThemedText>
               </View>
-              <ThemedText style={styles.statLabel}>Total Notes</ThemedText>
-            </View>
+              <ThemedText style={styles.statLabel}>Outstanding Tickets</ThemedText>
+              <ThemedText style={[styles.statSubtext, { color: textSecondaryColor }]}>
+                Pending + In Progress
+              </ThemedText>
+            </TouchableOpacity>
             
             <View style={[styles.statCard, { backgroundColor: cardBg }]}>
               <View style={styles.statHeader}>
@@ -572,259 +588,6 @@ export default function AdminDashboardScreen() {
                 View detailed insights
               </ThemedText>
             </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* System Monitoring */}
-        <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>System Monitoring</ThemedText>
-          
-          {/* Mobile-specific notice */}
-          {Platform.OS !== 'web' && (
-            <View style={[styles.mobileNotice, { backgroundColor: cardBg + '80' }]}>
-              <Ionicons name="information-circle" size={16} color={textSecondaryColor} />
-              <ThemedText style={[styles.mobileNoticeText, { color: textSecondaryColor }]}>
-                Mobile: Only Stripe Guardian status is available. Full system monitoring requires web access.
-              </ThemedText>
-            </View>
-          )}
-          
-          <View style={[styles.healthCard, { backgroundColor: cardBg }]}>
-            <View style={styles.healthHeader}>
-              <Ionicons name={monitoring.ready ? 'checkmark-circle' : 'alert-circle'} size={24} color={monitoring.ready ? '#3CB371' : '#FF6B6B'} />
-              <ThemedText style={styles.healthStatus}>
-                System Status: {Platform.OS === 'web' ? 
-                  (monitoring.ready && monitoring.stripeGuardian?.status === 'ready' ? 'All Systems Ready' : 'Issues Detected') :
-                  (monitoring.stripeGuardian?.status === 'ready' ? 'Stripe Guardian Active' : 'Stripe Guardian Issues')
-                }
-              </ThemedText>
-              <View style={styles.healthHeaderActions}>
-                {monitoring.isLoading && (
-                  <View style={styles.loadingIndicator}>
-                    <Ionicons name="sync" size={16} color={iconColor} />
-                  </View>
-                )}
-                <TouchableOpacity style={styles.refreshButton} onPress={Platform.OS === 'web' ? fetchMonitoring : checkStripeGuardianStatus}>
-                  <Ionicons name="refresh" size={18} color={iconColor} />
-                </TouchableOpacity>
-              </View>
-            </View>
-            {monitoring.checks && (
-              <View style={styles.healthDetails}>
-                <View style={styles.healthItem}>
-                  <ThemedText style={styles.healthLabel}>Stripe</ThemedText>
-                  <ThemedText style={styles.healthValue}>{monitoring.checks.stripe ? 'OK' : 'Fail'}</ThemedText>
-                </View>
-                <View style={styles.healthItem}>
-                  <ThemedText style={styles.healthLabel}>Supabase</ThemedText>
-                  <ThemedText style={styles.healthValue}>{monitoring.checks.supabase ? 'OK' : 'Fail'}</ThemedText>
-                </View>
-                <View style={styles.healthItem}>
-                  <ThemedText style={styles.healthLabel}>Service Role</ThemedText>
-                  <ThemedText style={styles.healthValue}>{monitoring.checks.env?.SUPABASE_SERVICE_ROLE_KEY ? 'Set' : 'Missing'}</ThemedText>
-                </View>
-              </View>
-            )}
-            
-            {/* System Status Summary */}
-            <View style={styles.healthDetails}>
-              <View style={styles.healthItem}>
-                <ThemedText style={styles.healthLabel}>Webhook System</ThemedText>
-                <View style={styles.healthValueContainer}>
-                  <Ionicons 
-                    name={monitoring.ready ? 'checkmark-circle' : 'close-circle'} 
-                    size={16} 
-                    color={monitoring.ready ? '#3CB371' : '#FF6B6B'} 
-                  />
-                  <ThemedText style={[
-                    styles.healthValue, 
-                    { color: monitoring.ready ? '#3CB371' : '#FF6B6B' }
-                  ]}>
-                    {monitoring.ready ? 'Ready' : 'Not Ready'}
-                  </ThemedText>
-                </View>
-              </View>
-              <View style={styles.healthItem}>
-                <ThemedText style={styles.healthLabel}>Stripe Guardian</ThemedText>
-                <View style={styles.healthValueContainer}>
-                  <Ionicons 
-                    name={monitoring.stripeGuardian?.status === 'ready' ? 'shield-checkmark' : 'shield'} 
-                    size={16} 
-                    color={monitoring.stripeGuardian?.status === 'ready' ? '#3CB371' : '#FF6B6B'} 
-                  />
-                  <ThemedText style={[
-                    styles.healthValue, 
-                    { color: monitoring.stripeGuardian?.status === 'ready' ? '#3CB371' : '#FF6B6B' }
-                  ]}>
-                    {monitoring.stripeGuardian?.status === 'ready' ? 'Active' : 'Inactive'}
-                  </ThemedText>
-                </View>
-              </View>
-            </View>
-            
-            {/* Overall Health Indicator */}
-            <View style={styles.overallHealthContainer}>
-              <ThemedText style={styles.overallHealthLabel}>Overall System Health</ThemedText>
-              <View style={[
-                styles.overallHealthIndicator, 
-                { 
-                  backgroundColor: Platform.OS === 'web' ?
-                    ((monitoring.ready && monitoring.stripeGuardian?.status === 'ready') ? '#3CB371' : 
-                     (monitoring.ready || monitoring.stripeGuardian?.status === 'ready') ? '#FFA500' : '#FF6B6B') :
-                    (monitoring.stripeGuardian?.status === 'ready' ? '#3CB371' : 
-                     monitoring.stripeGuardian?.status === 'error' ? '#FF6B6B' : '#FFA500')
-                }
-              ]}>
-                <ThemedText style={styles.overallHealthText}>
-                  {Platform.OS === 'web' ?
-                    ((monitoring.ready && monitoring.stripeGuardian?.status === 'ready') ? '🟢 All Systems Operational' : 
-                     (monitoring.ready || monitoring.stripeGuardian?.status === 'ready') ? '🟡 Partial System Issues' : '🔴 Critical Issues Detected') :
-                    (monitoring.stripeGuardian?.status === 'ready' ? '🟢 Stripe Guardian Operational' : 
-                     monitoring.stripeGuardian?.status === 'error' ? '🔴 Stripe Guardian Issues' : '🟡 Stripe Guardian Unknown')
-                  }
-                </ThemedText>
-              </View>
-            </View>
-            
-            {/* Stripe Guardian Details */}
-            {monitoring.stripeGuardian && (
-              <View style={styles.healthDetails}>
-                <View style={styles.healthItem}>
-                  <ThemedText style={styles.healthLabel}>Guardian Uptime</ThemedText>
-                  <ThemedText style={styles.healthValue}>
-                    {monitoring.stripeGuardian.uptime ? 
-                      `${Math.floor(monitoring.stripeGuardian.uptime / 3600)}h ${Math.floor((monitoring.stripeGuardian.uptime % 3600) / 60)}m` : 
-                      'Unknown'
-                    }
-                  </ThemedText>
-                </View>
-                <View style={styles.healthItem}>
-                  <ThemedText style={styles.healthLabel}>Last Guardian Check</ThemedText>
-                  <ThemedText style={styles.healthValue}>
-                    {monitoring.stripeGuardian.timestamp ? 
-                      new Date(monitoring.stripeGuardian.timestamp).toLocaleTimeString() : 
-                      'Unknown'
-                    }
-                  </ThemedText>
-                </View>
-                <View style={styles.healthItem}>
-                  <ThemedText style={styles.healthLabel}>Guardian Status</ThemedText>
-                  <View style={styles.healthValueContainer}>
-                    <ThemedText style={styles.healthValue}>
-                      {monitoring.stripeGuardian.status === 'ready' ? '🟢 Operational' : 
-                       monitoring.stripeGuardian.status === 'error' ? '🔴 Error' : '🟡 Unknown'}
-                    </ThemedText>
-                    <TouchableOpacity 
-                      style={styles.refreshButton} 
-                      onPress={Platform.OS === 'web' ? fetchMonitoring : checkStripeGuardianStatus}
-                    >
-                      <Ionicons name="refresh" size={14} color={iconColor} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                
-                {/* Help Text */}
-                <View style={styles.helpTextContainer}>
-                  <Ionicons name="information-circle" size={16} color={textSecondaryColor} />
-                  <ThemedText style={[styles.helpText, { color: textSecondaryColor }]}>
-                    Stripe Guardian monitors and automatically fixes Stripe webhook sync issues, customer ID mismatches, and subscription problems.
-                  </ThemedText>
-                </View>
-              </View>
-            )}
-            
-            {/* Subscription Sync Status */}
-            {subscriptionSync && (
-              <View style={[styles.syncSection, { backgroundColor: cardBg + '80', marginTop: 16 }]}>
-                <View style={styles.syncHeader}>
-                  <Ionicons name="sync" size={20} color="#4CAF50" />
-                  <ThemedText style={styles.syncTitle}>Automatic Subscription Sync</ThemedText>
-                </View>
-                
-                <View style={styles.healthDetails}>
-                  <View style={styles.healthItem}>
-                    <ThemedText style={styles.healthLabel}>Sync Status</ThemedText>
-                    <View style={styles.healthValueContainer}>
-                      <Ionicons 
-                        name={subscriptionSync.isRunning ? 'checkmark-circle' : 'close-circle'} 
-                        size={16} 
-                        color={subscriptionSync.isRunning ? '#4CAF50' : '#FF6B6B'} 
-                      />
-                      <ThemedText style={[
-                        styles.healthValue, 
-                        { color: subscriptionSync.isRunning ? '#4CAF50' : '#FF6B6B' }
-                      ]}>
-                        {subscriptionSync.isRunning ? 'Running' : 'Stopped'}
-                      </ThemedText>
-                    </View>
-                  </View>
-                  
-                  {subscriptionSync.intervalMinutes && (
-                    <View style={styles.healthItem}>
-                      <ThemedText style={styles.healthLabel}>Sync Interval</ThemedText>
-                      <ThemedText style={styles.healthValue}>
-                        Every {subscriptionSync.intervalMinutes} min
-                      </ThemedText>
-                    </View>
-                  )}
-                  
-                  {subscriptionSync.lastSyncTime && (
-                    <View style={styles.healthItem}>
-                      <ThemedText style={styles.healthLabel}>Last Sync</ThemedText>
-                      <ThemedText style={styles.healthValue}>
-                        {new Date(subscriptionSync.lastSyncTime).toLocaleTimeString()}
-                      </ThemedText>
-                    </View>
-                  )}
-                  
-                  {subscriptionSync.syncCount !== undefined && (
-                    <View style={styles.healthItem}>
-                      <ThemedText style={styles.healthLabel}>Total Syncs</ThemedText>
-                      <ThemedText style={styles.healthValue}>
-                        {subscriptionSync.syncCount}
-                      </ThemedText>
-                    </View>
-                  )}
-                </View>
-                
-                {/* Manual Sync Button */}
-                <TouchableOpacity
-                  style={[
-                    styles.manualSyncButton,
-                    { 
-                      backgroundColor: subscriptionSync.isSyncing ? '#999' : accentPrimary,
-                      opacity: subscriptionSync.isSyncing ? 0.6 : 1
-                    }
-                  ]}
-                  onPress={triggerManualSync}
-                  disabled={subscriptionSync.isSyncing}
-                >
-                  <Ionicons 
-                    name={subscriptionSync.isSyncing ? "hourglass" : "sync"} 
-                    size={20} 
-                    color="white" 
-                  />
-                  <ThemedText style={styles.manualSyncButtonText}>
-                    {subscriptionSync.isSyncing ? 'Syncing...' : 'Trigger Manual Sync'}
-                  </ThemedText>
-                </TouchableOpacity>
-                
-                {/* Sync Info */}
-                <View style={[styles.helpTextContainer, { marginTop: 12 }]}>
-                  <Ionicons name="information-circle" size={16} color={textSecondaryColor} />
-                  <ThemedText style={[styles.helpText, { color: textSecondaryColor }]}>
-                    Automatic sync runs every {subscriptionSync.intervalMinutes || 10} minutes to check and update subscription statuses from Stripe. Use manual sync to force an immediate check.
-                  </ThemedText>
-                </View>
-              </View>
-            )}
-            
-            {monitoring.lastUpdated && (
-              <ThemedText style={styles.webHeaderSubtitle}>Last checked: {monitoring.lastUpdated.toLocaleTimeString()}</ThemedText>
-            )}
-            {monitoring.error && (
-              <ThemedText style={[styles.webHeaderSubtitle, { color: '#FF6B6B' }]}>Error: {monitoring.error}</ThemedText>
-            )}
           </View>
         </View>
 
@@ -1032,28 +795,370 @@ export default function AdminDashboardScreen() {
           </View>
         </View>
 
-        {/* System Health */}
+        {/* System Health & Monitoring - Merged Section */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>System Health</ThemedText>
+          <View style={styles.sectionHeader}>
+            <ThemedText style={styles.sectionTitle}>System Health & Monitoring</ThemedText>
+            <View style={styles.healthHeaderActions}>
+              {monitoring.isLoading && (
+                <View style={styles.loadingIndicator}>
+                  <Ionicons name="sync" size={16} color={iconColor} />
+                </View>
+              )}
+              <TouchableOpacity 
+                style={styles.refreshButton} 
+                onPress={Platform.OS === 'web' ? fetchMonitoring : checkStripeGuardianStatus}
+              >
+                <Ionicons name="refresh" size={18} color={iconColor} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          {/* Mobile-specific notice */}
+          {Platform.OS !== 'web' && (
+            <View style={[styles.mobileNotice, { backgroundColor: cardBg + '80' }]}>
+              <Ionicons name="information-circle" size={16} color={textSecondaryColor} />
+              <ThemedText style={[styles.mobileNoticeText, { color: textSecondaryColor }]}>
+                Mobile: Only Stripe Guardian status is available. Full system monitoring requires web access.
+              </ThemedText>
+            </View>
+          )}
+          
+          {/* Overall Health Indicator */}
+          <View style={styles.overallHealthContainer}>
+            <View style={[
+              styles.overallHealthIndicator, 
+              { 
+                backgroundColor: Platform.OS === 'web' ?
+                  ((monitoring.ready && monitoring.stripeGuardian?.status === 'ready') ? '#3CB371' : 
+                   (monitoring.ready || monitoring.stripeGuardian?.status === 'ready') ? '#FFA500' : '#FF6B6B') :
+                  (monitoring.stripeGuardian?.status === 'ready' ? '#3CB371' : 
+                   monitoring.stripeGuardian?.status === 'error' ? '#FF6B6B' : '#FFA500')
+              }
+            ]}>
+              <Ionicons 
+                name={
+                  Platform.OS === 'web' ?
+                    ((monitoring.ready && monitoring.stripeGuardian?.status === 'ready') ? 'checkmark-circle' : 
+                     (monitoring.ready || monitoring.stripeGuardian?.status === 'ready') ? 'alert-circle' : 'close-circle') :
+                    (monitoring.stripeGuardian?.status === 'ready' ? 'checkmark-circle' : 'alert-circle')
+                } 
+                size={24} 
+                color="white" 
+              />
+              <ThemedText style={styles.overallHealthText}>
+                {Platform.OS === 'web' ?
+                  ((monitoring.ready && monitoring.stripeGuardian?.status === 'ready') ? 'All Systems Operational' : 
+                   (monitoring.ready || monitoring.stripeGuardian?.status === 'ready') ? 'Partial System Issues' : 'Critical Issues Detected') :
+                  (monitoring.stripeGuardian?.status === 'ready' ? 'Stripe Guardian Operational' : 
+                   monitoring.stripeGuardian?.status === 'error' ? 'Stripe Guardian Issues' : 'Stripe Guardian Unknown')
+                }
+              </ThemedText>
+            </View>
+          </View>
+          
           <View style={[styles.healthCard, { backgroundColor: cardBg }]}>
-            <View style={styles.healthHeader}>
-              <Ionicons name="checkmark-circle" size={24} color="#3CB371" />
-              <ThemedText style={styles.healthStatus}>System Status: {stats.systemHealth}</ThemedText>
-            </View>
             <View style={styles.healthDetails}>
+              {/* Outstanding Tickets */}
+              <TouchableOpacity 
+                style={styles.healthItem}
+                onPress={() => router.push('/admin/support')}
+              >
+                <View style={styles.healthValueContainer}>
+                  <Ionicons 
+                    name="mail" 
+                    size={16} 
+                    color={stats.supportTickets > 0 ? accentWarning : '#3CB371'} 
+                  />
+                  <ThemedText style={styles.healthLabel}>Outstanding Tickets</ThemedText>
+                </View>
+                <View style={styles.healthValueContainer}>
+                  <ThemedText style={[
+                    styles.healthValue,
+                    { color: stats.supportTickets > 0 ? accentWarning : '#3CB371' }
+                  ]}>
+                    {stats.supportTickets}
+                  </ThemedText>
+                  <Ionicons name="chevron-forward" size={16} color={textSecondaryColor} />
+                </View>
+              </TouchableOpacity>
+              
+              {/* Database Connection */}
               <View style={styles.healthItem}>
-                <ThemedText style={styles.healthLabel}>Support Tickets</ThemedText>
-                <ThemedText style={styles.healthValue}>{stats.supportTickets} open</ThemedText>
+                <View style={styles.healthValueContainer}>
+                  <Ionicons 
+                    name="server" 
+                    size={16} 
+                    color={monitoring.checks?.supabase ? '#3CB371' : '#FF6B6B'} 
+                  />
+                  <ThemedText style={styles.healthLabel}>Database (Supabase)</ThemedText>
+                </View>
+                <View style={styles.healthValueContainer}>
+                  <Ionicons 
+                    name={monitoring.checks?.supabase ? 'checkmark-circle' : 'close-circle'} 
+                    size={16} 
+                    color={monitoring.checks?.supabase ? '#3CB371' : '#FF6B6B'} 
+                  />
+                  <ThemedText style={[
+                    styles.healthValue, 
+                    { color: monitoring.checks?.supabase ? '#3CB371' : '#FF6B6B' }
+                  ]}>
+                    {monitoring.checks?.supabase ? 'Connected' : 'Unknown'}
+                  </ThemedText>
+                </View>
               </View>
+              
+              {/* Stripe Integration */}
               <View style={styles.healthItem}>
-                <ThemedText style={styles.healthLabel}>Server Load</ThemedText>
-                <ThemedText style={styles.healthValue}>Normal</ThemedText>
+                <View style={styles.healthValueContainer}>
+                  <Ionicons 
+                    name="card" 
+                    size={16} 
+                    color={monitoring.checks?.stripe ? '#3CB371' : '#FF6B6B'} 
+                  />
+                  <ThemedText style={styles.healthLabel}>Stripe Integration</ThemedText>
+                </View>
+                <View style={styles.healthValueContainer}>
+                  <Ionicons 
+                    name={monitoring.checks?.stripe ? 'checkmark-circle' : 'close-circle'} 
+                    size={16} 
+                    color={monitoring.checks?.stripe ? '#3CB371' : '#FF6B6B'} 
+                  />
+                  <ThemedText style={[
+                    styles.healthValue, 
+                    { color: monitoring.checks?.stripe ? '#3CB371' : '#FF6B6B' }
+                  ]}>
+                    {monitoring.checks?.stripe ? 'Active' : 'Unknown'}
+                  </ThemedText>
+                </View>
               </View>
+              
+              {/* Stripe Guardian */}
               <View style={styles.healthItem}>
-                <ThemedText style={styles.healthLabel}>Database</ThemedText>
-                <ThemedText style={styles.healthValue}>Connected</ThemedText>
+                <View style={styles.healthValueContainer}>
+                  <Ionicons 
+                    name="shield-checkmark" 
+                    size={16} 
+                    color={monitoring.stripeGuardian?.status === 'ready' ? '#3CB371' : '#FF6B6B'} 
+                  />
+                  <ThemedText style={styles.healthLabel}>Stripe Guardian</ThemedText>
+                </View>
+                <View style={styles.healthValueContainer}>
+                  <Ionicons 
+                    name={monitoring.stripeGuardian?.status === 'ready' ? 'checkmark-circle' : 'close-circle'} 
+                    size={16} 
+                    color={monitoring.stripeGuardian?.status === 'ready' ? '#3CB371' : '#FF6B6B'} 
+                  />
+                  <ThemedText style={[
+                    styles.healthValue, 
+                    { color: monitoring.stripeGuardian?.status === 'ready' ? '#3CB371' : '#FF6B6B' }
+                  ]}>
+                    {monitoring.stripeGuardian?.status === 'ready' ? 'Active' : 
+                     monitoring.stripeGuardian?.status === 'error' ? 'Error' : 'Unknown'}
+                  </ThemedText>
+                </View>
+              </View>
+              
+              {/* Guardian Uptime (if available) */}
+              {monitoring.stripeGuardian?.uptime && (
+                <View style={styles.healthItem}>
+                  <View style={styles.healthValueContainer}>
+                    <Ionicons name="time" size={16} color={textSecondaryColor} />
+                    <ThemedText style={styles.healthLabel}>Guardian Uptime</ThemedText>
+                  </View>
+                  <ThemedText style={styles.healthValue}>
+                    {Math.floor(monitoring.stripeGuardian.uptime / 3600)}h {Math.floor((monitoring.stripeGuardian.uptime % 3600) / 60)}m
+                  </ThemedText>
+                </View>
+              )}
+              
+              {/* Webhook System */}
+              {Platform.OS === 'web' && (
+                <View style={styles.healthItem}>
+                  <View style={styles.healthValueContainer}>
+                    <Ionicons 
+                      name="git-network" 
+                      size={16} 
+                      color={monitoring.ready ? '#3CB371' : '#FF6B6B'} 
+                    />
+                    <ThemedText style={styles.healthLabel}>Webhook System</ThemedText>
+                  </View>
+                  <View style={styles.healthValueContainer}>
+                    <Ionicons 
+                      name={monitoring.ready ? 'checkmark-circle' : 'close-circle'} 
+                      size={16} 
+                      color={monitoring.ready ? '#3CB371' : '#FF6B6B'} 
+                    />
+                    <ThemedText style={[
+                      styles.healthValue, 
+                      { color: monitoring.ready ? '#3CB371' : '#FF6B6B' }
+                    ]}>
+                      {monitoring.ready ? 'Ready' : 'Not Ready'}
+                    </ThemedText>
+                  </View>
+                </View>
+              )}
+              
+              {/* Service Role Key */}
+              <View style={styles.healthItem}>
+                <View style={styles.healthValueContainer}>
+                  <Ionicons 
+                    name="key" 
+                    size={16} 
+                    color={monitoring.checks?.env?.SUPABASE_SERVICE_ROLE_KEY ? '#3CB371' : '#FF6B6B'} 
+                  />
+                  <ThemedText style={styles.healthLabel}>Service Role Key</ThemedText>
+                </View>
+                <View style={styles.healthValueContainer}>
+                  <Ionicons 
+                    name={monitoring.checks?.env?.SUPABASE_SERVICE_ROLE_KEY ? 'checkmark-circle' : 'close-circle'} 
+                    size={16} 
+                    color={monitoring.checks?.env?.SUPABASE_SERVICE_ROLE_KEY ? '#3CB371' : '#FF6B6B'} 
+                  />
+                  <ThemedText style={[
+                    styles.healthValue, 
+                    { color: monitoring.checks?.env?.SUPABASE_SERVICE_ROLE_KEY ? '#3CB371' : '#FF6B6B' }
+                  ]}>
+                    {monitoring.checks?.env?.SUPABASE_SERVICE_ROLE_KEY ? 'Configured' : 'Missing'}
+                  </ThemedText>
+                </View>
+              </View>
+              
+              {/* Active Premium Users */}
+              <View style={styles.healthItem}>
+                <View style={styles.healthValueContainer}>
+                  <Ionicons 
+                    name="diamond" 
+                    size={16} 
+                    color="#FFD700" 
+                  />
+                  <ThemedText style={styles.healthLabel}>Premium Subscriptions</ThemedText>
+                </View>
+                <ThemedText style={styles.healthValue}>
+                  {stats.premiumUsers} active
+                </ThemedText>
+              </View>
+              
+              {/* Total Users */}
+              <View style={styles.healthItem}>
+                <View style={styles.healthValueContainer}>
+                  <Ionicons 
+                    name="people" 
+                    size={16} 
+                    color="#6A5ACD" 
+                  />
+                  <ThemedText style={styles.healthLabel}>User Base</ThemedText>
+                </View>
+                <ThemedText style={styles.healthValue}>
+                  {stats.totalUsers} total ({stats.activeUsers} active)
+                </ThemedText>
               </View>
             </View>
+            
+            {/* Subscription Sync Status */}
+            {subscriptionSync && subscriptionSync.isRunning !== undefined && (
+              <View style={[styles.syncSection, { backgroundColor: cardBg + '80', marginTop: 16 }]}>
+                <View style={styles.syncHeader}>
+                  <Ionicons name="sync" size={20} color="#4CAF50" />
+                  <ThemedText style={styles.syncTitle}>Automatic Subscription Sync</ThemedText>
+                </View>
+                
+                <View style={styles.healthDetails}>
+                  <View style={styles.healthItem}>
+                    <ThemedText style={styles.healthLabel}>Sync Status</ThemedText>
+                    <View style={styles.healthValueContainer}>
+                      <Ionicons 
+                        name={subscriptionSync.isRunning ? 'checkmark-circle' : 'close-circle'} 
+                        size={16} 
+                        color={subscriptionSync.isRunning ? '#4CAF50' : '#FF6B6B'} 
+                      />
+                      <ThemedText style={[
+                        styles.healthValue, 
+                        { color: subscriptionSync.isRunning ? '#4CAF50' : '#FF6B6B' }
+                      ]}>
+                        {subscriptionSync.isRunning ? 'Running' : 'Stopped'}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  
+                  {subscriptionSync.intervalMinutes && (
+                    <View style={styles.healthItem}>
+                      <ThemedText style={styles.healthLabel}>Sync Interval</ThemedText>
+                      <ThemedText style={styles.healthValue}>
+                        Every {subscriptionSync.intervalMinutes} min
+                      </ThemedText>
+                    </View>
+                  )}
+                  
+                  {subscriptionSync.lastSyncTime && (
+                    <View style={styles.healthItem}>
+                      <ThemedText style={styles.healthLabel}>Last Sync</ThemedText>
+                      <ThemedText style={styles.healthValue}>
+                        {new Date(subscriptionSync.lastSyncTime).toLocaleTimeString()}
+                      </ThemedText>
+                    </View>
+                  )}
+                  
+                  {subscriptionSync.syncCount !== undefined && (
+                    <View style={styles.healthItem}>
+                      <ThemedText style={styles.healthLabel}>Total Syncs</ThemedText>
+                      <ThemedText style={styles.healthValue}>
+                        {subscriptionSync.syncCount}
+                      </ThemedText>
+                    </View>
+                  )}
+                </View>
+                
+                {/* Manual Sync Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.manualSyncButton,
+                    { 
+                      backgroundColor: subscriptionSync.isSyncing ? '#999' : accentPrimary,
+                      opacity: subscriptionSync.isSyncing ? 0.6 : 1
+                    }
+                  ]}
+                  onPress={triggerManualSync}
+                  disabled={subscriptionSync.isSyncing}
+                >
+                  <Ionicons 
+                    name={subscriptionSync.isSyncing ? "hourglass" : "sync"} 
+                    size={20} 
+                    color="white" 
+                  />
+                  <ThemedText style={styles.manualSyncButtonText}>
+                    {subscriptionSync.isSyncing ? 'Syncing...' : 'Trigger Manual Sync'}
+                  </ThemedText>
+                </TouchableOpacity>
+                
+                {/* Sync Info */}
+                <View style={[styles.helpTextContainer, { marginTop: 12 }]}>
+                  <Ionicons name="information-circle" size={16} color={textSecondaryColor} />
+                  <ThemedText style={[styles.helpText, { color: textSecondaryColor }]}>
+                    Automatic sync runs every {subscriptionSync.intervalMinutes || 60} minutes to check and update subscription statuses from Stripe. Use manual sync to force an immediate check.
+                  </ThemedText>
+                </View>
+              </View>
+            )}
+            
+            {/* Last Update Timestamp */}
+            {monitoring.lastUpdated && (
+              <View style={styles.healthItem}>
+                <ThemedText style={[styles.healthLabel, { marginTop: 16, opacity: 0.6 }]}>
+                  Last system check: {monitoring.lastUpdated.toLocaleTimeString()}
+                </ThemedText>
+              </View>
+            )}
+            
+            {/* Error Display */}
+            {monitoring.error && (
+              <View style={[styles.errorContainer, { backgroundColor: '#FF6B6B20', marginTop: 16 }]}>
+                <Ionicons name="alert-circle" size={20} color="#FF6B6B" />
+                <ThemedText style={[styles.errorText, { color: '#FF6B6B' }]}>
+                  {monitoring.error}
+                </ThemedText>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -1101,10 +1206,15 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 32,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 16,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -1301,12 +1411,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   overallHealthContainer: {
-    marginTop: 20,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
-    alignItems: 'center',
+    marginBottom: 16,
   },
   overallHealthLabel: {
     fontSize: 16,
@@ -1314,16 +1419,32 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   overallHealthIndicator: {
-    width: '100%',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
   },
   overallHealthText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
+    color: 'white',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF6B6B',
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
   },
   mobileNotice: {
     flexDirection: 'row',

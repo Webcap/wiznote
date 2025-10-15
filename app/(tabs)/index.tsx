@@ -19,6 +19,7 @@ import { useNotes } from '../../hooks/useNotes';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { usePDFUpload } from '../../contexts/PDFUploadContext';
+import { useAudioUpload } from '../../contexts/AudioUploadContext';
 import { AudioUtils } from '../../services/AudioUtils';
 import { pdfStorage } from '../../services/PDFStorage';
 import { supabaseNoteStorage } from '../../services/SupabaseNoteStorage';
@@ -39,6 +40,7 @@ export default function HomeScreen() {
   const { isFeatureEnabled } = useFeatureFlags();
   const { showSnackbar } = useSnackbar();
   const { uploadingPDF, setUploadingPDF, setOnUploadComplete } = usePDFUpload();
+  const { uploadingAudio } = useAudioUpload();
   const { notes, loading, error, syncStatus, isRealtimeActive, togglePin, toggleArchive, toggleFavorite, deleteNote, getFilteredNotes, refreshNotes } = useNotes(
     authLoading ? '' : (user?.id || '')
   );
@@ -872,7 +874,18 @@ export default function HomeScreen() {
               )}
 
               <View style={styles.webNotesGrid}>
-                {/* Show uploading PDF card first */}
+                {/* Show uploading audio card first */}
+                {uploadingAudio && (
+                  <UploadingNoteCard
+                    fileName={`🎤 ${uploadingAudio.fileName}`}
+                    fileSize={uploadingAudio.fileSize}
+                    progress={uploadingAudio.progress}
+                    status={uploadingAudio.status}
+                    statusMessage={uploadingAudio.statusMessage}
+                  />
+                )}
+                
+                {/* Show uploading PDF card */}
                 {uploadingPDF && (
                   <UploadingNoteCard
                     fileName={uploadingPDF.fileName}
@@ -882,6 +895,7 @@ export default function HomeScreen() {
                     statusMessage={uploadingPDF.statusMessage}
                   />
                 )}
+                
                 {/* Then show regular notes */}
                 {filteredNotes.map((note) => (
                   <WebNoteCard
@@ -1077,14 +1091,27 @@ export default function HomeScreen() {
                     />
                   )}
                   ListHeaderComponent={
-                    uploadingPDF ? (
-                      <UploadingNoteCard
-                        fileName={uploadingPDF.fileName}
-                        fileSize={uploadingPDF.fileSize}
-                        progress={uploadingPDF.progress}
-                        status={uploadingPDF.status}
-                        statusMessage={uploadingPDF.statusMessage}
-                      />
+                    (uploadingAudio || uploadingPDF) ? (
+                      <>
+                        {uploadingAudio && (
+                          <UploadingNoteCard
+                            fileName={`🎤 ${uploadingAudio.fileName}`}
+                            fileSize={uploadingAudio.fileSize}
+                            progress={uploadingAudio.progress}
+                            status={uploadingAudio.status}
+                            statusMessage={uploadingAudio.statusMessage}
+                          />
+                        )}
+                        {uploadingPDF && (
+                          <UploadingNoteCard
+                            fileName={uploadingPDF.fileName}
+                            fileSize={uploadingPDF.fileSize}
+                            progress={uploadingPDF.progress}
+                            status={uploadingPDF.status}
+                            statusMessage={uploadingPDF.statusMessage}
+                          />
+                        )}
+                      </>
                     ) : null
                   }
                   contentContainerStyle={styles.listContainer}

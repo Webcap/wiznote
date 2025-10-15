@@ -701,6 +701,10 @@ export function UserSidebar({
           <ThemedText style={styles.bottomLabel}>Search</ThemedText>
           <ThemedText style={styles.shortcut}>⌘K</ThemedText>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.bottomItem} onPress={() => router.push('/help')}>
+          <Ionicons name="help-circle" size={20} color={iconColor} />
+          <ThemedText style={styles.bottomLabel}>Help & Support</ThemedText>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.bottomItem} onPress={handleWebSettings}>
           <Ionicons name="settings" size={20} color={iconColor} />
           <ThemedText style={styles.bottomLabel}>Settings</ThemedText>

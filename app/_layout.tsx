@@ -12,6 +12,7 @@ import { ThemedView } from '../components/ThemedView';
 import { WebSnackbar } from '../components/web/WebSnackbar';
 import { SnackbarProvider, useSnackbar } from '../contexts/SnackbarContext';
 import { PDFUploadProvider } from '../contexts/PDFUploadContext';
+import { AudioUploadProvider } from '../contexts/AudioUploadContext';
 import { useAuth } from '../hooks/useAuth';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
@@ -214,7 +215,8 @@ function AppContent() {
     <CustomThemeProvider initialTheme={userTheme}>
       <SnackbarProvider>
         <PDFUploadProvider>
-          <ThemeContext.Consumer>
+          <AudioUploadProvider>
+            <ThemeContext.Consumer>
           {theme => {
             const isDark = theme === 'dark' || (theme === 'auto' && colorScheme === 'dark');
             return (
@@ -264,6 +266,7 @@ function AppContent() {
             );
           }}
         </ThemeContext.Consumer>
+          </AudioUploadProvider>
         </PDFUploadProvider>
       </SnackbarProvider>
     </CustomThemeProvider>
