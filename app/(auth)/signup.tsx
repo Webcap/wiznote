@@ -66,8 +66,30 @@ export default function SignupScreen() {
       return false;
     }
 
-    if (password.length < 6) {
-      const message = 'Password must be at least 6 characters long';
+    if (password.length < 8) {
+      const message = 'Password must be at least 8 characters long';
+      if (Platform.OS === 'web') {
+        showSnackbar(message, 'error', 4000);
+      } else {
+        Alert.alert('Error', message);
+      }
+      return false;
+    }
+
+    // Check for at least one letter and one number
+    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      const message = 'Password must contain at least one letter and one number';
+      if (Platform.OS === 'web') {
+        showSnackbar(message, 'error', 4000);
+      } else {
+        Alert.alert('Error', message);
+      }
+      return false;
+    }
+
+    // Check for at least one special character
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      const message = 'Password must contain at least one special character (!@#$%^&*()_+-=[]{};\':"|,.<>/?)';
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
@@ -305,7 +327,7 @@ export default function SignupScreen() {
                     </TouchableOpacity>
                   </View>
                   <ThemedText style={[styles.webPasswordHint, { color: textSecondaryColor }]}>
-                    Must be at least 6 characters
+                    Must be 8+ characters with a letter, number, and special character (!@#$%^&amp;*()_+-=[]{})
                   </ThemedText>
                 </View>
 

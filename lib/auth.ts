@@ -541,6 +541,89 @@ async function isSessionExpired(sessionId: string, userId: string): Promise<bool
   }
 }
 
+// =====================================================
+// API REQUEST SIGNING HELPERS
+// =====================================================
+
+/**
+ * Sign an API request
+ */
+async function signApiRequest(
+  method: string,
+  path: string,
+  body?: any,
+  userId?: string
+): Promise<{
+  requestId: string;
+  timestamp: number;
+  signature: string;
+  headers: Record<string, string>;
+}> {
+  try {
+    const { requestSigningService } = await import('../services/RequestSigningService');
+    const signedRequest = await requestSigningService.signRequest(method, path, body, userId);
+    const headers = requestSigningService.createSignedHeaders(signedRequest, userId);
+    
+    return {
+      requestId: signedRequest.requestId,
+      timestamp: signedRequest.timestamp,
+      signature: signedRequest.signature,
+      headers,
+    };
+  } catch (error) {
+    console.error('Error signing API request:', error);
+    throw error;
+  }
+}
+
+/**
+ * Verify API request signature
+ */
+async function verifyApiSignature(
+  signature: string,
+  method: string,
+  path: string,
+  requestId: string,
+  timestamp: number,
+  bodyHash?: string,
+  userId?: string
+): Promise<{
+  isValid: boolean;
+  error?: string;
+  isReplay?: boolean;
+}> {
+  try {
+    const { requestSigningService } = await import('../services/RequestSigningService');
+    return await requestSigningService.verifySignature(
+      signature,
+      method,
+      path,
+      requestId,
+      timestamp,
+      bodyHash,
+      userId
+    );
+  } catch (error) {
+    console.error('Error verifying API signature:', error);
+    return {
+      isValid: false,
+      error: error instanceof Error ? error.message : 'Verification failed',
+    };
+  }
+}
+
+/**
+ * Set API signing key
+ */
+async function setApiSigningKey(key: string, keyName?: string): Promise<void> {
+  try {
+    const { requestSigningService } = await import('../services/RequestSigningService');
+    requestSigningService.setApiKey(key, keyName);
+  } catch (error) {
+    console.error('Error setting API signing key:', error);
+  }
+}
+
 // Export the helper functions for use in other modules
 export { 
   shouldRequireEmailVerification, 
@@ -576,4 +659,8 @@ export {
   terminateAllSessions,
   getActiveSessions,
   isSessionExpired,
+  // API request signing helpers
+  signApiRequest,
+  verifyApiSignature,
+  setApiSigningKey,
 }; 
