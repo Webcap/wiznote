@@ -351,6 +351,14 @@ export default function CreateAudioNoteScreen() {
     noteTags: string[]
   ) => {
     try {
+      // Ensure user is set before creating note
+      if (!user?.id) {
+        throw new Error('No user authenticated');
+      }
+      
+      // Set the current user on the storage service to ensure authentication
+      supabaseNoteStorage.setCurrentUser(user.id);
+      
       // Create note first
       updateUploadProgress(30, 'Creating note...');
       
