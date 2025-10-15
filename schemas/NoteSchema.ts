@@ -87,15 +87,27 @@ export const UpdateNoteSchema = z.object({
 /**
  * Note ID Schema
  * For validating note IDs in queries
+ * Accepts both UUIDs and custom note IDs (note_timestamp_random)
  */
-export const NoteIdSchema = z.string().uuid('Invalid note ID');
+export const NoteIdSchema = z.string()
+  .min(1, 'Note ID is required')
+  .refine(
+    (id) => {
+      // Accept UUIDs
+      const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+      // Accept custom note IDs (note_timestamp_random)
+      const customIdRegex = /^note_\d+_[a-z0-9]+$/;
+      return uuidRegex.test(id) || customIdRegex.test(id);
+    },
+    'Invalid note ID format'
+  );
 
 /**
  * Bulk Note IDs Schema
  * For validating arrays of note IDs
  */
 export const BulkNoteIdsSchema = z
-  .array(z.string().uuid())
+  .array(NoteIdSchema)
   .min(1, 'At least one note ID required')
   .max(100, 'Cannot process more than 100 notes at once');
 

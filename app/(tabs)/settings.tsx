@@ -652,17 +652,21 @@ export default function SettingsScreen() {
               <ThemedText style={styles.actionButtonText}>Archived Notes ({stats.archivedNotes})</ThemedText>
               <Ionicons name="chevron-forward" size={20} color={borderColor} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
-              <Ionicons name="help-circle" size={20} color={iconColor} />
-              <ThemedText style={styles.actionButtonText}>Help & Support</ThemedText>
-              <Ionicons name="chevron-forward" size={20} color={borderColor} />
-            </TouchableOpacity>
             {/* App Logo */}
             <View style={styles.logoSection}>
               <Logo size={80} />
               <ThemedText style={styles.appName}>WizNote</ThemedText>
 
             </View>
+            
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => router.push('/help')}
+            >
+              <Ionicons name="help-circle" size={20} color={iconColor} />
+              <ThemedText style={styles.actionButtonText}>Help & Support</ThemedText>
+              <Ionicons name="chevron-forward" size={20} color={borderColor} />
+            </TouchableOpacity>
             
             <TouchableOpacity style={styles.actionButton}>
               <Ionicons name="information-circle" size={20} color={iconColor} />
@@ -995,16 +999,20 @@ export default function SettingsScreen() {
             <ThemedText style={styles.actionButtonText}>Archived Notes ({stats.archivedNotes})</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="help-circle" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>Help & Support</ThemedText>
-            <Ionicons name="chevron-forward" size={20} color={borderColor} />
-          </TouchableOpacity>
           {/* App Logo */}
           <View style={styles.logoSection}>
             <Logo size={80} />
             <ThemedText style={styles.appName}>WizNote</ThemedText>
           </View>
+          
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => router.push('/help')}
+          >
+            <Ionicons name="help-circle" size={20} color={iconColor} />
+            <ThemedText style={styles.actionButtonText}>Help & Support</ThemedText>
+            <Ionicons name="chevron-forward" size={20} color={borderColor} />
+          </TouchableOpacity>
           
           <TouchableOpacity style={styles.actionButton}>
             <Ionicons name="information-circle" size={20} color={iconColor} />

@@ -909,6 +909,33 @@ export class SupportService {
       // Get user emails for activity using the search function
       const userEmailsMap = new Map<string, string>();
       
+      // Collect unique user IDs from recent activity
+      const uniqueUserIds = [...new Set(recentActivity?.map(a => a.user_id) || [])];
+      
+      // Fetch user profiles in batches to get emails
+      if (uniqueUserIds.length > 0) {
+        try {
+          const { data: profiles, error: profilesError } = await supabase
+            .from('user_profiles')
+            .select('id, email, display_name')
+            .in('id', uniqueUserIds);
+          
+          if (!profilesError && profiles) {
+            // Populate the map with emails or display names as fallback
+            profiles.forEach(profile => {
+              const emailOrName = profile.email || profile.display_name || profile.id;
+              userEmailsMap.set(profile.id, emailOrName);
+            });
+            
+            console.log(`SupportService: Loaded ${profiles.length} user profiles for activity display`);
+          } else if (profilesError) {
+            console.warn('SupportService: Error loading user profiles for activity:', profilesError);
+          }
+        } catch (error) {
+          console.warn('SupportService: Failed to load user profiles:', error);
+        }
+      }
+      
       // Process recent activity
       for (const activity of recentActivity || []) {
         // Try to get user email (will use user ID as fallback)
@@ -1101,6 +1128,32 @@ export class SupportService {
         notes?: string;
       }> = [];
 
+      // Fetch user emails for alerts
+      const userEmailsMap = new Map<string, string>();
+      const uniqueUserIds = [...new Set(recentUsage.map(u => u.user_id))];
+      
+      if (uniqueUserIds.length > 0) {
+        try {
+          const { data: profiles, error: profilesError } = await supabase
+            .from('user_profiles')
+            .select('id, email, display_name')
+            .in('id', uniqueUserIds);
+          
+          if (!profilesError && profiles) {
+            profiles.forEach(profile => {
+              const emailOrName = profile.email || profile.display_name || profile.id;
+              userEmailsMap.set(profile.id, emailOrName);
+            });
+            
+            console.log(`SupportService: Loaded ${profiles.length} user profiles for usage alerts`);
+          } else if (profilesError) {
+            console.warn('SupportService: Error loading user profiles for usage alerts:', profilesError);
+          }
+        } catch (error) {
+          console.warn('SupportService: Failed to load user profiles for usage alerts:', error);
+        }
+      }
+
       // Check for high usage and limit reached alerts
       for (const usage of recentUsage) {
         const limit = allLimits.find(l => l.featureId === usage.feature_id);
@@ -1110,6 +1163,9 @@ export class SupportService {
         const limitValue = limit.freeUserLimit;
 
         if (typeof limitValue !== 'number') continue;
+        
+        // Get user email from map or fallback to user ID
+        const userEmail = userEmailsMap.get(usage.user_id) || usage.user_id;
 
         // High usage alert (80% of limit)
         if (usageCount >= limitValue * 0.8 && usageCount < limitValue) {
@@ -1117,7 +1173,7 @@ export class SupportService {
             id: `high_${usage.user_id}_${usage.feature_id}`,
             type: 'high_usage',
             userId: usage.user_id,
-            userEmail: usage.user_id, // Using user_id as fallback
+            userEmail: userEmail,
             featureId: usage.feature_id,
             message: `User is at ${Math.round((usageCount / limitValue) * 100)}% of their ${usage.feature_id} limit`,
             severity: 'medium',
@@ -1132,7 +1188,7 @@ export class SupportService {
             id: `limit_${usage.user_id}_${usage.feature_id}`,
             type: 'limit_reached',
             userId: usage.user_id,
-            userEmail: usage.user_id, // Using user_id as fallback
+            userEmail: userEmail,
             featureId: usage.feature_id,
             message: `User has reached their ${usage.feature_id} limit`,
             severity: 'high',
@@ -1147,7 +1203,7 @@ export class SupportService {
             id: `upgrade_${usage.user_id}_${usage.feature_id}`,
             type: 'upgrade_opportunity',
             userId: usage.user_id,
-            userEmail: usage.user_id, // Using user_id as fallback
+            userEmail: userEmail,
             featureId: usage.feature_id,
             message: `User consistently uses ${Math.round((usageCount / limitValue) * 100)}% of ${usage.feature_id} - upgrade opportunity`,
             severity: 'low',
@@ -1281,6 +1337,32 @@ export class SupportService {
     // Get all feature limits
     const allLimits = await featureLimitService.getFeatureLimits();
 
+    // Fetch user emails for alert recipients
+    const userEmailsMap = new Map<string, string>();
+    const uniqueUserIds = [...new Set(recentUsers.slice(0, 10).map(u => u.user_id))];
+    
+    if (uniqueUserIds.length > 0) {
+      try {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('user_profiles')
+          .select('id, email, display_name')
+          .in('id', uniqueUserIds);
+        
+        if (!profilesError && profiles) {
+          profiles.forEach(profile => {
+            const emailOrName = profile.email || profile.display_name || profile.id;
+            userEmailsMap.set(profile.id, emailOrName);
+          });
+          
+          console.log(`SupportService: Loaded ${profiles.length} user profiles for alerts`);
+        } else if (profilesError) {
+          console.warn('SupportService: Error loading user profiles for alerts:', profilesError);
+        }
+      } catch (error) {
+        console.warn('SupportService: Failed to load user profiles for alerts:', error);
+      }
+    }
+
     // Generate alerts based on actual usage data
     for (const user of recentUsers.slice(0, 10)) {
       const limit = allLimits.find(l => l.featureId === user.feature_id);
@@ -1289,12 +1371,15 @@ export class SupportService {
       const usageCount = user.usage_count || 0;
       const limitValue = limit.freeUserLimit;
       const percentage = (usageCount / limitValue) * 100;
+      
+      // Get user email from map or fallback to user ID
+      const userEmail = userEmailsMap.get(user.user_id) || user.user_id;
 
       if (usageCount >= limitValue) {
         alerts.push({
           type: 'limit_reached',
           userId: user.user_id,
-          userEmail: user.user_id, // Using ID as fallback
+          userEmail: userEmail,
           featureId: user.feature_id,
           message: `User has reached ${user.feature_id} limit (${usageCount}/${limitValue})`,
           severity: 'high',
@@ -1304,7 +1389,7 @@ export class SupportService {
         alerts.push({
           type: 'high_usage',
           userId: user.user_id,
-          userEmail: user.user_id, // Using ID as fallback
+          userEmail: userEmail,
           featureId: user.feature_id,
           message: `User at ${Math.round(percentage)}% of ${user.feature_id} limit`,
           severity: 'medium',

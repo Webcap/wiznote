@@ -47,21 +47,51 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
   const accentDanger = useThemeColor({}, 'accentDanger');
   const borderColor = useThemeColor({}, 'border');
 
-  const handleUserSelect = (userId: string) => {
-    // In a real implementation, you'd fetch user details
-    console.log('Selected user:', userId);
-    setSelectedUser({
-      id: userId,
-      email: 'user@example.com',
-      displayName: 'Example User',
-      premium: {
-        isActive: true,
-        planName: 'Premium',
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-      },
-      createdAt: new Date(),
-      lastActive: new Date(),
-    });
+  const handleUserSelect = async (userId: string) => {
+    console.log('SupportDashboard: Selecting user:', userId);
+    setLoading(true);
+    
+    try {
+      // First try to search by user ID directly
+      const user = await supportService.searchUser(userId);
+      
+      if (user) {
+        console.log('SupportDashboard: User found:', user);
+        setSelectedUser(user);
+        setCurrentView('user-details');
+        
+        // Also load the user's feature status
+        try {
+          const status = await supportService.getUserFeatureStatus(userId);
+          setUserFeatureStatus(status);
+          console.log('SupportDashboard: User feature status loaded');
+        } catch (statusError) {
+          console.warn('SupportDashboard: Could not load user feature status:', statusError);
+        }
+        
+        if (Platform.OS === 'web') {
+          showSnackbar(`✅ User loaded: ${user.email || user.displayName || userId}`, 'success', 3000);
+        }
+      } else {
+        console.warn('SupportDashboard: No user found for ID:', userId);
+        if (Platform.OS === 'web') {
+          showSnackbar('User not found', 'error', 4000);
+        } else {
+          Alert.alert('User Not Found', 'Could not find user details.');
+        }
+      }
+    } catch (error) {
+      console.error('SupportDashboard: Error selecting user:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to load user details';
+      
+      if (Platform.OS === 'web') {
+        showSnackbar(`Error: ${errorMsg}`, 'error', 6000);
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSearch = async () => {
