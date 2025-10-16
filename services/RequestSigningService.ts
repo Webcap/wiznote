@@ -10,7 +10,12 @@
 
 import { supabase } from '../lib/supabase';
 import { Platform } from 'react-native';
-import * as Crypto from 'expo-crypto';
+
+// Conditionally import expo-crypto only for native platforms
+let Crypto: any = null;
+if (Platform.OS !== 'web') {
+  Crypto = require('expo-crypto');
+}
 
 /**
  * Signed request data
@@ -98,6 +103,9 @@ class RequestSigningService {
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
       } else {
         // React Native using expo-crypto
+        if (!Crypto) {
+          throw new Error('expo-crypto not available on this platform');
+        }
         return await Crypto.digestStringAsync(
           Crypto.CryptoDigestAlgorithm.SHA256,
           data
@@ -134,6 +142,9 @@ class RequestSigningService {
       } else {
         // React Native - use a combination of hash and key
         // Note: For production, consider using a native crypto library
+        if (!Crypto) {
+          throw new Error('expo-crypto not available on this platform');
+        }
         const combined = `${key}:${message}`;
         return await Crypto.digestStringAsync(
           Crypto.CryptoDigestAlgorithm.SHA256,
