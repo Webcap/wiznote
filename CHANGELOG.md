@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved user experience in support analytics dashboard
   - Fallback to formatted agent ID if name cannot be retrieved
 
+#### Web Design System Compliance
+- **Fixed help and support screens to follow design.json patterns** - Web layouts now consistent with design system
+  - Updated help screen to use proper WebHeader pattern (three-section layout)
+  - Updated admin support page to follow design.json web header specifications
+  - Improved consistency across all web pages with standardized spacing and styling
+  - Better user experience with proper navigation and visual hierarchy
+
 ---
 
 ## [1.3.3] - 2025-10-16
@@ -65,10 +72,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Files Modified
 - `components/support/SupportAnalytics.tsx` - Fixed agent names in performance metrics
+- `app/help.tsx` - Updated web layout to follow design.json patterns
+- `app/admin/support.tsx` - Updated web header to follow design.json specifications
 
 ### Impact
 - ✅ **Support analytics now show real agent names** instead of generic labels
 - ✅ **Better support team management** with identifiable agent performance metrics
+- ✅ **Consistent web design** across all help and support pages
+- ✅ **Improved user experience** with proper navigation and visual hierarchy
+- ✅ **Design system compliance** ensures all web pages follow established patterns
 
 ---
 

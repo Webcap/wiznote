@@ -255,6 +255,16 @@ function AppContent() {
                     <Stack.Screen name="terms" options={{ headerShown: false }} />
                     <Stack.Screen name="delete-account-request" options={{ headerShown: false }} />
                     <Stack.Screen name="admin" options={{ headerShown: false }} />
+                    <Stack.Screen name="help" options={{ 
+                      headerShown: false,
+                      presentation: 'card',
+                      header: () => null,
+                      headerTitle: '',
+                      headerBackTitle: '',
+                      headerBackVisible: false,
+                      headerLeft: () => null,
+                      headerRight: () => null,
+                    }} />
 
                     <Stack.Screen name="+not-found" />
                   </Stack>

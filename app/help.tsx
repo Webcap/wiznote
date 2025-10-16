@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { Stack, useRouter } from 'expo-router';
+import { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -66,6 +66,29 @@ export default function HelpScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const { showSnackbar } = useSnackbar();
+
+  // Hide any automatic headers on web
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      // Hide any expo-router generated headers
+      const hideHeader = () => {
+        const header = document.querySelector('[data-testid="header"]') || 
+                      document.querySelector('.expo-header') ||
+                      document.querySelector('header') ||
+                      document.querySelector('[role="banner"]') ||
+                      document.querySelector('[class*="header"]');
+        if (header) {
+          header.style.display = 'none';
+        }
+      };
+      
+      // Run on mount and after delays to catch dynamically added headers
+      hideHeader();
+      setTimeout(hideHeader, 100);
+      setTimeout(hideHeader, 500);
+      setTimeout(hideHeader, 1000);
+    }
+  }, []);
 
   // Form state
   const [selectedType, setSelectedType] = useState<TicketType | null>(null);
@@ -373,16 +396,24 @@ export default function HelpScreen() {
   if (Platform.OS === 'web') {
     return (
       <WebLayout
+        sidebar={null}
         header={
           <View style={styles.webHeader}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity 
+              onPress={() => router.back()}
+              style={styles.webBackButton}
+            >
               <Ionicons name="arrow-back" size={24} color={textColor} />
+              <ThemedText style={styles.webBackText}>Back</ThemedText>
             </TouchableOpacity>
-            <ThemedText type="title">Help & Support</ThemedText>
+            <ThemedText style={styles.webHeaderTitle}>Help & Support</ThemedText>
+            <View style={styles.webHeaderSpacer} />
           </View>
         }
       >
-        {renderContent()}
+        <View style={styles.webContent}>
+          {renderContent()}
+        </View>
       </WebLayout>
     );
   }
@@ -408,11 +439,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  // Web Header - Following design.json web header pattern
   webHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 16,
-    paddingVertical: 20,
+    paddingHorizontal: 0,
+    paddingTop: 40,
+    paddingBottom: 30,
+    gap: 20,
+  },
+  webBackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  webBackText: {
+    fontSize: 16,
+  },
+  webHeaderTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+  },
+  webHeaderSpacer: {
+    width: 80,
+  },
+  webContent: {
+    maxWidth: 800,
+    alignSelf: 'center',
+    width: '100%',
   },
   header: {
     flexDirection: 'row',
