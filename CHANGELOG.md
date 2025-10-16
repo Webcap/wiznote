@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.3.3] - 2025-01-19
+## [1.3.4] - unreleased
+
+### 🐛 Fixed
+
+#### Support Agent Performance Fix
+- **Fixed support agent performance display** - Agent names now show actual names instead of generic labels
+  - Added database lookup to fetch agent names from user profiles
+  - Agent performance now displays real names (display_name, email, or formatted agent ID)
+  - Improved user experience in support analytics dashboard
+  - Fallback to formatted agent ID if name cannot be retrieved
+
+---
+
+## [1.3.3] - 2025-10-16
 
 ### 🐛 Fixed
 
@@ -51,13 +64,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ensures proper cleanup of user notes during account deletion
 
 ### Files Modified
+- `components/support/SupportAnalytics.tsx` - Fixed agent names in performance metrics
+
+### Impact
+- ✅ **Support analytics now show real agent names** instead of generic labels
+- ✅ **Better support team management** with identifiable agent performance metrics
+
+---
+
+### Files Modified (Version 1.3.3)
 - `components/DeleteAccountModal.tsx` - Fixed modal layout and input visibility
 - `services/AccountDeletionService.ts` - Fixed database column reference
 - `app/_layout.tsx` - Added missing auth/callback route registration
 - `app/(auth)/login.tsx` - Added Terms of Service links to login screen
 - `app/(auth)/signup.tsx` - Added Terms of Service link to mobile signup screen
 
-### Impact
+### Impact (Version 1.3.3)
 - ✅ **Account deletion modal now fully functional** with visible password inputs
 - ✅ **Complete account deletion process** without database errors
 - ✅ **Better user experience** with properly accessible form fields

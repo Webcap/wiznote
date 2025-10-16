@@ -131,10 +131,33 @@ export default function SupportAnalytics({ timeRange = '7d' }: SupportAnalyticsP
         tickets: number;
       }>();
 
+      // Get unique agent IDs
+      const agentIds = [...new Set(resolvedTickets.map(t => t.assignedTo).filter(Boolean))];
+      
+      // Fetch agent names from user profiles
+      const agentNames = new Map<string, string>();
+      if (agentIds.length > 0) {
+        try {
+          const { data: profiles, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('id, display_name, email')
+            .in('id', agentIds);
+
+          if (!profileError && profiles) {
+            for (const profile of profiles) {
+              const name = profile.display_name || profile.email || `Agent ${profile.id.slice(0, 8)}`;
+              agentNames.set(profile.id, name);
+            }
+          }
+        } catch (error) {
+          console.warn('SupportAnalytics: Could not fetch agent names:', error);
+        }
+      }
+
       for (const ticket of resolvedTickets) {
         if (ticket.assignedTo) {
           const existing = agentMap.get(ticket.assignedTo) || {
-            name: 'Support Agent',
+            name: agentNames.get(ticket.assignedTo) || `Agent ${ticket.assignedTo.slice(0, 8)}`,
             resolved: 0,
             totalTime: 0,
             tickets: 0,
