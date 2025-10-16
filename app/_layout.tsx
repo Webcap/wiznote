@@ -151,13 +151,14 @@ function AppContent() {
       const isTermsPage = currentPath.startsWith('/terms');
       const isSharedPage = currentPath.startsWith('/shared/');
       const isDeleteAccountRequestPage = currentPath.startsWith('/delete-account-request');
+      const isHelpPage = currentPath.startsWith('/help');
       const isTabsPage = currentPath.startsWith('/(tabs)') || currentPath === '/' || currentPath === '';
       
       // Check if current path is a valid authenticated route
         const isValidAuthenticatedRoute = isNotePage || isCreatePage || isAdminPage || 
           isArchivedPage || isSearchPage || isSettingsPage || isJoinPremiumPage || 
           isUsagePage || isUserManagementPage || isAiTranscriptionsPage || isCreateAudioPage ||
-          isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage;
+          isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage || isHelpPage;
       
       // Check if current path is a public route (accessible without authentication)
       const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage;

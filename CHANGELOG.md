@@ -25,6 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved consistency across all web pages with standardized spacing and styling
   - Better user experience with proper navigation and visual hierarchy
 
+#### Critical Bug Fixes
+- **Fixed help page navigation issue** - Help page now properly accessible to authenticated users
+  - Added missing `/help` route check to navigation logic in `app/_layout.tsx`
+  - Prevented incorrect redirects when authenticated users access help page
+  - Help page now properly recognized as valid authenticated route
+- **Fixed memory leak in help screen** - Prevented timeout-related memory leaks
+  - Added cleanup function to `useEffect` hook in `app/help.tsx`
+  - Properly clears all `setTimeout` calls when component unmounts
+  - Eliminates potential memory leaks and post-unmount errors
+
 ---
 
 ## [1.3.3] - 2025-10-16
@@ -72,8 +82,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Files Modified
 - `components/support/SupportAnalytics.tsx` - Fixed agent names in performance metrics
-- `app/help.tsx` - Updated web layout to follow design.json patterns
+- `app/help.tsx` - Updated web layout to follow design.json patterns and fixed memory leak
 - `app/admin/support.tsx` - Updated web header to follow design.json specifications
+- `app/_layout.tsx` - Added help route to navigation logic for proper authentication handling
 
 ### Impact
 - ✅ **Support analytics now show real agent names** instead of generic labels
@@ -81,6 +92,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ✅ **Consistent web design** across all help and support pages
 - ✅ **Improved user experience** with proper navigation and visual hierarchy
 - ✅ **Design system compliance** ensures all web pages follow established patterns
+- ✅ **Help page navigation fixed** - authenticated users can now access help without redirects
+- ✅ **Memory leak prevention** - eliminated timeout-related memory leaks in help screen
 
 ---
 

@@ -82,11 +82,17 @@ export default function HelpScreen() {
         }
       };
       
-      // Run on mount and after delays to catch dynamically added headers
-      hideHeader();
-      setTimeout(hideHeader, 100);
-      setTimeout(hideHeader, 500);
-      setTimeout(hideHeader, 1000);
+      const timers = [
+        setTimeout(hideHeader, 0),
+        setTimeout(hideHeader, 100),
+        setTimeout(hideHeader, 500),
+        setTimeout(hideHeader, 1000)
+      ];
+      
+      // Cleanup function
+      return () => {
+        timers.forEach(timer => clearTimeout(timer));
+      };
     }
   }, []);
 
