@@ -77,7 +77,7 @@ export const formatLimit = (limit: number | 'unlimited', limitType: 'count' | 'd
       if (hours > 0) {
         return `${hours}h ${minutes % 60}m`;
       }
-      return `${minutes}m`;
+      return `${minutes} minutes`;
     case 'storage':
       const mb = Math.round(limit / (1024 * 1024));
       const gb = Math.round(limit / (1024 * 1024 * 1024));
@@ -100,7 +100,7 @@ export const formatUsage = (usage: number, limitType: 'count' | 'duration' | 'st
       if (hours > 0) {
         return `${hours}h ${minutes % 60}m`;
       }
-      return `${minutes}m`;
+      return `${minutes} minutes`;
     case 'storage':
       const mb = Math.round(usage / (1024 * 1024));
       const gb = Math.round(usage / (1024 * 1024 * 1024));

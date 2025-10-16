@@ -10,6 +10,7 @@ export default function AdminLayout() {
       <Stack.Screen name="support" />
       <Stack.Screen name="analytics" />
       <Stack.Screen name="system-settings" />
+      <Stack.Screen name="security-dashboard" />
     </Stack>
   );
 } 

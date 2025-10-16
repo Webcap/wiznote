@@ -30,7 +30,7 @@ import { WebLayout } from '../components/web/WebLayout';
 export default function CreateAudioNoteScreen() {
   const { user, isLoading: authLoading } = useAuth();
   const { canUseFeature, isPremium: hookIsPremium } = useFeatureLimits();
-  const { setUploadingAudio, updateUploadProgress, updateUploadStatus } = useAudioUpload();
+  const { setUploadingAudio, updateUploadProgress, updateUploadStatus, onUploadComplete } = useAudioUpload();
   
   // Use direct premium check as primary method since hook has issues with canceled subscriptions
   const isPremium = Boolean(user?.premium?.isActive && user?.premium?.status !== 'canceled');
@@ -318,23 +318,30 @@ export default function CreateAudioNoteScreen() {
         : `${fileSizeKB.toFixed(0)} KB`;
 
       // Set uploading audio state to show card on home screen
-      setUploadingAudio({
+      const uploadState = {
         fileName: title.trim() || 'Audio Note',
         fileSize: `${Math.floor(audioFile.duration / 60)}:${String(Math.floor(audioFile.duration % 60)).padStart(2, '0')} • ${fileSize}`,
         duration: audioFile.duration,
         audioUrl: uploadedAudioUrl,
         progress: 10,
-        status: 'uploading',
+        status: 'uploading' as const,
         statusMessage: 'Audio uploaded, ready to process...',
         title: title.trim(),
         tags: tags,
-      });
+      };
+      
+      console.log('[CreateAudio] Setting upload state:', uploadState);
+      setUploadingAudio(uploadState);
 
-      // Navigate back to home screen to show the uploading card
-      router.replace('/(tabs)');
-
-      // Process in background
-      processAudioInBackground(uploadedAudioUrl, audioFile.duration, tempNoteId, title.trim(), tags);
+      // Use setTimeout to ensure state is set before navigation (fixes mobile timing issue)
+      setTimeout(() => {
+        console.log('[CreateAudio] Navigating to home screen to show upload card');
+        // Navigate back to home screen to show the uploading card
+        router.replace('/(tabs)');
+        
+        // Process in background
+        processAudioInBackground(uploadedAudioUrl, audioFile.duration, tempNoteId, title.trim(), tags);
+      }, 100);
 
     } catch (error) {
       console.error('[CreateAudio] Error processing recording:', error);
@@ -406,9 +413,11 @@ export default function CreateAudioNoteScreen() {
       updateUploadStatus('completed', 'Audio note created successfully!');
       updateUploadProgress(100, 'Complete!');
 
-      // Refresh notes list to show the new note
-      console.log('[CreateAudio] Refreshing notes list...');
-      await supabaseNoteStorage.getNotes();
+      // Call the upload complete callback to refresh notes list
+      console.log('[CreateAudio] Calling onUploadComplete to refresh notes list...');
+      if (onUploadComplete) {
+        await onUploadComplete();
+      }
 
       // Clear the uploading state after 2 seconds
       setTimeout(() => {

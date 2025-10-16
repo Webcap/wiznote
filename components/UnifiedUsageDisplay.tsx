@@ -49,11 +49,12 @@ export function UnifiedUsageDisplay({
     
     switch (limitType) {
       case 'duration':
+        // Display minutes explicitly for clarity
         return `${currentUsage}/${userLimit} minutes`;
       case 'storage':
         return `${formatBytes(currentUsage)}/${formatBytes(userLimit)}`;
       case 'count':
-        return `${currentUsage}/${userLimit}`;
+        return `${currentUsage}/${userLimit} uses`;
       default:
         return `${currentUsage}/${userLimit}`;
     }

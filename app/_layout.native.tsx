@@ -4,6 +4,7 @@ import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
+import * as Linking from 'expo-linking';
 import 'react-native-reanimated';
 
 import { AuthLoadingScreen } from '../components/AuthLoadingScreen';
@@ -35,6 +36,45 @@ function AppContent() {
 
   // Get user preference if available
   const userTheme = user?.preferences?.theme || 'auto';
+
+  // Handle deep links for email verification
+  useEffect(() => {
+    const handleDeepLink = ({ url }: { url: string }) => {
+      console.log('Deep link received:', url);
+      
+      // Parse the URL
+      const parsed = Linking.parse(url);
+      console.log('Parsed deep link:', parsed);
+      
+      // Check if it's an auth callback
+      if (parsed.path === 'auth/callback') {
+        console.log('Auth callback deep link detected, navigating...');
+        // Extract query parameters from the URL
+        const params = parsed.queryParams || {};
+        
+        // Navigate to the callback screen with parameters
+        router.push({
+          pathname: '/auth/callback',
+          params: params as any,
+        });
+      }
+    };
+
+    // Listen for deep links
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Check if app was opened via a deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        console.log('App opened with URL:', url);
+        handleDeepLink({ url });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [router]);
 
   // Initialize feature flag service only after auth is determined
   useEffect(() => {
@@ -132,6 +172,7 @@ function AppContent() {
                       <Stack>
                       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                      <Stack.Screen name="auth/callback" options={{ headerShown: false, title: 'Verifying...' }} />
 
                       <Stack.Screen name="create" options={{ headerShown: false }} />
                       <Stack.Screen name="create-audio" options={{ headerShown: false }} />
@@ -141,6 +182,8 @@ function AppContent() {
                       <Stack.Screen name="user-management" options={{ headerShown: false }} />
                       <Stack.Screen name="archived" options={{ headerShown: false }} />
                       <Stack.Screen name="join-premium" options={{ headerShown: false }} />
+                      <Stack.Screen name="privacy" options={{ headerShown: false }} />
+                      <Stack.Screen name="terms" options={{ headerShown: false }} />
                       <Stack.Screen name="admin" options={{ headerShown: false }} />
                       <Stack.Screen name="flashcards" options={{ headerShown: false }} />
                       <Stack.Screen name="+not-found" />

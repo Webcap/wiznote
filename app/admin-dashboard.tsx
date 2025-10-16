@@ -408,6 +408,10 @@ export default function AdminDashboardScreen() {
     router.push('/admin/support');
   };
 
+  const handleSecurityDashboard = () => {
+    router.push('/admin/security-dashboard');
+  };
+
   const handleFeatureManagement = () => {
     router.push('/admin/feature-management');
   };
@@ -649,6 +653,15 @@ export default function AdminDashboardScreen() {
               <Ionicons name="people" size={32} color="#6A5ACD" />
               <ThemedText style={styles.actionTitle}>User Management</ThemedText>
               <ThemedText style={styles.actionSubtitle}>Manage user accounts and permissions</ThemedText>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.actionCard, { backgroundColor: cardBg }]}
+              onPress={handleSecurityDashboard}
+            >
+              <Ionicons name="shield-checkmark" size={32} color="#EF4444" />
+              <ThemedText style={styles.actionTitle}>Security Dashboard</ThemedText>
+              <ThemedText style={styles.actionSubtitle}>Monitor security events and threats</ThemedText>
             </TouchableOpacity>
             
             <TouchableOpacity 

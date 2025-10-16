@@ -195,11 +195,26 @@ class SystemSettingsService {
       // Verify user is admin
       const { data: userProfile, error: profileError } = await supabase
         .from('user_profiles')
-        .select('role')
+        .select('role, email')
         .eq('id', userId)
         .single();
 
       if (profileError || !userProfile || userProfile.role !== 'admin') {
+        // ✅ Log unauthorized admin action attempt
+        const { logAdminAction } = await import('../lib/auth');
+        await logAdminAction(
+          'admin.action.system_settings',
+          userId,
+          userProfile?.email || 'unknown',
+          undefined,
+          undefined,
+          { 
+            unauthorized: true,
+            attempted_updates: Object.keys(updates),
+            error: 'Unauthorized access attempt'
+          }
+        );
+        
         return {
           success: false,
           error: 'Unauthorized: Only admins can update system settings',
@@ -284,6 +299,21 @@ class SystemSettingsService {
 
       // Clear cache
       this.clearCache();
+
+      // ✅ Log successful system settings change
+      const { logAdminAction } = await import('../lib/auth');
+      await logAdminAction(
+        'admin.action.system_settings',
+        userId,
+        userProfile.email,
+        undefined,
+        undefined,
+        { 
+          settings_updated: Object.keys(updates),
+          reason: reason || 'No reason provided',
+          changes: updates
+        }
+      );
 
       console.log('SystemSettingsService: Settings updated successfully');
       return { success: true };

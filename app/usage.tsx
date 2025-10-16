@@ -234,21 +234,20 @@ export default function UsageScreen() {
       return 'Unlimited';
     }
     
+    // For time-based features (voice_recording), usage is stored in minutes
+    if (featureId === 'voice_recording') {
+      const hours = Math.floor(usage / 60);
+      const minutes = usage % 60;
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+      } else {
+        return `${minutes} minutes`;
+      }
+    }
+    
     // For count-based features, show as count
-    const isCountBased = ['ai_transcription', 'ai_name_generating', 'ai_summaries', 'ai_key_details'].includes(featureId);
-    if (isCountBased) {
-      return `${usage} uses`;
-    }
-    
-    // For time-based features, usage is stored in minutes
-    const hours = Math.floor(usage / 60);
-    const minutes = usage % 60;
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else {
-      return `${minutes}m`;
-    }
+    return `${usage} uses`;
   };
 
   const formatLimit = (limit: number, featureId: string) => {
@@ -256,20 +255,20 @@ export default function UsageScreen() {
       return 'Unlimited';
     }
     
-    const isCountBased = ['ai_transcription', 'ai_name_generating', 'ai_summaries', 'ai_key_details'].includes(featureId);
-    if (isCountBased) {
-      return `${limit} uses`;
+    // For time-based features (voice_recording), limits are in minutes
+    if (featureId === 'voice_recording') {
+      const hours = Math.floor(limit / 60);
+      const minutes = limit % 60;
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+      } else {
+        return `${minutes} minutes`;
+      }
     }
     
-    // For time-based features, limits are in minutes
-    const hours = Math.floor(limit / 60);
-    const minutes = limit % 60;
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else {
-      return `${minutes}m`;
-    }
+    // For count-based features, show as count
+    return `${limit} uses`;
   };
 
   const getUsagePercentage = (current: number, limit: number) => {

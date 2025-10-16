@@ -224,31 +224,48 @@ export default function RealTimeMonitoring({ onUserSelect }: RealTimeMonitoringP
           </View>
         ) : (
           <View style={styles.activityList}>
-            {realTimeData?.recentActivity?.slice(0, 10).map((activity: any, index: number) => (
-              <View key={index} style={[styles.activityItem, { backgroundColor }]}>
-                <View style={styles.activityHeader}>
-                  <Text style={[styles.activityUser, { color: textColor }]}>{activity.userEmail}</Text>
-                  <Text style={[styles.activityTime, { color: textSecondary }]}>
-                    {new Date(activity.timestamp).toLocaleTimeString()}
-                  </Text>
-                </View>
-                
-                <View style={styles.activityDetails}>
-                  <Text style={[styles.activityFeature, { color: textSecondary }]}>{activity.featureId}</Text>
-                  <Text style={[styles.activityAction, { color: textSecondary }]}>{activity.action}</Text>
-                  <Text style={[styles.activityUsage, { color: textSecondary }]}>Usage: {activity.usageCount}</Text>
-                </View>
+            {realTimeData?.recentActivity?.slice(0, 10).map((activity: any, index: number) => {
+              // Format usage based on feature type
+              const formatActivityUsage = (featureId: string, value: number) => {
+                if (featureId === 'voice_recording') {
+                  const hours = Math.floor(value / 60);
+                  const minutes = value % 60;
+                  if (hours > 0) {
+                    return `${hours}h ${minutes}m`;
+                  }
+                  return `${value} minutes`;
+                }
+                return `${value} uses`;
+              };
+              
+              return (
+                <View key={index} style={[styles.activityItem, { backgroundColor }]}>
+                  <View style={styles.activityHeader}>
+                    <Text style={[styles.activityUser, { color: textColor }]}>{activity.userEmail}</Text>
+                    <Text style={[styles.activityTime, { color: textSecondary }]}>
+                      {new Date(activity.timestamp).toLocaleTimeString()}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.activityDetails}>
+                    <Text style={[styles.activityFeature, { color: textSecondary }]}>{activity.featureId}</Text>
+                    <Text style={[styles.activityAction, { color: textSecondary }]}>{activity.action}</Text>
+                    <Text style={[styles.activityUsage, { color: textSecondary }]}>
+                      Usage: {formatActivityUsage(activity.featureId, activity.usageCount)}
+                    </Text>
+                  </View>
 
-                {onUserSelect && (
-                  <TouchableOpacity
-                    style={[styles.viewUserButton, { backgroundColor: accentPrimary }]}
-                    onPress={() => onUserSelect(activity.userId)}
-                  >
-                    <Text style={styles.viewUserButtonText}>View User</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))}
+                  {onUserSelect && (
+                    <TouchableOpacity
+                      style={[styles.viewUserButton, { backgroundColor: accentPrimary }]}
+                      onPress={() => onUserSelect(activity.userId)}
+                    >
+                      <Text style={styles.viewUserButtonText}>View User</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })}
           </View>
         )}
       </View>
@@ -261,12 +278,27 @@ export default function RealTimeMonitoring({ onUserSelect }: RealTimeMonitoringP
           <Text style={[styles.noDataText, { color: textSecondary }]}>No usage data available</Text>
         ) : (
           <View style={styles.usageList}>
-            {Object.entries(realTimeData?.totalUsage || {}).map(([featureId, usage]) => (
-              <View key={featureId} style={[styles.usageItem, { borderBottomColor: borderColor }]}>
-                <Text style={[styles.usageFeature, { color: textColor }]}>{featureId}</Text>
-                <Text style={[styles.usageCount, { color: accentPrimary }]}>{usage as number} uses</Text>
-              </View>
-            ))}
+            {Object.entries(realTimeData?.totalUsage || {}).map(([featureId, usage]) => {
+              // Format usage based on feature type
+              const formatUsage = (featureId: string, value: number) => {
+                if (featureId === 'voice_recording') {
+                  const hours = Math.floor(value / 60);
+                  const minutes = value % 60;
+                  if (hours > 0) {
+                    return `${hours}h ${minutes}m`;
+                  }
+                  return `${value} minutes`;
+                }
+                return `${value} uses`;
+              };
+              
+              return (
+                <View key={featureId} style={[styles.usageItem, { borderBottomColor: borderColor }]}>
+                  <Text style={[styles.usageFeature, { color: textColor }]}>{featureId}</Text>
+                  <Text style={[styles.usageCount, { color: accentPrimary }]}>{formatUsage(featureId, usage as number)}</Text>
+                </View>
+              );
+            })}
           </View>
         )}
       </View>

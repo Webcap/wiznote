@@ -1,108 +1,43 @@
 /**
- * Input Sanitization Utilities - Web Version
+ * Input Sanitization Utilities - React Native Version
  * 
- * Provides functions to sanitize user input and prevent XSS attacks.
- * Uses DOMPurify for HTML sanitization and custom functions for other inputs.
- * 
- * Note: For React Native, use sanitization.native.ts instead
+ * Provides functions to sanitize user input for React Native environments.
+ * Uses simple regex-based sanitization since DOMPurify requires a DOM.
  */
-
-import DOMPurify from 'dompurify';
 
 /**
- * DOMPurify Configuration for Different Contexts
+ * Strip HTML tags from a string
  */
-const PURIFY_CONFIG = {
-  // Strict: Remove all HTML tags, keep only text
-  STRICT: {
-    ALLOWED_TAGS: [],
-    ALLOWED_ATTR: [],
-    KEEP_CONTENT: true,
-  },
+function stripHTMLTags(html: string): string {
+  if (!html || typeof html !== 'string') {
+    return '';
+  }
+  
+  // Remove HTML tags
+  return html.replace(/<[^>]*>/g, '');
+}
 
-  // Basic: Allow basic formatting (bold, italic, underline, links)
-  BASIC: {
-    ALLOWED_TAGS: ['b', 'i', 'u', 'a', 'p', 'br', 'strong', 'em'],
-    ALLOWED_ATTR: ['href', 'target', 'rel'],
-    ALLOW_DATA_ATTR: false,
-  },
-
-  // Rich: Allow common rich text formatting
-  RICH: {
-    ALLOWED_TAGS: [
-      'b',
-      'i',
-      'u',
-      'a',
-      'p',
-      'br',
-      'strong',
-      'em',
-      'ul',
-      'ol',
-      'li',
-      'h1',
-      'h2',
-      'h3',
-      'h4',
-      'h5',
-      'h6',
-      'blockquote',
-      'code',
-      'pre',
-      'hr',
-      'table',
-      'thead',
-      'tbody',
-      'tr',
-      'th',
-      'td',
-    ],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
-    ALLOW_DATA_ATTR: false,
-  },
-
-  // Note Content: Full rich text for notes
-  NOTE_CONTENT: {
-    ALLOWED_TAGS: [
-      'b',
-      'i',
-      'u',
-      'a',
-      'p',
-      'br',
-      'strong',
-      'em',
-      'ul',
-      'ol',
-      'li',
-      'h1',
-      'h2',
-      'h3',
-      'h4',
-      'h5',
-      'h6',
-      'blockquote',
-      'code',
-      'pre',
-      'hr',
-      'table',
-      'thead',
-      'tbody',
-      'tr',
-      'th',
-      'td',
-      'div',
-      'span',
-      'img',
-    ],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'src', 'alt', 'title', 'width', 'height'],
-    ALLOW_DATA_ATTR: false,
-  },
-};
+/**
+ * Decode HTML entities
+ */
+function decodeHTMLEntities(text: string): string {
+  const entities: Record<string, string> = {
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&nbsp;': ' ',
+  };
+  
+  return text.replace(/&[a-z]+;|&#\d+;/gi, (match) => {
+    return entities[match.toLowerCase()] || match;
+  });
+}
 
 /**
  * Sanitize HTML content based on context
+ * For React Native, we use simpler text-based sanitization
  */
 export function sanitizeHTML(
   html: string,
@@ -112,32 +47,49 @@ export function sanitizeHTML(
     return '';
   }
 
-  let config;
-  switch (level) {
-    case 'strict':
-      config = PURIFY_CONFIG.STRICT;
-      break;
-    case 'basic':
-      config = PURIFY_CONFIG.BASIC;
-      break;
-    case 'rich':
-      config = PURIFY_CONFIG.RICH;
-      break;
-    case 'note':
-      config = PURIFY_CONFIG.NOTE_CONTENT;
-      break;
-    default:
-      config = PURIFY_CONFIG.RICH;
+  // For strict mode, remove all HTML and decode entities
+  if (level === 'strict') {
+    let sanitized = stripHTMLTags(html);
+    sanitized = decodeHTMLEntities(sanitized);
+    return sanitized;
   }
 
-  return DOMPurify.sanitize(html, config);
+  // For other levels, we'll keep basic structure but still strip dangerous content
+  let sanitized = html;
+  
+  // Remove script tags and their content
+  sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  
+  // Remove style tags and their content
+  sanitized = sanitized.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  
+  // Remove event handlers (onclick, onload, etc.)
+  sanitized = sanitized.replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '');
+  sanitized = sanitized.replace(/\s*on\w+\s*=\s*[^\s>]*/gi, '');
+  
+  // Remove javascript: and data: protocols
+  sanitized = sanitized.replace(/javascript:/gi, '');
+  sanitized = sanitized.replace(/data:text\/html/gi, '');
+  
+  // For note level, keep the HTML structure
+  if (level === 'note' || level === 'rich' || level === 'basic') {
+    return sanitized;
+  }
+
+  return sanitized;
 }
 
 /**
  * Sanitize plain text (remove all HTML)
  */
 export function sanitizePlainText(text: string): string {
-  return sanitizeHTML(text, 'strict');
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+  
+  let sanitized = stripHTMLTags(text);
+  sanitized = decodeHTMLEntities(sanitized);
+  return sanitized;
 }
 
 /**
@@ -167,14 +119,28 @@ export function sanitizeURL(url: string): string {
   }
 
   try {
-    const parsed = new URL(url);
-
-    // Only allow http and https protocols
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
+    // Simple URL validation for React Native
+    const urlTrimmed = url.trim();
+    
+    // Check if it starts with http:// or https://
+    if (!urlTrimmed.startsWith('http://') && !urlTrimmed.startsWith('https://')) {
+      return '';
+    }
+    
+    // Basic validation - must have protocol and domain
+    if (urlTrimmed.length < 10) { // Minimum: https://a.b
+      return '';
+    }
+    
+    // Check for dangerous patterns
+    if (urlTrimmed.includes('javascript:') || 
+        urlTrimmed.includes('data:') || 
+        urlTrimmed.includes('vbscript:') ||
+        urlTrimmed.includes('file:')) {
       return '';
     }
 
-    return parsed.toString();
+    return urlTrimmed;
   } catch {
     // Invalid URL
     return '';
@@ -316,16 +282,11 @@ export function stripDangerousProtocols(url: string): string {
  * Allows Markdown syntax but sanitizes the output HTML
  */
 export function sanitizeMarkdown(markdown: string): string {
-  // This is a basic implementation
-  // In production, consider using a dedicated Markdown sanitizer
-  // like marked + DOMPurify or remark with rehype-sanitize
-
   if (!markdown || typeof markdown !== 'string') {
     return '';
   }
 
   // For now, just sanitize as HTML
-  // TODO: Integrate proper Markdown parser + sanitizer
   return sanitizeHTML(markdown, 'note');
 }
 
