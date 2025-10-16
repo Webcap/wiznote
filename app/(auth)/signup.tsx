@@ -393,7 +393,7 @@ export default function SignupScreen() {
                 <ThemedText style={[styles.webTermsText, { color: textSecondaryColor }]}>
                   By creating an account, you agree to our{' '}
                 </ThemedText>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/terms' as any)}>
                   <ThemedText style={[styles.webTermsLink, { color: accentColor }]}>Terms of Service</ThemedText>
                 </TouchableOpacity>
                 <ThemedText style={[styles.webTermsText, { color: textSecondaryColor }]}> and </ThemedText>
@@ -545,11 +545,17 @@ export default function SignupScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Privacy Policy Link */}
+            {/* Terms and Privacy Links */}
             <View style={styles.privacyContainer}>
               <ThemedText style={[styles.privacyText, { color: textSecondaryColor }]}>
                 By signing up, you agree to our{' '}
               </ThemedText>
+              <TouchableOpacity onPress={() => router.push('/terms' as any)}>
+                <ThemedText style={[styles.privacyLink, { color: accentColor }]}>
+                  Terms of Service
+                </ThemedText>
+              </TouchableOpacity>
+              <ThemedText style={[styles.privacyText, { color: textSecondaryColor }]}> and </ThemedText>
               <TouchableOpacity onPress={() => router.push('/privacy' as any)}>
                 <ThemedText style={[styles.privacyLink, { color: accentColor }]}>
                   Privacy Policy

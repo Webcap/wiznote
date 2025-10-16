@@ -232,6 +232,7 @@ function AppContent() {
                   <Stack>
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                     <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                    <Stack.Screen name="auth/callback" options={{ headerShown: false, title: 'Verifying...' }} />
                     <Stack.Screen name="note" options={{ headerShown: false }} />
                     <Stack.Screen name="payment" options={{ headerShown: false }} />
                     <Stack.Screen name="create" options={{ headerShown: false }} />

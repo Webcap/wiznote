@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -119,7 +120,11 @@ export default function DeleteAccountRequestScreen() {
 
   // Render content
   const renderContent = () => (
-    <ScrollView contentContainerStyle={styles.scrollContent}>
+    <ScrollView 
+      contentContainerStyle={styles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
       {/* Header - Mobile Only */}
       {Platform.OS !== 'web' && (
         <View style={styles.header}>
@@ -269,7 +274,13 @@ export default function DeleteAccountRequestScreen() {
   // Mobile layout
   return (
     <ThemedView style={styles.container}>
-      {renderContent()}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        {renderContent()}
+      </KeyboardAvoidingView>
     </ThemedView>
   );
 }
@@ -277,6 +288,9 @@ export default function DeleteAccountRequestScreen() {
 const styles = StyleSheet.create({
   // Container
   container: {
+    flex: 1,
+  },
+  keyboardAvoidingView: {
     flex: 1,
   },
   
@@ -315,7 +329,7 @@ const styles = StyleSheet.create({
   
   // Scroll Content
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: Platform.OS === 'ios' ? 100 : 80, // Extra padding for keyboard
   },
   
   // Mobile Header

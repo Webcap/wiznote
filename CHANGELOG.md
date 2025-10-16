@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.3] - 2025-01-19
+
+### 🐛 Fixed
+
+#### Account Deletion Modal
+- **Fixed password input visibility issue** - Delete account modal now properly displays password and confirmation input fields
+  - Removed blocking test element that was covering form content
+  - Simplified modal layout structure for better content visibility
+  - Fixed ScrollView configuration to ensure all form elements are accessible
+  - Updated modal height and scrolling behavior for optimal user experience
+
+#### Database Error Fix
+- **Fixed account deletion database error** - Resolved `column notes.userId does not exist` error during account cleanup
+  - Corrected database column reference from `notes.userId` to `notes.user_id` in AccountDeletionService
+  - Account deletion now completes successfully without database errors
+  - Notes are properly deleted during account cleanup process
+
+#### Email Verification Fix
+- **Fixed email verification "not found" error** - Email verification links now properly route to the callback handler
+  - Added missing `auth/callback` route registration in main app layout
+  - Email verification links now successfully process and verify user accounts
+  - Users can complete email verification without encountering "not found" screens
+
+#### Terms of Service Links
+- **Added Terms of Service links to authentication screens** - Users can now easily access terms and privacy policy
+  - Added Terms of Service link to login screen (both mobile and web versions)
+  - Added Terms of Service link to signup screen mobile version (web version already had it)
+  - Updated text to "By signing in/up, you agree to our Terms of Service and Privacy Policy"
+  - Both links are properly styled and functional on all platforms
+
+### Technical Details
+
+#### Modal Layout Improvements
+- Removed unnecessary `KeyboardAvoidingView` wrapper that was causing layout conflicts
+- Simplified container structure with proper flex layout
+- Updated ScrollView configuration for better content accessibility
+- Increased modal height from 85% to 90% for better content visibility
+
+#### Database Schema Fix
+- Fixed column reference in `services/AccountDeletionService.ts` line 48
+- Changed `.eq('userId', userId)` to `.eq('user_id', userId)`
+- Ensures proper cleanup of user notes during account deletion
+
+### Files Modified
+- `components/DeleteAccountModal.tsx` - Fixed modal layout and input visibility
+- `services/AccountDeletionService.ts` - Fixed database column reference
+- `app/_layout.tsx` - Added missing auth/callback route registration
+- `app/(auth)/login.tsx` - Added Terms of Service links to login screen
+- `app/(auth)/signup.tsx` - Added Terms of Service link to mobile signup screen
+
+### Impact
+- ✅ **Account deletion modal now fully functional** with visible password inputs
+- ✅ **Complete account deletion process** without database errors
+- ✅ **Better user experience** with properly accessible form fields
+- ✅ **Reliable data cleanup** during account deletion
+- ✅ **Email verification links now work properly** without "not found" errors
+- ✅ **Users can complete account verification** and access the app
+- ✅ **Terms of Service and Privacy Policy easily accessible** from login/signup screens
+- ✅ **Legal compliance improved** with proper terms links on all authentication screens
+
+---
+
 ## [1.3.2] - 2025-10-15
 
 ### 🔒 Security
