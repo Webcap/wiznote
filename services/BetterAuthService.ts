@@ -13,6 +13,20 @@ import {
 import { roleService } from './RoleService';
 import { validateSignIn, validateSignUp, validateEmail } from '../schemas/AuthSchema';
 import { sanitizeEmail } from '../utils/sanitization';
+// Pre-import auth functions to avoid dynamic import issues on mobile
+import { 
+  shouldRequireEmailVerification,
+  checkAuthRateLimit,
+  formatRateLimitError,
+  logAuthEvent,
+  terminateSession,
+  shouldLockAccount,
+  lockAccount,
+  getRecentFailedLogins,
+  isAccountLocked,
+  formatLockoutMessage,
+  trackSession
+} from '../lib/auth';
 
 export class BetterAuthService {
   private currentUser: User | null = null;
@@ -122,12 +136,12 @@ export class BetterAuthService {
       let userProfile = await this.loadUserProfile(supabaseUser.id);
       
       if (!userProfile) {
-        // No profile exists - this could be a new OAuth user or a user who hasn't completed sign-up
-        console.log('No user profile found, checking if this is a new OAuth user...');
+        // No profile exists - create one for any authenticated user
+        console.log('No user profile found, creating profile for user:', supabaseUser.id);
         
-        // Check if this is a new OAuth user (has email but no profile)
-        if (supabaseUser.email && supabaseUser.user_metadata) {
-          console.log('Creating new user profile for OAuth user:', supabaseUser.id);
+        // Create profile for any authenticated user (OAuth or email/password)
+        if (supabaseUser.email) {
+          console.log('Creating new user profile:', supabaseUser.id);
           try {
             userProfile = await this.createUserProfile(supabaseUser);
           } catch (profileError) {
@@ -136,8 +150,7 @@ export class BetterAuthService {
             userProfile = await this.createMinimalUserProfile(supabaseUser);
           }
         } else {
-          console.error('No user profile found for user:', supabaseUser.id);
-          console.error('User must sign up first to create a profile');
+          console.error('No user profile found and no email for user:', supabaseUser.id);
           throw new Error('User profile not found. Please sign up first.');
         }
       } else {
@@ -340,50 +353,56 @@ export class BetterAuthService {
       const sanitizedEmail = sanitizeEmail(validatedCredentials.email);
       console.log('✅ Sign-in validation passed');
       
-      // Import auth helpers
-      const { 
-        shouldRequireEmailVerification, 
-        checkAuthRateLimit, 
-        formatRateLimitError,
-        logAuthEvent,
-        isAccountLocked,
-        formatLockoutMessage 
-      } = await import('../lib/auth');
+      // ✅ STEP 2: Check if account is locked (wrapped to prevent crashes)
+      try {
+        const lockoutStatus = await isAccountLocked(sanitizedEmail);
+        if (lockoutStatus.isLocked) {
+          const lockoutMessage = await formatLockoutMessage(sanitizedEmail);
+          console.warn('Sign-in blocked: Account is locked:', {
+            email: sanitizedEmail,
+            lockedUntil: lockoutStatus.lockedUntil,
+            remainingMinutes: lockoutStatus.remainingMinutes,
+          });
+          throw new Error(lockoutMessage);
+        }
 
-      // ✅ STEP 2: Check if account is locked
-      const lockoutStatus = await isAccountLocked(sanitizedEmail);
-      if (lockoutStatus.isLocked) {
-        const lockoutMessage = await formatLockoutMessage(sanitizedEmail);
-        console.warn('Sign-in blocked: Account is locked:', {
+        console.log('Account lockout check passed:', {
           email: sanitizedEmail,
-          lockedUntil: lockoutStatus.lockedUntil,
-          remainingMinutes: lockoutStatus.remainingMinutes,
+          isLocked: false,
         });
-        throw new Error(lockoutMessage);
+      } catch (lockoutError) {
+        // Re-throw if it's a lockout message, otherwise log and continue
+        if (lockoutError instanceof Error && lockoutError.message.includes('locked')) {
+          throw lockoutError;
+        }
+        console.error('Failed to check account lockout:', lockoutError);
       }
 
-      console.log('Account lockout check passed:', {
-        email: sanitizedEmail,
-        isLocked: false,
-      });
+      // ✅ STEP 3: Check rate limit BEFORE attempting authentication (wrapped to prevent crashes)
+      try {
+        const rateLimitCheck = await checkAuthRateLimit(sanitizedEmail, 'auth_signin');
+        
+        if (!rateLimitCheck.allowed) {
+          console.warn('Sign-in rate limit exceeded:', {
+            email: sanitizedEmail,
+            attempts: rateLimitCheck.attemptCount,
+            maxAttempts: rateLimitCheck.maxAttempts,
+          });
+          throw new Error(formatRateLimitError(rateLimitCheck));
+        }
 
-      // ✅ STEP 3: Check rate limit BEFORE attempting authentication
-      const rateLimitCheck = await checkAuthRateLimit(sanitizedEmail, 'auth_signin');
-      
-      if (!rateLimitCheck.allowed) {
-        console.warn('Sign-in rate limit exceeded:', {
-          email: sanitizedEmail,
+        console.log('Rate limit check passed:', {
+          enabled: rateLimitCheck.attemptCount > 0,
           attempts: rateLimitCheck.attemptCount,
           maxAttempts: rateLimitCheck.maxAttempts,
         });
-        throw new Error(formatRateLimitError(rateLimitCheck));
+      } catch (rateLimitError) {
+        // Re-throw if it's a rate limit message, otherwise log and continue
+        if (rateLimitError instanceof Error && rateLimitError.message.includes('rate limit')) {
+          throw rateLimitError;
+        }
+        console.error('Failed to check rate limit:', rateLimitError);
       }
-
-      console.log('Rate limit check passed:', {
-        enabled: rateLimitCheck.attemptCount > 0,
-        attempts: rateLimitCheck.attemptCount,
-        maxAttempts: rateLimitCheck.maxAttempts,
-      });
       
       // Use sanitized email for authentication
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -399,43 +418,59 @@ export class BetterAuthService {
         throw new Error('No user returned from sign in');
       }
 
-      // Check if email verification is required per system settings
-      const requireEmailVerification = await shouldRequireEmailVerification();
-      
-      // If email verification is required but user hasn't verified their email, reject sign-in
-      if (requireEmailVerification && !data.user.email_confirmed_at) {
-        console.log('Sign-in blocked: Email verification required but not completed');
-        throw new Error('Email not confirmed. Please check your email inbox and click the verification link before signing in.');
-      }
+      // Check if email verification is required per system settings (wrapped to prevent crashes)
+      let requireEmailVerification = true; // Default to true for security
+      try {
+        requireEmailVerification = await shouldRequireEmailVerification();
+        
+        // If email verification is required but user hasn't verified their email, reject sign-in
+        if (requireEmailVerification && !data.user.email_confirmed_at) {
+          console.log('Sign-in blocked: Email verification required but not completed');
+          throw new Error('Email not confirmed. Please check your email inbox and click the verification link before signing in.');
+        }
 
-      console.log('Email verification check passed:', {
-        required: requireEmailVerification,
-        confirmed: !!data.user.email_confirmed_at
-      });
+        console.log('Email verification check passed:', {
+          required: requireEmailVerification,
+          confirmed: !!data.user.email_confirmed_at
+        });
+      } catch (verifyError) {
+        // Re-throw if it's an email verification message, otherwise log and continue
+        if (verifyError instanceof Error && verifyError.message.includes('Email not confirmed')) {
+          throw verifyError;
+        }
+        console.error('Failed to check email verification requirement:', verifyError);
+      }
 
       // For regular sign-in, use the handleSignIn method that doesn't create profiles
       await this.handleSignIn(data.user);
       
-      // ✅ Track session
-      const { trackSession } = await import('../lib/auth');
-      if (data.session) {
-        await trackSession(
-          data.user.id,
-          sanitizedEmail,
-          data.session.access_token,
-          false // isRememberMe - can be enhanced later with checkbox
-        );
+      // ✅ Track session (wrapped to prevent crashes)
+      try {
+        if (data.session) {
+          await trackSession(
+            data.user.id,
+            sanitizedEmail,
+            data.session.access_token,
+            false // isRememberMe - can be enhanced later with checkbox
+          );
+        }
+      } catch (trackError) {
+        console.error('Failed to track session:', trackError);
       }
       
-      // ✅ Log successful sign-in
-      await logAuthEvent(
-        'auth.login.success',
-        data.user.id,
-        sanitizedEmail,
-        true,
-        undefined,
-        { email_verified: !!data.user.email_confirmed_at }
-      );
+      // ✅ Log successful sign-in (wrapped to prevent crashes)
+      try {
+        await logAuthEvent(
+          'auth.login.success',
+          data.user.id,
+          sanitizedEmail,
+          true,
+          undefined,
+          { email_verified: !!data.user.email_confirmed_at }
+        );
+      } catch (logError) {
+        console.error('Failed to log signin success:', logError);
+      }
       
       return this.currentUser!;
       
@@ -444,61 +479,69 @@ export class BetterAuthService {
       
       const sanitizedEmail = sanitizeEmail(credentials.email);
       
-      // ✅ Log failed sign-in
-      const { 
-        logAuthEvent: logAuthEventFallback,
-        shouldLockAccount,
-        lockAccount,
-        getRecentFailedLogins 
-      } = await import('../lib/auth');
-      
-      await logAuthEventFallback(
-        'auth.login.failure',
-        undefined,
-        sanitizedEmail,
-        false,
-        error instanceof Error ? error.message : 'Unknown error'
-      );
-      
-      // ✅ Check if account should be locked (only for authentication failures, not rate limit/lockout errors)
-      const isAuthError = error instanceof Error && 
-        !error.message.includes('rate limit') && 
-        !error.message.includes('locked') &&
-        !error.message.includes('Email not confirmed');
-      
-      if (isAuthError) {
-        const shouldLock = await shouldLockAccount(sanitizedEmail);
-        
-        if (shouldLock) {
-          console.warn(`[BetterAuthService] Locking account ${sanitizedEmail} due to too many failed attempts`);
-          
-          // Get failed login info for context
-          const failedLogins = await getRecentFailedLogins(sanitizedEmail, 15);
-          
-          // Find user ID from Supabase (best effort)
-          let userId: string | undefined;
-          try {
-            const { data: userData } = await supabase.auth.admin.listUsers();
-            const userRecord = userData.users.find(u => u.email?.toLowerCase() === sanitizedEmail);
-            userId = userRecord?.id;
-          } catch (e) {
-            console.warn('[BetterAuthService] Could not find user ID for lockout');
-          }
-          
-          if (userId) {
-            // Lock the account
-            await lockAccount(userId, sanitizedEmail, {
-              failedAttempts: failedLogins.attemptCount,
-              lockReason: 'too_many_failed_attempts',
-              ipAddresses: failedLogins.ipAddresses,
-            });
-            
-            console.log(`[BetterAuthService] ✅ Account ${sanitizedEmail} locked successfully`);
-          }
-        }
+      // ✅ Log failed sign-in (wrapped to prevent crashes on mobile)
+      try {
+        await logAuthEvent(
+          'auth.login.failure',
+          undefined,
+          sanitizedEmail,
+          false,
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+      } catch (logError) {
+        console.error('Failed to log signin failure:', logError);
       }
       
-      this.handleError(error, 'Sign In');
+      // ✅ Check if account should be locked (wrapped to prevent crashes)
+      try {
+        const isAuthError = error instanceof Error && 
+          !error.message.includes('rate limit') && 
+          !error.message.includes('locked') &&
+          !error.message.includes('Email not confirmed');
+        
+        if (isAuthError) {
+          const shouldLock = await shouldLockAccount(sanitizedEmail);
+          
+          if (shouldLock) {
+            console.warn(`[BetterAuthService] Locking account ${sanitizedEmail} due to too many failed attempts`);
+            
+            // Get failed login info for context
+            const failedLogins = await getRecentFailedLogins(sanitizedEmail, 15);
+            
+            // Find user ID from Supabase (best effort)
+            let userId: string | undefined;
+            try {
+              const { data: userData } = await supabase.auth.admin.listUsers();
+              const userRecord = userData.users.find(u => u.email?.toLowerCase() === sanitizedEmail);
+              userId = userRecord?.id;
+            } catch (e) {
+              console.warn('[BetterAuthService] Could not find user ID for lockout');
+            }
+            
+            if (userId) {
+              // Lock the account
+              await lockAccount(userId, sanitizedEmail, {
+                failedAttempts: failedLogins.attemptCount,
+                lockReason: 'too_many_failed_attempts',
+                ipAddresses: failedLogins.ipAddresses,
+              });
+              
+              console.log(`[BetterAuthService] ✅ Account ${sanitizedEmail} locked successfully`);
+            }
+          }
+        }
+      } catch (lockoutError) {
+        console.error('Failed to process account lockout:', lockoutError);
+      }
+      
+      // Call handleError (wrapped to prevent crashes)
+      try {
+        this.handleError(error, 'Sign In');
+      } catch (handleErrorFailure) {
+        console.error('handleError failed:', handleErrorFailure);
+      }
+      
+      throw error; // Re-throw the error so the UI can handle it
     }
   }
 
@@ -519,36 +562,53 @@ export class BetterAuthService {
       const sanitizedEmail = sanitizeEmail(validatedCredentials.email);
       console.log('✅ Sign-up validation passed');
       
-      // Import the helper functions
-      const { 
-        shouldRequireEmailVerification,
-        checkAuthRateLimit,
-        formatRateLimitError,
-        logAuthEvent 
-      } = await import('../lib/auth');
+      // Check rate limit BEFORE attempting signup (wrapped to prevent crashes)
+      try {
+        const rateLimitCheck = await checkAuthRateLimit(sanitizedEmail, 'auth_signup');
+        
+        if (!rateLimitCheck.allowed) {
+          console.warn('Sign-up rate limit exceeded:', {
+            email: sanitizedEmail,
+            attempts: rateLimitCheck.attemptCount,
+            maxAttempts: rateLimitCheck.maxAttempts,
+          });
+          throw new Error(formatRateLimitError(rateLimitCheck));
+        }
 
-      // Check rate limit BEFORE attempting signup
-      const rateLimitCheck = await checkAuthRateLimit(sanitizedEmail, 'auth_signup');
-      
-      if (!rateLimitCheck.allowed) {
-        console.warn('Sign-up rate limit exceeded:', {
-          email: sanitizedEmail,
+        console.log('Rate limit check passed:', {
+          enabled: rateLimitCheck.attemptCount > 0,
           attempts: rateLimitCheck.attemptCount,
           maxAttempts: rateLimitCheck.maxAttempts,
         });
-        throw new Error(formatRateLimitError(rateLimitCheck));
+      } catch (rateLimitError) {
+        // Re-throw if it's a rate limit message, otherwise log and continue
+        if (rateLimitError instanceof Error && rateLimitError.message.includes('rate limit')) {
+          throw rateLimitError;
+        }
+        console.error('Failed to check rate limit:', rateLimitError);
       }
-
-      console.log('Rate limit check passed:', {
-        enabled: rateLimitCheck.attemptCount > 0,
-        attempts: rateLimitCheck.attemptCount,
-        maxAttempts: rateLimitCheck.maxAttempts,
-      });
       
-      const requireEmailVerification = await shouldRequireEmailVerification();
+      // Check email verification requirement (wrapped to prevent crashes)
+      let requireEmailVerification = true; // Default to true for security
+      try {
+        requireEmailVerification = await shouldRequireEmailVerification();
+      } catch (emailVerifyError) {
+        console.error('Failed to check email verification setting:', emailVerifyError);
+      }
       
       console.log('Email verification required:', requireEmailVerification);
       
+      // Determine redirect URL based on platform
+      const getRedirectUrl = () => {
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          // For web, use the web URL
+          return `${window.location.origin}/auth/callback`;
+        } else {
+          // For mobile, use deep link
+          return 'wiznote://auth/callback';
+        }
+      };
+
       // Use validated and sanitized credentials
       const { data, error } = await supabase.auth.signUp({
         email: sanitizedEmail,
@@ -557,9 +617,7 @@ export class BetterAuthService {
           data: {
             display_name: validatedCredentials.displayName || '',
           },
-          emailRedirectTo: typeof window !== 'undefined' 
-            ? `${window.location.origin}/auth/callback`
-            : undefined,
+          emailRedirectTo: getRedirectUrl(),
         },
       });
 
@@ -574,7 +632,22 @@ export class BetterAuthService {
       // Create user profile immediately after successful sign-up (even if email verification is required)
       // This ensures the profile exists when the user verifies their email and tries to sign in
       console.log('Creating user profile for new user:', data.user.id);
-      const userProfile = await this.createUserProfile(data.user);
+      let userProfile;
+      try {
+        userProfile = await this.createUserProfile(data.user);
+        console.log('✅ User profile created successfully:', userProfile);
+      } catch (profileError) {
+        console.error('❌ Failed to create user profile during signup:', profileError);
+        // Try to create a minimal profile as fallback
+        try {
+          userProfile = await this.createMinimalUserProfile(data.user);
+          console.log('✅ Created minimal user profile as fallback');
+        } catch (minimalError) {
+          console.error('❌ Failed to create minimal user profile:', minimalError);
+          // Profile creation failed completely - this is a critical error
+          throw new Error(`Failed to create user profile: ${profileError instanceof Error ? profileError.message : 'Unknown error'}`);
+        }
+      }
 
       // If email verification is required, inform user to check their email
       if (requireEmailVerification && !data.user.email_confirmed_at) {
@@ -613,35 +686,51 @@ export class BetterAuthService {
       
       console.log('User signed up successfully:', user.id);
       
-      // ✅ Log successful sign-up
-      await logAuthEvent(
-        'auth.signup.success',
-        data.user.id,
-        sanitizedEmail,
-        true,
-        undefined,
-        { 
-          email_verified: !!data.user.email_confirmed_at,
-          display_name: validatedCredentials.displayName 
-        }
-      );
+      // ✅ Log successful sign-up (wrapped to prevent crashes)
+      try {
+        await logAuthEvent(
+          'auth.signup.success',
+          data.user.id,
+          sanitizedEmail,
+          true,
+          undefined,
+          { 
+            email_verified: !!data.user.email_confirmed_at,
+            display_name: validatedCredentials.displayName 
+          }
+        );
+      } catch (logError) {
+        console.error('Failed to log signup success:', logError);
+      }
       
       return user;
       
     } catch (error) {
       console.error('Error signing up:', error);
       
-      // ✅ Log failed sign-up
-      const { logAuthEvent: logAuthEventFallback } = await import('../lib/auth');
-      await logAuthEventFallback(
-        'auth.signup.failure',
-        undefined,
-        credentials.email,
-        false,
-        error instanceof Error ? error.message : 'Unknown error'
-      );
+      // ✅ Log failed sign-up (wrapped in try-catch to prevent crashes)
+      try {
+        await logAuthEvent(
+          'auth.signup.failure',
+          undefined,
+          credentials.email,
+          false,
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+      } catch (logError) {
+        // Silently fail logging on mobile to prevent crashes
+        console.error('Failed to log signup failure:', logError);
+      }
       
-      this.handleError(error, 'Sign Up');
+      // Call handleError which will notify the UI via onError callback (wrapped to prevent crashes)
+      try {
+        this.handleError(error, 'Sign Up');
+      } catch (handleErrorFailure) {
+        console.error('handleError failed:', handleErrorFailure);
+      }
+      
+      // Re-throw the error so the UI can handle it
+      throw error;
     }
   }
 
@@ -649,12 +738,21 @@ export class BetterAuthService {
     try {
       console.log('Signing in with Google...');
       
+      // Determine redirect URL based on platform
+      const getRedirectUrl = () => {
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          // For web, use the web URL
+          return `${window.location.origin}/auth/callback`;
+        } else {
+          // For mobile, use deep link
+          return 'wiznote://auth/callback';
+        }
+      };
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: typeof window !== 'undefined' 
-            ? `${window.location.origin}/auth/callback`
-            : undefined,
+          redirectTo: getRedirectUrl(),
         },
       });
 
@@ -677,6 +775,7 @@ export class BetterAuthService {
     } catch (error) {
       console.error('Error signing in with Google:', error);
       this.handleError(error, 'Google Sign In');
+      throw error; // Re-throw the error so the UI can handle it
     }
   }
 
@@ -684,24 +783,30 @@ export class BetterAuthService {
     try {
       console.log('🔄 BetterAuthService: Starting sign out process...');
       
-      // ✅ Terminate session tracking
-      const { terminateSession } = await import('../lib/auth');
-      if (this.currentUser) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          await terminateSession(session.access_token, this.currentUser.id, 'logout');
+      // ✅ Terminate session tracking (wrapped to prevent crashes)
+      try {
+        if (this.currentUser) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            await terminateSession(session.access_token, this.currentUser.id, 'logout');
+          }
         }
+      } catch (terminateError) {
+        console.error('Failed to terminate session:', terminateError);
       }
       
-      // ✅ Log logout event before clearing user data
-      const { logAuthEvent } = await import('../lib/auth');
-      if (this.currentUser) {
-        await logAuthEvent(
-          'auth.logout',
-          this.currentUser.id,
-          this.currentUser.email,
-          true
-        );
+      // ✅ Log logout event before clearing user data (wrapped to prevent crashes)
+      try {
+        if (this.currentUser) {
+          await logAuthEvent(
+            'auth.logout',
+            this.currentUser.id,
+            this.currentUser.email,
+            true
+          );
+        }
+      } catch (logError) {
+        console.error('Failed to log logout:', logError);
       }
       
       // Set flag to prevent session recovery during sign out
@@ -956,44 +1061,71 @@ export class BetterAuthService {
 
       console.log('Profile data to insert:', profileData);
       
-      const { data: profile, error } = await supabase
-        .from('user_profiles')
-        .upsert(profileData, { onConflict: 'id' })
-        .select()
-        .single();
+      let createdProfile: any = null;
+      
+      // Try using the SECURITY DEFINER function first to bypass RLS during signup
+      try {
+        const { data: profile, error: rpcError } = await supabase.rpc('create_user_profile_safe', {
+          user_id: supabaseUser.id,
+          user_email: supabaseUser.email || '',
+          user_display_name: supabaseUser.user_metadata?.display_name || supabaseUser.email?.split('@')[0],
+          user_role: userRole,
+        });
 
-      if (error) {
-        console.error('Failed to create user profile:', error);
+        if (rpcError) {
+          console.warn('RPC function failed, falling back to direct insert:', rpcError);
+          throw rpcError; // Trigger fallback
+        }
+
+        if (profile && profile.length > 0) {
+          console.log('✅ Profile created via SECURITY DEFINER function');
+          createdProfile = profile[0];
+          return createdProfile;
+        }
+      } catch (rpcError) {
+        console.warn('Failed to create profile via RPC, trying direct insert...');
         
-        // If profile already exists (409 conflict), try to load it
-        if (error.code === '23505' || error.message?.includes('duplicate key')) {
-          console.log('Profile already exists, loading existing profile...');
-          const existingProfile = await this.loadUserProfile(supabaseUser.id);
-          if (existingProfile) {
-            return existingProfile;
+        // Fallback to direct insert
+        const { data: profile, error } = await supabase
+          .from('user_profiles')
+          .upsert(profileData, { onConflict: 'id' })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Failed to create user profile:', error);
+          
+          // If profile already exists (409 conflict), try to load it
+          if (error.code === '23505' || error.message?.includes('duplicate key')) {
+            console.log('Profile already exists, loading existing profile...');
+            const existingProfile = await this.loadUserProfile(supabaseUser.id);
+            if (existingProfile) {
+              return existingProfile;
+            }
           }
+          
+          // If RLS is blocking, try to create a minimal profile
+          if (error.code === '42501') {
+            console.log('RLS blocked profile creation, trying alternative approach...');
+            return this.createMinimalUserProfile(supabaseUser);
+          }
+          
+          throw new Error(`Failed to create user profile: ${error.message}`);
         }
-        
-        // If RLS is blocking, try to create a minimal profile
-        if (error.code === '42501') {
-          console.log('RLS blocked profile creation, trying alternative approach...');
-          return this.createMinimalUserProfile(supabaseUser);
+
+        if (profile) {
+          console.log('✅ Profile created via direct insert');
+          createdProfile = profile;
+          return createdProfile;
         }
-        
-        throw new Error(`Failed to create user profile: ${error.message}`);
       }
 
-      console.log('✅ User profile created successfully:', profile.id);
+      if (createdProfile) {
+        console.log('✅ User profile created successfully:', createdProfile.id);
+        return createdProfile;
+      }
       
-      // Create Stripe customer for the new user
-      // try {
-      //   await this.createStripeCustomer(supabaseUser.id, supabaseUser.email);
-      // } catch (stripeError) {
-      //   console.warn('Failed to create Stripe customer during profile creation:', stripeError);
-      //   // Don't fail the profile creation if Stripe customer creation fails
-      // }
-      
-      return profile;
+      throw new Error('Failed to create user profile: No profile data returned');
     } catch (error) {
       console.error('Error creating user profile:', error);
       throw error;

@@ -27,6 +27,10 @@ export default ({ config }) => {
     ios: {
       ...config.ios,
       bundleIdentifier: getUniqueIdentifier(),
+      associatedDomains: [
+        'applinks:wiznote.app',
+        'applinks:*.wiznote.app',
+      ],
       infoPlist: {
         ...config.ios?.infoPlist,
         NSAppTransportSecurity: {
@@ -47,6 +51,20 @@ export default ({ config }) => {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: IS_DEV ? '#1A1A1A' : '#ffffff'
       },
+      intentFilters: [
+        {
+          action: 'VIEW',
+          autoVerify: true,
+          data: [
+            {
+              scheme: 'https',
+              host: '*.wiznote.app',
+              pathPrefix: '/auth/callback',
+            },
+          ],
+          category: ['BROWSABLE', 'DEFAULT'],
+        },
+      ],
       permissions: [
         ...(config.android?.permissions || []),
         'android.permission.INTERNET',

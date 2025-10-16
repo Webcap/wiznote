@@ -10,6 +10,7 @@
 
 import { supabase } from '../lib/supabase';
 import { systemSettingsService } from './SystemSettingsService';
+import { getRecentFailedLogins } from '../lib/auth';
 
 /**
  * Lockout status information
@@ -100,8 +101,8 @@ class AccountLockoutService {
       const email = userEmail.toLowerCase();
 
       // Check if lockout is enabled via system settings
-      const lockoutEnabled = await systemSettingsService.isAccountLockoutEnabled();
-      if (!lockoutEnabled || !this.enabled) {
+      const lockoutConfig = await systemSettingsService.getAccountLockoutConfig();
+      if (!lockoutConfig.enabled || !this.enabled) {
         console.log('[AccountLockoutService] Lockout disabled, returning unlocked status');
         return {
           isLocked: false,
@@ -417,18 +418,16 @@ class AccountLockoutService {
   public async shouldLockAccount(userEmail: string): Promise<boolean> {
     try {
       // Check if lockout is enabled
-      const lockoutEnabled = await systemSettingsService.isAccountLockoutEnabled();
-      if (!lockoutEnabled || !this.enabled) {
+      const lockoutConfig = await systemSettingsService.getAccountLockoutConfig();
+      if (!lockoutConfig.enabled || !this.enabled) {
         return false;
       }
 
       // Get lockout configuration
-      const settings = await systemSettingsService.getSettings();
-      const maxAttempts = settings.accountLockoutAttempts || 5;
+      const maxAttempts = lockoutConfig.attempts || 5;
       const timeWindowMinutes = 15; // Look back 15 minutes
 
-      // Import security logging to check failed attempts
-      const { getRecentFailedLogins } = await import('../lib/auth');
+      // Check failed attempts via imported function (no dynamic import)
       const failedLogins = await getRecentFailedLogins(userEmail, timeWindowMinutes);
 
       console.log(`[AccountLockoutService] Failed login check for ${userEmail}:`, {

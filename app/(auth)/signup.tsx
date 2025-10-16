@@ -142,13 +142,15 @@ export default function SignupScreen() {
         // This is expected when email verification is enabled
         console.log('SignupScreen: Email verification required - redirecting to login');
         
-        const successMessage = `Account created! We've sent a verification email to ${email.trim()}. Please check your inbox and click the link to verify your account, then sign in.`;
+        const successMessage = Platform.OS === 'web'
+          ? `Account created! We've sent a verification email to ${email.trim()}. Please check your inbox and click the link to verify your account, then sign in.`
+          : `Account created! We've sent a verification email to ${email.trim()}. Please check your inbox and tap the verification link - it will automatically open the app and verify your account!`;
         
         if (Platform.OS === 'web') {
           showSnackbar(successMessage, 'success', 10000);
         } else {
           Alert.alert(
-            'Verify Your Email',
+            'Check Your Email! 📧',
             successMessage,
             [{ text: 'OK', onPress: () => router.replace('/(auth)/login' as any) }]
           );
