@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -292,31 +293,34 @@ export const DeleteAccountModal = ({
       animationType="slide"
       transparent={true}
       onRequestClose={handleClose}
-      presentationStyle="overFullScreen"
+      presentationStyle="pageSheet"
     >
       <TouchableWithoutFeedback onPress={handleClose}>
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback onPress={() => {}}>
-            <KeyboardAvoidingView 
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              style={styles.keyboardView}
-            >
-              <View style={[styles.container, { backgroundColor }]}>
-                {/* Header */}
-                <View style={[styles.header, { borderBottomColor: borderColor }]}>
-                  <View style={styles.headerIcon}>
-                    <Ionicons name="warning" size={24} color={dangerColor} />
-                  </View>
-                  <ThemedText style={[styles.headerTitle, { color: dangerColor }]}>
-                    Delete Account
-                  </ThemedText>
-                  <TouchableOpacity onPress={handleClose} disabled={loading}>
-                    <Ionicons name="close" size={24} color={textColor} />
-                  </TouchableOpacity>
+            <View style={[styles.container, { backgroundColor }]}>
+              {/* Header */}
+              <View style={[styles.header, { borderBottomColor: borderColor }]}>
+                <View style={styles.headerIcon}>
+                  <Ionicons name="warning" size={24} color={dangerColor} />
                 </View>
+                <ThemedText style={[styles.headerTitle, { color: dangerColor }]}>
+                  Delete Account
+                </ThemedText>
+                <TouchableOpacity onPress={handleClose} disabled={loading}>
+                  <Ionicons name="close" size={24} color={textColor} />
+                </TouchableOpacity>
+              </View>
 
-                {/* Content */}
-                <View style={styles.content}>
+              {/* Content */}
+              <ScrollView 
+                style={styles.scrollView}
+                contentContainerStyle={styles.contentContainer}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={true}
+                bounces={false}
+              >
+                  
                   {/* Warning */}
                   <View style={[styles.warningBox, { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' }]}>
                     <Ionicons name="alert-circle" size={20} color={dangerColor} />
@@ -396,10 +400,10 @@ export const DeleteAccountModal = ({
                       autoComplete="off"
                     />
                   </View>
-                </View>
+              </ScrollView>
 
-                {/* Action Buttons */}
-                <View style={[styles.actions, { borderTopColor: borderColor }]}>
+              {/* Action Buttons */}
+              <View style={[styles.actions, { borderTopColor: borderColor }]}>
                   <TouchableOpacity
                     style={[styles.cancelButton, { borderColor }]}
                     onPress={handleClose}
@@ -430,7 +434,6 @@ export const DeleteAccountModal = ({
                   </TouchableOpacity>
                 </View>
               </View>
-            </KeyboardAvoidingView>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
@@ -444,14 +447,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
-  keyboardView: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
   container: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     maxHeight: '90%',
+    width: '100%',
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -469,9 +472,12 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  content: {
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
     padding: 20,
-    maxHeight: 500,
+    paddingBottom: 20,
   },
   warningBox: {
     flexDirection: 'row',

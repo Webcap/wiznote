@@ -330,10 +330,19 @@ export default function LoginScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Privacy Policy Link */}
+                {/* Terms and Privacy Links */}
                 <View style={styles.webPrivacyContainer}>
+                  <ThemedText style={[styles.webPrivacyText, { color: textSecondaryColor }]}>
+                    By signing in, you agree to our{' '}
+                  </ThemedText>
+                  <TouchableOpacity onPress={() => router.push('/terms' as any)}>
+                    <ThemedText style={[styles.webPrivacyLink, { color: accentColor }]}>
+                      Terms of Service
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <ThemedText style={[styles.webPrivacyText, { color: textSecondaryColor }]}> and </ThemedText>
                   <TouchableOpacity onPress={() => router.push('/privacy' as any)}>
-                    <ThemedText style={[styles.webPrivacyLink, { color: textSecondaryColor }]}>
+                    <ThemedText style={[styles.webPrivacyLink, { color: accentColor }]}>
                       Privacy Policy
                     </ThemedText>
                   </TouchableOpacity>
@@ -465,10 +474,19 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Privacy Policy Link */}
+          {/* Terms and Privacy Links */}
           <View style={styles.privacyContainer}>
+            <ThemedText style={[styles.privacyText, { color: textSecondaryColor }]}>
+              By signing in, you agree to our{' '}
+            </ThemedText>
+            <TouchableOpacity onPress={() => router.push('/terms' as any)}>
+              <ThemedText style={[styles.privacyLink, { color: accentColor }]}>
+                Terms of Service
+              </ThemedText>
+            </TouchableOpacity>
+            <ThemedText style={[styles.privacyText, { color: textSecondaryColor }]}> and </ThemedText>
             <TouchableOpacity onPress={() => router.push('/privacy' as any)}>
-              <ThemedText style={[styles.privacyLink, { color: textSecondaryColor }]}>
+              <ThemedText style={[styles.privacyLink, { color: accentColor }]}>
                 Privacy Policy
               </ThemedText>
             </TouchableOpacity>
@@ -637,14 +655,18 @@ const styles = StyleSheet.create({
   },
   privacyContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 12,
     paddingHorizontal: 24,
   },
+  privacyText: {
+    fontSize: 12,
+  },
   privacyLink: {
     fontSize: 12,
-    textDecorationLine: 'underline',
+    fontWeight: '600',
   },
   // Web specific styles
   webContainer: {
@@ -818,13 +840,17 @@ const styles = StyleSheet.create({
   },
   webPrivacyContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 16,
   },
+  webPrivacyText: {
+    fontSize: 12,
+  },
   webPrivacyLink: {
     fontSize: 12,
-    textDecorationLine: 'underline',
+    fontWeight: '600',
   },
   webShortcutsContainer: {
     borderTopWidth: 1,

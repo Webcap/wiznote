@@ -45,7 +45,7 @@ export class AccountDeletionService {
       const { error: notesError } = await supabase
         .from('notes')
         .delete()
-        .eq('userId', userId);
+        .eq('user_id', userId);
 
       if (notesError) {
         console.error('❌ Error deleting notes:', notesError);
