@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, FlatList, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, FlatList, Platform, RefreshControl, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { Logo } from '../../components/Logo';
@@ -39,22 +39,48 @@ export default function HomeScreen() {
   const { user, isAuthenticated, isAdmin, isLoading: authLoading } = useAuth();
   const { isFeatureEnabled } = useFeatureFlags();
   const { showSnackbar } = useSnackbar();
-  const { uploadingPDF, setUploadingPDF, setOnUploadComplete } = usePDFUpload();
-  const { uploadingAudio } = useAudioUpload();
+  const { uploadingPDF, setUploadingPDF, setOnUploadComplete: setPDFUploadComplete } = usePDFUpload();
+  const { uploadingAudio, setOnUploadComplete: setAudioUploadComplete } = useAudioUpload();
   const { notes, loading, error, syncStatus, isRealtimeActive, togglePin, toggleArchive, toggleFavorite, deleteNote, getFilteredNotes, refreshNotes } = useNotes(
     authLoading ? '' : (user?.id || '')
   );
 
-  // Register refresh callback for PDF uploads from sidebars
+  // Debug: Log when uploadingAudio state changes
   useEffect(() => {
-    setOnUploadComplete(() => refreshNotes);
-    return () => setOnUploadComplete(null);
-  }, [refreshNotes, setOnUploadComplete]);
+    console.log('[HomeScreen] uploadingAudio state changed:', uploadingAudio);
+  }, [uploadingAudio]);
+
+  // Register refresh callback for PDF and audio uploads
+  useEffect(() => {
+    setPDFUploadComplete(() => refreshNotes);
+    setAudioUploadComplete(() => refreshNotes);
+    return () => {
+      setPDFUploadComplete(null);
+      setAudioUploadComplete(null);
+    };
+  }, [refreshNotes, setPDFUploadComplete, setAudioUploadComplete]);
 
   // PDF upload UI state
   const [showSizeLimitWarning, setShowSizeLimitWarning] = useState(false);
   const [oversizedFile, setOversizedFile] = useState<{ name: string; size: number } | null>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  // Pull-to-refresh state
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    console.log('[HomeScreen] Pull-to-refresh triggered');
+    setRefreshing(true);
+    try {
+      await refreshNotes();
+      console.log('[HomeScreen] Pull-to-refresh complete');
+    } catch (error) {
+      console.error('[HomeScreen] Error refreshing notes:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshNotes]);
 
   // Lazy load feature flags with caching
   const featureFlags = useLazyData(
@@ -827,7 +853,7 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.webContent}>
-          {filteredNotes.length === 0 && !uploadingPDF ? (
+          {filteredNotes.length === 0 && !uploadingPDF && !uploadingAudio ? (
             <View style={styles.webEmptyContainer}>
               <Ionicons name="document-outline" size={64} color="#666666" />
               <ThemedText type="subtitle" style={styles.webEmptyTitle}>
@@ -1035,7 +1061,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {pinnedNotes.length === 0 && unpinnedNotes.length === 0 && !uploadingPDF ? (
+        {pinnedNotes.length === 0 && unpinnedNotes.length === 0 && !uploadingPDF && !uploadingAudio ? (
           <View style={styles.emptyState}>
             <Ionicons name="document-outline" size={64} color="#A0A0A0" />
             <ThemedText style={styles.emptyText}>No notes yet</ThemedText>
@@ -1066,15 +1092,20 @@ export default function HomeScreen() {
                   )}
                   contentContainerStyle={[styles.listContainer, { paddingBottom: 32 }]}
                   showsVerticalScrollIndicator={false}
+                  refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                  }
                 />
               </>
             )}
-            {pinnedNotes.length > 0 && (unpinnedNotes.length > 0 || uploadingPDF) && (
+            {pinnedNotes.length > 0 && (unpinnedNotes.length > 0 || uploadingPDF || uploadingAudio) && (
               <View style={styles.sectionDivider} />
             )}
-            {(unpinnedNotes.length > 0 || uploadingPDF) && (
+            {(unpinnedNotes.length > 0 || uploadingPDF || uploadingAudio) && (
               <>
-                <ThemedText style={styles.othersLabel}>Others</ThemedText>
+                {(unpinnedNotes.length > 0 || pinnedNotes.length > 0) && (
+                  <ThemedText style={styles.othersLabel}>Others</ThemedText>
+                )}
                 <FlatList
                   data={displayNotes}
                   keyExtractor={(item) => item.id}
@@ -1116,6 +1147,9 @@ export default function HomeScreen() {
                   }
                   contentContainerStyle={styles.listContainer}
                   showsVerticalScrollIndicator={false}
+                  refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                  }
                 />
               </>
             )}
