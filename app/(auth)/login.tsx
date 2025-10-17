@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import {
     Alert,
+    Image,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -225,6 +226,51 @@ export default function LoginScreen() {
                 <ThemedText style={[styles.webFeatureText, { color: textColor }]}>
                   AI-powered insights
                 </ThemedText>
+              </View>
+            </View>
+
+            {/* Mobile Apps Promotion Section */}
+            <View style={styles.webMobileAppsSection}>
+              {/* Android App Promotion */}
+              <View style={[styles.webAndroidPromotion, { backgroundColor: accentColor }]}>
+                <View style={styles.webAndroidContent}>
+                  <View style={styles.webAndroidHeader}>
+                    <Ionicons name="phone-portrait" size={24} color="#FFFFFF" />
+                    <ThemedText style={styles.webAndroidTitle}>Get the Android App</ThemedText>
+                  </View>
+                  <ThemedText style={styles.webAndroidSubtitle}>
+                    Take your notes anywhere with our mobile app
+                  </ThemedText>
+                  <TouchableOpacity 
+                    style={styles.webAndroidButton}
+                    onPress={() => {
+                      window.open('https://play.google.com/store/apps/details?id=com.WizNote.app', '_blank');
+                    }}
+                  >
+                    <Image 
+                      source={require('../../assets/images/get-on-playstore.png')} 
+                      style={styles.webPlayStoreBadge}
+                      resizeMode="contain"
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Apple App Store Coming Soon */}
+              <View style={[styles.webApplePromotion, { backgroundColor: '#000000' }]}>
+                <View style={styles.webAppleContent}>
+                  <View style={styles.webAppleHeader}>
+                    <Ionicons name="phone-portrait" size={24} color="#FFFFFF" />
+                    <ThemedText style={styles.webAppleTitle}>iOS App Coming Soon</ThemedText>
+                  </View>
+                  <ThemedText style={styles.webAppleSubtitle}>
+                    Stay tuned for the Apple App Store release
+                  </ThemedText>
+                  <TouchableOpacity style={styles.webAppleBadge}>
+                    <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
+                    <ThemedText style={styles.webAppleBadgeText}>Coming Soon</ThemedText>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -474,6 +520,56 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Mobile Apps Promotion */}
+          <View style={styles.mobileAppsSection}>
+            {/* Android App Promotion */}
+            <View style={[styles.mobileAndroidPromotion, { backgroundColor: accentColor }]}>
+              <View style={styles.mobileAndroidContent}>
+                <View style={styles.mobileAndroidHeader}>
+                  <Ionicons name="phone-portrait" size={20} color="#FFFFFF" />
+                  <ThemedText style={styles.mobileAndroidTitle}>Get the Android App</ThemedText>
+                </View>
+                <ThemedText style={styles.mobileAndroidSubtitle}>
+                  Sync your notes across all devices
+                </ThemedText>
+                <TouchableOpacity 
+                  style={styles.mobileAndroidButton}
+                  onPress={() => {
+                    if (Platform.OS === 'web') {
+                      window.open('https://play.google.com/store/apps/details?id=com.WizNote.app', '_blank');
+                    } else {
+                      // For mobile, you might want to open the Play Store app
+                      console.log('Open Play Store');
+                    }
+                  }}
+                >
+                  <Image 
+                    source={require('../../assets/images/get-on-playstore.png')} 
+                    style={styles.mobilePlayStoreBadge}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Apple App Store Coming Soon */}
+            <View style={[styles.mobileApplePromotion, { backgroundColor: '#000000' }]}>
+              <View style={styles.mobileAppleContent}>
+                <View style={styles.mobileAppleHeader}>
+                  <Ionicons name="phone-portrait" size={20} color="#FFFFFF" />
+                  <ThemedText style={styles.mobileAppleTitle}>iOS App Coming Soon</ThemedText>
+                </View>
+                <ThemedText style={styles.mobileAppleSubtitle}>
+                  Stay tuned for the Apple App Store release
+                </ThemedText>
+                <TouchableOpacity style={styles.mobileAppleBadge}>
+                  <Ionicons name="logo-apple" size={18} color="#FFFFFF" />
+                  <ThemedText style={styles.mobileAppleBadgeText}>Coming Soon</ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
           {/* Terms and Privacy Links */}
           <View style={styles.privacyContainer}>
             <ThemedText style={[styles.privacyText, { color: textSecondaryColor }]}>
@@ -668,6 +764,103 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  mobileAndroidPromotion: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  mobileAndroidContent: {
+    alignItems: 'center',
+  },
+  mobileAndroidHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  mobileAndroidTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  mobileAndroidSubtitle: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 12,
+    opacity: 0.9,
+  },
+  mobileAndroidButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 40,
+    marginTop: 0,
+  },
+  mobilePlayStoreBadge: {
+    height: 40,
+    width: 120,
+  },
+  mobileAppsSection: {
+    marginHorizontal: 24,
+    marginBottom: 24,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  mobileApplePromotion: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  mobileAppleContent: {
+    alignItems: 'center',
+  },
+  mobileAppleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  mobileAppleTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  mobileAppleSubtitle: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 12,
+    opacity: 0.9,
+  },
+  mobileAppleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    height: 40,
+    marginTop: 0,
+  },
+  mobileAppleBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
   // Web specific styles
   webContainer: {
     flex: 1,
@@ -719,6 +912,102 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 12,
     flex: 1,
+  },
+  webMobileAppsSection: {
+    marginTop: 32,
+    flexDirection: 'row',
+    gap: 16,
+  },
+  webAndroidPromotion: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  webApplePromotion: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  webAndroidContent: {
+    alignItems: 'center',
+  },
+  webAndroidHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  webAndroidTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  webAndroidSubtitle: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 16,
+    opacity: 0.9,
+  },
+  webAndroidButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 60,
+    marginTop: 0,
+  },
+  webPlayStoreBadge: {
+    height: 60,
+    width: 180,
+  },
+  webAppleContent: {
+    alignItems: 'center',
+  },
+  webAppleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  webAppleTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  webAppleSubtitle: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 16,
+    opacity: 0.9,
+  },
+  webAppleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    height: 60,
+    marginTop: 0,
+  },
+  webAppleBadgeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   webRightPanel: {
     flex: 1,
