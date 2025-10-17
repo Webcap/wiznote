@@ -734,6 +734,158 @@ export class BetterAuthService {
     }
   }
 
+  async resetPassword(email: string): Promise<void> {
+    try {
+      console.log('BetterAuthService: Initiating password reset for:', email);
+      
+      // ✅ STEP 1: Validate and sanitize input
+      const sanitizedEmail = sanitizeEmail(email);
+      console.log('✅ Password reset validation passed');
+      
+      // ✅ STEP 2: Check rate limit for password reset requests
+      try {
+        const rateLimitCheck = await checkAuthRateLimit(sanitizedEmail, 'password_reset');
+        
+        if (!rateLimitCheck.allowed) {
+          console.warn('Password reset rate limit exceeded:', {
+            email: sanitizedEmail,
+            attempts: rateLimitCheck.attemptCount,
+            maxAttempts: rateLimitCheck.maxAttempts,
+          });
+          throw new Error(formatRateLimitError(rateLimitCheck));
+        }
+
+        console.log('Password reset rate limit check passed:', {
+          enabled: rateLimitCheck.attemptCount > 0,
+          attempts: rateLimitCheck.attemptCount,
+          maxAttempts: rateLimitCheck.maxAttempts,
+        });
+      } catch (rateLimitError) {
+        if (rateLimitError instanceof Error && rateLimitError.message.includes('rate limit')) {
+          throw rateLimitError;
+        }
+        console.error('Failed to check password reset rate limit:', rateLimitError);
+      }
+      
+      // ✅ STEP 3: Determine redirect URL based on platform
+      const getRedirectUrl = () => {
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          return `${window.location.origin}/reset-password`;
+        } else {
+          return 'wiznote://reset-password';
+        }
+      };
+      
+      // ✅ STEP 4: Send password reset email via Supabase
+      const { error } = await supabase.auth.resetPasswordForEmail(sanitizedEmail, {
+        redirectTo: getRedirectUrl(),
+      });
+
+      if (error) {
+        console.error('Password reset error:', error);
+        throw error;
+      }
+      
+      // ✅ STEP 5: Log successful password reset request
+      try {
+        await logAuthEvent(
+          'auth.password_reset.requested',
+          undefined,
+          sanitizedEmail,
+          true,
+          undefined,
+          { platform: Platform.OS }
+        );
+      } catch (logError) {
+        console.error('Failed to log password reset request:', logError);
+      }
+      
+      console.log('✅ Password reset email sent successfully to:', sanitizedEmail);
+      
+    } catch (error) {
+      console.error('Error requesting password reset:', error);
+      
+      // ✅ Log failed password reset request
+      try {
+        await logAuthEvent(
+          'auth.password_reset.request_failed',
+          undefined,
+          email,
+          false,
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+      } catch (logError) {
+        console.error('Failed to log password reset failure:', logError);
+      }
+      
+      throw error;
+    }
+  }
+
+  async updatePassword(newPassword: string): Promise<void> {
+    try {
+      console.log('BetterAuthService: Updating password...');
+      
+      if (!this.currentUser) {
+        throw new Error('User must be authenticated to update password');
+      }
+      
+      // ✅ STEP 1: Validate new password
+      const validatedPassword = validateSignIn({
+        email: this.currentUser.email,
+        password: newPassword,
+      }).password;
+      
+      console.log('✅ Password validation passed');
+      
+      // ✅ STEP 2: Update password via Supabase
+      const { error } = await supabase.auth.updateUser({
+        password: validatedPassword
+      });
+
+      if (error) {
+        console.error('Password update error:', error);
+        throw error;
+      }
+      
+      // ✅ STEP 3: Log successful password update
+      try {
+        await logAuthEvent(
+          'auth.password_reset.completed',
+          this.currentUser.id,
+          this.currentUser.email,
+          true,
+          undefined,
+          { platform: Platform.OS }
+        );
+      } catch (logError) {
+        console.error('Failed to log password update:', logError);
+      }
+      
+      console.log('✅ Password updated successfully for user:', this.currentUser.id);
+      
+    } catch (error) {
+      console.error('Error updating password:', error);
+      
+      // ✅ Log failed password update
+      try {
+        if (this.currentUser) {
+          await logAuthEvent(
+            'auth.password_reset.update_failed',
+            this.currentUser.id,
+            this.currentUser.email,
+            false,
+            error instanceof Error ? error.message : 'Unknown error'
+          );
+        }
+      } catch (logError) {
+        console.error('Failed to log password update failure:', logError);
+      }
+      
+      throw error;
+    }
+  }
+
   async signInWithGoogle(): Promise<User> {
     try {
       console.log('Signing in with Google...');
@@ -1713,6 +1865,8 @@ export const betterAuthService = {
   signIn: (credentials: LoginCredentials) => betterAuthService.instance.signIn(credentials),
   signOut: () => betterAuthService.instance.signOut(),
   getCurrentUser: () => betterAuthService.instance.getCurrentUser(),
+  resetPassword: (email: string) => betterAuthService.instance.resetPassword(email),
+  updatePassword: (newPassword: string) => betterAuthService.instance.updatePassword(newPassword),
   setErrorHandler: (callback: (error: string, type: 'error' | 'warning' | 'info') => void) => betterAuthService.instance.setErrorHandler(callback),
   setAuthStateChangeHandler: (callback: (user: User | null) => void) => betterAuthService.instance.setAuthStateChangeHandler(callback),
   updatePreferences: (preferences: Partial<UserPreferences>) => betterAuthService.instance.updatePreferences(preferences),

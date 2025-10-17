@@ -7,7 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.3.3] - 2025-01-19
+## [1.3.4] - unreleased
+
+### 🐛 Fixed
+
+#### Support Agent Performance Fix
+- **Fixed support agent performance display** - Agent names now show actual names instead of generic labels
+  - Added database lookup to fetch agent names from user profiles
+  - Agent performance now displays real names (display_name, email, or formatted agent ID)
+  - Improved user experience in support analytics dashboard
+  - Fallback to formatted agent ID if name cannot be retrieved
+
+#### Web Design System Compliance
+- **Fixed help and support screens to follow design.json patterns** - Web layouts now consistent with design system
+  - Updated help screen to use proper WebHeader pattern (three-section layout)
+  - Updated admin support page to follow design.json web header specifications
+  - Improved consistency across all web pages with standardized spacing and styling
+  - Better user experience with proper navigation and visual hierarchy
+
+#### Critical Bug Fixes
+- **Fixed help page navigation issue** - Help page now properly accessible to authenticated users
+  - Added missing `/help` route check to navigation logic in `app/_layout.tsx`
+  - Prevented incorrect redirects when authenticated users access help page
+  - Help page now properly recognized as valid authenticated route
+- **Fixed memory leak in help screen** - Prevented timeout-related memory leaks
+  - Added cleanup function to `useEffect` hook in `app/help.tsx`
+  - Properly clears all `setTimeout` calls when component unmounts
+  - Eliminates potential memory leaks and post-unmount errors
+
+---
+
+## [1.3.3] - 2025-10-16
 
 ### 🐛 Fixed
 
@@ -51,13 +81,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ensures proper cleanup of user notes during account deletion
 
 ### Files Modified
+- `components/support/SupportAnalytics.tsx` - Fixed agent names in performance metrics
+- `app/help.tsx` - Updated web layout to follow design.json patterns and fixed memory leak
+- `app/admin/support.tsx` - Updated web header to follow design.json specifications
+- `app/_layout.tsx` - Added help route to navigation logic for proper authentication handling
+
+### Impact
+- ✅ **Support analytics now show real agent names** instead of generic labels
+- ✅ **Better support team management** with identifiable agent performance metrics
+- ✅ **Consistent web design** across all help and support pages
+- ✅ **Improved user experience** with proper navigation and visual hierarchy
+- ✅ **Design system compliance** ensures all web pages follow established patterns
+- ✅ **Help page navigation fixed** - authenticated users can now access help without redirects
+- ✅ **Memory leak prevention** - eliminated timeout-related memory leaks in help screen
+
+---
+
+### Files Modified (Version 1.3.3)
 - `components/DeleteAccountModal.tsx` - Fixed modal layout and input visibility
 - `services/AccountDeletionService.ts` - Fixed database column reference
 - `app/_layout.tsx` - Added missing auth/callback route registration
 - `app/(auth)/login.tsx` - Added Terms of Service links to login screen
 - `app/(auth)/signup.tsx` - Added Terms of Service link to mobile signup screen
 
-### Impact
+### Impact (Version 1.3.3)
 - ✅ **Account deletion modal now fully functional** with visible password inputs
 - ✅ **Complete account deletion process** without database errors
 - ✅ **Better user experience** with properly accessible form fields

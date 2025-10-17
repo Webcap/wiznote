@@ -151,22 +151,27 @@ function AppContent() {
       const isTermsPage = currentPath.startsWith('/terms');
       const isSharedPage = currentPath.startsWith('/shared/');
       const isDeleteAccountRequestPage = currentPath.startsWith('/delete-account-request');
+      const isHelpPage = currentPath.startsWith('/help');
       const isTabsPage = currentPath.startsWith('/(tabs)') || currentPath === '/' || currentPath === '';
+      const isForgotPasswordPage = currentPath.startsWith('/forgot-password') || currentPath === 'forgot-password' || currentPath.includes('/forgot-password');
+      const isResetPasswordPage = currentPath.startsWith('/reset-password') || currentPath === 'reset-password' || currentPath.includes('/reset-password');
       
       // Check if current path is a valid authenticated route
         const isValidAuthenticatedRoute = isNotePage || isCreatePage || isAdminPage || 
           isArchivedPage || isSearchPage || isSettingsPage || isJoinPremiumPage || 
           isUsagePage || isUserManagementPage || isAiTranscriptionsPage || isCreateAudioPage ||
-          isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage;
+          isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage || isHelpPage;
       
       // Check if current path is a public route (accessible without authentication)
-      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage;
+      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage;
       
       console.log('Layout: Current path:', currentPath);
       console.log('Layout: Is payment page:', isPaymentPage);
       console.log('Layout: Is tabs page:', isTabsPage);
       console.log('Layout: Is valid authenticated route:', isValidAuthenticatedRoute);
       console.log('Layout: Is public route:', isPublicRoute);
+      console.log('Layout: Is forgot password page:', isForgotPasswordPage);
+      console.log('Layout: Is reset password page:', isResetPasswordPage);
       
       if (isAuthenticated) {
         console.log('Layout: User is authenticated, checking navigation...');
@@ -255,6 +260,18 @@ function AppContent() {
                     <Stack.Screen name="terms" options={{ headerShown: false }} />
                     <Stack.Screen name="delete-account-request" options={{ headerShown: false }} />
                     <Stack.Screen name="admin" options={{ headerShown: false }} />
+                    <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+                    <Stack.Screen name="reset-password" options={{ headerShown: false }} />
+                    <Stack.Screen name="help" options={{ 
+                      headerShown: false,
+                      presentation: 'card',
+                      header: () => null,
+                      headerTitle: '',
+                      headerBackTitle: '',
+                      headerBackVisible: false,
+                      headerLeft: () => null,
+                      headerRight: () => null,
+                    }} />
 
                     <Stack.Screen name="+not-found" />
                   </Stack>
