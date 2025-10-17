@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Alert,
     Image,
@@ -9,7 +9,8 @@ import {
     ScrollView,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    Dimensions
 } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
@@ -26,12 +27,22 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isMobileWeb, setIsMobileWeb] = useState(false);
 
   const { signIn } = useAuth();
   const { showSnackbar } = useSnackbar();
 
   // Set page title for web
   usePageTitle();
+
+  // Detect mobile web browsers
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const { width } = Dimensions.get('window');
+      const isMobile = width <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobileWeb(isMobile);
+    }
+  }, []);
 
   const validateForm = () => {
     if (!email.trim()) {
@@ -161,218 +172,393 @@ export default function LoginScreen() {
   const accentColor = useThemeColor({}, 'accentPrimary');
   const cardBg = useThemeColor({}, 'backgroundSecondary');
 
-  // Web layout
+  // Web layout - Responsive design
   if (Platform.OS === 'web') {
     return (
       <ThemedView style={[loginStyles.webContainer, { backgroundColor }]}>
-        <View style={loginStyles.webContent}>
-          {/* Left Panel - Branding */}
-          <View style={[loginStyles.webLeftPanel, { backgroundColor: cardBg }]}>
-            <View style={loginStyles.webBrandSection}>
-              <View style={loginStyles.webLogoContainer}>
-                <Logo size={80} />
-              </View>
-              <ThemedText style={[loginStyles.webBrandTitle, { color: textColor }]}>WizNote</ThemedText>
-              <ThemedText style={[loginStyles.webBrandSubtitle, { color: textSecondaryColor }]}>
-                Your personal note-taking companion
-              </ThemedText>
-            </View>
-            
-            <View style={loginStyles.webFeaturesSection}>
-              <View style={loginStyles.webFeatureItem}>
-                <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
-                <ThemedText style={[loginStyles.webFeatureText, { color: textColor }]}>
-                  Organize thoughts with smart tags
-                </ThemedText>
-              </View>
-              <View style={loginStyles.webFeatureItem}>
-                <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
-                <ThemedText style={[loginStyles.webFeatureText, { color: textColor }]}>
-                  Voice-to-text transcription
-                </ThemedText>
-              </View>
-              <View style={loginStyles.webFeatureItem}>
-                <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
-                <ThemedText style={[loginStyles.webFeatureText, { color: textColor }]}>
-                  Cross-platform sync
-                </ThemedText>
-              </View>
-              <View style={loginStyles.webFeatureItem}>
-                <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
-                <ThemedText style={[loginStyles.webFeatureText, { color: textColor }]}>
-                  AI-powered insights
-                </ThemedText>
-              </View>
-            </View>
-
-            {/* Mobile Apps Promotion Section */}
-            <View style={loginStyles.webMobileAppsSection}>
-              {/* Android App Promotion */}
-              <View style={[loginStyles.webAndroidPromotion, { backgroundColor: accentColor }]}>
-                <View style={loginStyles.webAndroidContent}>
-                  <View style={loginStyles.webAndroidHeader}>
-                    <Ionicons name="phone-portrait" size={24} color="#FFFFFF" />
-                    <ThemedText style={loginStyles.webAndroidTitle}>Get the Android App</ThemedText>
+        <ScrollView 
+          contentContainerStyle={loginStyles.webScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[
+            loginStyles.webContent, 
+            isMobileWeb && loginStyles.webContentMobile
+          ]}>
+            {/* Mobile Web Layout - Single Column */}
+            {isMobileWeb ? (
+              <View style={loginStyles.webMobileLayout}>
+                {/* Header Section */}
+                <View style={loginStyles.webMobileHeader}>
+                  <View style={loginStyles.webMobileLogoContainer}>
+                    <Logo size={60} />
                   </View>
-                  <ThemedText style={loginStyles.webAndroidSubtitle}>
-                    Take your notes anywhere with our mobile app
+                  <ThemedText style={[loginStyles.webMobileTitle, { color: textColor }]}>WizNote</ThemedText>
+                  <ThemedText style={[loginStyles.webMobileSubtitle, { color: textSecondaryColor }]}>
+                    Your personal note-taking companion
                   </ThemedText>
-                  <TouchableOpacity 
-                    style={loginStyles.webAndroidButton}
-                    onPress={() => {
-                      window.open('https://play.google.com/store/apps/details?id=com.WizNote.app', '_blank');
-                    }}
-                  >
-                    <Image 
-                      source={require('../../assets/images/get-on-playstore.png')} 
-                      style={loginStyles.webPlayStoreBadge}
-                      resizeMode="contain"
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Apple App Store Coming Soon */}
-              <View style={[loginStyles.webApplePromotion, { backgroundColor: '#000000' }]}>
-                <View style={loginStyles.webAppleContent}>
-                  <View style={loginStyles.webAppleHeader}>
-                    <Ionicons name="phone-portrait" size={24} color="#FFFFFF" />
-                    <ThemedText style={loginStyles.webAppleTitle}>iOS App Coming Soon</ThemedText>
-                  </View>
-                  <ThemedText style={loginStyles.webAppleSubtitle}>
-                    Stay tuned for the Apple App Store release
-                  </ThemedText>
-                  <TouchableOpacity style={loginStyles.webAppleBadge}>
-                    <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
-                    <ThemedText style={loginStyles.webAppleBadgeText}>Coming Soon</ThemedText>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Right Panel - Login Form */}
-          <View style={loginStyles.webRightPanel}>
-            <View style={loginStyles.webFormContainer}>
-              <View style={loginStyles.webFormHeader}>
-                <ThemedText style={[loginStyles.webFormTitle, { color: textColor }]}>Welcome Back</ThemedText>
-                <ThemedText style={[loginStyles.webFormSubtitle, { color: textSecondaryColor }]}>
-                  Sign in to continue with WizNote
-                </ThemedText>
-              </View>
-
-              <View style={loginStyles.webForm}>
-                {/* Email Input */}
-                <View style={loginStyles.webInputContainer}>
-                  <ThemedText style={[loginStyles.webLabel, { color: textColor }]}>Email Address</ThemedText>
-                  <TextInput
-                    style={[loginStyles.webInput, { color: inputText, backgroundColor: inputBg, borderColor }]}
-                    placeholder="Enter your email"
-                    placeholderTextColor={borderColor}
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoFocus
-                  />
                 </View>
 
-                {/* Password Input */}
-                <View style={loginStyles.webInputContainer}>
-                  <ThemedText style={[loginStyles.webLabel, { color: textColor }]}>Password</ThemedText>
-                  <View style={[loginStyles.webPasswordContainer, { backgroundColor: inputBg, borderColor }] }>
-                    <TextInput
-                      style={[loginStyles.webPasswordInput, { color: inputText }]}
-                      placeholder="Enter your password"
-                      placeholderTextColor={borderColor}
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry={!showPassword}
-                      autoCapitalize="none"
-                    />
-                    <TouchableOpacity
-                      onPress={() => setShowPassword(!showPassword)}
-                      style={loginStyles.webEyeButton}
-                    >
-                      <Ionicons
-                        name={showPassword ? 'eye-off' : 'eye'}
-                        size={20}
-                        color={borderColor}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Forgot Password Link */}
-                <TouchableOpacity 
-                  style={loginStyles.webForgotPasswordContainer}
-                  onPress={() => router.push('/forgot-password' as any)}
-                >
-                  <ThemedText style={[loginStyles.webForgotPasswordText, { color: accentColor }]}>
-                    Forgot Password?
-                  </ThemedText>
-                </TouchableOpacity>
-
-                {/* Sign In Button */}
-                <TouchableOpacity
-                  style={[loginStyles.webLoginButton, { backgroundColor: accentColor }, isLoading && loginStyles.webLoginButtonDisabled]}
-                  onPress={handleLogin}
-                  disabled={isLoading}
-                >
-                  <ThemedText style={loginStyles.webLoginButtonText}>
-                    {isLoading ? 'Signing In...' : 'Sign In'}
-                  </ThemedText>
-                </TouchableOpacity>
-
-                {/* Sign Up Link */}
-                <View style={loginStyles.webSignupContainer}>
-                  <ThemedText style={[loginStyles.webSignupText, { color: textSecondaryColor }]}>
-                    Don&apos;t have an account?{' '}
-                  </ThemedText>
-                  <TouchableOpacity onPress={() => router.push('/(auth)/signup' as any)}>
-                    <ThemedText style={[loginStyles.webSignupLink, { color: accentColor }]}>
-                      Sign Up
+                {/* Form Section */}
+                <View style={[loginStyles.webMobileFormCard, { backgroundColor: cardBg }]}>
+                  <View style={loginStyles.webMobileFormHeader}>
+                    <ThemedText style={[loginStyles.webMobileFormTitle, { color: textColor }]}>Welcome Back</ThemedText>
+                    <ThemedText style={[loginStyles.webMobileFormSubtitle, { color: textSecondaryColor }]}>
+                      Sign in to continue with WizNote
                     </ThemedText>
-                  </TouchableOpacity>
+                  </View>
+
+                  <View style={loginStyles.webMobileForm}>
+                    {/* Email Input */}
+                    <View style={loginStyles.webMobileInputContainer}>
+                      <ThemedText style={[loginStyles.webMobileLabel, { color: textColor }]}>Email Address</ThemedText>
+                      <TextInput
+                        style={[loginStyles.webMobileInput, { color: inputText, backgroundColor: inputBg, borderColor }]}
+                        placeholder="Enter your email"
+                        placeholderTextColor={borderColor}
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoFocus
+                      />
+                    </View>
+
+                    {/* Password Input */}
+                    <View style={loginStyles.webMobileInputContainer}>
+                      <ThemedText style={[loginStyles.webMobileLabel, { color: textColor }]}>Password</ThemedText>
+                      <View style={[loginStyles.webMobilePasswordContainer, { backgroundColor: inputBg, borderColor }]}>
+                        <TextInput
+                          style={[loginStyles.webMobilePasswordInput, { color: inputText }]}
+                          placeholder="Enter your password"
+                          placeholderTextColor={borderColor}
+                          value={password}
+                          onChangeText={setPassword}
+                          secureTextEntry={!showPassword}
+                          autoCapitalize="none"
+                        />
+                        <TouchableOpacity
+                          onPress={() => setShowPassword(!showPassword)}
+                          style={loginStyles.webMobileEyeButton}
+                        >
+                          <Ionicons
+                            name={showPassword ? 'eye-off' : 'eye'}
+                            size={20}
+                            color={borderColor}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {/* Forgot Password Link */}
+                    <TouchableOpacity 
+                      style={loginStyles.webMobileForgotPasswordContainer}
+                      onPress={() => router.push('/forgot-password' as any)}
+                    >
+                      <ThemedText style={[loginStyles.webMobileForgotPasswordText, { color: accentColor }]}>
+                        Forgot Password?
+                      </ThemedText>
+                    </TouchableOpacity>
+
+                    {/* Sign In Button */}
+                    <TouchableOpacity
+                      style={[loginStyles.webMobileLoginButton, { backgroundColor: accentColor }, isLoading && loginStyles.webMobileLoginButtonDisabled]}
+                      onPress={handleLogin}
+                      disabled={isLoading}
+                    >
+                      <ThemedText style={loginStyles.webMobileLoginButtonText}>
+                        {isLoading ? 'Signing In...' : 'Sign In'}
+                      </ThemedText>
+                    </TouchableOpacity>
+
+                    {/* Sign Up Link */}
+                    <View style={loginStyles.webMobileSignupContainer}>
+                      <ThemedText style={[loginStyles.webMobileSignupText, { color: textSecondaryColor }]}>
+                        Don&apos;t have an account?{' '}
+                      </ThemedText>
+                      <TouchableOpacity onPress={() => router.push('/(auth)/signup' as any)}>
+                        <ThemedText style={[loginStyles.webMobileSignupLink, { color: accentColor }]}>
+                          Sign Up
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Mobile Apps Promotion */}
+                <View style={loginStyles.webMobileAppsSection}>
+                  <View style={[loginStyles.webMobileAndroidPromotion, { backgroundColor: accentColor }]}>
+                    <View style={loginStyles.webMobileAndroidContent}>
+                      <View style={loginStyles.webMobileAndroidHeader}>
+                        <Ionicons name="phone-portrait" size={20} color="#FFFFFF" />
+                        <ThemedText style={loginStyles.webMobileAndroidTitle}>Get the Android App</ThemedText>
+                      </View>
+                      <ThemedText style={loginStyles.webMobileAndroidSubtitle}>
+                        Take your notes anywhere
+                      </ThemedText>
+                      <TouchableOpacity 
+                        style={loginStyles.webMobileAndroidButton}
+                        onPress={() => {
+                          window.open('https://play.google.com/store/apps/details?id=com.WizNote.app', '_blank');
+                        }}
+                      >
+                        <Image 
+                          source={require('../../assets/images/get-on-playstore.png')} 
+                          style={loginStyles.webMobilePlayStoreBadge as any}
+                          resizeMode="contain"
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={[loginStyles.webMobileApplePromotion, { backgroundColor: '#000000' }]}>
+                    <View style={loginStyles.webMobileAppleContent}>
+                      <View style={loginStyles.webMobileAppleHeader}>
+                        <Ionicons name="phone-portrait" size={20} color="#FFFFFF" />
+                        <ThemedText style={loginStyles.webMobileAppleTitle}>iOS Coming Soon</ThemedText>
+                      </View>
+                      <ThemedText style={loginStyles.webMobileAppleSubtitle}>
+                        Stay tuned for release
+                      </ThemedText>
+                      <TouchableOpacity style={loginStyles.webMobileAppleBadge}>
+                        <Ionicons name="logo-apple" size={16} color="#FFFFFF" />
+                        <ThemedText style={loginStyles.webMobileAppleBadgeText}>Coming Soon</ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 </View>
 
                 {/* Terms and Privacy Links */}
-                <View style={loginStyles.webPrivacyContainer}>
-                  <ThemedText style={[loginStyles.webPrivacyText, { color: textSecondaryColor }]}>
+                <View style={loginStyles.webMobilePrivacyContainer}>
+                  <ThemedText style={[loginStyles.webMobilePrivacyText, { color: textSecondaryColor }]}>
                     By signing in, you agree to our{' '}
                   </ThemedText>
                   <TouchableOpacity onPress={() => router.push('/terms' as any)}>
-                    <ThemedText style={[loginStyles.webPrivacyLink, { color: accentColor }]}>
+                    <ThemedText style={[loginStyles.webMobilePrivacyLink, { color: accentColor }]}>
                       Terms of Service
                     </ThemedText>
                   </TouchableOpacity>
-                  <ThemedText style={[loginStyles.webPrivacyText, { color: textSecondaryColor }]}> and </ThemedText>
+                  <ThemedText style={[loginStyles.webMobilePrivacyText, { color: textSecondaryColor }]}> and </ThemedText>
                   <TouchableOpacity onPress={() => router.push('/privacy' as any)}>
-                    <ThemedText style={[loginStyles.webPrivacyLink, { color: accentColor }]}>
+                    <ThemedText style={[loginStyles.webMobilePrivacyLink, { color: accentColor }]}>
                       Privacy Policy
                     </ThemedText>
                   </TouchableOpacity>
                 </View>
               </View>
-
-              {/* Keyboard Shortcuts */}
-              <View style={[loginStyles.webShortcutsContainer, { borderTopColor: borderColor }]}>
-                <ThemedText style={[loginStyles.webShortcutsTitle, { color: textSecondaryColor }]}>Keyboard Shortcuts</ThemedText>
-                <View style={loginStyles.webShortcutsList}>
-                  <View style={loginStyles.webShortcutItem}>
-                    <ThemedText style={[loginStyles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>Enter</ThemedText>
-                    <ThemedText style={[loginStyles.webShortcutText, { color: textSecondaryColor }]}>Sign in</ThemedText>
+            ) : (
+              /* Desktop Layout - Two Column */
+              <>
+                {/* Left Panel - Branding */}
+                <View style={[loginStyles.webLeftPanel, { backgroundColor: cardBg }]}>
+                  <View style={loginStyles.webBrandSection}>
+                    <View style={loginStyles.webLogoContainer}>
+                      <Logo size={80} />
+                    </View>
+                    <ThemedText style={[loginStyles.webBrandTitle, { color: textColor }]}>WizNote</ThemedText>
+                    <ThemedText style={[loginStyles.webBrandSubtitle, { color: textSecondaryColor }]}>
+                      Your personal note-taking companion
+                    </ThemedText>
                   </View>
-                  <View style={loginStyles.webShortcutItem}>
-                    <ThemedText style={[loginStyles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>Esc</ThemedText>
-                    <ThemedText style={[loginStyles.webShortcutText, { color: textSecondaryColor }]}>Go back</ThemedText>
+                  
+                  <View style={loginStyles.webFeaturesSection}>
+                    <View style={loginStyles.webFeatureItem}>
+                      <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
+                      <ThemedText style={[loginStyles.webFeatureText, { color: textColor }]}>
+                        Organize thoughts with smart tags
+                      </ThemedText>
+                    </View>
+                    <View style={loginStyles.webFeatureItem}>
+                      <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
+                      <ThemedText style={[loginStyles.webFeatureText, { color: textColor }]}>
+                        Voice-to-text transcription
+                      </ThemedText>
+                    </View>
+                    <View style={loginStyles.webFeatureItem}>
+                      <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
+                      <ThemedText style={[loginStyles.webFeatureText, { color: textColor }]}>
+                        Cross-platform sync
+                      </ThemedText>
+                    </View>
+                    <View style={loginStyles.webFeatureItem}>
+                      <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
+                      <ThemedText style={[loginStyles.webFeatureText, { color: textColor }]}>
+                        AI-powered insights
+                      </ThemedText>
+                    </View>
+                  </View>
+
+                  {/* Mobile Apps Promotion Section */}
+                  <View style={loginStyles.webMobileAppsSection}>
+                    {/* Android App Promotion */}
+                    <View style={[loginStyles.webAndroidPromotion, { backgroundColor: accentColor }]}>
+                      <View style={loginStyles.webAndroidContent}>
+                        <View style={loginStyles.webAndroidHeader}>
+                          <Ionicons name="phone-portrait" size={24} color="#FFFFFF" />
+                          <ThemedText style={loginStyles.webAndroidTitle}>Get the Android App</ThemedText>
+                        </View>
+                        <ThemedText style={loginStyles.webAndroidSubtitle}>
+                          Take your notes anywhere with our mobile app
+                        </ThemedText>
+                        <TouchableOpacity 
+                          style={loginStyles.webAndroidButton}
+                          onPress={() => {
+                            window.open('https://play.google.com/store/apps/details?id=com.WizNote.app', '_blank');
+                          }}
+                        >
+                          <Image 
+                            source={require('../../assets/images/get-on-playstore.png')} 
+                            style={loginStyles.webPlayStoreBadge as any}
+                            resizeMode="contain"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {/* Apple App Store Coming Soon */}
+                    <View style={[loginStyles.webApplePromotion, { backgroundColor: '#000000' }]}>
+                      <View style={loginStyles.webAppleContent}>
+                        <View style={loginStyles.webAppleHeader}>
+                          <Ionicons name="phone-portrait" size={24} color="#FFFFFF" />
+                          <ThemedText style={loginStyles.webAppleTitle}>iOS App Coming Soon</ThemedText>
+                        </View>
+                        <ThemedText style={loginStyles.webAppleSubtitle}>
+                          Stay tuned for the Apple App Store release
+                        </ThemedText>
+                        <TouchableOpacity style={loginStyles.webAppleBadge}>
+                          <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
+                          <ThemedText style={loginStyles.webAppleBadgeText}>Coming Soon</ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   </View>
                 </View>
-              </View>
-            </View>
+
+                {/* Right Panel - Login Form */}
+                <View style={loginStyles.webRightPanel}>
+                  <View style={loginStyles.webFormContainer}>
+                    <View style={loginStyles.webFormHeader}>
+                      <ThemedText style={[loginStyles.webFormTitle, { color: textColor }]}>Welcome Back</ThemedText>
+                      <ThemedText style={[loginStyles.webFormSubtitle, { color: textSecondaryColor }]}>
+                        Sign in to continue with WizNote
+                      </ThemedText>
+                    </View>
+
+                    <View style={loginStyles.webForm}>
+                      {/* Email Input */}
+                      <View style={loginStyles.webInputContainer}>
+                        <ThemedText style={[loginStyles.webLabel, { color: textColor }]}>Email Address</ThemedText>
+                        <TextInput
+                          style={[loginStyles.webInput, { color: inputText, backgroundColor: inputBg, borderColor }]}
+                          placeholder="Enter your email"
+                          placeholderTextColor={borderColor}
+                          value={email}
+                          onChangeText={setEmail}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          autoFocus
+                        />
+                      </View>
+
+                      {/* Password Input */}
+                      <View style={loginStyles.webInputContainer}>
+                        <ThemedText style={[loginStyles.webLabel, { color: textColor }]}>Password</ThemedText>
+                        <View style={[loginStyles.webPasswordContainer, { backgroundColor: inputBg, borderColor }]}>
+                          <TextInput
+                            style={[loginStyles.webPasswordInput, { color: inputText }]}
+                            placeholder="Enter your password"
+                            placeholderTextColor={borderColor}
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry={!showPassword}
+                            autoCapitalize="none"
+                          />
+                          <TouchableOpacity
+                            onPress={() => setShowPassword(!showPassword)}
+                            style={loginStyles.webEyeButton}
+                          >
+                            <Ionicons
+                              name={showPassword ? 'eye-off' : 'eye'}
+                              size={20}
+                              color={borderColor}
+                            />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      {/* Forgot Password Link */}
+                      <TouchableOpacity 
+                        style={loginStyles.webForgotPasswordContainer}
+                        onPress={() => router.push('/forgot-password' as any)}
+                      >
+                        <ThemedText style={[loginStyles.webForgotPasswordText, { color: accentColor }]}>
+                          Forgot Password?
+                        </ThemedText>
+                      </TouchableOpacity>
+
+                      {/* Sign In Button */}
+                      <TouchableOpacity
+                        style={[loginStyles.webLoginButton, { backgroundColor: accentColor }, isLoading && loginStyles.webLoginButtonDisabled]}
+                        onPress={handleLogin}
+                        disabled={isLoading}
+                      >
+                        <ThemedText style={loginStyles.webLoginButtonText}>
+                          {isLoading ? 'Signing In...' : 'Sign In'}
+                        </ThemedText>
+                      </TouchableOpacity>
+
+                      {/* Sign Up Link */}
+                      <View style={loginStyles.webSignupContainer}>
+                        <ThemedText style={[loginStyles.webSignupText, { color: textSecondaryColor }]}>
+                          Don&apos;t have an account?{' '}
+                        </ThemedText>
+                        <TouchableOpacity onPress={() => router.push('/(auth)/signup' as any)}>
+                          <ThemedText style={[loginStyles.webSignupLink, { color: accentColor }]}>
+                            Sign Up
+                          </ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {/* Terms and Privacy Links */}
+                    <View style={loginStyles.webPrivacyContainer}>
+                      <ThemedText style={[loginStyles.webPrivacyText, { color: textSecondaryColor }]}>
+                        By signing in, you agree to our{' '}
+                      </ThemedText>
+                      <TouchableOpacity onPress={() => router.push('/terms' as any)}>
+                        <ThemedText style={[loginStyles.webPrivacyLink, { color: accentColor }]}>
+                          Terms of Service
+                        </ThemedText>
+                      </TouchableOpacity>
+                      <ThemedText style={[loginStyles.webPrivacyText, { color: textSecondaryColor }]}> and </ThemedText>
+                      <TouchableOpacity onPress={() => router.push('/privacy' as any)}>
+                        <ThemedText style={[loginStyles.webPrivacyLink, { color: accentColor }]}>
+                          Privacy Policy
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Keyboard Shortcuts */}
+                  <View style={[loginStyles.webShortcutsContainer, { borderTopColor: borderColor }]}>
+                    <ThemedText style={[loginStyles.webShortcutsTitle, { color: textSecondaryColor }]}>Keyboard Shortcuts</ThemedText>
+                    <View style={loginStyles.webShortcutsList}>
+                      <View style={loginStyles.webShortcutItem}>
+                        <ThemedText style={[loginStyles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>Enter</ThemedText>
+                        <ThemedText style={[loginStyles.webShortcutText, { color: textSecondaryColor }]}>Sign in</ThemedText>
+                      </View>
+                      <View style={loginStyles.webShortcutItem}>
+                        <ThemedText style={[loginStyles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>Esc</ThemedText>
+                        <ThemedText style={[loginStyles.webShortcutText, { color: textSecondaryColor }]}>Go back</ThemedText>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </>
+            )}
           </View>
-        </View>
+        </ScrollView>
       </ThemedView>
     );
   }

@@ -1,0 +1,29 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "UPDATE_THIS_WITH_YOUR_APPLE_TEAM_ID.com.WizNote.app",
+        "paths": [
+          "/reset-password",
+          "/auth/callback",
+          "/forgot-password"
+        ],
+        "components": [
+          {
+            "/": "/reset-password",
+            "comment": "Password reset deep link"
+          },
+          {
+            "/": "/auth/callback",
+            "comment": "Authentication callback"
+          }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["UPDATE_THIS_WITH_YOUR_APPLE_TEAM_ID.com.WizNote.app"]
+  }
+}
+

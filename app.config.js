@@ -30,6 +30,7 @@ export default ({ config }) => {
       associatedDomains: [
         'applinks:wiznote.app',
         'applinks:*.wiznote.app',
+        'webcredentials:wiznote.app',
       ],
       infoPlist: {
         ...config.ios?.infoPlist,
@@ -58,8 +59,33 @@ export default ({ config }) => {
           data: [
             {
               scheme: 'https',
-              host: '*.wiznote.app',
+              host: 'wiznote.app',
               pathPrefix: '/auth/callback',
+            },
+            {
+              scheme: 'https',
+              host: 'wiznote.app',
+              pathPrefix: '/reset-password',
+            },
+            {
+              scheme: 'https',
+              host: '*.netlify.app',
+              pathPrefix: '/auth/callback',
+            },
+            {
+              scheme: 'https',
+              host: '*.netlify.app',
+              pathPrefix: '/reset-password',
+            },
+          ],
+          category: ['BROWSABLE', 'DEFAULT'],
+        },
+        {
+          action: 'VIEW',
+          data: [
+            {
+              scheme: 'wiznote',
+              host: 'reset-password',
             },
           ],
           category: ['BROWSABLE', 'DEFAULT'],
