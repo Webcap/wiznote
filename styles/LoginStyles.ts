@@ -177,6 +177,13 @@ export const loginStyles = StyleSheet.create({
   webContainer: {
     flex: 1,
   },
+  webScrollContent: {
+    flexGrow: 1,
+    minHeight: '100vh',
+  },
+  webContentMobile: {
+    flexDirection: 'column',
+  },
   webContent: {
     flex: 1,
     flexDirection: 'row',
@@ -280,7 +287,7 @@ export const loginStyles = StyleSheet.create({
   webPlayStoreBadge: {
     height: 60,
     width: 180,
-  },
+  } as any,
   webAppleContent: {
     alignItems: 'center',
   },
@@ -481,6 +488,238 @@ export const loginStyles = StyleSheet.create({
   },
   webShortcutText: {
     fontSize: 12,
+  },
+  
+  // Mobile Web specific styles
+  webMobileLayout: {
+    width: '100%',
+    maxWidth: 400,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  webMobileHeader: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  webMobileLogoContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  webMobileTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  webMobileSubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    opacity: 0.7,
+    lineHeight: 22,
+  },
+  webMobileFormCard: {
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  webMobileFormHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  webMobileFormTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  webMobileFormSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    opacity: 0.7,
+  },
+  webMobileForm: {
+    marginBottom: 0,
+  },
+  webMobileInputContainer: {
+    marginBottom: 20,
+  },
+  webMobileLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  webMobileInput: {
+    height: 48,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+  },
+  webMobilePasswordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    height: 48,
+  },
+  webMobilePasswordInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    fontSize: 16,
+  },
+  webMobileEyeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  webMobileForgotPasswordContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 20,
+  },
+  webMobileForgotPasswordText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  webMobileLoginButton: {
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  webMobileLoginButtonDisabled: {
+    opacity: 0.6,
+  },
+  webMobileLoginButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  webMobileSignupContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  webMobileSignupText: {
+    fontSize: 14,
+  },
+  webMobileSignupLink: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  webMobileAppsSection: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  webMobileAndroidPromotion: {
+    flex: 1,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  webMobileApplePromotion: {
+    flex: 1,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  webMobileAndroidContent: {
+    alignItems: 'center',
+  },
+  webMobileAndroidHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 6,
+  },
+  webMobileAndroidTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  webMobileAndroidSubtitle: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 12,
+    opacity: 0.9,
+  },
+  webMobileAndroidButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webMobilePlayStoreBadge: {
+    height: 40,
+    width: 120,
+  } as any,
+  webMobileAppleContent: {
+    alignItems: 'center',
+  },
+  webMobileAppleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 6,
+  },
+  webMobileAppleTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  webMobileAppleSubtitle: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 12,
+    opacity: 0.9,
+  },
+  webMobileAppleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  webMobileAppleBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  webMobilePrivacyContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  webMobilePrivacyText: {
+    fontSize: 11,
+  },
+  webMobilePrivacyLink: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   disabledButton: {
     opacity: 0.5,

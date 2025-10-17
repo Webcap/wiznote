@@ -772,13 +772,22 @@ export class BetterAuthService {
         if (Platform.OS === 'web' && typeof window !== 'undefined') {
           return `${window.location.origin}/reset-password`;
         } else {
-          return 'wiznote://reset-password';
+          // For mobile app, use web URL that will trigger deep linking
+          // This allows the link to work in email clients and automatically open the app
+          // If you have a custom domain, update this URL
+          const webUrl = process.env.EXPO_PUBLIC_WEB_URL || 'http://localhost:8081';
+          return `${webUrl}/reset-password`;
         }
       };
       
       // ✅ STEP 4: Send password reset email via Supabase
+      // Use longer expiration (24 hours instead of default 1 hour)
       const { error } = await supabase.auth.resetPasswordForEmail(sanitizedEmail, {
         redirectTo: getRedirectUrl(),
+        options: {
+          // Email link will be valid for 24 hours
+          emailRedirectTo: getRedirectUrl(),
+        }
       });
 
       if (error) {

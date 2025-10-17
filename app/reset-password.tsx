@@ -40,16 +40,50 @@ export default function ResetPasswordScreen() {
 
   const checkSession = async () => {
     try {
+      // On web, Supabase automatically exchanges the token in the URL for a session
+      // Wait a moment for this to complete
+      if (Platform.OS === 'web') {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
       const user = await betterAuthService.getCurrentUser();
       if (user) {
+        console.log('✅ Valid session found for password reset');
         setIsValidSession(true);
       } else {
-        // Redirect to login if no valid session
-        router.replace('/(auth)/login');
+        // Check if we're coming from a password reset link (has token in URL)
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const hasToken = urlParams.get('token') || urlParams.get('access_token');
+          
+          if (hasToken) {
+            // Token present but session not established yet
+            // Give it a bit more time and try again
+            console.log('⏳ Reset token detected, waiting for session...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const retryUser = await betterAuthService.getCurrentUser();
+            
+            if (retryUser) {
+              console.log('✅ Session established after retry');
+              setIsValidSession(true);
+              return;
+            }
+          }
+        }
+        
+        // No valid session and no token - redirect to login
+        console.log('❌ No valid session for password reset');
+        if (Platform.OS === 'web') {
+          showSnackbar('Invalid or expired reset link. Please request a new one.', 'error', 5000);
+        }
+        setTimeout(() => router.replace('/(auth)/login'), 2000);
       }
     } catch (error) {
       console.error('Error checking session:', error);
-      router.replace('/(auth)/login');
+      if (Platform.OS === 'web') {
+        showSnackbar('Error validating reset link. Please try again.', 'error', 4000);
+      }
+      setTimeout(() => router.replace('/(auth)/login'), 2000);
     } finally {
       setIsCheckingSession(false);
     }
