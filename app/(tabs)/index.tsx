@@ -1,8 +1,10 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, FlatList, Platform, RefreshControl, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { Alert, Animated, FlatList, Platform, RefreshControl, StyleSheet, TouchableOpacity, View, Modal } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import * as DocumentPicker from 'expo-document-picker';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { Logo } from '../../components/Logo';
@@ -1244,114 +1246,140 @@ const CreateOptionsSheet = ({
   isPDFUploadEnabled: boolean;
   testID?: string;
 }) => {
-  const slideAnim = useRef(new Animated.Value(300)).current;
-  const [isVisible, setIsVisible] = useState(false);
+  const bottomSheetRef = useRef<BottomSheet>(null);
   const slideCardBg = useThemeColor({ light: '#fff', dark: '#2A2A2A' }, 'background');
   const optionBg = useThemeColor({ light: '#F5F6FA', dark: '#282828' }, 'background');
   const chevronColor = useThemeColor({ light: '#A0A0A0', dark: '#666666' }, 'text');
+  const textSecondary = useThemeColor({}, 'textSecondary');
+
+  // Snap points - adjust based on number of options
+  const snapPoints = useMemo(() => {
+    let optionCount = 1; // Text note always present
+    if (isVoiceRecordingEnabled) optionCount++;
+    if (isPDFUploadEnabled) optionCount++;
+    const height = 200 + (optionCount * 80); // Base height + options
+    return [height];
+  }, [isVoiceRecordingEnabled, isPDFUploadEnabled]);
+
+  const handleSheetChanges = useCallback((index: number) => {
+    if (index === -1) {
+      onClose();
+    }
+  }, [onClose]);
+
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        opacity={0.5}
+        pressBehavior="close"
+      />
+    ),
+    []
+  );
 
   useEffect(() => {
     if (visible) {
-      setIsVisible(true);
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 50,
-        friction: 7,
-      }).start();
+      bottomSheetRef.current?.expand();
     } else {
-      Animated.spring(slideAnim, {
-        toValue: 300,
-        useNativeDriver: true,
-        tension: 50,
-        friction: 7,
-      }).start(() => {
-        setIsVisible(false);
-      });
+      bottomSheetRef.current?.close();
     }
-  }, [visible, slideAnim]);
+  }, [visible]);
 
-  if (!isVisible) return null;
+  if (!visible) return null;
 
   return (
-    <View style={styles.overlay} testID={testID}>
-      <TouchableOpacity style={styles.overlayTouchable} onPress={onClose} />
-      <Animated.View 
-        style={[
-          styles.bottomSheet,
-          { backgroundColor: slideCardBg },
-          { transform: [{ translateY: slideAnim }] },
-        ]}
-      >
-        <View style={styles.bottomSheetHandle} />
-        
-        <ThemedText style={styles.bottomSheetTitle}>Create Note</ThemedText>
-        <ThemedText style={styles.bottomSheetSubtitle}>Choose the type of note you want to create</ThemedText>
-        
-        <View style={styles.createOptions}>
-          <TouchableOpacity 
-            style={[styles.createOption, { backgroundColor: optionBg }]} 
-            onPress={onTextNote} 
-            testID="text-note-button"
-            activeOpacity={0.7}
-            delayPressIn={0}
-          >
-            <View style={styles.createOptionIcon}>
-              <Ionicons name="document-text" size={24} color="#6A5ACD" />
+    <Modal
+      visible={visible}
+      animationType="none"
+      transparent={true}
+      onRequestClose={onClose}
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+    >
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <BottomSheet
+          ref={bottomSheetRef}
+          index={0}
+          snapPoints={snapPoints}
+          onChange={handleSheetChanges}
+          backdropComponent={renderBackdrop}
+          enablePanDownToClose={true}
+          backgroundStyle={{ backgroundColor: slideCardBg }}
+          handleIndicatorStyle={{ backgroundColor: textSecondary }}
+        >
+          <BottomSheetView style={styles.bottomSheetContent}>
+            <ThemedText style={styles.bottomSheetTitle}>Create Note</ThemedText>
+            <ThemedText style={styles.bottomSheetSubtitle}>Choose the type of note you want to create</ThemedText>
+            
+            <View style={styles.createOptions}>
+              <TouchableOpacity 
+                style={[styles.createOption, { backgroundColor: optionBg }]} 
+                onPress={onTextNote} 
+                testID="text-note-button"
+                activeOpacity={0.7}
+                delayPressIn={0}
+              >
+                <View style={styles.createOptionIcon}>
+                  <Ionicons name="document-text" size={24} color="#6A5ACD" />
+                </View>
+                <View style={styles.createOptionContent}>
+                  <ThemedText style={styles.createOptionTitle}>Text Note</ThemedText>
+                  <ThemedText style={styles.createOptionDescription}>Write notes with text and formatting</ThemedText>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={chevronColor} />
+              </TouchableOpacity>
+
+              {isVoiceRecordingEnabled && (
+                <TouchableOpacity 
+                  style={[styles.createOption, { backgroundColor: optionBg }]} 
+                  onPress={onAudioNote} 
+                  testID="audio-note-button"
+                  activeOpacity={0.7}
+                  delayPressIn={0}
+                >
+                  <View style={styles.createOptionIcon}>
+                    <Ionicons name="mic" size={24} color="#6A5ACD" />
+                  </View>
+                  <View style={styles.createOptionContent}>
+                    <ThemedText style={styles.createOptionTitle}>Audio Note</ThemedText>
+                    <ThemedText style={styles.createOptionDescription}>Record voice notes with AI transcription</ThemedText>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={chevronColor} />
+                </TouchableOpacity>
+              )}
+
+              {isPDFUploadEnabled && (
+                <TouchableOpacity 
+                  style={[styles.createOption, { backgroundColor: optionBg }]} 
+                  onPress={onPDFNote} 
+                  testID="pdf-note-button"
+                  activeOpacity={0.7}
+                  delayPressIn={0}
+                >
+                  <View style={styles.createOptionIcon}>
+                    <Ionicons name="document" size={24} color="#E74C3C" />
+                  </View>
+                  <View style={styles.createOptionContent}>
+                    <ThemedText style={styles.createOptionTitle}>Upload PDF</ThemedText>
+                    <ThemedText style={styles.createOptionDescription}>
+                      Extract text from PDF documents
+                    </ThemedText>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={chevronColor} />
+                </TouchableOpacity>
+              )}
             </View>
-            <View style={styles.createOptionContent}>
-              <ThemedText style={styles.createOptionTitle}>Text Note</ThemedText>
-              <ThemedText style={styles.createOptionDescription}>Write notes with text and formatting</ThemedText>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={chevronColor} />
-          </TouchableOpacity>
 
-          {isVoiceRecordingEnabled && (
-            <TouchableOpacity 
-              style={[styles.createOption, { backgroundColor: optionBg }]} 
-              onPress={onAudioNote} 
-              testID="audio-note-button"
-              activeOpacity={0.7}
-              delayPressIn={0}
-            >
-              <View style={styles.createOptionIcon}>
-                <Ionicons name="mic" size={24} color="#6A5ACD" />
-              </View>
-              <View style={styles.createOptionContent}>
-                <ThemedText style={styles.createOptionTitle}>Audio Note</ThemedText>
-                <ThemedText style={styles.createOptionDescription}>Record voice notes with AI transcription</ThemedText>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={chevronColor} />
+            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
             </TouchableOpacity>
-          )}
-
-          {isPDFUploadEnabled && (
-            <TouchableOpacity 
-              style={[styles.createOption, { backgroundColor: optionBg }]} 
-              onPress={onPDFNote} 
-              testID="pdf-note-button"
-              activeOpacity={0.7}
-              delayPressIn={0}
-            >
-              <View style={styles.createOptionIcon}>
-                <Ionicons name="document" size={24} color="#E74C3C" />
-              </View>
-              <View style={styles.createOptionContent}>
-                <ThemedText style={styles.createOptionTitle}>Upload PDF</ThemedText>
-                <ThemedText style={styles.createOptionDescription}>
-                  Extract text from PDF documents
-                </ThemedText>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={chevronColor} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-          <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
-        </TouchableOpacity>
-      </Animated.View>
-    </View>
+          </BottomSheetView>
+        </BottomSheet>
+      </GestureHandlerRootView>
+    </Modal>
   );
 };
 
@@ -1481,40 +1509,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  overlayTouchable: {
-    flex: 1,
-  },
-  bottomSheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+  bottomSheetContent: {
     padding: 20,
-    maxHeight: '70%',
-    ...(Platform.OS === 'web' ? {
-      boxShadow: '0px -2px 10px rgba(0, 0, 0, 0.25)',
-    } : {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: -2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 10,
-      elevation: 10,
-    }),
-  },
-  bottomSheetHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#666666',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 15,
+    paddingBottom: 10,
   },
   bottomSheetTitle: {
     fontSize: 24,

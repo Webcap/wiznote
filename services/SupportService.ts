@@ -69,6 +69,56 @@ export class SupportService {
     return SupportService.instance;
   }
 
+  // ===== HELPER METHODS =====
+
+  /**
+   * Fetch plan name from premium_plans table by planId
+   */
+  private async getPlanName(planId: string): Promise<string | null> {
+    try {
+      const { data, error } = await supabase
+        .from('premium_plans')
+        .select('name')
+        .eq('id', planId)
+        .single();
+
+      if (error || !data) {
+        console.warn(`SupportService: Could not fetch plan name for planId: ${planId}`, error);
+        return null;
+      }
+
+      return data.name;
+    } catch (error) {
+      console.error('SupportService: Error fetching plan name:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Enrich premium data with plan name from premium_plans table
+   */
+  private async enrichPremiumData(premium: any): Promise<{ isActive: boolean; planName: string; expiresAt?: Date }> {
+    const isActive = premium?.isActive || false;
+    let planName = premium?.planName || premium?.type || 'Free';
+    
+    // If we have a planId but no planName, fetch it from premium_plans
+    if (premium?.planId && !premium?.planName) {
+      const fetchedPlanName = await this.getPlanName(premium.planId);
+      if (fetchedPlanName) {
+        planName = fetchedPlanName;
+      } else {
+        // Fallback to planId if we couldn't fetch the name
+        planName = premium.planId;
+      }
+    }
+
+    return {
+      isActive,
+      planName,
+      expiresAt: premium?.currentPeriodEnd ? new Date(premium.currentPeriodEnd) : undefined,
+    };
+  }
+
   // ===== USER FEATURE LIMIT INSPECTOR =====
 
   /**
@@ -95,21 +145,17 @@ export class SupportService {
             .single();
 
           if (!profileError && profile) {
+            const premium = profile.premium 
+              ? await this.enrichPremiumData(profile.premium)
+              : { isActive: false, planName: 'Free', expiresAt: undefined };
+
             return {
               id: profile.id,
               email: user.email || profile.email || 'Unknown',
               displayName: profile.display_name || user.display_name || 'Unknown User',
               createdAt: new Date(profile.created_at || Date.now()),
               lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
-              premium: profile.premium ? {
-                isActive: profile.premium.isActive || false,
-                planName: profile.premium.planName || profile.premium.type || 'Free',
-                expiresAt: profile.premium.currentPeriodEnd ? new Date(profile.premium.currentPeriodEnd) : undefined,
-              } : {
-                isActive: false,
-                planName: 'Free',
-                expiresAt: undefined,
-              },
+              premium,
             };
           }
         }
@@ -130,21 +176,17 @@ export class SupportService {
             .single();
 
           if (!emailError && profile) {
+            const premium = profile.premium 
+              ? await this.enrichPremiumData(profile.premium)
+              : { isActive: false, planName: 'Free', expiresAt: undefined };
+
             return {
               id: profile.id,
               email: profile.email || query,
               displayName: profile.display_name || query.split('@')[0],
               createdAt: new Date(profile.created_at || Date.now()),
               lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
-              premium: profile.premium ? {
-                isActive: profile.premium.isActive || false,
-                planName: profile.premium.planName || profile.premium.type || 'Free',
-                expiresAt: profile.premium.currentPeriodEnd ? new Date(profile.premium.currentPeriodEnd) : undefined,
-              } : {
-                isActive: false,
-                planName: 'Free',
-                expiresAt: undefined,
-              },
+              premium,
             };
           }
         } catch (emailError) {
@@ -162,21 +204,17 @@ export class SupportService {
             .single();
 
           if (!profileError && profile) {
+            const premium = profile.premium 
+              ? await this.enrichPremiumData(profile.premium)
+              : { isActive: false, planName: 'Free', expiresAt: undefined };
+
             return {
               id: profile.id,
               email: profile.email || profile.id,
               displayName: profile.display_name || 'Unknown User',
               createdAt: new Date(profile.created_at || Date.now()),
               lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
-              premium: profile.premium ? {
-                isActive: profile.premium.isActive || false,
-                planName: profile.premium.planName || profile.premium.type || 'Free',
-                expiresAt: profile.premium.currentPeriodEnd ? new Date(profile.premium.currentPeriodEnd) : undefined,
-              } : {
-                isActive: false,
-                planName: 'Free',
-                expiresAt: undefined,
-              },
+              premium,
             };
           }
         } catch (profileError) {
@@ -194,21 +232,17 @@ export class SupportService {
 
         if (!nameError && profiles?.length) {
           const profile = profiles[0];
+          const premium = profile.premium 
+            ? await this.enrichPremiumData(profile.premium)
+            : { isActive: false, planName: 'Free', expiresAt: undefined };
+
           return {
             id: profile.id,
             email: profile.id, // Use ID as email since we can't get real email
             displayName: profile.display_name || 'Unknown User',
             createdAt: new Date(profile.created_at || Date.now()),
             lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
-            premium: profile.premium ? {
-              isActive: profile.premium.isActive || false,
-              planName: profile.premium.type || 'Free',
-              expiresAt: undefined,
-            } : {
-              isActive: false,
-              planName: 'Free',
-              expiresAt: undefined,
-            },
+            premium,
           };
         }
       } catch (nameError) {
@@ -830,6 +864,197 @@ export class SupportService {
     } catch (error) {
       console.error('SupportService: Error creating support ticket:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Get tickets for a specific user
+   */
+  async getUserTickets(userId: string): Promise<Array<{
+    id: string;
+    type: 'technical' | 'billing' | 'feature_request' | 'account_deletion' | 'other';
+    status: 'pending' | 'in_progress' | 'resolved' | 'closed';
+    priority: 'low' | 'medium' | 'high';
+    subject: string;
+    description: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }>> {
+    try {
+      console.log(`SupportService: Fetching tickets for user: ${userId}`);
+
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('SupportService: Error fetching user tickets:', error);
+        // If table doesn't exist, return empty array
+        if (error.code === '42P01') {
+          console.warn('SupportService: support_tickets table does not exist');
+          return [];
+        }
+        throw error;
+      }
+
+      return (data || []).map(ticket => ({
+        id: ticket.id,
+        type: ticket.type,
+        status: ticket.status,
+        priority: ticket.priority,
+        subject: ticket.subject,
+        description: ticket.description,
+        createdAt: new Date(ticket.created_at),
+        updatedAt: new Date(ticket.updated_at),
+      }));
+    } catch (error) {
+      console.error('SupportService: Error fetching user tickets:', error);
+      return []; // Return empty array on error
+    }
+  }
+
+  /**
+   * Get messages for a specific ticket
+   */
+  async getTicketMessages(ticketId: string): Promise<Array<{
+    id: string;
+    ticketId: string;
+    senderId: string;
+    senderEmail: string;
+    senderRole: string;
+    senderName: string;
+    message: string;
+    isInternal: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }>> {
+    try {
+      console.log(`SupportService: Fetching messages for ticket: ${ticketId}`);
+
+      // Try to use the database function first
+      const { data, error } = await supabase.rpc('get_ticket_messages', {
+        p_ticket_id: ticketId
+      });
+
+      if (error) {
+        console.warn('SupportService: RPC function failed, falling back to direct query:', error);
+        
+        // Fallback to direct query
+        const { data: messages, error: directError } = await supabase
+          .from('support_ticket_messages')
+          .select('*')
+          .eq('ticket_id', ticketId)
+          .order('created_at', { ascending: true });
+
+        if (directError) {
+          if (directError.code === '42P01') {
+            console.warn('SupportService: support_ticket_messages table does not exist');
+            return [];
+          }
+          throw directError;
+        }
+
+        return (messages || []).map(msg => ({
+          id: msg.id,
+          ticketId: msg.ticket_id,
+          senderId: msg.sender_id,
+          senderEmail: msg.sender_email,
+          senderRole: msg.sender_role,
+          senderName: msg.sender_email.split('@')[0], // Fallback to email prefix
+          message: msg.message,
+          isInternal: msg.is_internal || false,
+          createdAt: new Date(msg.created_at),
+          updatedAt: new Date(msg.updated_at),
+        }));
+      }
+
+      // Use RPC result
+      return (data || []).map((msg: any) => ({
+        id: msg.id,
+        ticketId: msg.ticket_id,
+        senderId: msg.sender_id,
+        senderEmail: msg.sender_email,
+        senderRole: msg.sender_role,
+        senderName: msg.sender_name,
+        message: msg.message,
+        isInternal: msg.is_internal || false,
+        createdAt: new Date(msg.created_at),
+        updatedAt: new Date(msg.updated_at),
+      }));
+    } catch (error) {
+      console.error('SupportService: Error fetching ticket messages:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Send a message to a ticket
+   */
+  async sendTicketMessage(params: {
+    ticketId: string;
+    senderId: string;
+    senderEmail: string;
+    senderRole: 'user' | 'support' | 'admin';
+    message: string;
+    isInternal?: boolean;
+  }): Promise<{
+    success: boolean;
+    messageId?: string;
+    error?: string;
+  }> {
+    try {
+      console.log('SupportService: Sending message to ticket:', params.ticketId);
+
+      const messageId = `MSG_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const messageData = {
+        id: messageId,
+        ticket_id: params.ticketId,
+        sender_id: params.senderId,
+        sender_email: params.senderEmail,
+        sender_role: params.senderRole,
+        message: params.message,
+        is_internal: params.isInternal || false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('support_ticket_messages')
+        .insert(messageData);
+
+      if (error) {
+        console.error('SupportService: Error sending message:', error);
+        if (error.code === '42P01') {
+          console.warn('SupportService: support_ticket_messages table does not exist');
+          return {
+            success: false,
+            error: 'Messaging system not available. Please contact administrator.',
+          };
+        }
+        throw error;
+      }
+
+      // Update ticket's updated_at timestamp
+      await supabase
+        .from('support_tickets')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', params.ticketId);
+
+      console.log(`SupportService: Message sent successfully: ${messageId}`);
+
+      return {
+        success: true,
+        messageId,
+      };
+    } catch (error) {
+      console.error('SupportService: Error sending ticket message:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send message',
+      };
     }
   }
 

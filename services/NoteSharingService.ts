@@ -180,12 +180,12 @@ export class NoteSharingService {
 
       // Create a map for quick lookup
       const notesMap = new Map(notes?.map(note => [note.id, note]) || []);
-      const userDetailsMap = new Map(userDetails?.map(user => [user.id, user]) || []);
+      const userDetailsMap = new Map(userDetails?.map((user: any) => [user.id, user]) || []);
 
       // Transform to SharedNote format
       const sharedNotes: SharedNote[] = shares.map((share: any) => {
         const note = notesMap.get(share.note_id);
-        const userDetail = userDetailsMap.get(share.owner_id);
+        const userDetail = userDetailsMap.get(share.owner_id) as any;
         
         return {
           id: share.note_id,
@@ -195,6 +195,7 @@ export class NoteSharingService {
           tags: note?.tags || [],
           isPinned: note?.isPinned || false,
           isArchived: note?.isArchived || false,
+          isFavorite: note?.isFavorite || false,
           audioFiles: note?.audioFiles || [],
           keyDetails: note?.keyDetails || [],
           summary: note?.summary || null,
@@ -706,7 +707,7 @@ export class NoteSharingService {
 
       console.log('✅ NoteSharingService: Found users:', users?.length || 0);
       if (users && users.length > 0) {
-        console.log('✅ Users:', users.map(u => ({ email: u.email, name: u.display_name })));
+        console.log('✅ Users:', users.map((u: any) => ({ email: u.email, name: u.display_name })));
       }
 
       // Users from RPC already have the correct format

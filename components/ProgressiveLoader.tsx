@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, View, ViewStyle } from 'react-native';
+import { Animated, View, ViewStyle, Platform } from 'react-native';
 
 interface ProgressiveLoaderProps {
   children: React.ReactNode;
@@ -24,14 +24,41 @@ export const ProgressiveLoader: React.FC<ProgressiveLoaderProps> = ({
   rootMargin = '50px',
   style
 }) => {
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(Platform.OS !== 'web'); // Show immediately on mobile
   const [hasAnimated, setHasAnimated] = useState(false);
-  const animatedValue = useRef(new Animated.Value(0)).current;
-  const elementRef = useRef<View>(null);
+  const animatedValue = useRef(new Animated.Value(Platform.OS !== 'web' ? 0 : 0)).current;
+  const elementRef = useRef<any>(null);
 
   useEffect(() => {
+    // On mobile, just animate immediately
+    if (Platform.OS !== 'web') {
+      setIsVisible(true);
+      setHasAnimated(true);
+      setTimeout(() => {
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration,
+          useNativeDriver: true,
+        }).start();
+      }, delay);
+      return;
+    }
+
+    // On web, use IntersectionObserver
     const element = elementRef.current;
-    if (!element) return;
+    if (!element || typeof IntersectionObserver === 'undefined') {
+      // Fallback if IntersectionObserver not available
+      setIsVisible(true);
+      setHasAnimated(true);
+      setTimeout(() => {
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration,
+          useNativeDriver: true,
+        }).start();
+      }, delay);
+      return;
+    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -189,15 +216,44 @@ export const ProgressiveCard: React.FC<ProgressiveCardProps> = ({
   rootMargin = '50px',
   style
 }) => {
-  const [showContent, setShowContent] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
+  const [showContent, setShowContent] = useState(Platform.OS !== 'web'); // Show immediately on mobile
+  const [isVisible, setIsVisible] = useState(Platform.OS !== 'web');
   const [hasAnimated, setHasAnimated] = useState(false);
-  const animatedValue = useRef(new Animated.Value(0)).current;
-  const elementRef = useRef<View>(null);
+  const animatedValue = useRef(new Animated.Value(Platform.OS !== 'web' ? 0 : 0)).current;
+  const elementRef = useRef<any>(null);
 
   useEffect(() => {
+    // On mobile, just show content and animate immediately
+    if (Platform.OS !== 'web') {
+      setIsVisible(true);
+      setHasAnimated(true);
+      setTimeout(() => {
+        setShowContent(true);
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration,
+          useNativeDriver: true,
+        }).start();
+      }, delay);
+      return;
+    }
+
+    // On web, use IntersectionObserver
     const element = elementRef.current;
-    if (!element) return;
+    if (!element || typeof IntersectionObserver === 'undefined') {
+      // Fallback if IntersectionObserver not available
+      setIsVisible(true);
+      setHasAnimated(true);
+      setTimeout(() => {
+        setShowContent(true);
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration,
+          useNativeDriver: true,
+        }).start();
+      }, delay);
+      return;
+    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {

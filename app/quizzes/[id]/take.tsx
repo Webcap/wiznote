@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: Platform.OS === 'web' ? 0 : 16,
-    paddingTop: Platform.OS === 'web' ? 40 : 20,
+    paddingTop: Platform.OS === 'web' ? 40 : 48,
     paddingBottom: 20,
   },
   backButton: {
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
   },
   quizHeader: {
     paddingHorizontal: Platform.OS === 'web' ? 0 : 16,
-    paddingTop: Platform.OS === 'web' ? 40 : 20,
+    paddingTop: Platform.OS === 'web' ? 40 : 48,
     paddingBottom: 16,
   },
   headerTop: {

@@ -118,7 +118,7 @@ export default function NoteDetailScreen() {
   // Debug UI indicator (only in development)
   const showDebugInfo = __DEV__;
   
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   
   
   
@@ -203,6 +203,12 @@ export default function NoteDetailScreen() {
     const loadNote = async () => {
       if (!id) return;
       
+      // Wait for auth to finish loading before checking authentication
+      if (authLoading) {
+        console.log('Waiting for auth to load...');
+        return;
+      }
+      
       setLoading(true);
       
       // First try to find the note in the user's notes
@@ -214,27 +220,48 @@ export default function NoteDetailScreen() {
       }
       
       // If not found in user's notes, try to fetch it directly (for shared notes)
-      if (notes.length > 0) { // Only try if notes have been loaded
-        console.log('Note not found in user notes, trying to fetch as shared note...');
-        try {
-          const sharedNote = await supabaseNoteStorage.getNote(id);
-          if (sharedNote) {
-            console.log('Successfully loaded shared note:', sharedNote.title);
-            setNote(sharedNote);
-          } else {
-            console.log('Note not found as shared note either');
-            setNote(null);
-          }
-        } catch (error) {
-          console.error('Error fetching shared note:', error);
-          setNote(null);
+      // This requires authentication
+      if (!user?.id) {
+        console.log('User not authenticated, cannot access shared notes');
+        // Redirect to login if not authenticated
+        if (Platform.OS === 'web') {
+          router.push({
+            pathname: '/(auth)/login',
+            params: { redirect: `/note/${id}` }
+          });
+        } else {
+          Alert.alert(
+            'Authentication Required',
+            'Please sign in to view this shared note.',
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => router.back() },
+              { text: 'Sign In', onPress: () => router.push('/(auth)/login') }
+            ]
+          );
         }
         setLoading(false);
+        return;
       }
+
+      console.log('Note not found in user notes, trying to fetch as shared note...');
+      try {
+        const sharedNote = await supabaseNoteStorage.getNote(id);
+        if (sharedNote) {
+          console.log('Successfully loaded shared note:', sharedNote.title);
+          setNote(sharedNote);
+        } else {
+          console.log('Note not found or not shared with current user');
+          setNote(null);
+        }
+      } catch (error) {
+        console.error('Error fetching shared note:', error);
+        setNote(null);
+      }
+      setLoading(false);
     };
 
     loadNote();
-  }, [id, notes]);
+  }, [id, notes, user?.id, authLoading]);
 
   // Generate key details when note changes
   useEffect(() => {
@@ -248,6 +275,16 @@ export default function NoteDetailScreen() {
     
     if (note && isAIKeyDetailsEnabled) {
       console.log('🔍 NoteDetailScreen: Key details effect triggered for note:', note.id);
+      
+      // Skip generation for shared notes - only show existing key details
+      if (note.isSharedNote) {
+        console.log('🔍 NoteDetailScreen: This is a shared note, skipping auto-generation');
+        if (note.keyDetails && note.keyDetails.length > 0) {
+          setKeyDetails(note.keyDetails);
+        }
+        setKeyDetailsGeneratedFor(note.id);
+        return;
+      }
       
       // Skip if we already have key details for this note
       if (note.keyDetails && note.keyDetails.length && note.keyDetails.length > 0) {
@@ -381,6 +418,16 @@ export default function NoteDetailScreen() {
   useEffect(() => {
     if (note && isAISummariesEnabled) {
       console.log('🔍 NoteDetailScreen: Summary effect triggered for note:', note.id);
+      
+      // Skip generation for shared notes - only show existing summary
+      if (note.isSharedNote) {
+        console.log('🔍 NoteDetailScreen: This is a shared note, skipping auto-generation of summary');
+        if (note.summary && note.summary.trim().length > 0) {
+          setSummary(note.summary);
+        }
+        setSummaryGeneratedFor(note.id);
+        return;
+      }
       
       // Skip if we already have a summary for this note
       if (note.summary && note.summary.trim().length > 0) {
@@ -546,6 +593,16 @@ export default function NoteDetailScreen() {
   // Manual trigger for key details generation
   const manuallyGenerateKeyDetails = async () => {
     if (!note) return;
+    
+    // Don't allow manual generation for shared notes
+    if (note.isSharedNote) {
+      Alert.alert(
+        'Cannot Generate',
+        'You cannot generate AI features for shared notes. Only the note owner can do this.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     
     try {
       console.log('🔍 Manually triggering key details generation...');

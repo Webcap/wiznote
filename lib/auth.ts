@@ -55,7 +55,7 @@ async function isCsrfEnabled(): Promise<boolean> {
 // Helper function to check rate limit for authentication
 async function checkAuthRateLimit(
   email: string,
-  attemptType: 'auth_signin' | 'auth_signup'
+  attemptType: 'auth_signin' | 'auth_signup' | 'password_reset'
 ): Promise<RateLimitCheck> {
   try {
     return await rateLimitService.checkAndRecordAuthAttempt(email, attemptType);

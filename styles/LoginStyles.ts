@@ -179,7 +179,6 @@ export const loginStyles = StyleSheet.create({
   },
   webScrollContent: {
     flexGrow: 1,
-    minHeight: '100vh',
   },
   webContentMobile: {
     flexDirection: 'column',
@@ -232,7 +231,7 @@ export const loginStyles = StyleSheet.create({
     marginLeft: 12,
     flex: 1,
   },
-  webMobileAppsSection: {
+  webDesktopAppsSection: {
     marginTop: 32,
     flexDirection: 'row',
     gap: 16,

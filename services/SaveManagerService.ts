@@ -26,7 +26,7 @@ export class SaveManagerService {
   private autoSaveQueue: string[] = [];
   private manualSaveQueue: string[] = [];
   private isProcessing = false;
-  private autoSaveTimers: Map<string, NodeJS.Timeout> = new Map();
+  private autoSaveTimers: Map<string, number> = new Map();
   private currentUser: string | null = null;
   private onStatusChange?: (status: SaveStatus) => void;
   private onError?: (error: string, operationId: string) => void;

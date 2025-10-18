@@ -169,9 +169,10 @@ export class PDFProcessingService {
       if (typeof fileOrUri === 'string') {
         // Mobile: Get file info
         const fileInfo = await FileSystem.getInfoAsync(fileOrUri);
+        const size = fileInfo.exists && !fileInfo.isDirectory && 'size' in fileInfo ? fileInfo.size : 0;
         return {
-          fileSize: fileInfo.size || 0,
-          estimatedPages: Math.ceil((fileInfo.size || 0) / 50000), // Rough estimate: 50KB per page
+          fileSize: size,
+          estimatedPages: Math.ceil(size / 50000), // Rough estimate: 50KB per page
         };
       } else {
         // Web: Get from File/Blob

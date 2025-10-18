@@ -56,7 +56,7 @@ export interface SessionStats {
 class SessionManagementService {
   private static instance: SessionManagementService;
   private currentSessionId: string | null = null;
-  private activityCheckInterval: NodeJS.Timeout | null = null;
+  private activityCheckInterval: number | null = null;
   private readonly ACTIVITY_UPDATE_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
   private constructor() {

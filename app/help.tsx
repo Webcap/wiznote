@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { ThemedText } from '../components/ThemedText';
 import { WebLayout } from '../components/web/WebLayout';
+import UserTicketDetail from '../components/UserTicketDetail';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
@@ -67,35 +68,6 @@ export default function HelpScreen() {
   const router = useRouter();
   const { showSnackbar } = useSnackbar();
 
-  // Hide any automatic headers on web
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      // Hide any expo-router generated headers
-      const hideHeader = () => {
-        const header = document.querySelector('[data-testid="header"]') || 
-                      document.querySelector('.expo-header') ||
-                      document.querySelector('header') ||
-                      document.querySelector('[role="banner"]') ||
-                      document.querySelector('[class*="header"]');
-        if (header) {
-          header.style.display = 'none';
-        }
-      };
-      
-      const timers = [
-        setTimeout(hideHeader, 0),
-        setTimeout(hideHeader, 100),
-        setTimeout(hideHeader, 500),
-        setTimeout(hideHeader, 1000)
-      ];
-      
-      // Cleanup function
-      return () => {
-        timers.forEach(timer => clearTimeout(timer));
-      };
-    }
-  }, []);
-
   // Form state
   const [selectedType, setSelectedType] = useState<TicketType | null>(null);
   const [subject, setSubject] = useState('');
@@ -104,6 +76,23 @@ export default function HelpScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [ticketId, setTicketId] = useState('');
+  
+  // Ticket detail state
+  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+  const [viewMode, setViewMode] = useState<'form' | 'ticket-detail'>('form');
+
+  // User tickets state
+  const [userTickets, setUserTickets] = useState<Array<{
+    id: string;
+    type: TicketType;
+    status: 'pending' | 'in_progress' | 'resolved' | 'closed';
+    priority: 'low' | 'medium' | 'high';
+    subject: string;
+    description: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }>>([]);
+  const [isLoadingTickets, setIsLoadingTickets] = useState(false);
 
   // Theme colors
   const backgroundColor = useThemeColor({}, 'background');
@@ -114,6 +103,32 @@ export default function HelpScreen() {
   const accentSuccess = useThemeColor({}, 'accentSuccess');
   const accentDanger = useThemeColor({}, 'accentDanger');
   const borderColor = useThemeColor({}, 'border');
+
+  // Fetch user's tickets on mount
+  useEffect(() => {
+    const fetchUserTickets = async () => {
+      if (!user?.id) return;
+
+      setIsLoadingTickets(true);
+      try {
+        const tickets = await supportService.getUserTickets(user.id);
+        setUserTickets(tickets);
+      } catch (error) {
+        console.error('Error fetching user tickets:', error);
+      } finally {
+        setIsLoadingTickets(false);
+      }
+    };
+
+    fetchUserTickets();
+  }, [user?.id]);
+
+  // Update email when user changes
+  useEffect(() => {
+    if (user?.email) {
+      setEmail(user.email);
+    }
+  }, [user?.email]);
 
   const handleSubmit = async () => {
     // Validation
@@ -147,26 +162,29 @@ export default function HelpScreen() {
       return;
     }
 
-    if (!email.trim()) {
-      const message = 'Please enter your email';
-      if (Platform.OS === 'web') {
-        showSnackbar(message, 'error', 4000);
-      } else {
-        Alert.alert('Required', message);
+    // Only validate email if user is not signed in
+    if (!user?.email) {
+      if (!email.trim()) {
+        const message = 'Please enter your email';
+        if (Platform.OS === 'web') {
+          showSnackbar(message, 'error', 4000);
+        } else {
+          Alert.alert('Required', message);
+        }
+        return;
       }
-      return;
-    }
 
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      const message = 'Please enter a valid email address';
-      if (Platform.OS === 'web') {
-        showSnackbar(message, 'error', 4000);
-      } else {
-        Alert.alert('Invalid Email', message);
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        const message = 'Please enter a valid email address';
+        if (Platform.OS === 'web') {
+          showSnackbar(message, 'error', 4000);
+        } else {
+          Alert.alert('Invalid Email', message);
+        }
+        return;
       }
-      return;
     }
 
     setIsSubmitting(true);
@@ -189,6 +207,12 @@ export default function HelpScreen() {
         setSelectedType(null);
         setSubject('');
         setDescription('');
+
+        // Refresh user tickets if signed in
+        if (user?.id) {
+          const tickets = await supportService.getUserTickets(user.id);
+          setUserTickets(tickets);
+        }
 
         if (Platform.OS === 'web') {
           showSnackbar(`✅ ${result.message}`, 'success', 6000);
@@ -218,7 +242,34 @@ export default function HelpScreen() {
     setDescription('');
   };
 
+  const handleOpenTicket = (ticket: any) => {
+    setSelectedTicket(ticket);
+    setViewMode('ticket-detail');
+  };
+
+  const handleCloseTicket = () => {
+    setSelectedTicket(null);
+    setViewMode('form');
+  };
+
   const renderContent = () => {
+    // Show ticket detail view if selected
+    if (viewMode === 'ticket-detail' && selectedTicket && user) {
+      return (
+        <UserTicketDetail
+          ticket={selectedTicket}
+          userId={user.id}
+          userEmail={user.email}
+          onBack={handleCloseTicket}
+          onMessageSent={async () => {
+            // Refresh tickets
+            const tickets = await supportService.getUserTickets(user.id);
+            setUserTickets(tickets);
+          }}
+        />
+      );
+    }
+
     if (showSuccess) {
       return (
         <View style={styles.successContainer}>
@@ -263,6 +314,94 @@ export default function HelpScreen() {
             Submit a support ticket and we'll get back to you as soon as possible.
           </ThemedText>
         </View>
+
+        {/* User's Open Tickets - Only show for signed-in users */}
+        {user?.id && (
+          <View style={styles.section}>
+            <View style={styles.ticketsHeader}>
+              <ThemedText style={styles.sectionLabel}>Your Support Tickets</ThemedText>
+              {isLoadingTickets && <ActivityIndicator size="small" color={accentPrimary} />}
+            </View>
+
+            {!isLoadingTickets && userTickets.length === 0 && (
+              <View style={[styles.emptyTickets, { backgroundColor: backgroundSecondary, borderColor }]}>
+                <Ionicons name="checkmark-circle" size={48} color={accentSuccess} />
+                <ThemedText style={[styles.emptyTicketsText, { color: textSecondary }]}>
+                  No open tickets. You're all caught up!
+                </ThemedText>
+              </View>
+            )}
+
+            {userTickets.length > 0 && (
+              <View style={styles.ticketsList}>
+                {userTickets.map((ticket) => (
+                  <TouchableOpacity
+                    key={ticket.id}
+                    style={[styles.ticketCard, { backgroundColor: backgroundSecondary, borderColor }]}
+                    onPress={() => handleOpenTicket(ticket)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.ticketHeader}>
+                      <View style={styles.ticketHeaderLeft}>
+                        <Ionicons
+                          name={
+                            ticket.type === 'technical' ? 'bug' :
+                            ticket.type === 'billing' ? 'card' :
+                            ticket.type === 'feature_request' ? 'bulb' :
+                            ticket.type === 'account_deletion' ? 'trash' :
+                            'help-circle'
+                          }
+                          size={20}
+                          color={accentPrimary}
+                        />
+                        <ThemedText style={styles.ticketSubject}>{ticket.subject}</ThemedText>
+                      </View>
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          {
+                            backgroundColor:
+                              ticket.status === 'resolved' || ticket.status === 'closed'
+                                ? accentSuccess + '20'
+                                : ticket.status === 'in_progress'
+                                ? accentPrimary + '20'
+                                : textSecondary + '20',
+                          },
+                        ]}
+                      >
+                        <ThemedText
+                          style={[
+                            styles.statusText,
+                            {
+                              color:
+                                ticket.status === 'resolved' || ticket.status === 'closed'
+                                  ? accentSuccess
+                                  : ticket.status === 'in_progress'
+                                  ? accentPrimary
+                                  : textSecondary,
+                            },
+                          ]}
+                        >
+                          {ticket.status === 'in_progress' ? 'In Progress' : 
+                           ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}
+                        </ThemedText>
+                      </View>
+                    </View>
+                    <ThemedText style={[styles.ticketDescription, { color: textSecondary }]} numberOfLines={2}>
+                      {ticket.description}
+                    </ThemedText>
+                    <View style={styles.ticketFooter}>
+                      <ThemedText style={[styles.ticketMeta, { color: textSecondary }]}>
+                        {ticket.createdAt.toLocaleDateString()} • ID: {ticket.id.split('_')[1]}
+                      </ThemedText>
+                      <Ionicons name="chevron-forward" size={20} color={textSecondary} />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Ticket Type Selection */}
         <View style={styles.section}>
@@ -336,23 +475,25 @@ export default function HelpScreen() {
           </ThemedText>
         </View>
 
-        {/* Email Input */}
-        <View style={styles.section}>
-          <ThemedText style={styles.sectionLabel}>Your Email *</ThemedText>
-          <TextInput
-            style={[styles.input, { backgroundColor: backgroundSecondary, color: textColor, borderColor }]}
-            placeholder="email@example.com"
-            placeholderTextColor={textSecondary}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <ThemedText style={[styles.helperText, { color: textSecondary }]}>
-            We'll send updates to this email address
-          </ThemedText>
-        </View>
+        {/* Email Input - Only show for non-signed in users */}
+        {!user?.email && (
+          <View style={styles.section}>
+            <ThemedText style={styles.sectionLabel}>Your Email *</ThemedText>
+            <TextInput
+              style={[styles.input, { backgroundColor: backgroundSecondary, color: textColor, borderColor }]}
+              placeholder="email@example.com"
+              placeholderTextColor={textSecondary}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <ThemedText style={[styles.helperText, { color: textSecondary }]}>
+              We'll send updates to this email address
+            </ThemedText>
+          </View>
+        )}
 
         {/* Submit Button */}
         <View style={styles.submitSection}>
@@ -401,43 +542,51 @@ export default function HelpScreen() {
   // Web Layout
   if (Platform.OS === 'web') {
     return (
-      <WebLayout
-        sidebar={null}
-        header={
-          <View style={styles.webHeader}>
-            <TouchableOpacity 
-              onPress={() => router.back()}
-              style={styles.webBackButton}
-            >
-              <Ionicons name="arrow-back" size={24} color={textColor} />
-              <ThemedText style={styles.webBackText}>Back</ThemedText>
-            </TouchableOpacity>
-            <ThemedText style={styles.webHeaderTitle}>Help & Support</ThemedText>
-            <View style={styles.webHeaderSpacer} />
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <WebLayout
+          sidebar={null}
+          header={
+            <View style={styles.webHeader}>
+              <TouchableOpacity 
+                onPress={() => router.back()}
+                style={styles.webBackButton}
+              >
+                <Ionicons name="arrow-back" size={24} color={textColor} />
+                <ThemedText style={styles.webBackText}>Back</ThemedText>
+              </TouchableOpacity>
+              <ThemedText style={styles.webHeaderTitle}>Help & Support</ThemedText>
+              <View style={styles.webHeaderSpacer} />
+            </View>
+          }
+        >
+          <View style={styles.webContent}>
+            {renderContent()}
           </View>
-        }
-      >
-        <View style={styles.webContent}>
-          {renderContent()}
-        </View>
-      </WebLayout>
+        </WebLayout>
+      </>
     );
   }
 
   // Mobile Layout
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={[styles.header, { backgroundColor: backgroundSecondary, borderBottomColor: borderColor }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={textColor} />
-        </TouchableOpacity>
-        <ThemedText type="title">Help & Support</ThemedText>
-      </View>
-      {renderContent()}
-    </KeyboardAvoidingView>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <KeyboardAvoidingView
+        style={[styles.container, { backgroundColor }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {viewMode !== 'ticket-detail' && (
+          <View style={[styles.header, { backgroundColor: backgroundSecondary, borderBottomColor: borderColor }]}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={textColor} />
+            </TouchableOpacity>
+            <ThemedText type="title">Help & Support</ThemedText>
+          </View>
+        )}
+        {renderContent()}
+      </KeyboardAvoidingView>
+    </>
   );
 }
 
@@ -481,6 +630,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
+    paddingTop: 48,
     gap: 16,
     borderBottomWidth: 1,
   },
@@ -490,6 +640,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flex: 1,
     padding: 20,
+    paddingTop: 24,
   },
   headerSection: {
     marginBottom: 32,
@@ -516,7 +667,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   ticketTypeCard: {
-    width: Platform.OS === 'web' ? 'calc(50% - 6px)' : '48%',
+    width: (Platform.OS === 'web' ? 'calc(50% - 6px)' : '48%') as any,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -532,6 +683,73 @@ const styles = StyleSheet.create({
   ticketTypeDescription: {
     fontSize: 12,
     marginTop: 4,
+    textAlign: 'center',
+  },
+  // User tickets section styles
+  ticketsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  ticketsList: {
+    gap: 12,
+  },
+  ticketCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+  },
+  ticketHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  ticketHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  ticketSubject: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  ticketDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  ticketFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  ticketMeta: {
+    fontSize: 12,
+  },
+  emptyTickets: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 32,
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptyTicketsText: {
+    fontSize: 14,
     textAlign: 'center',
   },
   input: {

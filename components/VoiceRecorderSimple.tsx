@@ -63,7 +63,7 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
   });
   
   // Refs
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasShownWarningRef = useRef<boolean>(false);
   const recordingRef = useRef<AudioRecorder | null>(null);
   const isRecordingRef = useRef<boolean>(false);

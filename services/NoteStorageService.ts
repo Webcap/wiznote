@@ -110,6 +110,7 @@ export class NoteStorageService {
         tags: noteData.tags || [],
         isPinned: noteData.isPinned || false,
         isArchived: noteData.isArchived || false,
+        isFavorite: false,
         createdAt: new Date(),
         updatedAt: new Date(),
         audioFiles: [],

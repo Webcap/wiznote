@@ -27,7 +27,7 @@ export const useNotes = (userId: string) => {
   
   // Keep track of the last valid user ID to prevent race conditions
   const lastValidUserIdRef = useRef<string | null>(null);
-  const clearUserIdTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const clearUserIdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Debug logging for mobile vs web differences
   const debugLogRef = useRef<{ count: number; lastLog: number }>({ count: 0, lastLog: 0 });

@@ -81,7 +81,7 @@ export function checkAppInstalled(
     }
 
     const now = Date.now();
-    let timer: NodeJS.Timeout;
+    let timer: number;
 
     // If page loses visibility, app likely opened
     const handleVisibilityChange = () => {
@@ -108,7 +108,7 @@ export function checkAppInstalled(
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleBlur);
       resolve(false);
-    }, timeout);
+    }, timeout) as unknown as number;
   });
 }
 

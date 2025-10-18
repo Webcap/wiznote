@@ -486,8 +486,8 @@ export class FeatureAnalyticsService {
     return recommendations;
   }
 
-  private generateAlerts(analytics: FeatureAnalytics): Array<{ type: string; message: string; severity: string }> {
-    const alerts: Array<{ type: string; message: string; severity: string }> = [];
+  private generateAlerts(analytics: FeatureAnalytics): Array<{ type: 'error' | 'warning' | 'info'; message: string; severity: 'high' | 'low' | 'medium' }> {
+    const alerts: Array<{ type: 'error' | 'warning' | 'info'; message: string; severity: 'high' | 'low' | 'medium' }> = [];
     
     if (analytics.technicalMetrics.errorRate > 0.05) {
       alerts.push({

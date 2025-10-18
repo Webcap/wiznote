@@ -11,6 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Fixed
 
+#### Admin Dashboard Fixes
+- **Fixed Service Role Key detection in health monitoring** - Admin dashboard now correctly shows service role key status
+  - Updated Stripe Guardian `/ready` endpoint to report `SUPABASE_SERVICE_ROLE_KEY` status
+  - Updated Stripe Guardian `/webhook` endpoint health check for consistency
+  - Health dashboard now correctly displays "Configured" vs "Missing" for service role key
+  - Checks for both `WIZNOTE_SUPABASE_SECRET_KEY` and `WIZNOTE_SUPABASE_SERVICE_KEY` formats
+
+- **Fixed plan display showing "Free" for premium users** - User plan information now displays correctly
+  - Fixed `SupportDashboard.tsx` to properly check premium status before displaying plan
+  - Plan now shows actual plan name or ID instead of defaulting to "Free" for active subscriptions
+  - Improved logic: only shows "Free" when `premium.isActive` is false
+
+#### Plan Name Enrichment System
+- **Implemented automatic plan name resolution** - UUIDs now automatically resolve to friendly names
+  - Created `getPlanName()` helper in `SupportService` to fetch plan names from `premium_plans` table
+  - Created `enrichPremiumData()` method to automatically enrich premium objects with plan names
+  - Updated all `searchUser()` paths to use plan name enrichment
+  - Added `getPlanName()` helper to `PremiumManagementService`
+  - Updated `getPremiumStatus()` to automatically fetch missing plan names
+  - Admin dashboard now shows "Pro Monthly" instead of UUID like "c44da028-484c-42a1-b106-8eff0c5b84de"
+  - Fallback behavior: shows UUID if plan name lookup fails
+
 #### Support Agent Performance Fix
 - **Fixed support agent performance display** - Agent names now show actual names instead of generic labels
   - Added database lookup to fetch agent names from user profiles
@@ -34,6 +56,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added cleanup function to `useEffect` hook in `app/help.tsx`
   - Properly clears all `setTimeout` calls when component unmounts
   - Eliminates potential memory leaks and post-unmount errors
+
+### ✨ Added
+
+#### Enhanced Help Center for Signed-In Users
+- **Added "Your Support Tickets" section to help page** - Users can now view all their support tickets in one place
+  - Created `getUserTickets()` method in `SupportService` to fetch user-specific tickets
+  - Displays ticket status with color-coded badges (Pending, In Progress, Resolved, Closed)
+  - Shows ticket type icons (bug, card, lightbulb, trash, help-circle)
+  - Displays ticket subject, description preview, creation date, and ticket ID
+  - Auto-refreshes ticket list after submitting new tickets
+  - Empty state shows "No open tickets. You're all caught up!" with checkmark icon
+  - Loading state with activity indicator while fetching tickets
+
+### 🎨 Changed
+
+#### Help Page User Experience Improvements
+- **Removed Expo Router header from help page** - Cleaner interface without duplicate headers
+  - Added `<Stack.Screen options={{ headerShown: false }}>` for proper header control
+  - Removed hacky DOM manipulation `useEffect` workaround
+  - Both web and mobile now use custom headers only
+  - Cleaner implementation using official Expo Router API
+
+- **Streamlined help form for authenticated users** - Email field no longer required for signed-in users
+  - Email field now hidden for authenticated users (auto-uses their account email)
+  - Email validation only runs for non-authenticated users
+  - Improved form flow with fewer required fields for logged-in users
+  - Better user experience - one less field to fill out
+
+### 📊 Technical Details
+
+#### Service Role Key Detection
+- Updated `stripe-guardian/api/ready.js` to include `SUPABASE_SERVICE_ROLE_KEY` in health checks
+- Updated `stripe-guardian/api/webhook.js` to match health check format
+- Both endpoints now check: `WIZNOTE_SUPABASE_SECRET_KEY` OR `WIZNOTE_SUPABASE_SERVICE_KEY`
+
+#### Plan Name Resolution
+- New helper methods added to both `SupportService` and `PremiumManagementService`
+- Queries `premium_plans` table: `SELECT name FROM premium_plans WHERE id = '<planId>'`
+- Only queries when `planId` exists but `planName` is missing
+- Efficient single-query approach with proper error handling
+- Graceful fallback to UUID if query fails
+
+#### Support Ticket Display
+- Ticket cards with responsive design for mobile and web
+- Icon mapping for different ticket types
+- Status badges with semantic color coding:
+  - Green: Resolved/Closed
+  - Blue: In Progress
+  - Gray: Pending
+- Two-line description preview with ellipsis
+- Formatted ticket ID display (shows timestamp portion)
+
+### 📁 Files Modified
+
+#### Stripe Guardian (Health Monitoring)
+- `stripe-guardian/api/ready.js` - Added `SUPABASE_SERVICE_ROLE_KEY` to health checks
+- `stripe-guardian/api/webhook.js` - Updated health check format for consistency
+
+#### WizNote App (Plan Display & Support)
+- `wiznote-new/services/SupportService.ts` - Added plan name enrichment methods and `getUserTickets()`
+- `wiznote-new/services/PremiumManagementService.ts` - Added `getPlanName()` helper
+- `wiznote-new/components/support/SupportDashboard.tsx` - Fixed plan display logic
+- `wiznote-new/app/help.tsx` - Enhanced help page with ticket display and removed email field for auth users
+- `wiznote-new/components/support/SupportAnalytics.tsx` - Fixed agent performance display (from v1.3.4)
+
+### 🎯 Impact
+
+#### Admin & Support Teams
+- ✅ **Accurate health monitoring** - Service role key status now displays correctly
+- ✅ **Better user support** - Can see actual plan names instead of confusing UUIDs
+- ✅ **Faster support resolution** - Plan information is immediately clear and actionable
+- ✅ **Improved agent tracking** - Real agent names in performance metrics
+
+#### End Users
+- ✅ **Ticket tracking made easy** - See all support tickets in one convenient location
+- ✅ **Faster support submissions** - No need to enter email when signed in
+- ✅ **Real-time status updates** - Know exactly where each support request stands
+- ✅ **Better transparency** - Full visibility into support ticket history
+- ✅ **Cleaner interface** - No duplicate headers on help page
+
+#### System Reliability
+- ✅ **Automatic plan name resolution** - No manual lookup needed for plan IDs
+- ✅ **Graceful fallbacks** - Shows UUID if plan name can't be fetched
+- ✅ **Efficient queries** - Only queries when planId exists but planName is missing
+- ✅ **No breaking changes** - Full backward compatibility maintained
 
 ---
 
