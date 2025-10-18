@@ -19,11 +19,11 @@ export default function PaymentSuccessScreen() {
   const mutedTextColor = useThemeColor({}, 'textSecondary');
   const accentColor = useThemeColor({}, 'accentSuccess');
 
-  const verifySession = useCallback(async (sessionId: string, base: string, retryAttempt = 0) => {
+  const verifySession = useCallback(async (sessionId: string, retryAttempt = 0) => {
     try {
       console.log(`PaymentSuccess: Attempting session verification (attempt ${retryAttempt + 1})`);
       
-      const response = await fetch(`${base}/stripe/verify-session?session_id=` + encodeURIComponent(sessionId));
+      const response = await fetch(`${ApiConfig.STRIPE.VERIFY_SESSION}?session_id=` + encodeURIComponent(sessionId));
       console.log('PaymentSuccess: Verification response status:', response.status);
       
       if (!response.ok) {
@@ -72,7 +72,7 @@ export default function PaymentSuccessScreen() {
         console.log(`PaymentSuccess: Retrying in ${delay}ms...`);
         
         setTimeout(() => {
-          verifySession(sessionId, base, retryAttempt + 1);
+          verifySession(sessionId, retryAttempt + 1);
         }, delay);
         
         return false; // Still in progress
@@ -112,11 +112,9 @@ export default function PaymentSuccessScreen() {
     setVerifying(true);
     console.log('PaymentSuccess: Starting session verification for:', sessionId);
     
-    const base = ApiConfig.WEBHOOK_BASE_URL;
+    console.log('PaymentSuccess: Using webhook base URL:', ApiConfig.WEBHOOK_BASE_URL, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');
     
-    console.log('PaymentSuccess: Using webhook base URL:', base, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');
-    
-    verifySession(sessionId, base);
+    verifySession(sessionId);
   }, [verifySession]);
 
   // Refresh auth state when screen comes into focus (especially important for mobile)

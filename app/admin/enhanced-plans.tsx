@@ -149,8 +149,7 @@ export default function EnhancedPlansScreen() {
   // Manually trigger a Stripe sync for a specific plan via local webhook server
   const syncPlanWithStripe = async (planId: string) => {
     try {
-      const base = ApiConfig.WEBHOOK_BASE_URL;
-      const res = await fetch(`${base}/stripe/sync-plan`, {
+      const res = await fetch(ApiConfig.STRIPE.SYNC_PLAN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId }),

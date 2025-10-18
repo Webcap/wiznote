@@ -112,13 +112,11 @@ function PaymentSheetFormContent({
         throw new Error('User session expired. Please sign in again.');
       }
 
-      const base = ApiConfig.WEBHOOK_BASE_URL;
-      
       console.log('Creating PaymentSheet for user:', user.id, 'plan:', planId, 'stripePriceId:', stripePriceId);
-      console.log('Using webhook base URL:', base, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');
+      console.log('Using webhook base URL:', ApiConfig.WEBHOOK_BASE_URL, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');
       
       // Create PaymentSheet configuration
-      const response = await fetch(`${base}/stripe/create-paymentsheet`, {
+      const response = await fetch(ApiConfig.STRIPE.CREATE_PAYMENTSHEET, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -306,9 +304,7 @@ function PaymentSheetFormContent({
     console.log(`Confirming payment with ${intentType} intent ID:`, currentIntentId);
 
     try {
-      const base = ApiConfig.WEBHOOK_BASE_URL;
-      
-      console.log('Sending confirmation to:', `${base}/stripe/confirm-paymentsheet`);
+      console.log('Sending confirmation to:', ApiConfig.STRIPE.CONFIRM_PAYMENTSHEET);
       
       // Confirm payment and create subscription
       // Send both setupIntentId and paymentIntentId for backward compatibility
@@ -324,7 +320,7 @@ function PaymentSheetFormContent({
         requestBody.paymentIntentId = currentIntentId;
       }
       
-      const response = await fetch(`${base}/stripe/confirm-paymentsheet`, {
+      const response = await fetch(ApiConfig.STRIPE.CONFIRM_PAYMENTSHEET, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
