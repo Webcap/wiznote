@@ -158,7 +158,8 @@ export default function AdminDashboardScreen() {
   // Fetch subscription sync status
   const fetchSubscriptionSyncStatus = useCallback(async () => {
     try {
-      const guardianUrl = process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL || 'https://api.webcap.media/api';
+      const { ApiConfig } = await import('../constants/ApiConfig');
+      const guardianUrl = ApiConfig.WEBHOOK_BASE_URL;
       const syncRes = await fetch(`${guardianUrl}/sync-status`, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
@@ -180,7 +181,8 @@ export default function AdminDashboardScreen() {
     try {
       setSubscriptionSync(prev => ({ ...prev, isSyncing: true }));
       
-      const guardianUrl = process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL || 'https://api.webcap.media/api';
+      const { ApiConfig } = await import('../constants/ApiConfig');
+      const guardianUrl = ApiConfig.WEBHOOK_BASE_URL;
       const syncRes = await fetch(`${guardianUrl}/sync-status`, {
         method: 'POST',
         headers: { 'Accept': 'application/json' },
@@ -218,7 +220,8 @@ export default function AdminDashboardScreen() {
     try {
       setMonitoring(prev => ({ ...prev, isLoading: true }));
       
-      const base = (process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL || process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL || 'http://127.0.0.1:3001').replace(/\/$/, '');
+      const { ApiConfig } = await import('../constants/ApiConfig');
+      const base = ApiConfig.WEBHOOK_BASE_URL;
       const readyRes = await fetch(`${base}/ready`).then(r => r.json()).catch(() => null);
       const ok = !!readyRes && readyRes.ok;
       
@@ -229,7 +232,8 @@ export default function AdminDashboardScreen() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
         
-        const guardianUrl = process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL || 'https://api.webcap.media/api';
+        const { ApiConfig } = await import('../constants/ApiConfig');
+        const guardianUrl = ApiConfig.WEBHOOK_BASE_URL;
         const guardianRes = await fetch(`${guardianUrl}/ready`, {
           method: 'GET',
           headers: {
@@ -295,7 +299,8 @@ export default function AdminDashboardScreen() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      const guardianUrl = process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL || 'https://api.webcap.media/api';
+      const { ApiConfig } = await import('../constants/ApiConfig');
+      const guardianUrl = ApiConfig.WEBHOOK_BASE_URL;
       const guardianRes = await fetch(`${guardianUrl}/ready`, {
         method: 'GET',
         headers: {

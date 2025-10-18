@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Alert, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ApiConfig } from '../constants/ApiConfig';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
 // Use server-side API for Stripe operations to avoid exposing secrets
@@ -76,11 +77,8 @@ export function PaymentForm({
         cancelUrl = `${fallbackBase}/payment-cancelled?plan=${encodeURIComponent(planId)}`;
       }
 
-      const base = (
-        process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL ||
-        (process.env as any).NEXT_PUBLIC_WEBHOOK_BASE_URL ||
-        'http://127.0.0.1:3001'
-      ).replace(/\/$/, '');
+      const base = ApiConfig.WEBHOOK_BASE_URL;
+      console.log('Using webhook base URL:', base, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');
       const endpoint = `${base}/stripe/create-checkout`;
       
       console.log('Webhook base URL:', base);

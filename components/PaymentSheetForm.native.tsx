@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ApiConfig } from '../constants/ApiConfig';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -111,12 +112,10 @@ function PaymentSheetFormContent({
         throw new Error('User session expired. Please sign in again.');
       }
 
-      const base = (
-        process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL ||
-        'http://127.0.0.1:3001'
-      ).replace(/\/$/, '');
+      const base = ApiConfig.WEBHOOK_BASE_URL;
       
       console.log('Creating PaymentSheet for user:', user.id, 'plan:', planId, 'stripePriceId:', stripePriceId);
+      console.log('Using webhook base URL:', base, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');
       
       // Create PaymentSheet configuration
       const response = await fetch(`${base}/stripe/create-paymentsheet`, {
@@ -307,14 +306,7 @@ function PaymentSheetFormContent({
     console.log(`Confirming payment with ${intentType} intent ID:`, currentIntentId);
 
     try {
-      const base = (
-        process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL ||
-        'http://127.0.0.1:3001'
-      ).replace(/\/$/, '');
-      
-      if (!base || base === 'http://127.0.0.1:3001') {
-        console.warn('Using fallback webhook base URL:', base);
-      }
+      const base = ApiConfig.WEBHOOK_BASE_URL;
       
       console.log('Sending confirmation to:', `${base}/stripe/confirm-paymentsheet`);
       

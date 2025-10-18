@@ -111,13 +111,10 @@ export default function PaymentSuccessScreen() {
     setVerifying(true);
     console.log('PaymentSuccess: Starting session verification for:', sessionId);
     
-    const base = (
-      process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL ||
-      (process.env as any).NEXT_PUBLIC_WEBHOOK_BASE_URL ||
-      'http://127.0.0.1:3001'
-    ).replace(/\/$/, '');
+    const { ApiConfig } = await import('../constants/ApiConfig');
+    const base = ApiConfig.WEBHOOK_BASE_URL;
     
-    console.log('PaymentSuccess: Using webhook base URL:', base);
+    console.log('PaymentSuccess: Using webhook base URL:', base, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');
     
     verifySession(sessionId, base);
   }, [verifySession]);
