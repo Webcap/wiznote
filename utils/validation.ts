@@ -47,8 +47,8 @@ export function validateAndSanitize<T>(
     if (error instanceof ZodError) {
       return {
         success: false,
-        error: error.errors.map((err) => err.message).join(', '),
-        errors: error.errors.map((err) => ({
+        error: error.issues.map((err) => err.message).join(', '),
+        errors: error.issues.map((err) => ({
           field: err.path.join('.'),
           message: err.message,
         })),

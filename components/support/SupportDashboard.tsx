@@ -13,12 +13,14 @@ import {
 } from 'react-native';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { useSnackbar } from '../../contexts/SnackbarContext';
+import { useAuth } from '../../hooks/useAuth';
 import { FeatureLimitDebugInfo, LimitOverride, supportService, UserFeatureStatus, UserProfile } from '../../services/SupportService';
 import BulkUserManagement from './BulkUserManagement';
 import RealTimeMonitoring from './RealTimeMonitoring';
 import SupportAnalytics from './SupportAnalytics';
 import UserDeletionTool from './UserDeletionTool';
 import PremiumManagement from './PremiumManagement';
+import TicketDetailView from './TicketDetailView';
 
 interface SupportDashboardProps {
   supportAgentId: string;
@@ -26,6 +28,7 @@ interface SupportDashboardProps {
 
 export default function SupportDashboard({ supportAgentId }: SupportDashboardProps) {
   const { showSnackbar } = useSnackbar();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userFeatureStatus, setUserFeatureStatus] = useState<UserFeatureStatus | null>(null);
@@ -33,8 +36,9 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
   const [debugInfo, setDebugInfo] = useState<FeatureLimitDebugInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [updatingTicket, setUpdatingTicket] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'search' | 'user-details' | 'overrides' | 'debug' | 'real-time' | 'bulk-management' | 'analytics' | 'tickets' | 'user-deletion'>('search');
+  const [currentView, setCurrentView] = useState<'search' | 'user-details' | 'overrides' | 'debug' | 'real-time' | 'bulk-management' | 'analytics' | 'tickets' | 'ticket-detail' | 'user-deletion'>('search');
   const [supportTickets, setSupportTickets] = useState<any[]>([]);
+  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
 
   // Theme colors
   const backgroundColor = useThemeColor({}, 'background');
@@ -357,7 +361,9 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
           <View style={[styles.userCard, { backgroundColor: backgroundSecondary, borderColor: borderColor }]}>
             <Text style={[styles.userEmail, { color: textColor }]}>{selectedUser.email}</Text>
             <Text style={[styles.userPlan, { color: textSecondary }]}>
-              Plan: {selectedUser.premium?.planName || 'Free'}
+              Plan: {selectedUser.premium?.isActive 
+                ? (selectedUser.premium?.planName || selectedUser.premium?.planId || 'Premium')
+                : 'Free'}
             </Text>
             <Text style={[styles.userInfo, { color: textSecondary }]}>
               Created: {selectedUser.createdAt.toLocaleDateString()}
@@ -500,6 +506,17 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
     </View>
   );
 
+  const handleOpenTicket = (ticket: any) => {
+    console.log('SupportDashboard: Opening ticket:', ticket.id);
+    setSelectedTicket(ticket);
+    setCurrentView('ticket-detail');
+  };
+
+  const handleCloseTicketDetail = () => {
+    setSelectedTicket(null);
+    setCurrentView('tickets');
+  };
+
   const handleUpdateTicketStatus = async (ticketId: string, newStatus: string) => {
     console.log('Updating ticket:', ticketId, 'to status:', newStatus);
     setUpdatingTicket(ticketId);
@@ -566,7 +583,12 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
           </View>
         ) : (
           supportTickets.map((ticket, index) => (
-            <View key={index} style={[styles.ticketCard, { backgroundColor: backgroundSecondary, borderColor: borderColor }]}>
+            <TouchableOpacity
+              key={index}
+              style={[styles.ticketCard, { backgroundColor: backgroundSecondary, borderColor: borderColor }]}
+              onPress={() => handleOpenTicket(ticket)}
+              activeOpacity={0.7}
+            >
               <View style={styles.ticketHeader}>
                 <View style={styles.ticketHeaderLeft}>
                   <View style={[
@@ -601,19 +623,24 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
                 </View>
               </View>
               
-              <Text style={[styles.ticketSubject, { color: textColor }]}>{ticket.subject}</Text>
-              <Text style={[styles.ticketEmail, { color: textSecondary }]}>From: {ticket.userEmail}</Text>
-              <Text style={[styles.ticketId, { color: textSecondary }]}>Ticket ID: {ticket.id}</Text>
-              
-              {ticket.description && (
-                <Text style={[styles.ticketDescription, { color: textSecondary }]} numberOfLines={3}>
-                  {ticket.description}
-                </Text>
-              )}
-              
-              <Text style={[styles.ticketDate, { color: textSecondary }]}>
-                Created: {ticket.createdAt.toLocaleString()}
-              </Text>
+              <View style={styles.ticketMainContent}>
+                <View style={styles.ticketTextContent}>
+                  <Text style={[styles.ticketSubject, { color: textColor }]}>{ticket.subject}</Text>
+                  <Text style={[styles.ticketEmail, { color: textSecondary }]}>From: {ticket.userEmail}</Text>
+                  <Text style={[styles.ticketId, { color: textSecondary }]}>Ticket ID: {ticket.id}</Text>
+                  
+                  {ticket.description && (
+                    <Text style={[styles.ticketDescription, { color: textSecondary }]} numberOfLines={3}>
+                      {ticket.description}
+                    </Text>
+                  )}
+                  
+                  <Text style={[styles.ticketDate, { color: textSecondary }]}>
+                    Created: {ticket.createdAt.toLocaleString()}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color={textSecondary} />
+              </View>
 
               <View style={styles.ticketActions}>
                 {ticket.status === 'pending' && (
@@ -656,7 +683,7 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
                   </TouchableOpacity>
                 )}
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </ScrollView>
@@ -716,6 +743,25 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
       case 'tickets':
         return renderTicketsView();
       
+      case 'ticket-detail':
+        if (!selectedTicket) {
+          setCurrentView('tickets');
+          return null;
+        }
+        return (
+          <TicketDetailView
+            ticket={selectedTicket}
+            supportAgentId={supportAgentId}
+            supportAgentEmail={user?.email || 'support@wiznote.app'}
+            onClose={handleCloseTicketDetail}
+            onTicketUpdated={async () => {
+              // Refresh tickets list
+              const tickets = await supportService.getAllSupportTickets();
+              setSupportTickets(tickets);
+            }}
+          />
+        );
+      
       case 'user-deletion':
         return (
           <View style={[styles.container, { backgroundColor }]}>
@@ -743,7 +789,7 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
       {currentView === 'user-details' && renderUserDetailsView()}
       {currentView === 'overrides' && renderOverridesView()}
       {currentView === 'debug' && renderDebugView()}
-      {(currentView === 'real-time' || currentView === 'bulk-management' || currentView === 'analytics' || currentView === 'tickets' || currentView === 'user-deletion') && renderPhase2View()}
+      {(currentView === 'real-time' || currentView === 'bulk-management' || currentView === 'analytics' || currentView === 'tickets' || currentView === 'ticket-detail' || currentView === 'user-deletion') && renderPhase2View()}
     </View>
   );
 }
@@ -1033,6 +1079,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '700',
+  },
+  ticketMainContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 16,
+  },
+  ticketTextContent: {
+    flex: 1,
   },
   ticketSubject: {
     fontSize: 18,

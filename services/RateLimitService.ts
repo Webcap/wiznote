@@ -11,7 +11,7 @@ import { systemSettingsService } from './SystemSettingsService';
 export interface RateLimitAttempt {
   id: string;
   identifier: string;
-  attemptType: 'auth_signin' | 'auth_signup' | 'api_request';
+  attemptType: 'auth_signin' | 'auth_signup' | 'password_reset' | 'api_request';
   endpoint?: string;
   attemptedAt: Date;
   ipAddress?: string;
@@ -51,12 +51,12 @@ class RateLimitService {
   /**
    * Check if a rate limit has been exceeded for authentication attempts
    * @param identifier - Email address for auth attempts
-   * @param attemptType - Type of attempt (auth_signin, auth_signup)
+   * @param attemptType - Type of attempt (auth_signin, auth_signup, password_reset)
    * @returns RateLimitCheck with allowance status
    */
   async checkAuthRateLimit(
     identifier: string,
-    attemptType: 'auth_signin' | 'auth_signup'
+    attemptType: 'auth_signin' | 'auth_signup' | 'password_reset'
   ): Promise<RateLimitCheck> {
     try {
       // Get rate limit configuration from system settings
@@ -141,7 +141,7 @@ class RateLimitService {
    */
   async recordAttempt(params: {
     identifier: string;
-    attemptType: 'auth_signin' | 'auth_signup' | 'api_request';
+    attemptType: 'auth_signin' | 'auth_signup' | 'password_reset' | 'api_request';
     endpoint?: string;
     ipAddress?: string;
     userAgent?: string;
@@ -185,7 +185,7 @@ class RateLimitService {
    */
   async checkAndRecordAuthAttempt(
     identifier: string,
-    attemptType: 'auth_signin' | 'auth_signup',
+    attemptType: 'auth_signin' | 'auth_signup' | 'password_reset',
     metadata?: Record<string, any>
   ): Promise<RateLimitCheck> {
     // Check if rate limit is exceeded

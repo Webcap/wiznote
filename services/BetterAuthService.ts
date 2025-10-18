@@ -48,7 +48,7 @@ export class BetterAuthService {
 
   private initializeAuthStateListener() {
     // Listen for auth state changes with debouncing for web
-    let authStateChangeTimeout: NodeJS.Timeout | null = null;
+    let authStateChangeTimeout: number | null = null;
     
     supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔄 BetterAuthService: Auth state changed:', event, session?.user?.id, 'currentUser:', this.currentUser?.id);
@@ -781,13 +781,8 @@ export class BetterAuthService {
       };
       
       // ✅ STEP 4: Send password reset email via Supabase
-      // Use longer expiration (24 hours instead of default 1 hour)
       const { error } = await supabase.auth.resetPasswordForEmail(sanitizedEmail, {
         redirectTo: getRedirectUrl(),
-        options: {
-          // Email link will be valid for 24 hours
-          emailRedirectTo: getRedirectUrl(),
-        }
       });
 
       if (error) {
@@ -798,7 +793,7 @@ export class BetterAuthService {
       // ✅ STEP 5: Log successful password reset request
       try {
         await logAuthEvent(
-          'auth.password_reset.requested',
+          'auth.password_reset.request',
           undefined,
           sanitizedEmail,
           true,
@@ -817,7 +812,7 @@ export class BetterAuthService {
       // ✅ Log failed password reset request
       try {
         await logAuthEvent(
-          'auth.password_reset.request_failed',
+          'auth.password_reset.request',
           undefined,
           email,
           false,
@@ -860,7 +855,7 @@ export class BetterAuthService {
       // ✅ STEP 3: Log successful password update
       try {
         await logAuthEvent(
-          'auth.password_reset.completed',
+          'auth.password_reset.success',
           this.currentUser.id,
           this.currentUser.email,
           true,
@@ -880,7 +875,7 @@ export class BetterAuthService {
       try {
         if (this.currentUser) {
           await logAuthEvent(
-            'auth.password_reset.update_failed',
+            'auth.password_reset.success',
             this.currentUser.id,
             this.currentUser.email,
             false,

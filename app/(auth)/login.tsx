@@ -389,7 +389,7 @@ export default function LoginScreen() {
                   </View>
 
                   {/* Mobile Apps Promotion Section */}
-                  <View style={loginStyles.webMobileAppsSection}>
+                  <View style={loginStyles.webDesktopAppsSection}>
                     {/* Android App Promotion */}
                     <View style={[loginStyles.webAndroidPromotion, { backgroundColor: accentColor }]}>
                       <View style={loginStyles.webAndroidContent}>

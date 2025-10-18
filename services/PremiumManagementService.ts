@@ -245,9 +245,42 @@ class PremiumManagementService {
         return null;
       }
 
-      return data.premium as PremiumStatus;
+      const premiumData = data.premium as PremiumStatus;
+
+      // If we have a planId but no planName, fetch it from premium_plans
+      if (premiumData.planId && !premiumData.planName) {
+        const planName = await this.getPlanName(premiumData.planId);
+        if (planName) {
+          premiumData.planName = planName;
+        }
+      }
+
+      return premiumData;
     } catch (error) {
       console.error('PremiumManagementService: Error getting premium status:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Helper to fetch plan name from premium_plans table
+   */
+  private async getPlanName(planId: string): Promise<string | null> {
+    try {
+      const { data, error } = await supabase
+        .from('premium_plans')
+        .select('name')
+        .eq('id', planId)
+        .single();
+
+      if (error || !data) {
+        console.warn(`PremiumManagementService: Could not fetch plan name for planId: ${planId}`, error);
+        return null;
+      }
+
+      return data.name;
+    } catch (error) {
+      console.error('PremiumManagementService: Error fetching plan name:', error);
       return null;
     }
   }

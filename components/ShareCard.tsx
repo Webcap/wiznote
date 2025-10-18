@@ -2,12 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
     Clipboard,
-    ScrollView,
     StyleSheet,
-    TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
+import { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
@@ -188,10 +187,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
   const canShare = selectedUser || (searchQuery.includes('@') && searchQuery.length > 5);
 
   return (
-    <ThemedView style={[styles.card, { backgroundColor, borderColor }]} onStartShouldSetResponder={() => true}>
-      {/* Drag Handle */}
-      <View style={[styles.dragHandle, { backgroundColor: textMutedColor }]} />
-      
+    <ThemedView style={[styles.card, { backgroundColor }]} onStartShouldSetResponder={() => true}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: borderColor }]}>
         <ThemedText style={[styles.title, { color: textColor }]}>
@@ -205,7 +201,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
+      <BottomSheetScrollView 
         style={styles.content} 
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -225,7 +221,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
           </ThemedText>
           <View style={[styles.searchContainer, { backgroundColor: backgroundSecondary, borderColor }]}>
             <Ionicons name="search" size={16} color={textMutedColor} />
-            <TextInput
+            <BottomSheetTextInput
               style={[styles.searchInput, { color: textColor }]}
               placeholder="Search users or enter email..."
               placeholderTextColor={textMutedColor}
@@ -335,7 +331,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
           <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
             Message (Optional)
           </ThemedText>
-          <TextInput
+          <BottomSheetTextInput
             style={[styles.messageInput, { 
               backgroundColor: backgroundSecondary, 
               borderColor, 
@@ -389,7 +385,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
             </View>
           )}
         </View>
-      </ScrollView>
+      </BottomSheetScrollView>
 
       {/* Action Buttons */}
       <View style={[styles.actions, { borderTopColor: borderColor }]}>
@@ -429,25 +425,8 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
 
 const styles = StyleSheet.create({
   card: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 0,
-    maxHeight: '90%',
+    flex: 1,
     width: '100%',
-    marginHorizontal: 0,
-    marginVertical: 0,
-  },
-  dragHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginTop: 8,
-    marginBottom: 8,
   },
   header: {
     flexDirection: 'row',
@@ -465,7 +444,6 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   content: {
-    maxHeight: 400,
     paddingHorizontal: 16,
   },
   noteInfo: {

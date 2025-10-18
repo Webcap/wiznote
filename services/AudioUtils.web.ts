@@ -334,11 +334,11 @@ export class AudioUtils {
     limit?: number | 'unlimited';
   }> {
     try {
-      const canRecord = await featureLimitService.checkFeatureLimit('voice_recording', userId);
-      const usage = await featureLimitService.getFeatureUsage('voice_recording', userId);
+      const canRecordResult = await featureLimitService.canUseFeature(userId, 'voice_recording', 1, false);
+      const usage = await featureLimitService.getUserFeatureUsage(userId, 'voice_recording', false);
       
       return {
-        allowed: canRecord,
+        allowed: canRecordResult.canUse,
         currentCount: usage?.currentPeriod?.usage || 0,
         limit: usage?.currentPeriod?.limit || 'unlimited'
       };

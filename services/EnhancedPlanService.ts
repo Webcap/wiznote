@@ -267,7 +267,11 @@ export class EnhancedPlanService {
 
       // Stripe sync status handled by external Stripe Guardian service
       // For now, assume Stripe is synced since external service handles it
-      const stripeSync = { success: true, error: null };
+      const stripeSync = { 
+        success: true, 
+        error: undefined,
+        syncTimestamp: new Date(),
+      };
 
       // Persist a simple sync status hint back to Supabase for UI convenience
       try {

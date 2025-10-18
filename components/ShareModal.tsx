@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 // @ts-ignore - react-dom types not available in React Native environment
 import { createPortal } from 'react-dom';
 import {
-    KeyboardAvoidingView,
     Modal,
     Platform,
     StyleSheet,
-    TouchableWithoutFeedback,
     View
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
@@ -56,6 +56,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
   const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
   const textColor = useThemeColor({}, 'text');
   const textMutedColor = useThemeColor({}, 'textMuted');
+  const textSecondary = useThemeColor({}, 'textSecondary');
   const borderColor = useThemeColor({}, 'border');
   const accentPrimary = useThemeColor({}, 'accentPrimary');
 
@@ -198,6 +199,38 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
   };
 
   const canShare = selectedUser || (searchQuery.includes('@') && searchQuery.length > 5);
+
+  // Mobile-specific hooks (must be called before any conditional returns)
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const snapPoints = useMemo(() => ['90%'], []);
+  
+  const handleSheetChanges = useCallback((index: number) => {
+    console.log('📱 Bottom sheet index:', index);
+    if (index === -1) {
+      onClose();
+    }
+  }, [onClose]);
+  
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        opacity={0.5}
+        pressBehavior="close"
+      />
+    ),
+    []
+  );
+  
+  useEffect(() => {
+    if (visible && Platform.OS !== 'web') {
+      bottomSheetRef.current?.expand();
+    } else if (!visible && Platform.OS !== 'web') {
+      bottomSheetRef.current?.close();
+    }
+  }, [visible]);
 
   if (!visible || !note) return null;
 
@@ -428,58 +461,46 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
     return createPortal(modalContent, document.body);
   }
 
-  // Mobile modal using ShareCard
-  console.log('📱 Rendering mobile ShareModal with ShareCard:', { visible, note: note?.id, platform: Platform.OS });
-  
-  const handleModalClose = () => {
-    console.log('🚨 ShareModal: onClose called!');
-    console.trace('🚨 Close call stack');
-    onClose();
-  };
+  // Mobile modal using Bottom Sheet
+  console.log('📱 Rendering mobile ShareModal with BottomSheet:', { visible, note: note?.id, platform: Platform.OS });
   
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="none"
       transparent={true}
-      onRequestClose={() => {
-        console.log('🚨 ShareModal: onRequestClose triggered');
-        handleModalClose();
-      }}
+      onRequestClose={onClose}
       presentationStyle="overFullScreen"
+      statusBarTranslucent
     >
-      <TouchableWithoutFeedback onPress={() => {
-        console.log('🚨 ShareModal: Overlay touched - closing modal');
-        handleModalClose();
-      }}>
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={() => {
-            console.log('📱 ShareModal: Touch inside card area - preventing close');
-          }}>
-            <KeyboardAvoidingView 
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              style={{ flex: 1, justifyContent: 'flex-end' }}
-            >
-              <ShareCard
-                note={note}
-                onClose={handleModalClose}
-                onShareSuccess={onShareSuccess}
-              />
-            </KeyboardAvoidingView>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+      <GestureHandlerRootView style={styles.gestureContainer}>
+        <BottomSheet
+          ref={bottomSheetRef}
+          index={0}
+          snapPoints={snapPoints}
+          onChange={handleSheetChanges}
+          backdropComponent={renderBackdrop}
+          enablePanDownToClose={true}
+          keyboardBehavior="interactive"
+          keyboardBlurBehavior="restore"
+          android_keyboardInputMode="adjustResize"
+          backgroundStyle={{ backgroundColor }}
+          handleIndicatorStyle={{ backgroundColor: textSecondary }}
+        >
+          <ShareCard
+            note={note}
+            onClose={onClose}
+            onShareSuccess={onShareSuccess}
+          />
+        </BottomSheet>
+      </GestureHandlerRootView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  gestureContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-    alignItems: 'stretch',
-    padding: 0,
   },
 });
 
