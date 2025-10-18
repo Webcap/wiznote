@@ -47,6 +47,13 @@ export const getWebhookBaseUrl = (): string => {
 };
 
 /**
+ * Build full API endpoint URL by appending path to base URL
+ */
+const getApiPath = (path: string): string => {
+  return `${getWebhookBaseUrl()}${path}`;
+};
+
+/**
  * API Endpoints Configuration
  */
 export const ApiConfig = {
@@ -66,21 +73,23 @@ export const ApiConfig = {
    * Stripe Endpoints
    */
   STRIPE: {
-    CREATE_PAYMENTSHEET: `${getWebhookBaseUrl()}/stripe/create-paymentsheet`,
-    CONFIRM_PAYMENTSHEET: `${getWebhookBaseUrl()}/stripe/confirm-paymentsheet`,
-    CREATE_CHECKOUT: `${getWebhookBaseUrl()}/stripe/create-checkout`,
-    VERIFY_SESSION: `${getWebhookBaseUrl()}/stripe/verify-session`,
-    CANCEL_SUBSCRIPTION: `${getWebhookBaseUrl()}/stripe/cancel-subscription`,
-    REACTIVATE_SUBSCRIPTION: `${getWebhookBaseUrl()}/stripe/reactivate-subscription`,
-    GET_BILLING_HISTORY: `${getWebhookBaseUrl()}/stripe/get-billing-history`,
+    CREATE_PAYMENTSHEET: getApiPath('/stripe/create-paymentsheet'),
+    CONFIRM_PAYMENTSHEET: getApiPath('/stripe/confirm-paymentsheet'),
+    CREATE_CHECKOUT: getApiPath('/stripe/create-checkout'),
+    VERIFY_SESSION: getApiPath('/stripe/verify-session'),
+    CANCEL_SUBSCRIPTION: getApiPath('/stripe/cancel-subscription'),
+    REACTIVATE_SUBSCRIPTION: getApiPath('/stripe/reactivate-subscription'),
+    GET_BILLING_HISTORY: getApiPath('/stripe/get-billing-history'),
+    SYNC_PLAN: getApiPath('/stripe/sync-plan'),
   },
   
   /**
    * Health Check Endpoints
    */
   HEALTH: {
-    READY: `${getWebhookBaseUrl()}/ready`,
-    HEALTH: `${getWebhookBaseUrl()}/health`,
+    READY: getApiPath('/ready'),
+    HEALTH: getApiPath('/health'),
+    SYNC_STATUS: getApiPath('/sync-status'),
   },
 };
 
