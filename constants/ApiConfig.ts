@@ -37,9 +37,10 @@ export const getWebhookBaseUrl = (): string => {
     return envUrl.replace(/\/$/, '');
   }
   
-  // Development: Use Render development instance
+  // Development: Use Render instance (no /api prefix)
+  // TODO: When you deploy stripe-guardian-dev, change to that URL
   if (isDevelopment()) {
-    return 'https://stripe-guardian.onrender.com/api';
+    return 'https://stripe-guardian.onrender.com';
   }
   
   // Production: Use Starlight Hyperlift production instance
@@ -59,8 +60,8 @@ const getApiPath = (path: string): string => {
 export const ApiConfig = {
   /**
    * Stripe Guardian Webhook Base URL
-   * - Development: https://stripe-guardian.onrender.com/api
-   * - Production: https://api.webcap.media/api
+   * - Development: https://stripe-guardian.onrender.com (Render, no /api prefix)
+   * - Production: https://api.webcap.media/api (Starlight Hyperlift)
    */
   WEBHOOK_BASE_URL: getWebhookBaseUrl(),
   
