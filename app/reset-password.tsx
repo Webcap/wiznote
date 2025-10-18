@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Alert,
     KeyboardAvoidingView,
+    Linking,
     Platform,
     ScrollView,
     StyleSheet,
@@ -19,6 +20,7 @@ import { betterAuthService } from '../services/BetterAuthService';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { supabase } from '../lib/supabase';
 
 export default function ResetPasswordScreen() {
   const [newPassword, setNewPassword] = useState('');
@@ -40,48 +42,119 @@ export default function ResetPasswordScreen() {
 
   const checkSession = async () => {
     try {
-      // On web, Supabase automatically exchanges the token in the URL for a session
-      // Wait a moment for this to complete
-      if (Platform.OS === 'web') {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
+      console.log('🔄 Checking session for password reset...');
       
-      const user = await betterAuthService.getCurrentUser();
-      if (user) {
-        console.log('✅ Valid session found for password reset');
-        setIsValidSession(true);
-      } else {
-        // Check if we're coming from a password reset link (has token in URL)
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          const urlParams = new URLSearchParams(window.location.search);
-          const hasToken = urlParams.get('token') || urlParams.get('access_token');
-          
-          if (hasToken) {
-            // Token present but session not established yet
-            // Give it a bit more time and try again
-            console.log('⏳ Reset token detected, waiting for session...');
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            const retryUser = await betterAuthService.getCurrentUser();
+      // On web, check if we have a token in the URL hash (Supabase auth callback)
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        console.log('📍 Current URL:', window.location.href);
+        console.log('📍 Hash:', window.location.hash);
+        console.log('📍 Search:', window.location.search);
+        
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const queryParams = new URLSearchParams(window.location.search);
+        const accessToken = hashParams.get('access_token') || queryParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token') || queryParams.get('refresh_token');
+        const type = hashParams.get('type') || queryParams.get('type');
+        const errorCode = hashParams.get('error') || queryParams.get('error');
+        const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
+        
+        console.log('🔍 URL parameters:', {
+          hasHash: window.location.hash.length > 0,
+          hasAccessToken: !!accessToken,
+          hasRefreshToken: !!refreshToken,
+          type: type,
+          error: errorCode,
+          errorDescription: errorDescription,
+        });
+        
+        // Check for errors in the URL
+        if (errorCode) {
+          console.error('❌ Error in URL:', errorCode, errorDescription);
+          if (Platform.OS === 'web') {
+            showSnackbar(`Reset link error: ${errorDescription || errorCode}`, 'error', 6000);
+          }
+          setTimeout(() => router.replace('/(auth)/login'), 3000);
+          return;
+        }
+        
+        // If we have tokens, manually set the session
+        if (accessToken && refreshToken) {
+          console.log('🔑 Tokens found - manually setting session...');
+          try {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
             
-            if (retryUser) {
-              console.log('✅ Session established after retry');
+            if (error) {
+              console.error('❌ Error setting session:', error);
+              throw error;
+            }
+            
+            if (data.session) {
+              console.log('✅ Session set successfully:', data.session.user.email);
               setIsValidSession(true);
               return;
             }
+          } catch (sessionError) {
+            console.error('❌ Failed to set session:', sessionError);
+            if (Platform.OS === 'web') {
+              showSnackbar('Failed to validate reset link. Please try again.', 'error', 5000);
+            }
+            setTimeout(() => router.replace('/(auth)/login'), 2000);
+            return;
           }
+        } else if (accessToken && type === 'recovery') {
+          console.log('✅ Password recovery token detected - waiting for Supabase to process...');
+          await new Promise(resolve => setTimeout(resolve, 2500));
+        } else if (accessToken) {
+          console.log('✅ Access token detected (type:', type, ') - waiting...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } else {
+          console.log('⏳ No token in URL, checking for existing session...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+      
+      // Check for user session (with multiple retries)
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        console.log(`🔍 Session check attempt ${attempt}/3...`);
+        const user = await betterAuthService.getCurrentUser();
+        
+        if (user) {
+          console.log('✅ Valid session found for password reset:', user.email);
+          setIsValidSession(true);
+          return;
         }
         
-        // No valid session and no token - redirect to login
-        console.log('❌ No valid session for password reset');
-        if (Platform.OS === 'web') {
-          showSnackbar('Invalid or expired reset link. Please request a new one.', 'error', 5000);
+        if (attempt < 3) {
+          console.log('⏳ No session yet, waiting 1.5 seconds before retry...');
+          await new Promise(resolve => setTimeout(resolve, 1500));
         }
-        setTimeout(() => router.replace('/(auth)/login'), 2000);
       }
+      
+      // After all retries, no valid session found
+      console.log('❌ No valid session found after 3 attempts');
+      console.log('💡 Possible causes:');
+      console.log('   1. Link has expired (>24 hours old)');
+      console.log('   2. Link was already used');
+      console.log('   3. Supabase redirect URL not configured correctly');
+      console.log('   4. EXPO_PUBLIC_WEB_URL not set to https://wiznote.app');
+      console.log('💡 Check your .env file and Supabase dashboard settings!');
+      
+      if (Platform.OS === 'web') {
+        showSnackbar('Invalid or expired reset link. Please request a new one.', 'error', 6000);
+      } else {
+        Alert.alert('Invalid Link', 'This reset link is invalid or expired. Please request a new one.');
+      }
+      setTimeout(() => router.replace('/(auth)/login'), 3000);
+      
     } catch (error) {
-      console.error('Error checking session:', error);
+      console.error('❌ Error checking session:', error);
       if (Platform.OS === 'web') {
         showSnackbar('Error validating reset link. Please try again.', 'error', 4000);
+      } else {
+        Alert.alert('Error', 'Failed to validate reset link. Please try again.');
       }
       setTimeout(() => router.replace('/(auth)/login'), 2000);
     } finally {

@@ -95,6 +95,7 @@ function AppContent() {
         const isDeleteAccountRequestPage = currentPath.startsWith('/delete-account-request');
         const isForgotPasswordPage = currentPath.startsWith('/forgot-password') || currentPath === 'forgot-password' || currentPath.includes('/forgot-password');
         const isResetPasswordPage = currentPath.startsWith('/reset-password') || currentPath === 'reset-password' || currentPath.includes('/reset-password');
+        const isIndexPage = currentPath === '/' || currentPath === '' || currentPath === '/index';
         
         // Check if current path is a valid authenticated route
         const isValidAuthenticatedRoute = isNotePage || isCreatePage || isAdminPage || 
@@ -103,7 +104,7 @@ function AppContent() {
           isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage;
         
         // Check if current path is a public route (accessible without authentication)
-        const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage;
+        const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage;
         
         console.log('Layout: Current path:', currentPath);
         console.log('Layout: Is payment page:', isPaymentPage);
@@ -190,6 +191,7 @@ function AppContent() {
                       showOnTablets={false}
                     />
                     <Stack>
+                    <Stack.Screen name="index" options={{ headerShown: false }} />
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                     <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                     <Stack.Screen name="note" options={{ headerShown: false }} />

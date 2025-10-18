@@ -152,7 +152,8 @@ function AppContent() {
       const isSharedPage = currentPath.startsWith('/shared/');
       const isDeleteAccountRequestPage = currentPath.startsWith('/delete-account-request');
       const isHelpPage = currentPath.startsWith('/help');
-      const isTabsPage = currentPath.startsWith('/(tabs)') || currentPath === '/' || currentPath === '';
+      const isTabsPage = currentPath.startsWith('/(tabs)');
+      const isIndexPage = currentPath === '/' || currentPath === '' || currentPath === '/index';
       const isForgotPasswordPage = currentPath.startsWith('/forgot-password') || currentPath === 'forgot-password' || currentPath.includes('/forgot-password');
       const isResetPasswordPage = currentPath.startsWith('/reset-password') || currentPath === 'reset-password' || currentPath.includes('/reset-password');
       
@@ -163,7 +164,7 @@ function AppContent() {
           isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage || isHelpPage;
       
       // Check if current path is a public route (accessible without authentication)
-      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage;
+      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage;
       
       console.log('Layout: Current path:', currentPath);
       console.log('Layout: Is payment page:', isPaymentPage);
@@ -235,6 +236,7 @@ function AppContent() {
                   padding: 0
                 }}>
                   <Stack>
+                    <Stack.Screen name="index" options={{ headerShown: false }} />
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                     <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                     <Stack.Screen name="auth/callback" options={{ headerShown: false, title: 'Verifying...' }} />
