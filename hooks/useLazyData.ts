@@ -29,7 +29,7 @@ export const useLazyData = <T>(
 
   const [cache, setCache] = useState<Map<string, { data: T; timestamp: number; stale: boolean }>>(new Map());
   const [isStale, setIsStale] = useState(false);
-  const backgroundRefreshRef = useRef<NodeJS.Timeout | null>(null);
+  const backgroundRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getCachedData = useCallback((cacheKey: string): T | null => {
     const cached = cache.get(cacheKey);

@@ -25,7 +25,7 @@ export const useLazyLoading = <T>(
   const [error, setError] = useState<Error | null>(null);
   const [retryAttempt, setRetryAttempt] = useState(0);
   
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
 
   const loadData = useCallback(async (attempt: number = 0) => {
@@ -246,7 +246,7 @@ export const useDebouncedLazyLoading = <T>(
   delay: number = 300
 ) => {
   const [debouncedDeps, setDebouncedDeps] = useState(dependencies);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (timeoutRef.current) {

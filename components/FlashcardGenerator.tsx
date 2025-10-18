@@ -252,10 +252,11 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
         onClose();
         
         // Show success message after a brief delay to ensure the modal is closed
+        const flashcardSet = result.flashcardSet;
         setTimeout(() => {
           Alert.alert(
             'Success!',
-            `Generated ${result.flashcardSet.totalCards} flashcards in ${Math.round((result.generationTime || 0) / 1000)}s. You can now view and study them below.`,
+            `Generated ${flashcardSet?.totalCards || 0} flashcards in ${Math.round((result.generationTime || 0) / 1000)}s. You can now view and study them below.`,
             [{ text: 'Great!', style: 'default' }]
           );
         }, 300);
