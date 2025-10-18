@@ -37,21 +37,37 @@ export const getWebhookBaseUrl = (): string => {
     return envUrl.replace(/\/$/, '');
   }
   
-  // Development: Use Render instance (no /api prefix)
-  // TODO: When you deploy stripe-guardian-dev, change to that URL
+  // Development/Test: Use Render with Stripe TEST keys
+  // Set EXPO_PUBLIC_STRIPE_GUARDIAN_TEST_URL in your .env.development
   if (isDevelopment()) {
-    return 'https://stripe-guardian.onrender.com';
+    const testUrl = process.env.EXPO_PUBLIC_STRIPE_GUARDIAN_TEST_URL;
+    if (testUrl) {
+      return testUrl.replace(/\/$/, '');
+    }
+    // Fallback to production if test URL not configured
+    console.warn('⚠️  EXPO_PUBLIC_STRIPE_GUARDIAN_TEST_URL not set, using production Stripe Guardian');
   }
   
-  // Production: Use Starlight Hyperlift production instance
+  // Production: Use Starlight Hyperlift with Stripe LIVE keys
   return 'https://api.webcap.media/api';
 };
 
 /**
  * Build full API endpoint URL by appending path to base URL
+ * Handles different URL formats for different environments
  */
 const getApiPath = (path: string): string => {
-  return `${getWebhookBaseUrl()}${path}`;
+  const baseUrl = getWebhookBaseUrl();
+  
+  // If base URL already includes /api at the end (like Starlight Hyperlift)
+  // Remove /api from the path to avoid duplication
+  if (baseUrl.endsWith('/api')) {
+    const cleanPath = path.replace(/^\/api/, '');
+    return `${baseUrl}${cleanPath}`;
+  }
+  
+  // Otherwise (like Render), keep the /api prefix in the path
+  return `${baseUrl}${path}`;
 };
 
 /**
@@ -60,8 +76,8 @@ const getApiPath = (path: string): string => {
 export const ApiConfig = {
   /**
    * Stripe Guardian Webhook Base URL
-   * - Development: https://stripe-guardian.onrender.com (Render, no /api prefix)
-   * - Production: https://api.webcap.media/api (Starlight Hyperlift)
+   * - Development/Test: Set via EXPO_PUBLIC_STRIPE_GUARDIAN_TEST_URL (Render with TEST keys)
+   * - Production: https://api.webcap.media/api (Starlight Hyperlift with LIVE keys)
    */
   WEBHOOK_BASE_URL: getWebhookBaseUrl(),
   
@@ -74,23 +90,23 @@ export const ApiConfig = {
    * Stripe Endpoints
    */
   STRIPE: {
-    CREATE_PAYMENTSHEET: getApiPath('/stripe/create-paymentsheet'),
-    CONFIRM_PAYMENTSHEET: getApiPath('/stripe/confirm-paymentsheet'),
-    CREATE_CHECKOUT: getApiPath('/stripe/create-checkout'),
-    VERIFY_SESSION: getApiPath('/stripe/verify-session'),
-    CANCEL_SUBSCRIPTION: getApiPath('/stripe/cancel-subscription'),
-    REACTIVATE_SUBSCRIPTION: getApiPath('/stripe/reactivate-subscription'),
-    GET_BILLING_HISTORY: getApiPath('/stripe/get-billing-history'),
-    SYNC_PLAN: getApiPath('/stripe/sync-plan'),
+    CREATE_PAYMENTSHEET: getApiPath('/api/stripe/create-paymentsheet'),
+    CONFIRM_PAYMENTSHEET: getApiPath('/api/stripe/confirm-paymentsheet'),
+    CREATE_CHECKOUT: getApiPath('/api/stripe/create-checkout'),
+    VERIFY_SESSION: getApiPath('/api/stripe/verify-session'),
+    CANCEL_SUBSCRIPTION: getApiPath('/api/stripe/cancel-subscription'),
+    REACTIVATE_SUBSCRIPTION: getApiPath('/api/stripe/reactivate-subscription'),
+    GET_BILLING_HISTORY: getApiPath('/api/stripe/get-billing-history'),
+    SYNC_PLAN: getApiPath('/api/stripe/sync-plan'),
   },
   
   /**
    * Health Check Endpoints
    */
   HEALTH: {
-    READY: getApiPath('/ready'),
-    HEALTH: getApiPath('/health'),
-    SYNC_STATUS: getApiPath('/sync-status'),
+    READY: getApiPath('/api/ready'),
+    HEALTH: getApiPath('/api/health'),
+    SYNC_STATUS: getApiPath('/api/sync-status'),
   },
 };
 
@@ -98,9 +114,16 @@ export const ApiConfig = {
  * Log the current API configuration (useful for debugging)
  */
 export const logApiConfig = () => {
+  const stripeMode = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY?.startsWith('pk_test_') 
+    ? '🧪 TEST MODE' 
+    : process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY?.startsWith('pk_live_')
+    ? '🔴 LIVE MODE'
+    : '❓ NOT SET';
+  
   console.log('🔧 API Configuration:');
   console.log(`   Environment: ${isDevelopment() ? 'DEVELOPMENT' : 'PRODUCTION'}`);
   console.log(`   Webhook Base URL: ${ApiConfig.WEBHOOK_BASE_URL}`);
+  console.log(`   Stripe Mode: ${stripeMode}`);
   console.log(`   APP_VARIANT: ${process.env.APP_VARIANT || 'not set'}`);
   console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
   console.log(`   __DEV__: ${__DEV__}`);

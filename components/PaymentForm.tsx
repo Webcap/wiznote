@@ -77,11 +77,10 @@ export function PaymentForm({
         cancelUrl = `${fallbackBase}/payment-cancelled?plan=${encodeURIComponent(planId)}`;
       }
 
-      const base = ApiConfig.WEBHOOK_BASE_URL;
-      console.log('Using webhook base URL:', base, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');
-      const endpoint = `${base}/stripe/create-checkout`;
+      console.log('Using webhook base URL:', ApiConfig.WEBHOOK_BASE_URL, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');
+      const endpoint = ApiConfig.STRIPE.CREATE_CHECKOUT;
       
-      console.log('Webhook base URL:', base);
+      console.log('Webhook base URL:', ApiConfig.WEBHOOK_BASE_URL);
       console.log('Endpoint:', endpoint);
       console.log('Request payload:', {
         userId: user.id,
