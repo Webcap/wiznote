@@ -9,6 +9,8 @@ Wiznote now uses **two separate Stripe Guardian instances** for different enviro
 
 The app **automatically** selects the correct instance based on the build environment.
 
+**Both instances use the same server (`server.js`) and have identical API routes under `/api/`**
+
 ## How It Works
 
 ### Automatic URL Selection
