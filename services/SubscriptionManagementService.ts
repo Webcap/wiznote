@@ -1,3 +1,4 @@
+import { ApiConfig } from '../constants/ApiConfig';
 import { supabase } from '../lib/supabase';
 import type { EnhancedPlan } from '../types/EnhancedPlans';
 
@@ -56,8 +57,9 @@ export class SubscriptionManagementService {
   private stripeGuardianUrl: string;
 
   private constructor() {
-    // Get the Stripe Guardian API URL from environment
-    this.stripeGuardianUrl = process.env.EXPO_PUBLIC_WEBHOOK_BASE_URL || 'https://api.webcap.media/api';
+    // Get the Stripe Guardian API URL - automatically selects dev or prod based on environment
+    this.stripeGuardianUrl = ApiConfig.WEBHOOK_BASE_URL;
+    console.log('SubscriptionManagementService: Using Stripe Guardian URL:', this.stripeGuardianUrl, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');
   }
 
   public static getInstance(): SubscriptionManagementService {
