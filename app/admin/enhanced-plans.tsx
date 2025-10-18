@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ApiConfig } from '../../constants/ApiConfig';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
@@ -148,7 +149,6 @@ export default function EnhancedPlansScreen() {
   // Manually trigger a Stripe sync for a specific plan via local webhook server
   const syncPlanWithStripe = async (planId: string) => {
     try {
-      const { ApiConfig } = await import('../../constants/ApiConfig');
       const base = ApiConfig.WEBHOOK_BASE_URL;
       const res = await fetch(`${base}/stripe/sync-plan`, {
         method: 'POST',

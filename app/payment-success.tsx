@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ApiConfig } from '../constants/ApiConfig';
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
 import { useAuth } from '../hooks/useAuth';
@@ -111,7 +112,6 @@ export default function PaymentSuccessScreen() {
     setVerifying(true);
     console.log('PaymentSuccess: Starting session verification for:', sessionId);
     
-    const { ApiConfig } = await import('../constants/ApiConfig');
     const base = ApiConfig.WEBHOOK_BASE_URL;
     
     console.log('PaymentSuccess: Using webhook base URL:', base, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');

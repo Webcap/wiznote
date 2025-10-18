@@ -9,6 +9,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { ApiConfig } from '../constants/ApiConfig';
 import { ThemedText } from '../components/ThemedText';
 import { AdminSidebar } from '../components/web/AdminSidebar';
 import { WebLayout } from '../components/web/WebLayout';
@@ -158,7 +159,6 @@ export default function AdminDashboardScreen() {
   // Fetch subscription sync status
   const fetchSubscriptionSyncStatus = useCallback(async () => {
     try {
-      const { ApiConfig } = await import('../constants/ApiConfig');
       const guardianUrl = ApiConfig.WEBHOOK_BASE_URL;
       const syncRes = await fetch(`${guardianUrl}/sync-status`, {
         method: 'GET',
@@ -181,7 +181,6 @@ export default function AdminDashboardScreen() {
     try {
       setSubscriptionSync(prev => ({ ...prev, isSyncing: true }));
       
-      const { ApiConfig } = await import('../constants/ApiConfig');
       const guardianUrl = ApiConfig.WEBHOOK_BASE_URL;
       const syncRes = await fetch(`${guardianUrl}/sync-status`, {
         method: 'POST',
@@ -220,7 +219,6 @@ export default function AdminDashboardScreen() {
     try {
       setMonitoring(prev => ({ ...prev, isLoading: true }));
       
-      const { ApiConfig } = await import('../constants/ApiConfig');
       const base = ApiConfig.WEBHOOK_BASE_URL;
       const readyRes = await fetch(`${base}/ready`).then(r => r.json()).catch(() => null);
       const ok = !!readyRes && readyRes.ok;
@@ -232,7 +230,6 @@ export default function AdminDashboardScreen() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
         
-        const { ApiConfig } = await import('../constants/ApiConfig');
         const guardianUrl = ApiConfig.WEBHOOK_BASE_URL;
         const guardianRes = await fetch(`${guardianUrl}/ready`, {
           method: 'GET',
@@ -299,7 +296,6 @@ export default function AdminDashboardScreen() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      const { ApiConfig } = await import('../constants/ApiConfig');
       const guardianUrl = ApiConfig.WEBHOOK_BASE_URL;
       const guardianRes = await fetch(`${guardianUrl}/ready`, {
         method: 'GET',
