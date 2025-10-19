@@ -27,6 +27,7 @@ export default ({ config }) => {
     ios: {
       ...config.ios,
       bundleIdentifier: getUniqueIdentifier(),
+      buildNumber: '1',
       associatedDomains: [
         'applinks:wiznote.app',
         'applinks:*.wiznote.app',
@@ -48,6 +49,7 @@ export default ({ config }) => {
     android: {
       ...config.android,
       package: getUniqueIdentifier(),
+      versionCode: 1,
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: IS_DEV ? '#1A1A1A' : '#ffffff'

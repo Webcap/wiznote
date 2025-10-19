@@ -301,6 +301,7 @@ function AppContent() {
                         headerLeft: () => null,
                         headerRight: () => null,
                       }} />
+                      <Stack.Screen name="about" options={{ headerShown: false }} />
                       <Stack.Screen name="delete-account-request" options={{ headerShown: false }} />
                       <Stack.Screen name="admin" options={{ headerShown: false }} />
                       <Stack.Screen name="forgot-password" options={{ headerShown: false }} />

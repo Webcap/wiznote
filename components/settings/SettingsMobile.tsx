@@ -16,6 +16,7 @@ import { AudioAPIExplorer } from '../AudioAPIExplorer';
 import { AudioImportTest } from '../AudioImportTest';
 import { AudioModuleDebug } from '../AudioModuleDebug';
 import { PermissionTest } from '../PermissionTest';
+import { getAppVersion } from '../../utils/appVersion';
 
 interface SettingsMobileProps {
   user: any;
@@ -77,8 +78,10 @@ export function SettingsMobile({
   const cardText = useThemeColor({}, 'text');
   const borderColor = useThemeColor({}, 'border');
   const accentColor = useThemeColor({}, 'accentPrimary');
+  const textSecondary = useThemeColor({}, 'textSecondary');
 
   const currentUser = user;
+  const appVersion = getAppVersion();
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -355,6 +358,9 @@ export function SettingsMobile({
           <View style={styles.logoSection}>
             <Logo size={80} />
             <ThemedText style={styles.appName}>WizNote</ThemedText>
+            <ThemedText style={[styles.appVersion, { color: textSecondary }]}>
+              v{appVersion}
+            </ThemedText>
           </View>
           
           <TouchableOpacity 
@@ -375,7 +381,10 @@ export function SettingsMobile({
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => router.push('/about')}
+          >
             <Ionicons name="information-circle" size={20} color={iconColor} />
             <ThemedText style={styles.actionButtonText}>About WizNote</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
