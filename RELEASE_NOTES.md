@@ -1,21 +1,21 @@
 # WizNote - Release Notes
 
-## Version 1.3.4 - Mobile UX & Sharing Improvements
-**Release Date:** October 18, 2025
+## Version 1.3.5 - Stability & Core Features
+**Release Date:** October 19, 2025
 
 ### 📱 Google Play Store Release Notes (500 char limit)
 
 ```
-Mobile UX & Sharing Improvements 🎉
+Stability & Core Features Update 🚀
 
-✨ Better share menu - smoother gestures & keyboard handling
-📤 Fixed shared notes loading issues
-🎯 Improved quiz screen layouts
-🔒 Fair AI usage - viewing shared notes doesn't use your quota
-🐛 Bug fixes for keyboard, headers, and TypeScript errors
-⚡ Faster loading & smoother animations
+✨ Note sharing is now FREE for everyone!
+🛡️ App no longer crashes - added error protection
+📱 Fixed kill/restart issues on mobile
+🔗 Fixed sharing links to use correct domain
+⚡ Faster session restoration & better recovery
+🐛 Eliminated timeout errors & race conditions
 
-Thank you for using WizNote! 📝
+More stable, more features! 📝
 ```
 
 ---
@@ -24,30 +24,56 @@ Thank you for using WizNote! 📝
 
 **What's New:**
 
-**✨ Improved Bottom Sheets**
-- Smoother, more responsive share menu with native gestures
-- Better keyboard handling - no more blocked inputs!
-- Swipe-down to close for intuitive interaction
-- Professional animations and transitions
+**🎉 Note Sharing is Now Free!**
+- Removed all limitations on note sharing
+- Unlimited sharing for all users (no more 5/month limit)
+- Note sharing is now a core feature available to everyone
+- Simplified sharing experience without restrictions
 
-**📤 Better Note Sharing**
-- Fixed shared notes not loading properly
-- Share modal now works perfectly with keyboard
-- Faster loading for shared content
-- Clearer prompts when sign-in is needed
+**🛡️ Major Stability Improvements**
+- App no longer crashes when errors occur
+- Added comprehensive error protection with "Try Again" screens
+- Fixed crashes when killing and restarting the app
+- Better handling of network issues and slow connections
+- Automatic recovery from edge cases and errors
 
-**🎯 Quiz Screen Improvements**
-- Fixed header spacing on all quiz screens
-- Better layout on devices with notches
-- Improved visibility of close/back buttons
+**📱 Mobile App Improvements**
+- Fixed app crashes when killed and restarted
+- Better session restoration with timeout protection
+- Improved app state handling for background/foreground transitions
+- Faster loading with "Restoring your session..." messages
+- Eliminated race conditions in navigation
 
-**🔒 Fair AI Usage**
-- Viewing shared notes no longer counts toward your AI quota
-- Only note owners use quota when generating AI features
-- More transparent usage tracking
+**🔗 Fixed Sharing Links**
+- Note sharing links now use correct domain (wiznote.app)
+- Fixed placeholder URLs throughout the app
+- Better environment configuration support
+- Consistent domain usage across all features
+
+**⚡ Performance & Reliability**
+- Faster session restoration (2s timeout vs 3s)
+- Better error handling without showing technical errors to users
+- Improved crash recovery mechanisms
+- Enhanced network resilience for slow connections
+- Non-blocking initialization prevents startup delays
 
 **🐛 Bug Fixes**
-- Fixed "Loading note..." freeze when accessing shared notes
+- Fixed "Session restoration timeout" errors
+- Eliminated race conditions in navigation
+- Fixed app state transition crashes
+- Better handling of killed/restart scenarios
+- Improved session validation and cleanup
+
+**🔧 Technical Improvements**
+- Added ErrorBoundary component for crash prevention
+- Enhanced session management with better timeouts
+- Improved app state handling with proper delays
+- Better coordination between auth state and navigation
+- Enhanced error logging and recovery mechanisms
+
+---
+
+## Version 1.3.4 - Mobile UX & Sharing Improvements
 - Fixed keyboard blocking share sheet inputs
 - Fixed quiz header padding on mobile
 - Resolved TypeScript compatibility issues

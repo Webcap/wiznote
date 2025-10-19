@@ -1,0 +1,250 @@
+{
+  "versions": [
+    {
+      "version": "1.3.5",
+      "date": "October 19, 2025",
+      "sections": [
+        {
+          "title": "Note Sharing - Now a Core Feature",
+          "emoji": "🚀",
+          "items": [
+            {
+              "title": "Removed note sharing feature flag",
+              "description": "Note sharing is now a core feature available to all users",
+              "details": [
+                "Eliminated artificial limitations on note sharing functionality",
+                "Removed usage limits (previously 5 shares/month for free users)",
+                "Note sharing is now unlimited for all users regardless of subscription",
+                "Simplified feature management by removing flag dependencies",
+                "Updated all related services, limits, and admin tools"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "App Stability & Crash Prevention",
+          "emoji": "🛡️",
+          "items": [
+            {
+              "title": "Added comprehensive error boundaries",
+              "description": "App no longer crashes on errors",
+              "details": [
+                "Created robust ErrorBoundary component with graceful error handling",
+                "Wrapped main app layouts (web and native) with error protection",
+                "Users see friendly \"Try Again\" screen instead of crashes",
+                "Debug information available in development mode",
+                "Automatic error recovery and retry mechanisms"
+              ]
+            },
+            {
+              "title": "Fixed app crash on kill/restart",
+              "description": "App now handles killed state gracefully",
+              "details": [
+                "Improved session restoration with timeout protection (20s timeout)",
+                "Added race condition prevention for app state transitions",
+                "Enhanced mobile app state handling with better delays (1-2s)",
+                "Safe session restoration that won't crash the app",
+                "Graceful fallback to minimal profiles when database queries timeout"
+              ]
+            },
+            {
+              "title": "Enhanced crash recovery mechanisms",
+              "description": "Automatic recovery from edge cases",
+              "details": [
+                "Added 18-second crash recovery timeout in useAuth hook",
+                "Session restoration coordination to prevent premature navigation",
+                "Better loading states with \"Restoring your session...\" message",
+                "Extended timeouts to allow proper session restoration",
+                "Prevents navigation before session restoration completes"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Session Management",
+          "emoji": "🔧",
+          "items": [
+            {
+              "title": "Improved session restoration robustness",
+              "description": "Better handling of slow networks",
+              "details": [
+                "Reduced profile verification timeout from 3s to 2s for faster failure detection",
+                "Added minimal profile creation as fallback when database queries timeout",
+                "Better error handling throughout session restoration process",
+                "Non-blocking initialization prevents app startup delays",
+                "Silent timeout handling without showing errors to users"
+              ]
+            },
+            {
+              "title": "Enhanced app state handling",
+              "description": "Better background/foreground transitions",
+              "details": [
+                "Prevented multiple simultaneous restoration attempts",
+                "Added individual timeouts for each session attempt (5s per attempt)",
+                "Improved validation of current user sessions",
+                "Better cleanup of stale user data on errors",
+                "Network resilience for slow connections"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "URL Configuration",
+          "emoji": "🔗",
+          "items": [
+            {
+              "title": "Fixed note sharing URLs",
+              "description": "Now uses correct domain instead of placeholder",
+              "details": [
+                "Changed from 'your-app-url.com/shared/' to 'wiznote.app/shared/'",
+                "Updated PaymentForm fallback URLs to use actual domain",
+                "Fixed support ticket URLs in database triggers",
+                "Added environment variable support for easy configuration",
+                "Consistent domain usage across all sharing features"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Bug Fixes",
+          "emoji": "🐛",
+          "items": [
+            {
+              "title": "Fixed session restoration timeout errors",
+              "description": "No more \"Session restoration timeout\" errors",
+              "details": [
+                "Graceful handling of timeout errors without showing to users",
+                "Better logging with appropriate log levels (warn vs error)",
+                "Automatic retry mechanisms for failed restorations",
+                "Fallback strategies when session restoration fails"
+              ]
+            },
+            {
+              "title": "Fixed race condition in navigation",
+              "description": "App no longer navigates before session restoration",
+              "details": [
+                "Added session restoration completion tracking",
+                "Navigation only happens after restoration is complete",
+                "Prevents users from being sent to login screen when they have valid sessions",
+                "Better coordination between auth state and navigation logic"
+              ]
+            },
+            {
+              "title": "Fixed app state transition crashes",
+              "description": "Better handling of killed/restart scenarios",
+              "details": [
+                "Improved AppState change handling with proper delays",
+                "Better error handling in mobile app state transitions",
+                "Prevented crashes when app is killed and restarted",
+                "Enhanced session validation on app activation"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.3.4",
+      "date": "October 18, 2025",
+      "sections": [
+        {
+          "title": "Mobile Bottom Sheet & Keyboard Handling",
+          "emoji": "📱",
+          "items": [
+            {
+              "title": "Fixed keyboard blocking share sheet on mobile",
+              "description": "Share sheet now properly avoids keyboard",
+              "details": [
+                "Upgraded to @gorhom/bottom-sheet v5 for professional bottom sheet implementation",
+                "Share sheet now smoothly moves up when keyboard appears",
+                "Interactive keyboard behavior with keyboardBehavior=\"interactive\"",
+                "Users can now access all share options without keyboard obstruction"
+              ]
+            },
+            {
+              "title": "Upgraded create note bottom sheet",
+              "description": "Create note options now use professional bottom sheet",
+              "details": [
+                "Dynamic snap points that adjust based on available options",
+                "Swipe-down to close gesture for better UX",
+                "Backdrop tap-to-close functionality",
+                "Consistent bottom sheet experience across all modals"
+              ]
+            },
+            {
+              "title": "Fixed mobile quiz header padding",
+              "description": "Quiz screens now have proper status bar spacing",
+              "details": [
+                "Updated quiz header padding: 20px → 48px",
+                "Prevents close/back buttons from being hidden by status bar"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Shared Notes Fixes",
+          "emoji": "🔗",
+          "items": [
+            {
+              "title": "Fixed shared note loading",
+              "description": "Shared notes now load properly without freezing",
+              "details": [
+                "Removed blocking condition that waited for user's notes to load first",
+                "Added proper authentication state check with authLoading flag",
+                "Unauthenticated users now get proper login prompt",
+                "Authenticated users can now successfully access shared notes"
+              ]
+            },
+            {
+              "title": "Protected viewers from AI usage counting",
+              "description": "Viewing shared notes doesn't drain AI quota",
+              "details": [
+                "AI summaries won't auto-generate when viewing shared notes",
+                "Manual AI generation blocked for shared notes",
+                "Only displays existing AI features generated by note owner"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.3.3",
+      "date": "October 16, 2025",
+      "sections": [
+        {
+          "title": "Account & Authentication Fixes",
+          "emoji": "🔐",
+          "items": [
+            {
+              "title": "Fixed account deletion modal",
+              "description": "Delete account modal now properly displays password fields",
+              "details": [
+                "Removed blocking test element that was covering form content",
+                "Fixed ScrollView configuration for accessibility",
+                "Updated modal height for optimal user experience"
+              ]
+            },
+            {
+              "title": "Fixed email verification",
+              "description": "Email verification links now work properly",
+              "details": [
+                "Added missing auth/callback route registration",
+                "Users can complete email verification without errors"
+              ]
+            },
+            {
+              "title": "Added Terms of Service links",
+              "description": "Users can now easily access terms and privacy policy",
+              "details": [
+                "Added links to login and signup screens",
+                "Both links properly styled and functional on all platforms"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+

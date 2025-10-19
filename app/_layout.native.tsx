@@ -191,6 +191,7 @@ function AppContent() {
                         <Stack.Screen name="join-premium" options={{ headerShown: false }} />
                         <Stack.Screen name="privacy" options={{ headerShown: false }} />
                         <Stack.Screen name="terms" options={{ headerShown: false }} />
+                        <Stack.Screen name="changelog" options={{ headerShown: false }} />
                         <Stack.Screen name="admin" options={{ headerShown: false }} />
                         <Stack.Screen name="flashcards" options={{ headerShown: false }} />
                         <Stack.Screen name="+not-found" />

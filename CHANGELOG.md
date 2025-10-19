@@ -7,6 +7,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.5] - 2025-10-19
+
+### 🚀 Major Improvements
+
+#### Note Sharing - Now a Core Feature
+- **Removed note sharing feature flag** - Note sharing is now a core feature available to all users
+  - Eliminated artificial limitations on note sharing functionality
+  - Removed usage limits (previously 5 shares/month for free users)
+  - Note sharing is now unlimited for all users regardless of subscription
+  - Simplified feature management by removing flag dependencies
+  - Updated all related services, limits, and admin tools
+
+#### App Stability & Crash Prevention
+- **Added comprehensive error boundaries** - App no longer crashes on errors
+  - Created robust `ErrorBoundary` component with graceful error handling
+  - Wrapped main app layouts (web and native) with error protection
+  - Users see friendly "Try Again" screen instead of crashes
+  - Debug information available in development mode
+  - Automatic error recovery and retry mechanisms
+
+- **Fixed app crash on kill/restart** - App now handles killed state gracefully
+  - Improved session restoration with timeout protection (20s timeout)
+  - Added race condition prevention for app state transitions
+  - Enhanced mobile app state handling with better delays (1-2s)
+  - Safe session restoration that won't crash the app
+  - Graceful fallback to minimal profiles when database queries timeout
+
+- **Enhanced crash recovery mechanisms** - Automatic recovery from edge cases
+  - Added 18-second crash recovery timeout in useAuth hook
+  - Session restoration coordination to prevent premature navigation
+  - Better loading states with "Restoring your session..." message
+  - Extended timeouts to allow proper session restoration
+  - Prevents navigation before session restoration completes
+
+### 🔧 Technical Improvements
+
+#### Session Management
+- **Improved session restoration robustness** - Better handling of slow networks
+  - Reduced profile verification timeout from 3s to 2s for faster failure detection
+  - Added minimal profile creation as fallback when database queries timeout
+  - Better error handling throughout session restoration process
+  - Non-blocking initialization prevents app startup delays
+  - Silent timeout handling without showing errors to users
+
+- **Enhanced app state handling** - Better background/foreground transitions
+  - Prevented multiple simultaneous restoration attempts
+  - Added individual timeouts for each session attempt (5s per attempt)
+  - Improved validation of current user sessions
+  - Better cleanup of stale user data on errors
+  - Network resilience for slow connections
+
+#### URL Configuration
+- **Fixed note sharing URLs** - Now uses correct domain instead of placeholder
+  - Changed from `your-app-url.com/shared/` to `wiznote.app/shared/`
+  - Updated PaymentForm fallback URLs to use actual domain
+  - Fixed support ticket URLs in database triggers
+  - Added environment variable support for easy configuration
+  - Consistent domain usage across all sharing features
+
+### 🐛 Bug Fixes
+
+#### Authentication & Session Issues
+- **Fixed session restoration timeout errors** - No more "Session restoration timeout" errors
+  - Graceful handling of timeout errors without showing to users
+  - Better logging with appropriate log levels (warn vs error)
+  - Automatic retry mechanisms for failed restorations
+  - Fallback strategies when session restoration fails
+
+- **Fixed race condition in navigation** - App no longer navigates before session restoration
+  - Added session restoration completion tracking
+  - Navigation only happens after restoration is complete
+  - Prevents users from being sent to login screen when they have valid sessions
+  - Better coordination between auth state and navigation logic
+
+#### Mobile App State Issues
+- **Fixed app state transition crashes** - Better handling of killed/restart scenarios
+  - Improved AppState change handling with proper delays
+  - Better error handling in mobile app state transitions
+  - Prevented crashes when app is killed and restarted
+  - Enhanced session validation on app activation
+
+### 📝 Documentation Updates
+- **Updated environment configuration** - Clearer setup instructions
+  - Fixed placeholder URLs in configuration files
+  - Updated domain references throughout codebase
+  - Better environment variable documentation
+
+---
+
 ## [1.3.4] - 2025-10-18
 
 ### 🐛 Fixed
