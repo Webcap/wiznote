@@ -72,7 +72,7 @@ export function PaymentForm({
         cancelUrl = `${origin}/payment-cancelled?plan=${encodeURIComponent(planId)}`;
       } else {
         // Mobile platform or no origin - use a configurable fallback
-        const fallbackBase = process.env.EXPO_PUBLIC_APP_URL || 'https://your-app-domain.com';
+        const fallbackBase = process.env.EXPO_PUBLIC_APP_URL || 'https://wiznote.app';
         successUrl = `${fallbackBase}/payment-success?plan=${encodeURIComponent(planId)}&session_id={CHECKOUT_SESSION_ID}`;
         cancelUrl = `${fallbackBase}/payment-cancelled?plan=${encodeURIComponent(planId)}`;
       }

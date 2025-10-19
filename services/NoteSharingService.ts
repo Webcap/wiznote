@@ -375,7 +375,7 @@ export class NoteSharingService {
       // Get the base URL (works on both web and mobile)
       const baseUrl = typeof window !== 'undefined' && window.location 
         ? window.location.origin 
-        : 'https://your-app-url.com'; // Replace with your actual production URL
+        : (process.env.EXPO_PUBLIC_WEB_URL || 'https://wiznote.app'); // Use environment variable with fallback
       
       const shareUrl = `${baseUrl}/shared/${shareToken}`;
       

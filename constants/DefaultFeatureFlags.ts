@@ -14,6 +14,18 @@ export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlag> = {
     updatedAt: new Date(),
     createdBy: 'system',
   },
+  note_sharing: {
+    id: 'note_sharing',
+    name: 'Note Sharing',
+    description: 'Enable note sharing functionality',
+    enabled: false,
+    premiumOnly: false,
+    trackingEnabled: true, // Track sharing usage
+    targetEnvironments: ['development', 'staging', 'production'],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    createdBy: 'system',
+  },
   ai_key_details: {
     id: 'ai_key_details',
     name: 'AI Key Details',

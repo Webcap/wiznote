@@ -668,6 +668,15 @@ export default function SettingsScreen() {
               <Ionicons name="chevron-forward" size={20} color={borderColor} />
             </TouchableOpacity>
             
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => router.push('/changelog')}
+            >
+              <Ionicons name="list" size={20} color={iconColor} />
+              <ThemedText style={styles.actionButtonText}>Changelog</ThemedText>
+              <Ionicons name="chevron-forward" size={20} color={borderColor} />
+            </TouchableOpacity>
+            
             <TouchableOpacity style={styles.actionButton}>
               <Ionicons name="information-circle" size={20} color={iconColor} />
               <ThemedText style={styles.actionButtonText}>About Notez</ThemedText>
@@ -1011,6 +1020,15 @@ export default function SettingsScreen() {
           >
             <Ionicons name="help-circle" size={20} color={iconColor} />
             <ThemedText style={styles.actionButtonText}>Help & Support</ThemedText>
+            <Ionicons name="chevron-forward" size={20} color={borderColor} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => router.push('/changelog')}
+          >
+            <Ionicons name="list" size={20} color={iconColor} />
+            <ThemedText style={styles.actionButtonText}>Changelog</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           

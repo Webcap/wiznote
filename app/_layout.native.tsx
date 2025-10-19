@@ -8,6 +8,7 @@ import * as Linking from 'expo-linking';
 import 'react-native-reanimated';
 
 import { AuthLoadingScreen } from '../components/AuthLoadingScreen';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { OfflineIndicator } from '../components/OfflineIndicator';
 
 import { ThemedView } from '../components/ThemedView';
@@ -152,57 +153,65 @@ function AppContent() {
   }
 
   return (
-    <CustomThemeProvider initialTheme={userTheme}>
+    <ErrorBoundary
+      onError={(error, errorInfo) => {
+        console.error('Native app crashed during render:', error, errorInfo);
+        // In production, you might want to send this to a crash reporting service
+      }}
+    >
+      <CustomThemeProvider initialTheme={userTheme}>
 
-        <SnackbarProvider>
-          <PDFUploadProvider>
-            <AudioUploadProvider>
-              <ThemeContext.Consumer>
-              {theme => {
-                const isDark = theme === 'dark' || (theme === 'auto' && colorScheme === 'dark');
-                return (
-                  <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
-                    <ThemedView style={{ 
-                      flex: 1, 
-                      minHeight: '100%',
-                      width: '100%',
-                      margin: 0,
-                      padding: 0
-                    }}>
-                      <Stack>
-                      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                      <Stack.Screen name="auth/callback" options={{ headerShown: false, title: 'Verifying...' }} />
+          <SnackbarProvider>
+            <PDFUploadProvider>
+              <AudioUploadProvider>
+                <ThemeContext.Consumer>
+                {theme => {
+                  const isDark = theme === 'dark' || (theme === 'auto' && colorScheme === 'dark');
+                  return (
+                    <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+                      <ThemedView style={{ 
+                        flex: 1, 
+                        minHeight: '100%',
+                        width: '100%',
+                        margin: 0,
+                        padding: 0
+                      }}>
+                        <Stack>
+                        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                        <Stack.Screen name="auth/callback" options={{ headerShown: false, title: 'Verifying...' }} />
 
-                      <Stack.Screen name="create" options={{ headerShown: false }} />
-                      <Stack.Screen name="create-audio" options={{ headerShown: false }} />
-                      <Stack.Screen name="ai-transcriptions" options={{ headerShown: false }} />
-                      <Stack.Screen name="usage" options={{ headerShown: false }} />
-                      <Stack.Screen name="admin-dashboard" options={{ headerShown: false }} />
-                      <Stack.Screen name="user-management" options={{ headerShown: false }} />
-                      <Stack.Screen name="archived" options={{ headerShown: false }} />
-                      <Stack.Screen name="join-premium" options={{ headerShown: false }} />
-                      <Stack.Screen name="privacy" options={{ headerShown: false }} />
-                      <Stack.Screen name="terms" options={{ headerShown: false }} />
-                      <Stack.Screen name="admin" options={{ headerShown: false }} />
-                      <Stack.Screen name="flashcards" options={{ headerShown: false }} />
-                      <Stack.Screen name="+not-found" />
-                    </Stack>
-                    <StatusBar style={isDark ? 'light' : 'dark'} />
-                    <OfflineIndicator 
-                      isVisible={!safeIsOnline} 
-                      message="You are offline. Some features may be limited."
-                    />
-                    <SnackbarWrapper />
-                  </ThemedView>
-                </ThemeProvider>
-              );
-            }}
-          </ThemeContext.Consumer>
-            </AudioUploadProvider>
-          </PDFUploadProvider>
-        </SnackbarProvider>
-    </CustomThemeProvider>
+                        <Stack.Screen name="create" options={{ headerShown: false }} />
+                        <Stack.Screen name="create-audio" options={{ headerShown: false }} />
+                        <Stack.Screen name="ai-transcriptions" options={{ headerShown: false }} />
+                        <Stack.Screen name="usage" options={{ headerShown: false }} />
+                        <Stack.Screen name="admin-dashboard" options={{ headerShown: false }} />
+                        <Stack.Screen name="user-management" options={{ headerShown: false }} />
+                        <Stack.Screen name="archived" options={{ headerShown: false }} />
+                        <Stack.Screen name="join-premium" options={{ headerShown: false }} />
+                        <Stack.Screen name="privacy" options={{ headerShown: false }} />
+                        <Stack.Screen name="terms" options={{ headerShown: false }} />
+                        <Stack.Screen name="changelog" options={{ headerShown: false }} />
+                        <Stack.Screen name="admin" options={{ headerShown: false }} />
+                        <Stack.Screen name="flashcards" options={{ headerShown: false }} />
+                        <Stack.Screen name="+not-found" />
+                      </Stack>
+                      <StatusBar style={isDark ? 'light' : 'dark'} />
+                      <OfflineIndicator 
+                        isVisible={!safeIsOnline} 
+                        message="You are offline. Some features may be limited."
+                      />
+                      <SnackbarWrapper />
+                    </ThemedView>
+                  </ThemeProvider>
+                );
+              }}
+            </ThemeContext.Consumer>
+              </AudioUploadProvider>
+            </PDFUploadProvider>
+          </SnackbarProvider>
+      </CustomThemeProvider>
+    </ErrorBoundary>
   );
 }
 

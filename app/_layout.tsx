@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import 'react-native-reanimated';
 
 import { AuthLoadingScreen } from '../components/AuthLoadingScreen';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { OfflineIndicator } from '../components/OfflineIndicator';
 import { ThemedView } from '../components/ThemedView';
 import { WebSnackbar } from '../components/web/WebSnackbar';
@@ -39,19 +40,33 @@ function AppContent() {
 
   // Add a timeout for auth loading to prevent infinite loading
   const [authTimeout, setAuthTimeout] = useState(false);
+  const [sessionRestorationComplete, setSessionRestorationComplete] = useState(false);
   
   useEffect(() => {
     if (isLoading) {
       const timer = setTimeout(() => {
         console.warn('Layout: Auth loading timeout reached, forcing continue');
         setAuthTimeout(true);
-      }, 15000); // 15 second timeout
+      }, 20000); // Increased to 20 seconds to allow session restoration
       
       return () => clearTimeout(timer);
     } else {
       setAuthTimeout(false);
     }
   }, [isLoading]);
+
+  // Wait for session restoration to complete before allowing navigation
+  useEffect(() => {
+    if (!isLoading && !authTimeout) {
+      // Add a small delay to ensure session restoration has completed
+      const navigationTimer = setTimeout(() => {
+        console.log('Layout: Session restoration complete, allowing navigation');
+        setSessionRestorationComplete(true);
+      }, 1000); // 1 second delay to ensure session restoration completes
+      
+      return () => clearTimeout(navigationTimer);
+    }
+  }, [isLoading, authTimeout]);
 
   // Initialize feature flag service only after auth is determined
   useEffect(() => {
@@ -125,9 +140,9 @@ function AppContent() {
 
   // Handle navigation based on auth state
   useEffect(() => {
-    console.log('Layout: Navigation effect triggered - isLoading:', isLoading, 'authTimeout:', authTimeout, 'isAuthenticated:', isAuthenticated);
+    console.log('Layout: Navigation effect triggered - isLoading:', isLoading, 'authTimeout:', authTimeout, 'sessionRestorationComplete:', sessionRestorationComplete, 'isAuthenticated:', isAuthenticated);
     
-    if (!isLoading || authTimeout) {
+    if ((!isLoading || authTimeout) && sessionRestorationComplete) {
       console.log('Layout: Auth state determined - isAuthenticated:', isAuthenticated, 'authTimeout:', authTimeout);
       
       // Get current pathname to check if we're on a payment page or valid note route
@@ -152,6 +167,7 @@ function AppContent() {
       const isSharedPage = currentPath.startsWith('/shared/');
       const isDeleteAccountRequestPage = currentPath.startsWith('/delete-account-request');
       const isHelpPage = currentPath.startsWith('/help');
+      const isChangelogPage = currentPath.startsWith('/changelog');
       const isTabsPage = currentPath.startsWith('/(tabs)');
       const isIndexPage = currentPath === '/' || currentPath === '' || currentPath === '/index';
       const isForgotPasswordPage = currentPath.startsWith('/forgot-password') || currentPath === 'forgot-password' || currentPath.includes('/forgot-password');
@@ -164,7 +180,7 @@ function AppContent() {
           isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage || isHelpPage;
       
       // Check if current path is a public route (accessible without authentication)
-      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage;
+      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage || isChangelogPage;
       
       console.log('Layout: Current path:', currentPath);
       console.log('Layout: Is payment page:', isPaymentPage);
@@ -193,9 +209,9 @@ function AppContent() {
         }
       }
     } else {
-      console.log('Layout: Still loading auth, not navigating yet');
+      console.log('Layout: Still loading auth or session restoration not complete, not navigating yet');
     }
-  }, [isAuthenticated, isLoading, authTimeout, navigateToTabs, navigateToLogin]);
+  }, [isAuthenticated, isLoading, authTimeout, sessionRestorationComplete, navigateToTabs, navigateToLogin]);
 
   // Show loading screen while auth is being determined or fonts are loading
   if (!loaded) {
@@ -211,87 +227,113 @@ function AppContent() {
     console.log('Layout: Auth loading, showing loading screen - isLoading:', isLoading, 'authTimeout:', authTimeout);
     return (
       <CustomThemeProvider initialTheme={userTheme}>
-        <AuthLoadingScreen message="Initializing..." />
+        <AuthLoadingScreen message="Restoring your session..." />
       </CustomThemeProvider>
     );
   }
 
-  console.log('Layout: Rendering main app content - isLoading:', isLoading, 'authTimeout:', authTimeout, 'isAuthenticated:', isAuthenticated);
+  if (!sessionRestorationComplete) {
+    console.log('Layout: Session restoration not complete, showing loading screen');
+    return (
+      <CustomThemeProvider initialTheme={userTheme}>
+        <AuthLoadingScreen message="Restoring your session..." />
+      </CustomThemeProvider>
+    );
+  }
+
+  console.log('Layout: Rendering main app content - isLoading:', isLoading, 'authTimeout:', authTimeout, 'sessionRestorationComplete:', sessionRestorationComplete, 'isAuthenticated:', isAuthenticated);
 
   return (
-    <CustomThemeProvider initialTheme={userTheme}>
-      <SnackbarProvider>
-        <PDFUploadProvider>
-          <AudioUploadProvider>
-            <ThemeContext.Consumer>
-          {theme => {
-            const isDark = theme === 'dark' || (theme === 'auto' && colorScheme === 'dark');
-            return (
-              <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
-                <ThemedView style={{ 
-                  flex: 1, 
-                  minHeight: '100%',
-                  width: '100%',
-                  margin: 0,
-                  padding: 0
-                }}>
-                  <Stack>
-                    <Stack.Screen name="index" options={{ headerShown: false }} />
-                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                    <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                    <Stack.Screen name="auth/callback" options={{ headerShown: false, title: 'Verifying...' }} />
-                    <Stack.Screen name="note" options={{ headerShown: false }} />
-                    <Stack.Screen name="payment" options={{ headerShown: false }} />
-                    <Stack.Screen name="create" options={{ headerShown: false }} />
-                    <Stack.Screen name="create-audio" options={{ headerShown: false }} />
-                    <Stack.Screen name="ai-transcriptions" options={{ headerShown: false }} />
-                    <Stack.Screen name="flashcards" options={{ 
-                      headerShown: false,
-                      header: () => null,
-                      headerTitle: '',
-                      headerBackTitle: '',
-                      headerBackVisible: false
-                    }} />
-                    <Stack.Screen name="usage" options={{ headerShown: false }} />
-                    <Stack.Screen name="admin-dashboard" options={{ headerShown: false }} />
-                    <Stack.Screen name="user-management" options={{ headerShown: false }} />
-                    <Stack.Screen name="archived" options={{ headerShown: false }} />
-                    <Stack.Screen name="join-premium" options={{ headerShown: false }} />
-                    <Stack.Screen name="subscription-management" options={{ headerShown: false }} />
-                    <Stack.Screen name="privacy" options={{ headerShown: false }} />
-                    <Stack.Screen name="terms" options={{ headerShown: false }} />
-                    <Stack.Screen name="delete-account-request" options={{ headerShown: false }} />
-                    <Stack.Screen name="admin" options={{ headerShown: false }} />
-                    <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
-                    <Stack.Screen name="reset-password" options={{ headerShown: false }} />
-                    <Stack.Screen name="help" options={{ 
-                      headerShown: false,
-                      presentation: 'card',
-                      header: () => null,
-                      headerTitle: '',
-                      headerBackTitle: '',
-                      headerBackVisible: false,
-                      headerLeft: () => null,
-                      headerRight: () => null,
-                    }} />
+    <ErrorBoundary
+      onError={(error, errorInfo) => {
+        console.error('App crashed during render:', error, errorInfo);
+        // In production, you might want to send this to a crash reporting service
+      }}
+    >
+      <CustomThemeProvider initialTheme={userTheme}>
+        <SnackbarProvider>
+          <PDFUploadProvider>
+            <AudioUploadProvider>
+              <ThemeContext.Consumer>
+            {theme => {
+              const isDark = theme === 'dark' || (theme === 'auto' && colorScheme === 'dark');
+              return (
+                <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+                  <ThemedView style={{ 
+                    flex: 1, 
+                    minHeight: '100%',
+                    width: '100%',
+                    margin: 0,
+                    padding: 0
+                  }}>
+                    <Stack>
+                      <Stack.Screen name="index" options={{ headerShown: false }} />
+                      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                      <Stack.Screen name="auth/callback" options={{ headerShown: false, title: 'Verifying...' }} />
+                      <Stack.Screen name="note" options={{ headerShown: false }} />
+                      <Stack.Screen name="payment" options={{ headerShown: false }} />
+                      <Stack.Screen name="create" options={{ headerShown: false }} />
+                      <Stack.Screen name="create-audio" options={{ headerShown: false }} />
+                      <Stack.Screen name="ai-transcriptions" options={{ headerShown: false }} />
+                      <Stack.Screen name="flashcards" options={{ 
+                        headerShown: false,
+                        header: () => null,
+                        headerTitle: '',
+                        headerBackTitle: '',
+                        headerBackVisible: false
+                      }} />
+                      <Stack.Screen name="usage" options={{ headerShown: false }} />
+                      <Stack.Screen name="admin-dashboard" options={{ headerShown: false }} />
+                      <Stack.Screen name="user-management" options={{ headerShown: false }} />
+                      <Stack.Screen name="archived" options={{ headerShown: false }} />
+                      <Stack.Screen name="join-premium" options={{ headerShown: false }} />
+                      <Stack.Screen name="subscription-management" options={{ headerShown: false }} />
+                      <Stack.Screen name="privacy" options={{ headerShown: false }} />
+                      <Stack.Screen name="terms" options={{ headerShown: false }} />
+                      <Stack.Screen name="changelog" options={{ 
+                        headerShown: false,
+                        presentation: 'card',
+                        header: () => null,
+                        headerTitle: '',
+                        headerBackTitle: '',
+                        headerBackVisible: false,
+                        headerLeft: () => null,
+                        headerRight: () => null,
+                      }} />
+                      <Stack.Screen name="delete-account-request" options={{ headerShown: false }} />
+                      <Stack.Screen name="admin" options={{ headerShown: false }} />
+                      <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+                      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
+                      <Stack.Screen name="help" options={{ 
+                        headerShown: false,
+                        presentation: 'card',
+                        header: () => null,
+                        headerTitle: '',
+                        headerBackTitle: '',
+                        headerBackVisible: false,
+                        headerLeft: () => null,
+                        headerRight: () => null,
+                      }} />
 
-                    <Stack.Screen name="+not-found" />
-                  </Stack>
-                  <StatusBar style={isDark ? 'light' : 'dark'} />
-                                      <OfflineIndicator 
-                      isVisible={!safeIsOnline} 
-                      message="You are offline. Some features may be limited."
-                    />
-                  <SnackbarWrapper />
-                </ThemedView>
-              </ThemeProvider>
-            );
-          }}
-        </ThemeContext.Consumer>
-          </AudioUploadProvider>
-        </PDFUploadProvider>
-      </SnackbarProvider>
-    </CustomThemeProvider>
+                      <Stack.Screen name="+not-found" />
+                    </Stack>
+                    <StatusBar style={isDark ? 'light' : 'dark'} />
+                                        <OfflineIndicator 
+                        isVisible={!safeIsOnline} 
+                        message="You are offline. Some features may be limited."
+                      />
+                    <SnackbarWrapper />
+                  </ThemedView>
+                </ThemeProvider>
+              );
+            }}
+          </ThemeContext.Consumer>
+            </AudioUploadProvider>
+          </PDFUploadProvider>
+        </SnackbarProvider>
+      </CustomThemeProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -91,6 +91,7 @@ function AppContent() {
         const isSubscriptionManagementPage = currentPath.startsWith('/subscription-management');
         const isPrivacyPage = currentPath.startsWith('/privacy');
         const isTermsPage = currentPath.startsWith('/terms');
+        const isChangelogPage = currentPath.startsWith('/changelog');
         const isSharedPage = currentPath.startsWith('/shared/');
         const isDeleteAccountRequestPage = currentPath.startsWith('/delete-account-request');
         const isForgotPasswordPage = currentPath.startsWith('/forgot-password') || currentPath === 'forgot-password' || currentPath.includes('/forgot-password');
@@ -104,7 +105,7 @@ function AppContent() {
           isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage;
         
         // Check if current path is a public route (accessible without authentication)
-        const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage;
+        const isPublicRoute = isPrivacyPage || isTermsPage || isChangelogPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage;
         
         console.log('Layout: Current path:', currentPath);
         console.log('Layout: Is payment page:', isPaymentPage);
@@ -216,6 +217,16 @@ function AppContent() {
                     <Stack.Screen name="subscription-management" options={{ headerShown: false }} />
                     <Stack.Screen name="privacy" options={{ headerShown: false }} />
                     <Stack.Screen name="terms" options={{ headerShown: false }} />
+                    <Stack.Screen name="changelog" options={{ 
+                      headerShown: false,
+                      presentation: 'card',
+                      header: () => null,
+                      headerTitle: '',
+                      headerBackTitle: '',
+                      headerBackVisible: false,
+                      headerLeft: () => null,
+                      headerRight: () => null,
+                    }} />
                     <Stack.Screen name="delete-account-request" options={{ headerShown: false }} />
                     <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
                     <Stack.Screen name="reset-password" options={{ headerShown: false }} />

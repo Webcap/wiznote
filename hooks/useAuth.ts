@@ -130,6 +130,59 @@ export const useAuth = () => {
     }
   }, []);
 
+  // Add crash recovery mechanism
+  useEffect(() => {
+    const handleCrashRecovery = async () => {
+      try {
+        // If we're in a loading state for too long, try to recover
+        if (authState.isLoading) {
+          const recoveryTimer = setTimeout(async () => {
+            console.log('useAuth: Auth loading timeout, attempting crash recovery...');
+            
+            try {
+              // Try to get current user with timeout
+              const userPromise = betterAuthService?.getCurrentUser();
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('User loading timeout')), 10000)
+              );
+              
+              const user = await Promise.race([userPromise, timeoutPromise]);
+              
+              if (user) {
+                console.log('useAuth: Crash recovery successful, user found');
+                setAuthState({
+                  user,
+                  isLoading: false,
+                  error: null,
+                });
+              } else {
+                console.log('useAuth: Crash recovery found no user');
+                setAuthState({
+                  user: null,
+                  isLoading: false,
+                  error: null,
+                });
+              }
+            } catch (error) {
+              console.error('useAuth: Crash recovery failed:', error);
+              setAuthState({
+                user: null,
+                isLoading: false,
+                error: 'Failed to restore session. Please sign in again.',
+              });
+            }
+          }, 18000); // Increased to 18 seconds to allow more time for session restoration
+          
+          return () => clearTimeout(recoveryTimer);
+        }
+      } catch (error) {
+        console.error('useAuth: Error in crash recovery setup:', error);
+      }
+    };
+
+    handleCrashRecovery();
+  }, [authState.isLoading]);
+
   // Refresh user data from Supabase
   const refreshUser = useCallback(async () => {
     try {
