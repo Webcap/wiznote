@@ -163,14 +163,42 @@ class SecurityLoggingService {
     if (Platform.OS !== 'web') return undefined;
 
     try {
-      // In production, this would come from request headers
-      // For now, we'll try to get it from a public API
-      const response = await fetch('https://api.ipify.org?format=json', {
-        method: 'GET',
-        signal: AbortSignal.timeout(2000), // 2 second timeout
-      });
-      const data = await response.json();
-      return data.ip;
+      // Try multiple IP detection services with timeout
+      const ipServices = [
+        'https://api.ipify.org?format=json',
+        'https://api64.ipify.org?format=json',
+        'https://ipapi.co/json/',
+      ];
+
+      for (const service of ipServices) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+
+          const response = await fetch(service, {
+            method: 'GET',
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (response.ok) {
+            const data = await response.json();
+            // Different services use different field names
+            const ip = data.ip || data.ipAddress || data.query;
+            if (ip) {
+              console.log(`[SecurityLoggingService] IP address detected: ${ip}`);
+              return ip;
+            }
+          }
+        } catch (serviceError) {
+          // Try next service
+          continue;
+        }
+      }
+
+      console.warn('[SecurityLoggingService] All IP detection services failed');
+      return undefined;
     } catch (error) {
       console.warn('[SecurityLoggingService] Failed to get IP address:', error);
       return undefined;
@@ -233,6 +261,16 @@ class SecurityLoggingService {
       const requestContext = this.getRequestContext();
       const userAgent = this.getUserAgent();
 
+      // Try to get IP address BEFORE building log entry (if not provided)
+      let ipAddress = context.ipAddress;
+      if (!ipAddress && Platform.OS === 'web') {
+        try {
+          ipAddress = await this.getIpAddress();
+        } catch (error) {
+          console.warn('[SecurityLoggingService] Failed to fetch IP address, continuing without it');
+        }
+      }
+
       // Build event log entry
       const logEntry: SecurityEventLog = {
         event_type: eventType,
@@ -243,7 +281,7 @@ class SecurityLoggingService {
         user_role: context.userRole,
         target_user_id: context.targetUserId,
         target_user_email: context.targetUserEmail,
-        ip_address: context.ipAddress,
+        ip_address: ipAddress,
         user_agent: context.userAgent || userAgent,
         request_path: context.requestPath || requestContext.path,
         request_method: context.requestMethod || requestContext.method,
@@ -258,18 +296,6 @@ class SecurityLoggingService {
           timestamp: new Date().toISOString(),
         },
       };
-
-      // Try to get IP address asynchronously (don't block)
-      if (!logEntry.ip_address && Platform.OS === 'web') {
-        this.getIpAddress().then(ip => {
-          if (ip) {
-            // Update with IP if we get it later (best effort)
-            logEntry.ip_address = ip;
-          }
-        }).catch(() => {
-          // Ignore IP fetch errors
-        });
-      }
 
       // Log using database function
       const { data, error } = await supabase.rpc('log_security_event', {

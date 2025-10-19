@@ -5,10 +5,12 @@
  * The actual authentication is handled by BetterAuthService using Supabase directly.
  */
 
+import { Platform } from 'react-native';
 import { systemSettingsService } from '../services/SystemSettingsService';
 import { rateLimitService, type RateLimitCheck } from '../services/RateLimitService';
 import { csrfService } from '../services/CSRFService';
 import { securityLoggingService, type SecurityEventType } from '../services/SecurityLoggingService';
+import { mobileAuthLogger } from '../services/MobileAuthLogger';
 
 // Helper function to get email verification requirement from system settings
 // Use this in signup flows to check if verification is required
@@ -131,6 +133,8 @@ async function clearUserCsrfTokens(userId: string): Promise<void> {
 
 /**
  * Log authentication event
+ * Routes through mobile logger (server-side IP capture) for mobile platforms
+ * Uses direct logging (client-side IP capture) for web
  */
 async function logAuthEvent(
   eventType: Extract<SecurityEventType, `auth.${string}`>,
@@ -141,14 +145,26 @@ async function logAuthEvent(
   additionalData?: Record<string, any>
 ): Promise<void> {
   try {
-    await securityLoggingService.logAuthEvent(
-      eventType,
-      userId,
-      userEmail,
-      success,
-      errorMessage,
-      additionalData
-    );
+    // Use mobile logger for iOS/Android to get server-side IP capture
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      await mobileAuthLogger.logAuthEvent(eventType, {
+        userId,
+        userEmail,
+        success,
+        errorMessage,
+        eventData: additionalData,
+      });
+    } else {
+      // Use standard logging for web (client-side IP capture)
+      await securityLoggingService.logAuthEvent(
+        eventType,
+        userId,
+        userEmail,
+        success,
+        errorMessage,
+        additionalData
+      );
+    }
   } catch (error) {
     console.error('Error logging auth event:', error);
   }
