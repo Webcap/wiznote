@@ -20,8 +20,8 @@ export interface FeatureConfig {
 // Category mapping for feature flags
 const getCategoryForFlag = (flagId: string): 'core' | 'premium' | 'ai' | 'collaboration' | 'analytics' => {
   const aiFeatures = ['ai_transcription', 'ai_name_generating', 'ai_summaries', 'ai_key_details'];
-  const premiumFeatures = ['advanced_search', 'note_sharing', 'team_management', 'analytics_dashboard', 'custom_integrations', 'api_access'];
-  const collaborationFeatures = ['note_sharing', 'team_management'];
+  const premiumFeatures = ['advanced_search', 'team_management', 'analytics_dashboard', 'custom_integrations', 'api_access'];
+  const collaborationFeatures = ['team_management'];
   const analyticsFeatures = ['analytics_dashboard'];
   
   if (aiFeatures.includes(flagId)) return 'ai';
@@ -34,7 +34,7 @@ const getCategoryForFlag = (flagId: string): 'core' | 'premium' | 'ai' | 'collab
 // Default plans for different feature types
 const getDefaultPlans = (flagId: string): string[] => {
   const enterpriseOnly = ['custom_integrations', 'api_access'];
-  const proAndEnterprise = ['note_sharing', 'team_management', 'analytics_dashboard'];
+  const proAndEnterprise = ['team_management', 'analytics_dashboard'];
   
   if (enterpriseOnly.includes(flagId)) return ['enterprise'];
   if (proAndEnterprise.includes(flagId)) return ['pro', 'enterprise'];

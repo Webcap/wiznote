@@ -58,15 +58,7 @@ const UNIFIED_FEATURE_LIMITS = {
     priority: 6,
     limitType: 'storage'
   },
-  'note_sharing': {
-    name: 'Note Sharing',
-    description: 'Share notes with other users',
-    freeLimit: 5,
-    premiumLimit: 'unlimited',
-    category: 'collaboration',
-    priority: 7,
-    limitType: 'count'
-  },
+  // note_sharing removed - it's a free core feature with no limits
   'advanced_search': {
     name: 'Advanced Search',
     description: 'Advanced search and filtering capabilities',

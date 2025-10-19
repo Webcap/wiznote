@@ -126,7 +126,7 @@ async function importStripePlans() {
               ai_summaries: true,
               note_export: true,
               ai_transcription: true,
-              note_sharing: true,
+              // note_sharing removed - it's a free core feature, not a flag
               ai_name_generating: true,
               ai_quiz: true,
               ai_flashcards: true,

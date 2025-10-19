@@ -63,11 +63,7 @@ const FEATURE_LIMITS = {
     freeLimit: 100 * 1024 * 1024, // 100MB
     limitType: 'storage' 
   },
-  'note_sharing': { 
-    name: 'Note Sharing', 
-    freeLimit: 5, 
-    limitType: 'count' 
-  },
+  // 'note_sharing' removed - it's a free core feature with no limits
   'real_time_sync': { 
     name: 'Real-time Sync', 
     freeLimit: 100, 

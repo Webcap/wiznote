@@ -195,23 +195,7 @@ export const UNIFIED_FEATURE_LIMITS: Record<string, UnifiedFeatureLimit> = {
     updatedAt: new Date(),
   },
   
-  // Collaboration Features
-  note_sharing: {
-    featureId: 'note_sharing',
-    featureName: 'Note Sharing',
-    description: 'Share notes with other users',
-    freeUserLimit: 5,
-    premiumUserLimit: 'unlimited',
-    limitType: 'count',
-    period: 'monthly',
-    isActive: true,
-    requiresFeatureFlag: true,
-    featureFlagKey: 'note_sharing',
-    category: 'collaboration',
-    priority: 9,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
+  // Collaboration Features - note_sharing removed as it's a free core feature with no limits
   
   real_time_sync: {
     featureId: 'real_time_sync',

@@ -102,7 +102,6 @@ export default function NoteDetailScreen() {
   const isAIFlashcardsEnabled = isFeatureEnabled('ai_flashcards');
   const isAIChatEnabled = isFeatureEnabled('ai_chat');
   const isAIWriteEssayEnabled = isFeatureEnabled('ai_write_essay');
-  const isNoteSharingEnabled = isFeatureEnabled('note_sharing');
   
   // Debug logging for feature flags
   console.log('🔍 NoteDetailScreen: Feature flag status:', {
@@ -111,8 +110,7 @@ export default function NoteDetailScreen() {
     ai_quiz: isAIQuizEnabled,
     ai_flashcards: isAIFlashcardsEnabled,
     ai_chat: isAIChatEnabled,
-    ai_write_essay: isAIWriteEssayEnabled,
-    note_sharing: isNoteSharingEnabled
+    ai_write_essay: isAIWriteEssayEnabled
   });
   
   // Debug UI indicator (only in development)
@@ -831,7 +829,7 @@ export default function NoteDetailScreen() {
       case 'writeEssay':
         return !isFeatureEnabled('ai_write_essay');
       case 'share':
-        return !isFeatureEnabled('note_sharing');
+        return false; // Note sharing is always enabled
       case 'transcription':
         // Only show transcription button for audio notes
         return !note || !isAudioNote(note);

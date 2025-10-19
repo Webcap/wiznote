@@ -204,7 +204,7 @@ export default function UsageStatsScreen() {
     }
     
     // For count-based features, treat value as count
-    const isCountBasedFeature = ['ai_name_generating', 'ai_summaries', 'ai_key_details', 'ai_transcription', 'ai_flashcards', 'note_sharing', 'advanced_search', 'note_export', 'custom_themes', 'priority_support', 'real_time_sync'].includes(selectedFeature);
+    const isCountBasedFeature = ['ai_name_generating', 'ai_summaries', 'ai_key_details', 'ai_transcription', 'ai_flashcards', 'advanced_search', 'note_export', 'custom_themes', 'priority_support', 'real_time_sync'].includes(selectedFeature);
     if (isCountBasedFeature) {
       return `${Math.round(value)} uses`;
     }
