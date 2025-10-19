@@ -1,5 +1,66 @@
 # WizNote - Release Notes
 
+## Version 1.3.4 - Mobile UX & Sharing Improvements
+**Release Date:** October 18, 2025
+
+### 📱 Google Play Store Release Notes (500 char limit)
+
+```
+Mobile UX & Sharing Improvements 🎉
+
+✨ Better share menu - smoother gestures & keyboard handling
+📤 Fixed shared notes loading issues
+🎯 Improved quiz screen layouts
+🔒 Fair AI usage - viewing shared notes doesn't use your quota
+🐛 Bug fixes for keyboard, headers, and TypeScript errors
+⚡ Faster loading & smoother animations
+
+Thank you for using WizNote! 📝
+```
+
+---
+
+### 📱 Full Release Notes
+
+**What's New:**
+
+**✨ Improved Bottom Sheets**
+- Smoother, more responsive share menu with native gestures
+- Better keyboard handling - no more blocked inputs!
+- Swipe-down to close for intuitive interaction
+- Professional animations and transitions
+
+**📤 Better Note Sharing**
+- Fixed shared notes not loading properly
+- Share modal now works perfectly with keyboard
+- Faster loading for shared content
+- Clearer prompts when sign-in is needed
+
+**🎯 Quiz Screen Improvements**
+- Fixed header spacing on all quiz screens
+- Better layout on devices with notches
+- Improved visibility of close/back buttons
+
+**🔒 Fair AI Usage**
+- Viewing shared notes no longer counts toward your AI quota
+- Only note owners use quota when generating AI features
+- More transparent usage tracking
+
+**🐛 Bug Fixes**
+- Fixed "Loading note..." freeze when accessing shared notes
+- Fixed keyboard blocking share sheet inputs
+- Fixed quiz header padding on mobile
+- Resolved TypeScript compatibility issues
+- Fixed crash when viewing shared notes while signed out
+
+**⚡ Performance**
+- Faster shared note loading
+- Improved gesture handling
+- Better memory management
+- Smoother animations throughout the app
+
+---
+
 ## Version 1.3.2 - Security Enhancement Update
 **Release Date:** October 15, 2025
 

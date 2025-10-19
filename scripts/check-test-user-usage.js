@@ -35,7 +35,7 @@ const FEATURE_LIMITS = {
   'ai_flashcards': { name: 'AI Flashcard Generation', freeLimit: 5, limitType: 'count' },
   'voice_recording': { name: 'Voice Recording', freeLimit: 60, limitType: 'duration' },
   'note_storage': { name: 'Note Storage', freeLimit: 100 * 1024 * 1024, limitType: 'storage' },
-  'note_sharing': { name: 'Note Sharing', freeLimit: 5, limitType: 'count' },
+  // 'note_sharing' removed - it's a free core feature with no limits
   'real_time_sync': { name: 'Real-time Sync', freeLimit: 100, limitType: 'count' },
   'advanced_search': { name: 'Advanced Search', freeLimit: 15, limitType: 'count' },
   'note_export': { name: 'Note Export', freeLimit: 5, limitType: 'count' },

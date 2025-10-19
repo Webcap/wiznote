@@ -27,11 +27,7 @@ export class NoteSharingService {
     options: ShareOptions
   ): Promise<NoteShare> {
     try {
-      // Check if user can share (feature limits)
-      const canShare = await this.checkSharePermission(ownerId);
-      if (!canShare.canUse) {
-        throw new Error(canShare.reason || 'Sharing limit reached');
-      }
+      // Note sharing is a free core feature - no limits applied
 
       // Validate the note exists and belongs to the owner
       console.log('NoteSharingService: Validating note ownership:', { noteId, ownerId });
@@ -495,67 +491,11 @@ export class NoteSharingService {
   }
 
   /**
-   * Check if user can share notes (feature limits)
-   */
-  private async checkSharePermission(userId: string): Promise<{ canUse: boolean; reason?: string }> {
-    try {
-      // Get user's current sharing usage
-      const currentUsage = await this.getCurrentShareUsage(userId);
-      
-      // Check if user is premium
-      const { data: userProfile } = await supabase
-        .from('user_profiles')
-        .select('premium')
-        .eq('id', userId)
-        .single();
-
-      const isPremium = userProfile?.premium?.isActive || false;
-
-      // Check feature limits
-      const canUse = featureLimitManager.canUseFeature(
-        'note_sharing',
-        currentUsage,
-        isPremium
-      );
-
-      return canUse;
-    } catch (error) {
-      console.error('NoteSharingService: Error checking share permission:', error);
-      return { canUse: false, reason: 'Unable to verify sharing permissions' };
-    }
-  }
-
-  /**
-   * Get current sharing usage for user
-   */
-  private async getCurrentShareUsage(userId: string): Promise<number> {
-    try {
-      const { data: shares, error } = await supabase
-        .from('note_shares')
-        .select('id')
-        .eq('owner_id', userId)
-        .eq('is_active', true)
-        .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()); // Last 30 days
-
-      if (error) {
-        console.error('NoteSharingService: Error getting share usage:', error);
-        return 0;
-      }
-
-      return shares?.length || 0;
-    } catch (error) {
-      console.error('NoteSharingService: Error getting share usage:', error);
-      return 0;
-    }
-  }
-
-  /**
-   * Track sharing usage for feature limits
+   * Track sharing usage for analytics (no limits enforced - core feature)
    */
   private async trackShareUsage(userId: string): Promise<void> {
     try {
-      // This would integrate with the existing feature usage tracking system
-      // For now, we'll just log it
+      // Log sharing activity for analytics purposes
       console.log(`NoteSharingService: Tracked share usage for user ${userId}`);
     } catch (error) {
       console.error('NoteSharingService: Error tracking share usage:', error);
