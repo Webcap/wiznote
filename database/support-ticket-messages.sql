@@ -216,7 +216,7 @@ BEGIN
         'message', NEW.message,
         'sender_name', NEW.sender_email,
         'is_first_response', is_first_response,
-        'ticket_url', 'https://your-app-url.com/help'
+        'ticket_url', 'https://wiznote.app/help'
       ),
       NOW()
     );

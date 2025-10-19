@@ -42,8 +42,12 @@ export class BetterAuthService {
   constructor() {
     this.initializeAuthStateListener();
     
-    // Start session restoration immediately
-    this.sessionRestorationPromise = this.restoreSession();
+    // Start session restoration immediately - but don't await it to prevent blocking
+    this.sessionRestorationPromise = this.restoreSession().catch(error => {
+      // Silently handle session restoration errors
+      console.warn('BetterAuthService: Session restoration failed silently:', error.message);
+      this.sessionRestorationPromise = null;
+    });
   }
 
   private initializeAuthStateListener() {
@@ -1473,6 +1477,7 @@ export class BetterAuthService {
       
       let appState = AppState.currentState;
       let lastActiveTime = Date.now();
+      let isRestoring = false; // Prevent multiple simultaneous restorations
       
       AppState.addEventListener('change', async (nextAppState: string) => {
         console.log('BetterAuthService: App state changed from', appState, 'to', nextAppState);
@@ -1481,20 +1486,34 @@ export class BetterAuthService {
           // App came to foreground, check and restore session if needed
           console.log('BetterAuthService: App became active, checking session...');
           
-          // Add a longer delay for mobile to ensure the app is fully active
-          const delay = Math.min(1000, Math.max(500, Date.now() - lastActiveTime));
-          await new Promise(resolve => setTimeout(resolve, delay));
+          // Prevent multiple simultaneous restoration attempts
+          if (isRestoring) {
+            console.log('BetterAuthService: Session restoration already in progress, skipping...');
+            return;
+          }
+          
+          isRestoring = true;
           
           try {
+            // Add a longer delay for mobile to ensure the app is fully active
+            const delay = Math.min(2000, Math.max(1000, Date.now() - lastActiveTime));
+            await new Promise(resolve => setTimeout(resolve, delay));
+            
             // Check if we have a current user first
             if (!this.currentUser) {
               console.log('BetterAuthService: No current user, attempting session restoration...');
-              const { data: { session } } = await supabase.auth.getSession();
-              if (session?.user) {
-                console.log('BetterAuthService: Found session on app activation, restoring...');
-                await this.handleSignIn(session.user);
-              } else {
-                console.log('BetterAuthService: No session found on app activation');
+              
+              // Use a timeout for session restoration to prevent hanging
+              const sessionPromise = this.performSafeSessionRestoration();
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Session restoration timeout')), 10000)
+              );
+              
+              try {
+                await Promise.race([sessionPromise, timeoutPromise]);
+              } catch (error) {
+                console.warn('BetterAuthService: Session restoration failed:', error.message);
+                // Don't throw error, just log it
               }
             } else {
               console.log('BetterAuthService: Current user exists, validating session...');
@@ -1502,14 +1521,17 @@ export class BetterAuthService {
               const isValid = await this.validateCurrentUser();
               if (!isValid) {
                 console.log('BetterAuthService: Current user invalid, attempting to restore...');
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session?.user) {
-                  await this.handleSignIn(session.user);
+                try {
+                  await this.performSafeSessionRestoration();
+                } catch (error) {
+                  console.warn('BetterAuthService: Session restoration failed:', error.message);
                 }
               }
             }
           } catch (error) {
             console.error('Error restoring session on app activation:', error);
+          } finally {
+            isRestoring = false;
           }
         }
         
@@ -1522,6 +1544,64 @@ export class BetterAuthService {
       console.log('BetterAuthService: Mobile app state handling set up successfully');
     } catch (error) {
       console.error('Error setting up mobile app state handling:', error);
+    }
+  }
+
+  // Safe session restoration that won't crash the app
+  private async performSafeSessionRestoration(): Promise<void> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        console.log('BetterAuthService: Found session on app activation, restoring...');
+        
+        // Try to restore user without profile verification first (faster)
+        try {
+          await this.handleSignIn(session.user);
+        } catch (profileError) {
+          console.warn('BetterAuthService: Profile verification failed, creating minimal profile:', profileError.message);
+          
+          // If profile verification fails, create a minimal profile
+          try {
+            const minimalProfile = await this.createMinimalUserProfile(session.user);
+            const user = {
+              id: session.user.id,
+              email: session.user.email || '',
+              displayName: minimalProfile.displayName || session.user.email?.split('@')[0],
+              photoURL: session.user.user_metadata?.avatar_url,
+              role: minimalProfile.role,
+              createdAt: minimalProfile.createdAt,
+              lastLoginAt: minimalProfile.lastLoginAt,
+              preferences: minimalProfile.preferences,
+              premium: minimalProfile.premium,
+              permissions: minimalProfile.permissions,
+              supportInfo: minimalProfile.supportInfo,
+            };
+            
+            this.currentUser = user;
+            if (this.onAuthStateChange) {
+              this.onAuthStateChange(user);
+            }
+            
+            console.log('BetterAuthService: Minimal profile restoration successful');
+          } catch (minimalError) {
+            console.error('BetterAuthService: Even minimal profile creation failed:', minimalError);
+            // Clear user and let them sign in again
+            this.currentUser = null;
+            if (this.onAuthStateChange) {
+              this.onAuthStateChange(null);
+            }
+          }
+        }
+      } else {
+        console.log('BetterAuthService: No session found on app activation');
+      }
+    } catch (error) {
+      console.error('BetterAuthService: Error during safe session restoration:', error);
+      // Clear any stale user data
+      this.currentUser = null;
+      if (this.onAuthStateChange) {
+        this.onAuthStateChange(null);
+      }
     }
   }
 
@@ -1659,7 +1739,7 @@ export class BetterAuthService {
       
       // Add timeout for session restoration to prevent hanging
       // Mobile needs more time due to slower network and app state changes
-      const timeoutMs = Platform.OS === 'web' ? 8000 : 15000;
+      const timeoutMs = Platform.OS === 'web' ? 8000 : 20000; // Increased mobile timeout to 20s
       const sessionPromise = this.performSessionRestoration();
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error(`Session restoration timeout (${timeoutMs}ms)`)), timeoutMs)
@@ -1668,6 +1748,13 @@ export class BetterAuthService {
       await Promise.race([sessionPromise, timeoutPromise]);
       console.log('BetterAuthService: Session restoration completed');
     } catch (error) {
+      // Handle timeout gracefully without showing error to user
+      if (error instanceof Error && error.message.includes('timeout')) {
+        console.warn('BetterAuthService: Session restoration timed out - this is normal on slow networks');
+        // Don't show this error to the user, just log it
+        return;
+      }
+      
       console.error('Error restoring session:', error);
       // Don't throw error to prevent app from crashing
       // On mobile, try to recover gracefully
@@ -1683,10 +1770,17 @@ export class BetterAuthService {
       let session = null;
       let error = null;
       
-      for (let attempt = 1; attempt <= 3; attempt++) {
+      for (let attempt = 1; attempt <= 2; attempt++) { // Reduced attempts to 2 for faster timeout
         try {
-          console.log(`BetterAuthService: Session restoration attempt ${attempt}/3...`);
-          const result = await supabase.auth.getSession();
+          console.log(`BetterAuthService: Session restoration attempt ${attempt}/2...`);
+          
+          // Add individual timeout for each attempt
+          const attemptPromise = supabase.auth.getSession();
+          const attemptTimeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Session attempt timeout')), 5000) // 5s per attempt
+          );
+          
+          const result = await Promise.race([attemptPromise, attemptTimeout]);
           session = result.data.session;
           error = result.error;
           
@@ -1694,13 +1788,13 @@ export class BetterAuthService {
             break; // Success or no error, exit retry loop
           }
           
-          if (attempt < 3) {
+          if (attempt < 2) {
             console.log(`BetterAuthService: Session restoration attempt ${attempt} failed, retrying in 1s...`);
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         } catch (sessionError) {
           error = sessionError;
-          if (attempt < 3) {
+          if (attempt < 2) {
             console.log(`BetterAuthService: Session restoration attempt ${attempt} threw error, retrying in 1s...`);
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
@@ -1721,32 +1815,94 @@ export class BetterAuthService {
         console.log('BetterAuthService: Found stored session, restoring user...');
         // Verify the user still exists in the database before restoring
         try {
-          const { data: userProfile, error: profileError } = await supabase
+          // Add timeout for profile verification
+          const profilePromise = supabase
             .from('user_profiles')
             .select('id, role, preferences, premium')
             .eq('id', session.user.id)
             .single();
           
+          const profileTimeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Profile verification timeout')), 2000) // Reduced to 2s
+          );
+          
+          const { data: userProfile, error: profileError } = await Promise.race([profilePromise, profileTimeout]);
+          
           if (profileError || !userProfile) {
-            console.error('User profile not found during session restoration:', profileError);
+            console.warn('User profile not found during session restoration, creating minimal profile:', profileError?.message);
+            
+            // Instead of clearing session, create a minimal profile
+            try {
+              const minimalProfile = await this.createMinimalUserProfile(session.user);
+              const user = {
+                id: session.user.id,
+                email: session.user.email || '',
+                displayName: minimalProfile.displayName || session.user.email?.split('@')[0],
+                photoURL: session.user.user_metadata?.avatar_url,
+                role: minimalProfile.role,
+                createdAt: minimalProfile.createdAt,
+                lastLoginAt: minimalProfile.lastLoginAt,
+                preferences: minimalProfile.preferences,
+                premium: minimalProfile.premium,
+                permissions: minimalProfile.permissions,
+                supportInfo: minimalProfile.supportInfo,
+              };
+              
+              this.currentUser = user;
+              if (this.onAuthStateChange) {
+                this.onAuthStateChange(user);
+              }
+              
+              console.log('BetterAuthService: Minimal profile restoration successful');
+              return;
+            } catch (minimalError) {
+              console.error('BetterAuthService: Minimal profile creation failed:', minimalError);
+              // Only clear session if minimal profile creation also fails
+              await supabase.auth.signOut();
+              this.currentUser = null;
+              if (this.onAuthStateChange) {
+                this.onAuthStateChange(null);
+              }
+              return;
+            }
+          }
+          
+          // User exists, proceed with restoration
+          await this.handleSignIn(session.user);
+        } catch (profileError) {
+          console.warn('Error verifying user profile during session restoration, creating minimal profile:', profileError.message);
+          
+          // Create minimal profile as fallback
+          try {
+            const minimalProfile = await this.createMinimalUserProfile(session.user);
+            const user = {
+              id: session.user.id,
+              email: session.user.email || '',
+              displayName: minimalProfile.displayName || session.user.email?.split('@')[0],
+              photoURL: session.user.user_metadata?.avatar_url,
+              role: minimalProfile.role,
+              createdAt: minimalProfile.createdAt,
+              lastLoginAt: minimalProfile.lastLoginAt,
+              preferences: minimalProfile.preferences,
+              premium: minimalProfile.premium,
+              permissions: minimalProfile.permissions,
+              supportInfo: minimalProfile.supportInfo,
+            };
+            
+            this.currentUser = user;
+            if (this.onAuthStateChange) {
+              this.onAuthStateChange(user);
+            }
+            
+            console.log('BetterAuthService: Minimal profile restoration successful after timeout');
+          } catch (minimalError) {
+            console.error('BetterAuthService: Minimal profile creation failed after timeout:', minimalError);
             // Clear the invalid session
             await supabase.auth.signOut();
             this.currentUser = null;
             if (this.onAuthStateChange) {
               this.onAuthStateChange(null);
             }
-            return;
-          }
-          
-          // User exists, proceed with restoration
-          await this.handleSignIn(session.user);
-        } catch (profileError) {
-          console.error('Error verifying user profile during session restoration:', profileError);
-          // Clear the invalid session
-          await supabase.auth.signOut();
-          this.currentUser = null;
-          if (this.onAuthStateChange) {
-            this.onAuthStateChange(null);
           }
         }
       } else {
