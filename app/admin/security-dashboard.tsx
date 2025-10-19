@@ -324,14 +324,19 @@ export default function SecurityDashboardScreen() {
                     {formatTimeAgo(event.created_at)}
                   </ThemedText>
                 </View>
-                {event.error_message && (
-                  <ThemedText style={[styles.eventDetail, { color: textSecondaryColor }]}>
-                    Error: {event.error_message}
-                  </ThemedText>
-                )}
                 {event.ip_address && (
                   <ThemedText style={[styles.eventDetail, { color: textSecondaryColor }]}>
                     IP: {event.ip_address}
+                  </ThemedText>
+                )}
+                {event.user_agent && (
+                  <ThemedText style={[styles.eventDetail, { color: textSecondaryColor }]} numberOfLines={1}>
+                    Device: {event.user_agent}
+                  </ThemedText>
+                )}
+                {event.error_message && (
+                  <ThemedText style={[styles.eventDetail, { color: textSecondaryColor }]}>
+                    Error: {event.error_message}
                   </ThemedText>
                 )}
               </View>
@@ -371,9 +376,21 @@ export default function SecurityDashboardScreen() {
                 </ThemedText>
               )}
 
+              {event.ip_address && (
+                <ThemedText style={[styles.eventDetail, { color: textSecondaryColor }]}>
+                  IP: {event.ip_address}
+                </ThemedText>
+              )}
+
+              {event.user_agent && (
+                <ThemedText style={[styles.eventDetail, { color: textSecondaryColor }]} numberOfLines={1}>
+                  Device: {event.user_agent}
+                </ThemedText>
+              )}
+
               {event.error_message && (
                 <ThemedText style={[styles.eventDetail, { color: textSecondaryColor }]}>
-                  {event.error_message}
+                  Error: {event.error_message}
                 </ThemedText>
               )}
 
