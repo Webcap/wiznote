@@ -329,6 +329,15 @@ export default function JoinPremiumScreen() {
             </ThemedView>
           )}
           
+          {/* Debug: Check promotion state */}
+          {console.log('DEBUG: appliedPromotion =', appliedPromotion)}
+          {console.log('DEBUG: hidePlanSummary =', !!appliedPromotion)}
+          
+          {/* Visible debug indicator */}
+          <ThemedText style={{ color: 'red', fontSize: 12, marginBottom: 10 }}>
+            DEBUG: Promotion = {appliedPromotion ? 'ACTIVE' : 'NONE'} | HidePlanSummary = {!!appliedPromotion ? 'TRUE' : 'FALSE'}
+          </ThemedText>
+          
           <UnifiedPaymentForm
             planId={selectedPlan.id}
             planName={selectedPlan.name}
@@ -338,6 +347,7 @@ export default function JoinPremiumScreen() {
             planInterval={selectedPlan.interval}
             stripePriceId={selectedPlan.stripePriceId}
             productId={Platform.OS === 'ios' || Platform.OS === 'android' ? getProductId(selectedPlan.id, Platform.OS as 'ios' | 'android') : undefined}
+            hidePlanSummary={!!appliedPromotion}
             onSuccess={handleSuccess}
             onError={handleError}
           />

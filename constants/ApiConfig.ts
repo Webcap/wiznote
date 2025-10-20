@@ -98,6 +98,7 @@ export const ApiConfig = {
     REACTIVATE_SUBSCRIPTION: getApiPath('/api/stripe/reactivate-subscription'),
     GET_BILLING_HISTORY: getApiPath('/api/stripe/get-billing-history'),
     SYNC_PLAN: getApiPath('/api/stripe/sync-plan'),
+    CREATE_COUPON: getApiPath('/api/stripe/create-coupon'),
   },
   
   /**

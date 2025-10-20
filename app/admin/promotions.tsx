@@ -8,7 +8,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Switch, Platform } from 'react-native';
 import { Stack, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
+import { ApiConfig } from '../../constants/ApiConfig';
 import type { Promotion, CreatePromotionRequest, PromotionAnalytics } from '../../types/Promotion';
 import { PromotionService } from '../../services/PromotionService';
 import { useAuth } from '../../hooks/useAuth';
@@ -19,6 +21,32 @@ import { ThemedText } from '../../components/ThemedText';
 // Import web components
 import { AdminSidebar } from '../../components/web/AdminSidebar';
 import { WebLayout } from '../../components/web/WebLayout';
+
+// Cross-platform alert helper
+const showAlert = (title: string, message?: string) => {
+  if (Platform.OS === 'web') {
+    if (message) {
+      alert(`${title}\n\n${message}`);
+    } else {
+      alert(title);
+    }
+  } else {
+    Alert.alert(title, message);
+  }
+};
+
+const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+  if (Platform.OS === 'web') {
+    if (confirm(`${title}\n\n${message}`)) {
+      onConfirm();
+    }
+  } else {
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: onConfirm }
+    ]);
+  }
+};
 
 // Simple date display/input for web (admin is web-only)
 const DateInput = ({ value, onChange, label }: { value: string; onChange: (date: string) => void; label: string }) => {
@@ -96,6 +124,7 @@ export default function AdminPromotionsScreen() {
     inlineConfig: {},
     targetConditions: {}
   });
+  const [creatingCoupon, setCreatingCoupon] = useState(false);
 
   useEffect(() => {
     loadPromotions();
@@ -117,7 +146,7 @@ export default function AdminPromotionsScreen() {
       setPromotions(allPromotions);
     } catch (error) {
       console.error('Error loading promotions:', error);
-      Alert.alert('Error', 'Failed to load promotions');
+      showAlert('Error', 'Failed to load promotions');
     } finally {
       setLoading(false);
     }
@@ -191,12 +220,12 @@ export default function AdminPromotionsScreen() {
 
       // Validation
       if (!formData.name || !formData.description || !formData.discountValue) {
-        Alert.alert('Validation Error', 'Please fill in all required fields');
+        showAlert('Validation Error', 'Please fill in all required fields');
         return;
       }
 
       if (formData.discountType === 'percentage' && (formData.discountValue < 1 || formData.discountValue > 100)) {
-        Alert.alert('Validation Error', 'Percentage must be between 1 and 100');
+        showAlert('Validation Error', 'Percentage must be between 1 and 100');
         return;
       }
 
@@ -208,11 +237,11 @@ export default function AdminPromotionsScreen() {
           ...formData,
           id: editingPromotion.id
         });
-        Alert.alert('Success', 'Promotion updated successfully');
+        showAlert('Success', 'Promotion updated successfully');
       } else {
         // Create new promotion
         await PromotionService.createPromotion(formData as CreatePromotionRequest, user.id);
-        Alert.alert('Success', 'Promotion created successfully');
+        showAlert('Success', 'Promotion created successfully');
       }
 
       // Reset form
@@ -222,32 +251,25 @@ export default function AdminPromotionsScreen() {
       loadPromotions();
     } catch (error) {
       console.error('Error saving promotion:', error);
-      Alert.alert('Error', 'Failed to save promotion');
+      showAlert('Error', 'Failed to save promotion');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (promotionId: string) => {
-    Alert.alert(
+    showConfirm(
       'Confirm Delete',
       'Are you sure you want to delete this promotion? This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await PromotionService.deletePromotion(promotionId);
-              Alert.alert('Success', 'Promotion deleted');
-              loadPromotions();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete promotion');
-            }
-          }
+      async () => {
+        try {
+          await PromotionService.deletePromotion(promotionId);
+          showAlert('Success', 'Promotion deleted');
+          loadPromotions();
+        } catch (error) {
+          showAlert('Error', 'Failed to delete promotion');
         }
-      ]
+      }
     );
   };
 
@@ -259,7 +281,7 @@ export default function AdminPromotionsScreen() {
       });
       loadPromotions();
     } catch (error) {
-      Alert.alert('Error', 'Failed to toggle promotion status');
+      showAlert('Error', 'Failed to toggle promotion status');
     }
   };
 
@@ -325,6 +347,75 @@ export default function AdminPromotionsScreen() {
       inlineConfig: {},
       targetConditions: {}
     });
+  };
+
+  const handleCreateStripeCoupon = async () => {
+    try {
+      // Validation
+      if (!formData.name || !formData.discountValue) {
+        showAlert('Validation Error', 'Please fill in the promotion name and discount value before creating a Stripe coupon');
+        return;
+      }
+
+      if (formData.discountType === 'percentage' && (formData.discountValue < 1 || formData.discountValue > 100)) {
+        showAlert('Validation Error', 'Percentage must be between 1 and 100');
+        return;
+      }
+
+      setCreatingCoupon(true);
+
+      const requestData = {
+        name: formData.name,
+        discountType: formData.discountType,
+        discountValue: formData.discountValue,
+        duration: 'once',
+        endDate: formData.endDate,
+        maxRedemptions: formData.maxRedemptions,
+        currency: 'usd'
+      };
+
+      console.log('Creating Stripe coupon with data:', requestData);
+      console.log('API endpoint:', ApiConfig.STRIPE.CREATE_COUPON);
+
+      // Call the Stripe coupon creation endpoint
+      const response = await fetch(ApiConfig.STRIPE.CREATE_COUPON, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        const errorMsg = result.details || result.error || 'Failed to create Stripe coupon';
+        const errorCode = result.code ? ` (${result.code})` : '';
+        const errorType = result.type ? ` [${result.type}]` : '';
+        throw new Error(`${errorMsg}${errorCode}${errorType}`);
+      }
+
+      console.log('Stripe coupon created successfully:', result.couponId);
+
+      // Update form with the coupon ID
+      setFormData({
+        ...formData,
+        stripeCouponId: result.couponId
+      });
+
+      showAlert(
+        'Success',
+        `Stripe coupon "${result.couponId}" created successfully!\n\n` +
+        `Discount: ${result.coupon.percentOff ? `${result.coupon.percentOff}%` : `$${result.coupon.amountOff / 100}`}\n` +
+        `Duration: ${result.coupon.duration}`
+      );
+    } catch (error) {
+      console.error('Error creating Stripe coupon:', error);
+      showAlert(
+        'Error',
+        `Failed to create Stripe coupon: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    } finally {
+      setCreatingCoupon(false);
+    }
   };
 
   const renderMetricsCards = () => (
@@ -527,6 +618,76 @@ export default function AdminPromotionsScreen() {
           placeholderTextColor={textMuted}
           keyboardType="numeric"
         />
+
+        {/* Stripe Coupon Integration */}
+        <View style={[styles.stripeCouponSection, { backgroundColor: backgroundTertiary, borderColor }]}>
+          <View style={styles.stripeCouponHeader}>
+            <Ionicons name="card-outline" size={20} color={accentPrimary} />
+            <ThemedText style={[styles.stripeCouponTitle, { color: textColor }]}>
+              Stripe Coupon
+            </ThemedText>
+          </View>
+          
+          {formData.stripeCouponId ? (
+            <View style={styles.couponIdContainer}>
+              <View style={styles.couponIdBadge}>
+                <Ionicons name="checkmark-circle" size={16} color={accentSuccess} />
+                <ThemedText style={[styles.couponIdText, { color: textColor }]}>
+                  {formData.stripeCouponId}
+                </ThemedText>
+              </View>
+              <TouchableOpacity
+                onPress={() => setFormData({ ...formData, stripeCouponId: undefined })}
+                style={styles.removeCouponButton}
+              >
+                <Ionicons name="close-circle" size={20} color={accentDanger} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <ThemedText style={[styles.stripeCouponDescription, { color: textSecondary }]}>
+                Create a Stripe coupon to apply this discount during checkout
+              </ThemedText>
+              <TouchableOpacity
+                style={[
+                  styles.createCouponButton,
+                  { backgroundColor: accentPrimary },
+                  creatingCoupon && { opacity: 0.6 }
+                ]}
+                onPress={handleCreateStripeCoupon}
+                disabled={creatingCoupon}
+              >
+                {creatingCoupon ? (
+                  <>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ThemedText style={[styles.createCouponButtonText, { color: '#FFFFFF' }]}>
+                      Creating...
+                    </ThemedText>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
+                    <ThemedText style={[styles.createCouponButtonText, { color: '#FFFFFF' }]}>
+                      Create Stripe Coupon
+                    </ThemedText>
+                  </>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+          
+          {/* Manual entry option */}
+          <View style={styles.manualEntrySection}>
+            <ThemedText style={[styles.orText, { color: textMuted }]}>Or enter manually:</ThemedText>
+            <TextInput
+              style={[styles.input, styles.couponInput, { backgroundColor: backgroundSecondary, borderColor, color: textColor }]}
+              value={formData.stripeCouponId || ''}
+              onChangeText={(text) => setFormData({ ...formData, stripeCouponId: text || undefined })}
+              placeholder="Enter Stripe Coupon ID"
+              placeholderTextColor={textMuted}
+            />
+          </View>
+        </View>
       </View>
 
       {/* Schedule */}
@@ -996,6 +1157,80 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontWeight: '600',
     fontSize: 16
+  },
+  stripeCouponSection: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1
+  },
+  stripeCouponHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12
+  },
+  stripeCouponTitle: {
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  stripeCouponDescription: {
+    fontSize: 14,
+    marginBottom: 12,
+    lineHeight: 20
+  },
+  createCouponButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 12
+  },
+  createCouponButtonText: {
+    fontSize: 15,
+    fontWeight: '600'
+  },
+  couponIdContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12
+  },
+  couponIdBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flex: 1
+  },
+  couponIdText: {
+    fontSize: 14,
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace'
+  },
+  removeCouponButton: {
+    padding: 4,
+    marginLeft: 8
+  },
+  manualEntrySection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)'
+  },
+  orText: {
+    fontSize: 12,
+    marginBottom: 8,
+    textAlign: 'center'
+  },
+  couponInput: {
+    marginBottom: 0
   }
 });
 

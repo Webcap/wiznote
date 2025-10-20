@@ -15,6 +15,9 @@ interface PaymentFormProps {
   planPrice: number;
   planInterval?: string;
   stripePriceId?: string;
+  couponId?: string;
+  promotionId?: string;
+  hidePlanSummary?: boolean;
   onSuccess: () => void;
   onError: (error: string) => void;
 }
@@ -25,6 +28,9 @@ export function PaymentForm({
   planPrice, 
   planInterval = 'month',
   stripePriceId,
+  couponId,
+  promotionId,
+  hidePlanSummary = false,
   onSuccess, 
   onError 
 }: PaymentFormProps) {
@@ -136,21 +142,25 @@ export function PaymentForm({
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: cardBackground }]}>
-      <View style={styles.header}>
-        <Ionicons name="card" size={24} color={accentColor} />
-        <ThemedText style={[styles.title, { color: textColor }]}>
-          Complete Your Subscription
-        </ThemedText>
-      </View>
-      
-      <View style={styles.planSummary}>
-        <ThemedText style={[styles.planName, { color: textColor }]}>
-          {planName}
-        </ThemedText>
-        <ThemedText style={[styles.planPrice, { color: textColor }]}>
-          ${planPrice}/{planInterval === 'monthly' ? 'month' : planInterval === 'yearly' ? 'year' : planInterval === 'weekly' ? 'week' : planInterval}
-        </ThemedText>
-      </View>
+      {!hidePlanSummary && (
+        <>
+          <View style={styles.header}>
+            <Ionicons name="card" size={24} color={accentColor} />
+            <ThemedText style={[styles.title, { color: textColor }]}>
+              Complete Your Subscription
+            </ThemedText>
+          </View>
+          
+          <View style={styles.planSummary}>
+            <ThemedText style={[styles.planName, { color: textColor }]}>
+              {planName}
+            </ThemedText>
+            <ThemedText style={[styles.planPrice, { color: textColor }]}>
+              ${planPrice}/{planInterval === 'monthly' ? 'month' : planInterval === 'yearly' ? 'year' : planInterval === 'weekly' ? 'week' : planInterval}
+            </ThemedText>
+          </View>
+        </>
+      )}
       
       <View style={styles.features}>
         <ThemedText style={[styles.featuresTitle, { color: textColor }]}>
