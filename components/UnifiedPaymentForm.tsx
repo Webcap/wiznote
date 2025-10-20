@@ -8,6 +8,8 @@ interface UnifiedPaymentFormProps {
   planInterval?: string;
   stripePriceId?: string;
   productId?: string; // iOS/Android product ID for in-app purchase
+  couponId?: string; // Stripe coupon ID for promotions
+  promotionId?: string; // Internal promotion ID for tracking
   onSuccess: () => void;
   onError: (error: string) => void;
 }
@@ -23,6 +25,8 @@ export function UnifiedPaymentForm(props: UnifiedPaymentFormProps) {
         planInterval={props.planInterval}
         stripePriceId={props.stripePriceId}
         productId={props.productId || ''}
+        couponId={props.couponId}
+        promotionId={props.promotionId}
         onSuccess={props.onSuccess}
         onError={props.onError}
       />
@@ -37,6 +41,8 @@ export function UnifiedPaymentForm(props: UnifiedPaymentFormProps) {
         planPrice={props.planPrice}
         planInterval={props.planInterval}
         stripePriceId={props.stripePriceId}
+        couponId={props.couponId}
+        promotionId={props.promotionId}
         onSuccess={props.onSuccess}
         onError={props.onError}
       />

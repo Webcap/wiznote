@@ -13,6 +13,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ProgressiveLoader, StaggeredLoader, ProgressiveCard } from '../components/ProgressiveLoader';
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
+import { PromotionManager } from '../components/PromotionManager';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { useUnifiedFeatureLimits } from '../hooks/useUnifiedFeatureLimits';
@@ -621,6 +622,11 @@ export default function UsageScreen() {
             </>
           )}
         </ScrollView>
+        <PromotionManager
+          enableModal={false}
+          enableBanner={true}
+          triggers={{ onNearLimit: true }}
+        />
       </WebLayout>
     );
   }
@@ -802,6 +808,11 @@ export default function UsageScreen() {
           </View>
         </ScrollView>
       )}
+      <PromotionManager
+        enableModal={false}
+        enableBanner={true}
+        triggers={{ onNearLimit: true }}
+      />
     </ThemedView>
   );
 }

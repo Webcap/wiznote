@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -8,15 +8,19 @@ import { ThemedView } from '../components/ThemedView';
 import { UnifiedPaymentForm } from '../components/UnifiedPaymentForm';
 import { UserSidebar } from '../components/web/UserSidebar';
 import { WebLayout } from '../components/web/WebLayout';
+import { PromotionCard } from '../components/PromotionCard';
 import { getProductId } from '../constants/InAppPurchaseConfig';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { usePromotions } from '../hooks/usePromotions';
 import { planManagementService } from '../services/PlanManagementService';
 import type { EnhancedPlan } from '../types/EnhancedPlans';
+import type { Promotion } from '../types/Promotion';
 
 export default function JoinPremiumScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const searchParams = useLocalSearchParams();
 
   // Theme colors following design.json specifications
   const backgroundColor = useThemeColor({}, 'background');
@@ -35,6 +39,21 @@ export default function JoinPremiumScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+
+  // Promotion support
+  const { eligiblePromotions } = usePromotions(user?.id);
+  const [appliedPromotion, setAppliedPromotion] = useState<Promotion | null>(null);
+  
+  // Get promo code from URL params
+  useEffect(() => {
+    const promotionId = searchParams.promotionId as string;
+    if (promotionId && eligiblePromotions.length > 0) {
+      const promo = eligiblePromotions.find(p => p.id === promotionId);
+      if (promo) {
+        setAppliedPromotion(promo);
+      }
+    }
+  }, [searchParams.promotionId, eligiblePromotions]);
 
   // Helper function to format interval display
   const formatInterval = (interval: string) => {
@@ -139,6 +158,29 @@ export default function JoinPremiumScreen() {
         </ThemedView>
       )}
 
+      {/* Promotions */}
+      {!user?.premium?.isActive && eligiblePromotions.length > 0 && (
+        <ThemedView style={styles.promotionsSection}>
+          {appliedPromotion ? (
+            <PromotionCard
+              promotion={appliedPromotion}
+              onPress={(promo) => setAppliedPromotion(promo)}
+            />
+          ) : (
+            eligiblePromotions
+              .filter(p => p.displayMethods.includes('inline'))
+              .slice(0, 1)
+              .map(promo => (
+                <PromotionCard
+                  key={promo.id}
+                  promotion={promo}
+                  onPress={(p) => setAppliedPromotion(p)}
+                />
+              ))
+          )}
+        </ThemedView>
+      )}
+
       {/* Plans Section */}
       <ThemedView style={styles.plansSection}>
         <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
@@ -197,6 +239,8 @@ export default function JoinPremiumScreen() {
             planId={selectedPlan.id}
             planName={selectedPlan.name}
             planPrice={selectedPlan.price}
+            couponId={appliedPromotion?.stripeCouponId}
+            promotionId={appliedPromotion?.id}
             planInterval={selectedPlan.interval}
             stripePriceId={selectedPlan.stripePriceId}
             productId={Platform.OS === 'ios' || Platform.OS === 'android' ? getProductId(selectedPlan.id, Platform.OS as 'ios' | 'android') : undefined}
