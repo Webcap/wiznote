@@ -107,6 +107,8 @@ export function PaymentForm({
           priceId,
           successUrl,
           cancelUrl,
+          couponId: couponId || null,
+          promotionId: promotionId || null,
         }),
       });
       

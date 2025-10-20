@@ -51,11 +51,44 @@ const showConfirm = (title: string, message: string, onConfirm: () => void) => {
 // Simple date display/input for web (admin is web-only)
 const DateInput = ({ value, onChange, label }: { value: string; onChange: (date: string) => void; label: string }) => {
   if (Platform.OS === 'web') {
+    // Convert ISO string to local datetime-local format
+    const formatDateForInput = (isoString: string) => {
+      if (!isoString) return '';
+      try {
+        const date = new Date(isoString);
+        // Format as YYYY-MM-DDTHH:mm for datetime-local input
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      } catch (e) {
+        return '';
+      }
+    };
+
+    // Convert datetime-local format to ISO string
+    const handleDateChange = (localDateString: string) => {
+      if (!localDateString) {
+        onChange('');
+        return;
+      }
+      try {
+        // datetime-local gives us "YYYY-MM-DDTHH:mm"
+        // Create a date object from it
+        const date = new Date(localDateString);
+        onChange(date.toISOString());
+      } catch (e) {
+        onChange('');
+      }
+    };
+
     return (
       <input
         type="datetime-local"
-        value={value ? new Date(value).toISOString().slice(0, 16) : ''}
-        onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : '')}
+        value={formatDateForInput(value)}
+        onChange={(e) => handleDateChange(e.target.value)}
         style={{ 
           padding: 12, 
           borderRadius: 8, 
@@ -384,7 +417,21 @@ export default function AdminPromotionsScreen() {
         body: JSON.stringify(requestData)
       });
 
-      const result = await response.json();
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      let result;
+      
+      if (contentType && contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        // Response is not JSON (probably HTML error page)
+        const text = await response.text();
+        console.error('Non-JSON response:', text.substring(0, 500));
+        throw new Error(`Server returned non-JSON response (${response.status}). Check Stripe Guardian server logs.`);
+      }
 
       if (!response.ok || !result.success) {
         const errorMsg = result.details || result.error || 'Failed to create Stripe coupon';
