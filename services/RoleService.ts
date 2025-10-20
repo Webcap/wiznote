@@ -46,30 +46,94 @@ export class RoleService {
 
   /**
    * Determine user role based on email domain
+   * Enhanced with security logging and verification requirements
    */
   determineUserRole(email: string): UserRole {
     if (!email) return 'user';
     
     const domain = email.toLowerCase().split('@')[1];
+    const normalizedEmail = email.toLowerCase();
     console.log('RoleService: Checking domain for role assignment:', domain);
     
-    // WizNote domain assignments
+    // WizNote official domain - ADMIN role
+    // Requires email verification before full admin privileges
     if (domain === 'wiznote.app') {
-      console.log('RoleService: WizNote domain detected - assigning admin role');
+      console.log('🔐 RoleService: WizNote official domain detected - assigning ADMIN role');
+      console.log('⚠️  Email verification REQUIRED for admin privileges');
+      console.log('📧 Account:', normalizedEmail);
       return 'admin';
     }
     
+    // Support domains - SUPPORT role
     if (domain === 'support.wiznote.app' || domain === 'help.wiznote.app') {
-      console.log('RoleService: Support domain detected - assigning support role');
+      console.log('🛠️  RoleService: Support domain detected - assigning SUPPORT role');
       return 'support';
     }
     
-    // You can add more domain-based role assignments here
+    // Future: Add partner/developer domains
     // if (domain === 'partner.wiznote.app') return 'support';
     // if (domain === 'dev.wiznote.app') return 'admin';
     
-    console.log('RoleService: Standard domain - assigning user role');
+    console.log('👤 RoleService: Standard domain - assigning USER role');
     return 'user';
+  }
+
+  /**
+   * Check if email domain is an official WizNote domain
+   */
+  isOfficialDomain(email: string): boolean {
+    if (!email) return false;
+    const domain = email.toLowerCase().split('@')[1];
+    return domain === 'wiznote.app' || 
+           domain === 'support.wiznote.app' || 
+           domain === 'help.wiznote.app';
+  }
+
+  /**
+   * Verify admin account eligibility
+   * Checks domain, email verification, and logs the assignment
+   */
+  async verifyAdminEligibility(userId: string, email: string, isEmailVerified: boolean): Promise<{
+    isEligible: boolean;
+    requiresVerification: boolean;
+    message: string;
+  }> {
+    try {
+      const expectedRole = this.determineUserRole(email);
+      
+      if (expectedRole !== 'admin') {
+        return {
+          isEligible: false,
+          requiresVerification: false,
+          message: 'Email domain is not authorized for admin access'
+        };
+      }
+
+      // Admin domain detected - check verification
+      if (!isEmailVerified) {
+        console.warn(`⚠️  Admin account ${email} requires email verification`);
+        return {
+          isEligible: true,
+          requiresVerification: true,
+          message: 'Please verify your @wiznote.app email to activate admin privileges'
+        };
+      }
+
+      // All checks passed
+      console.log(`✅ Admin account verified: ${email}`);
+      return {
+        isEligible: true,
+        requiresVerification: false,
+        message: 'Admin privileges granted'
+      };
+    } catch (error) {
+      console.error('Error verifying admin eligibility:', error);
+      return {
+        isEligible: false,
+        requiresVerification: false,
+        message: 'Error verifying admin eligibility'
+      };
+    }
   }
 
   /**
@@ -126,15 +190,16 @@ export class RoleService {
 
   /**
    * Assign a role to a user
+   * Enhanced with security logging for admin assignments
    */
   async assignRole(userId: string, role: UserRole, assignedBy?: string, reason?: string): Promise<void> {
     try {
       console.log(`RoleService: Assigning role '${role}' to user ${userId}`);
 
-      // Get current user profile
+      // Get current user profile and email
       const { data: currentProfile, error: fetchError } = await supabase
         .from('user_profiles')
-        .select('role')
+        .select('role, email')
         .eq('id', userId)
         .single();
 
@@ -143,6 +208,7 @@ export class RoleService {
       }
 
       const oldRole = currentProfile?.role || 'user';
+      const userEmail = currentProfile?.email;
 
       // Update user profile with new role and permissions
       const { error: updateError } = await supabase
@@ -161,9 +227,61 @@ export class RoleService {
       // Log the role change
       await this.logRoleChange(userId, oldRole, role, assignedBy || 'system', reason);
 
+      // Log admin assignments to security audit log
+      if (role === 'admin') {
+        await this.logAdminAccountCreation(userId, userEmail || 'unknown', assignedBy || 'system', reason);
+      }
+
       console.log(`RoleService: Successfully assigned role '${role}' to user ${userId}`);
     } catch (error) {
       this.handleError(error, 'Assign Role');
+    }
+  }
+
+  /**
+   * Log admin account creation to security audit log
+   */
+  private async logAdminAccountCreation(
+    userId: string,
+    userEmail: string,
+    assignedBy: string,
+    reason?: string
+  ): Promise<void> {
+    try {
+      const { error } = await supabase.rpc('log_security_event', {
+        p_event_type: 'admin.role.granted',
+        p_severity: 'warning', // Admin assignments are always logged as warning
+        p_user_id: userId,
+        p_user_email: userEmail,
+        p_user_role: 'admin',
+        p_target_user_id: userId,
+        p_target_user_email: userEmail,
+        p_ip_address: null,
+        p_user_agent: null,
+        p_request_path: null,
+        p_request_method: null,
+        p_event_data: {
+          assigned_by: assignedBy,
+          reason: reason || 'Domain-based role assignment',
+          domain: userEmail.split('@')[1],
+          is_official_domain: this.isOfficialDomain(userEmail),
+        },
+        p_error_message: null,
+        p_success: true,
+        p_metadata: {
+          timestamp: new Date().toISOString(),
+          action: 'admin_role_granted',
+        },
+      });
+
+      if (error) {
+        console.error('Failed to log admin account creation:', error);
+      } else {
+        console.log(`🔐 Security Log: Admin role granted to ${userEmail}`);
+      }
+    } catch (error) {
+      console.error('Error logging admin account creation:', error);
+      // Don't throw - logging failures shouldn't block role assignment
     }
   }
 

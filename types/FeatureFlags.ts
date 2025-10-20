@@ -36,7 +36,6 @@ export type FeatureFlagKey =
   | 'advanced_search'
   | 'note_export'
   | 'note_sharing'
-  | 'real_time_sync'
   | 'ai_quiz'
   | 'ai_flashcards'
   | 'ai_chat'

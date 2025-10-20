@@ -1069,7 +1069,14 @@ export class BetterAuthService {
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           console.log(`BetterAuthService: Attempting to get session (attempt ${attempt}/3)...`);
-          const result = await supabase.auth.getSession();
+          
+          // Add timeout to session retrieval
+          const sessionPromise = supabase.auth.getSession();
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Session retrieval timeout')), 8000) // 8 second timeout
+          );
+          
+          const result = await Promise.race([sessionPromise, timeoutPromise]) as any;
           session = result.data.session;
           error = result.error;
           
@@ -1158,11 +1165,18 @@ export class BetterAuthService {
     try {
       console.log('BetterAuthService: Loading user profile for:', userId);
       
-      const { data: profile, error } = await supabase
+      // Add timeout to prevent hanging on database queries
+      const profilePromise = supabase
         .from('user_profiles')
         .select('*')
         .eq('id', userId)
         .single();
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timeout')), 10000) // 10 second timeout
+      );
+      
+      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
       
       if (error) {
         if (error.code === 'PGRST116') {

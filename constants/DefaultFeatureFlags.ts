@@ -102,19 +102,6 @@ export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlag> = {
     updatedAt: new Date(),
     createdBy: 'system',
   },
-  real_time_sync: {
-    id: 'real_time_sync',
-    name: 'Real-time Sync',
-    description: 'Enable real-time synchronization across devices',
-    enabled: true,
-    premiumOnly: false,
-    trackingEnabled: false, // Core feature - no tracking needed
-    targetEnvironments: ['development', 'staging', 'production'],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    createdBy: 'system',
-  },
-
   voice_recording: {
     id: 'voice_recording',
     name: 'Voice Recording',
