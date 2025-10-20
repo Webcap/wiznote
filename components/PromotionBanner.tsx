@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import type { Promotion } from '../types/Promotion';
 import { usePromotions } from '../hooks/usePromotions';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 const { width } = Dimensions.get('window');
 
@@ -87,14 +87,18 @@ export function PromotionBanner({
 
   const handlePress = () => {
     if (promotion) {
+      console.log('PromotionBanner: User clicked banner for:', promotion.name);
+      
       trackInteraction(promotion.id, 'clicked', {
         displayMethod: 'banner',
         timestamp: new Date().toISOString()
       });
 
       if (onPress) {
+        console.log('PromotionBanner: Using custom onPress handler');
         onPress(promotion);
       } else {
+        console.log('PromotionBanner: Using default applyPromotion');
         applyPromotion(promotion);
       }
     }

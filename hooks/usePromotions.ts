@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { router } from 'expo-router';
 import type {
   Promotion,
   PromotionInteraction,
@@ -72,6 +73,7 @@ export function usePromotions(
    */
   const fetchPromotions = useCallback(async () => {
     if (!userId) {
+      console.log('usePromotions: No user ID, skipping fetch');
       setActivePromotions([]);
       setEligiblePromotions([]);
       setLoading(false);
@@ -79,10 +81,12 @@ export function usePromotions(
     }
 
     try {
+      console.log('usePromotions: Fetching promotions for user:', userId);
       setError(null);
 
       // Fetch eligible promotions for user
       const eligible = await PromotionService.getEligiblePromotions(userId);
+      console.log('usePromotions: Found', eligible.length, 'eligible promotions');
       setEligiblePromotions(eligible);
 
       // Also get all active promotions (for admin or general display)
@@ -90,10 +94,11 @@ export function usePromotions(
         activeOnly: true,
         includeExpired: false
       });
+      console.log('usePromotions: Found', active.length, 'active promotions');
       setActivePromotions(active);
 
     } catch (err) {
-      console.error('Error fetching promotions:', err);
+      console.error('usePromotions: Error fetching promotions:', err);
       setError('Failed to load promotions');
     } finally {
       setLoading(false);
@@ -173,7 +178,12 @@ export function usePromotions(
    * Apply a promotion (navigate to join-premium)
    */
   const applyPromotion = useCallback((promotion: Promotion) => {
-    if (!userId) return;
+    if (!userId) {
+      console.warn('Cannot apply promotion: user not logged in');
+      return;
+    }
+
+    console.log('Applying promotion:', promotion.name, promotion.id);
 
     // Track the click
     trackInteraction(promotion.id, 'clicked', {
@@ -181,20 +191,25 @@ export function usePromotions(
       timestamp: new Date().toISOString()
     });
 
-    // Import navigation dynamically to avoid circular dependencies
-    import('expo-router').then(({ router }) => {
+    try {
       // Navigate to join-premium with promo code
-      const params = new URLSearchParams();
+      const params: any = { promotionId: promotion.id };
+      
       if (promotion.stripeCouponId) {
-        params.set('promo', promotion.stripeCouponId);
+        params.couponId = promotion.stripeCouponId;
       }
       if (promotion.stripePriceId) {
-        params.set('priceId', promotion.stripePriceId);
+        params.priceId = promotion.stripePriceId;
       }
-      params.set('promotionId', promotion.id);
 
-      router.push(`/join-premium?${params.toString()}`);
-    });
+      console.log('Navigating to join-premium with params:', params);
+      router.push({
+        pathname: '/join-premium',
+        params
+      });
+    } catch (error) {
+      console.error('Error navigating to join-premium:', error);
+    }
   }, [userId, trackInteraction]);
 
   /**

@@ -6,27 +6,66 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Switch, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Switch, Platform } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import type { Promotion, CreatePromotionRequest, PromotionAnalytics } from '../../types/Promotion';
 import { PromotionService } from '../../services/PromotionService';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
+import { useThemeColor } from '../../hooks/useThemeColor';
+import { ThemedView } from '../../components/ThemedView';
+import { ThemedText } from '../../components/ThemedText';
 
-// Platform-specific DatePicker
-const DateTimePicker = Platform.OS === 'web' 
-  ? ({ value, onChange }: any) => (
+// Import web components
+import { AdminSidebar } from '../../components/web/AdminSidebar';
+import { WebLayout } from '../../components/web/WebLayout';
+
+// Simple date display/input for web (admin is web-only)
+const DateInput = ({ value, onChange, label }: { value: string; onChange: (date: string) => void; label: string }) => {
+  if (Platform.OS === 'web') {
+    return (
       <input
         type="datetime-local"
         value={value ? new Date(value).toISOString().slice(0, 16) : ''}
         onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : '')}
-        style={{ padding: 8, borderRadius: 4, border: '1px solid #ddd' }}
+        style={{ 
+          padding: 12, 
+          borderRadius: 8, 
+          border: '1px solid #ddd',
+          fontSize: 16,
+          width: '100%',
+          marginBottom: 16
+        }}
       />
-    )
-  : require('@react-native-community/datetimepicker').default;
+    );
+  }
+  
+  // For mobile (though admin is typically web-only)
+  return (
+    <TextInput
+      style={styles.dateText}
+      value={new Date(value || '').toLocaleString()}
+      editable={false}
+    />
+  );
+};
 
 export default function AdminPromotionsScreen() {
   const { user } = useAuth();
+  
+  // Theme colors
+  const backgroundColor = useThemeColor({}, 'background');
+  const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
+  const backgroundTertiary = useThemeColor({}, 'backgroundTertiary');
+  const textColor = useThemeColor({}, 'text');
+  const textSecondary = useThemeColor({}, 'textSecondary');
+  const textMuted = useThemeColor({}, 'textMuted');
+  const accentPrimary = useThemeColor({}, 'accentPrimary');
+  const accentSuccess = useThemeColor({}, 'accentSuccess');
+  const accentDanger = useThemeColor({}, 'accentDanger');
+  const accentWarning = useThemeColor({}, 'accentWarning');
+  const borderColor = useThemeColor({}, 'border');
+  
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -290,18 +329,18 @@ export default function AdminPromotionsScreen() {
 
   const renderMetricsCards = () => (
     <View style={styles.metricsContainer}>
-      <View style={styles.metricCard}>
-        <Text style={styles.metricValue}>{metrics.totalActive}</Text>
-        <Text style={styles.metricLabel}>Active Promotions</Text>
-      </View>
-      <View style={styles.metricCard}>
-        <Text style={styles.metricValue}>{metrics.totalRedemptions}</Text>
-        <Text style={styles.metricLabel}>Total Redemptions</Text>
-      </View>
-      <View style={styles.metricCard}>
-        <Text style={styles.metricValue}>{metrics.averageConversion.toFixed(1)}%</Text>
-        <Text style={styles.metricLabel}>Avg Conversion</Text>
-      </View>
+      <ThemedView style={styles.metricCard}>
+        <ThemedText style={[styles.metricValue, { color: accentPrimary }]}>{metrics.totalActive}</ThemedText>
+        <ThemedText style={[styles.metricLabel, { color: textMuted }]}>Active Promotions</ThemedText>
+      </ThemedView>
+      <ThemedView style={styles.metricCard}>
+        <ThemedText style={[styles.metricValue, { color: accentPrimary }]}>{metrics.totalRedemptions}</ThemedText>
+        <ThemedText style={[styles.metricLabel, { color: textMuted }]}>Total Redemptions</ThemedText>
+      </ThemedView>
+      <ThemedView style={styles.metricCard}>
+        <ThemedText style={[styles.metricValue, { color: accentPrimary }]}>{metrics.averageConversion.toFixed(1)}%</ThemedText>
+        <ThemedText style={[styles.metricLabel, { color: textMuted }]}>Avg Conversion</ThemedText>
+      </ThemedView>
     </View>
   );
 
@@ -310,12 +349,21 @@ export default function AdminPromotionsScreen() {
       {(['all', 'active', 'scheduled', 'expired'] as const).map(filter => (
         <TouchableOpacity
           key={filter}
-          style={[styles.filterButton, activeFilter === filter && styles.filterButtonActive]}
+          style={[
+            styles.filterButton,
+            { 
+              backgroundColor: activeFilter === filter ? accentPrimary : backgroundSecondary,
+              borderColor: activeFilter === filter ? accentPrimary : borderColor
+            }
+          ]}
           onPress={() => setActiveFilter(filter)}
         >
-          <Text style={[styles.filterButtonText, activeFilter === filter && styles.filterButtonTextActive]}>
+          <ThemedText style={[
+            styles.filterButtonText,
+            { color: activeFilter === filter ? '#FFFFFF' : textColor }
+          ]}>
             {filter.charAt(0).toUpperCase() + filter.slice(1)}
-          </Text>
+          </ThemedText>
         </TouchableOpacity>
       ))}
     </View>
@@ -329,106 +377,118 @@ export default function AdminPromotionsScreen() {
     const isScheduled = promotion.isActive && start > now;
     const isExpired = end < now;
 
-    let statusColor = '#666';
+    let statusColor = textMuted;
     let statusText = 'Inactive';
     if (isActive) {
-      statusColor = '#4CAF50';
+      statusColor = accentSuccess;
       statusText = 'Active';
     } else if (isScheduled) {
-      statusColor = '#FF9800';
+      statusColor = accentWarning;
       statusText = 'Scheduled';
     } else if (isExpired) {
-      statusColor = '#F44336';
+      statusColor = accentDanger;
       statusText = 'Expired';
     }
 
     return (
-      <View key={promotion.id} style={styles.promotionCard}>
+      <ThemedView key={promotion.id} style={styles.promotionCard}>
         <View style={styles.promotionHeader}>
           <View style={styles.promotionTitleContainer}>
-            <Text style={styles.promotionName}>{promotion.name}</Text>
+            <ThemedText style={[styles.promotionName, { color: textColor }]}>{promotion.name}</ThemedText>
             <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-              <Text style={styles.statusText}>{statusText}</Text>
+              <ThemedText style={[styles.statusText, { color: '#FFFFFF' }]}>{statusText}</ThemedText>
             </View>
           </View>
           <View style={styles.promotionActions}>
             <Switch
               value={promotion.isActive}
               onValueChange={() => handleToggleActive(promotion)}
+              trackColor={{ false: backgroundTertiary, true: accentPrimary }}
+              thumbColor={promotion.isActive ? '#FFFFFF' : '#f4f3f4'}
             />
           </View>
         </View>
 
-        <Text style={styles.promotionDescription}>{promotion.description}</Text>
+        <ThemedText style={[styles.promotionDescription, { color: textSecondary }]}>{promotion.description}</ThemedText>
 
         <View style={styles.promotionDetails}>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Discount:</Text>
-            <Text style={styles.detailValue}>
+            <ThemedText style={[styles.detailLabel, { color: textSecondary }]}>Discount:</ThemedText>
+            <ThemedText style={[styles.detailValue, { color: textColor }]}>
               {promotion.discountType === 'percentage' 
                 ? `${promotion.discountValue}% off`
                 : `$${promotion.discountValue} off`}
-            </Text>
+            </ThemedText>
           </View>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Redemptions:</Text>
-            <Text style={styles.detailValue}>
+            <ThemedText style={[styles.detailLabel, { color: textSecondary }]}>Redemptions:</ThemedText>
+            <ThemedText style={[styles.detailValue, { color: textColor }]}>
               {promotion.currentRedemptions}
               {promotion.maxRedemptions ? ` / ${promotion.maxRedemptions}` : ' (unlimited)'}
-            </Text>
+            </ThemedText>
           </View>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Period:</Text>
-            <Text style={styles.detailValue}>
+            <ThemedText style={[styles.detailLabel, { color: textSecondary }]}>Period:</ThemedText>
+            <ThemedText style={[styles.detailValue, { color: textColor }]}>
               {new Date(promotion.startDate).toLocaleDateString()} - {new Date(promotion.endDate).toLocaleDateString()}
-            </Text>
+            </ThemedText>
           </View>
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Segments:</Text>
-            <Text style={styles.detailValue}>{promotion.targetSegments.join(', ')}</Text>
+            <ThemedText style={[styles.detailLabel, { color: textSecondary }]}>Segments:</ThemedText>
+            <ThemedText style={[styles.detailValue, { color: textColor }]}>{promotion.targetSegments.join(', ')}</ThemedText>
           </View>
         </View>
 
-        <View style={styles.cardActions}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleEdit(promotion)}>
-            <Text style={styles.actionButtonText}>Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleDuplicate(promotion)}>
-            <Text style={styles.actionButtonText}>Duplicate</Text>
+        <View style={[styles.cardActions, { borderTopColor: borderColor }]}>
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: backgroundSecondary }]} 
+            onPress={() => handleEdit(promotion)}
+          >
+            <ThemedText style={[styles.actionButtonText, { color: accentPrimary }]}>Edit</ThemedText>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.actionButton, styles.deleteButton]} 
+            style={[styles.actionButton, { backgroundColor: backgroundSecondary }]} 
+            onPress={() => handleDuplicate(promotion)}
+          >
+            <ThemedText style={[styles.actionButtonText, { color: accentPrimary }]}>Duplicate</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: '#ffebee' }]} 
             onPress={() => handleDelete(promotion.id)}
           >
-            <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Delete</Text>
+            <ThemedText style={[styles.actionButtonText, { color: accentDanger }]}>Delete</ThemedText>
           </TouchableOpacity>
         </View>
-      </View>
+      </ThemedView>
     );
   };
 
   const renderForm = () => (
     <ScrollView style={styles.formContainer}>
-      <Text style={styles.formTitle}>{editingPromotion ? 'Edit Promotion' : 'Create New Promotion'}</Text>
+      <ThemedText style={[styles.formTitle, { color: textColor }]}>
+        {editingPromotion ? 'Edit Promotion' : 'Create New Promotion'}
+      </ThemedText>
 
       {/* Basic Info */}
       <View style={styles.formSection}>
-        <Text style={styles.sectionTitle}>Basic Information</Text>
+        <ThemedText style={[styles.sectionTitle, { color: textColor }]}>Basic Information</ThemedText>
         
-        <Text style={styles.inputLabel}>Name *</Text>
+        <ThemedText style={[styles.inputLabel, { color: textColor }]}>Name *</ThemedText>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: backgroundSecondary, borderColor, color: textColor }]}
           value={formData.name}
           onChangeText={(text) => setFormData({ ...formData, name: text })}
           placeholder="e.g., Summer Sale 2024"
+          placeholderTextColor={textMuted}
         />
 
-        <Text style={styles.inputLabel}>Description *</Text>
+        <ThemedText style={[styles.inputLabel, { color: textColor }]}>Description *</ThemedText>
         <TextInput
-          style={[styles.input, styles.textArea]}
+          style={[styles.input, styles.textArea, { backgroundColor: backgroundSecondary, borderColor, color: textColor }]}
           value={formData.description}
           onChangeText={(text) => setFormData({ ...formData, description: text })}
           placeholder="Describe the promotion..."
+          placeholderTextColor={textMuted}
           multiline
           numberOfLines={3}
         />
@@ -436,9 +496,9 @@ export default function AdminPromotionsScreen() {
 
       {/* Discount Configuration */}
       <View style={styles.formSection}>
-        <Text style={styles.sectionTitle}>Discount</Text>
+        <ThemedText style={[styles.sectionTitle, { color: textColor }]}>Discount</ThemedText>
         
-        <Text style={styles.inputLabel}>Discount Type</Text>
+        <ThemedText style={[styles.inputLabel, { color: textColor }]}>Discount Type</ThemedText>
         <View style={styles.radioGroup}>
           {(['percentage', 'fixed_amount'] as const).map(type => (
             <TouchableOpacity
@@ -446,52 +506,51 @@ export default function AdminPromotionsScreen() {
               style={styles.radioButton}
               onPress={() => setFormData({ ...formData, discountType: type })}
             >
-              <View style={[styles.radio, formData.discountType === type && styles.radioSelected]} />
-              <Text style={styles.radioLabel}>
+              <View style={[
+                styles.radio, 
+                { borderColor },
+                formData.discountType === type && { borderColor: accentPrimary, backgroundColor: accentPrimary }
+              ]} />
+              <ThemedText style={[styles.radioLabel, { color: textColor }]}>
                 {type === 'percentage' ? 'Percentage (%)' : 'Fixed Amount ($)'}
-              </Text>
+              </ThemedText>
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={styles.inputLabel}>Discount Value *</Text>
+        <ThemedText style={[styles.inputLabel, { color: textColor }]}>Discount Value *</ThemedText>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: backgroundSecondary, borderColor, color: textColor }]}
           value={formData.discountValue?.toString()}
           onChangeText={(text) => setFormData({ ...formData, discountValue: parseFloat(text) || 0 })}
           placeholder={formData.discountType === 'percentage' ? 'e.g., 30' : 'e.g., 5.99'}
+          placeholderTextColor={textMuted}
           keyboardType="numeric"
         />
       </View>
 
       {/* Schedule */}
       <View style={styles.formSection}>
-        <Text style={styles.sectionTitle}>Schedule</Text>
+        <ThemedText style={[styles.sectionTitle, { color: textColor }]}>Schedule</ThemedText>
         
-        <Text style={styles.inputLabel}>Start Date *</Text>
-        {Platform.OS === 'web' ? (
-          <DateTimePicker
-            value={formData.startDate}
-            onChange={(date: string) => setFormData({ ...formData, startDate: date })}
-          />
-        ) : (
-          <Text style={styles.dateText}>{new Date(formData.startDate || '').toLocaleString()}</Text>
-        )}
+        <ThemedText style={[styles.inputLabel, { color: textColor }]}>Start Date *</ThemedText>
+        <DateInput
+          label="Start Date"
+          value={formData.startDate || ''}
+          onChange={(date: string) => setFormData({ ...formData, startDate: date })}
+        />
 
-        <Text style={styles.inputLabel}>End Date *</Text>
-        {Platform.OS === 'web' ? (
-          <DateTimePicker
-            value={formData.endDate}
-            onChange={(date: string) => setFormData({ ...formData, endDate: date })}
-          />
-        ) : (
-          <Text style={styles.dateText}>{new Date(formData.endDate || '').toLocaleString()}</Text>
-        )}
+        <ThemedText style={[styles.inputLabel, { color: textColor }]}>End Date *</ThemedText>
+        <DateInput
+          label="End Date"
+          value={formData.endDate || ''}
+          onChange={(date: string) => setFormData({ ...formData, endDate: date })}
+        />
       </View>
 
       {/* Targeting */}
       <View style={styles.formSection}>
-        <Text style={styles.sectionTitle}>Target Segments</Text>
+        <ThemedText style={[styles.sectionTitle, { color: textColor }]}>Target Segments</ThemedText>
         {(['all', 'new_users', 'free_users', 'near_limit', 'inactive', 'churned'] as const).map(segment => (
           <TouchableOpacity
             key={segment}
@@ -505,40 +564,47 @@ export default function AdminPromotionsScreen() {
               }
             }}
           >
-            <View style={[styles.checkbox, formData.targetSegments?.includes(segment) && styles.checkboxSelected]} />
-            <Text style={styles.checkboxLabel}>{segment.replace('_', ' ')}</Text>
+            <View style={[
+              styles.checkbox,
+              { borderColor },
+              formData.targetSegments?.includes(segment) && { borderColor: accentPrimary, backgroundColor: accentPrimary }
+            ]} />
+            <ThemedText style={[styles.checkboxLabel, { color: textColor }]}>{segment.replace('_', ' ')}</ThemedText>
           </TouchableOpacity>
         ))}
       </View>
 
       {/* Limits */}
       <View style={styles.formSection}>
-        <Text style={styles.sectionTitle}>Usage Limits</Text>
+        <ThemedText style={[styles.sectionTitle, { color: textColor }]}>Usage Limits</ThemedText>
         
-        <Text style={styles.inputLabel}>Max Redemptions (leave empty for unlimited)</Text>
+        <ThemedText style={[styles.inputLabel, { color: textColor }]}>Max Redemptions (leave empty for unlimited)</ThemedText>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: backgroundSecondary, borderColor, color: textColor }]}
           value={formData.maxRedemptions?.toString()}
           onChangeText={(text) => setFormData({ ...formData, maxRedemptions: text ? parseInt(text) : undefined })}
           placeholder="e.g., 100"
+          placeholderTextColor={textMuted}
           keyboardType="numeric"
         />
 
-        <Text style={styles.inputLabel}>Max Per User</Text>
+        <ThemedText style={[styles.inputLabel, { color: textColor }]}>Max Per User</ThemedText>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: backgroundSecondary, borderColor, color: textColor }]}
           value={formData.maxPerUser?.toString()}
           onChangeText={(text) => setFormData({ ...formData, maxPerUser: parseInt(text) || 1 })}
           placeholder="e.g., 1"
+          placeholderTextColor={textMuted}
           keyboardType="numeric"
         />
 
-        <Text style={styles.inputLabel}>Priority (higher = shown first)</Text>
+        <ThemedText style={[styles.inputLabel, { color: textColor }]}>Priority (higher = shown first)</ThemedText>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: backgroundSecondary, borderColor, color: textColor }]}
           value={formData.priority?.toString()}
           onChangeText={(text) => setFormData({ ...formData, priority: parseInt(text) || 0 })}
           placeholder="e.g., 100"
+          placeholderTextColor={textMuted}
           keyboardType="numeric"
         />
       </View>
@@ -546,34 +612,83 @@ export default function AdminPromotionsScreen() {
       {/* Action Buttons */}
       <View style={styles.formActions}>
         <TouchableOpacity 
-          style={[styles.button, styles.cancelButton]} 
+          style={[styles.button, { backgroundColor: backgroundSecondary }]} 
           onPress={() => {
             setShowForm(false);
             setEditingPromotion(null);
             resetForm();
           }}
         >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
+          <ThemedText style={[styles.cancelButtonText, { color: textSecondary }]}>Cancel</ThemedText>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.button, styles.saveButton]} 
+          style={[styles.button, { backgroundColor: accentPrimary }]} 
           onPress={handleCreateOrUpdate}
           disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.saveButtonText}>
+            <ThemedText style={[styles.saveButtonText, { color: '#FFFFFF' }]}>
               {editingPromotion ? 'Update' : 'Create'} Promotion
-            </Text>
+            </ThemedText>
           )}
         </TouchableOpacity>
       </View>
     </ScrollView>
   );
 
+  // Web layout with sidebar
+  if (Platform.OS === 'web') {
+    return (
+      <WebLayout
+        title="Promotions Management"
+        subtitle="Create and manage premium promotional campaigns"
+        sidebar={
+          <AdminSidebar
+            activePage="promotions"
+          />
+        }
+      >
+        <ScrollView style={styles.scrollView}>
+          {!showForm ? (
+            <>
+              {renderMetricsCards()}
+              
+              <View style={styles.header}>
+                <ThemedText style={[styles.title, { color: textColor }]}>Promotions</ThemedText>
+                <TouchableOpacity 
+                  style={[styles.createButton, { backgroundColor: accentPrimary }]} 
+                  onPress={() => setShowForm(true)}
+                >
+                  <ThemedText style={[styles.createButtonText, { color: '#FFFFFF' }]}>+ Create Promotion</ThemedText>
+                </TouchableOpacity>
+              </View>
+
+              {renderFilters()}
+
+              {loading ? (
+                <ActivityIndicator size="large" color={accentPrimary} style={styles.loader} />
+              ) : filteredPromotions.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <ThemedText style={[styles.emptyText, { color: textSecondary }]}>No promotions found</ThemedText>
+                  <ThemedText style={[styles.emptySubtext, { color: textMuted }]}>Create your first promotion to get started</ThemedText>
+                </View>
+              ) : (
+                filteredPromotions.map(renderPromotionCard)
+              )}
+            </>
+          ) : (
+            renderForm()
+          )}
+        </ScrollView>
+      </WebLayout>
+    );
+  }
+
+  // Mobile layout (fallback)
   return (
-    <View style={styles.container}>
+    <ThemedView style={styles.container}>
       <Stack.Screen 
         options={{
           title: 'Promotions Management',
@@ -587,20 +702,23 @@ export default function AdminPromotionsScreen() {
             {renderMetricsCards()}
             
             <View style={styles.header}>
-              <Text style={styles.title}>Promotions</Text>
-              <TouchableOpacity style={styles.createButton} onPress={() => setShowForm(true)}>
-                <Text style={styles.createButtonText}>+ Create Promotion</Text>
+              <ThemedText style={[styles.title, { color: textColor }]}>Promotions</ThemedText>
+              <TouchableOpacity 
+                style={[styles.createButton, { backgroundColor: accentPrimary }]} 
+                onPress={() => setShowForm(true)}
+              >
+                <ThemedText style={[styles.createButtonText, { color: '#FFFFFF' }]}>+ Create Promotion</ThemedText>
               </TouchableOpacity>
             </View>
 
             {renderFilters()}
 
             {loading ? (
-              <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
+              <ActivityIndicator size="large" color={accentPrimary} style={styles.loader} />
             ) : filteredPromotions.length === 0 ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No promotions found</Text>
-                <Text style={styles.emptySubtext}>Create your first promotion to get started</Text>
+                <ThemedText style={[styles.emptyText, { color: textSecondary }]}>No promotions found</ThemedText>
+                <ThemedText style={[styles.emptySubtext, { color: textMuted }]}>Create your first promotion to get started</ThemedText>
               </View>
             ) : (
               filteredPromotions.map(renderPromotionCard)
@@ -610,14 +728,13 @@ export default function AdminPromotionsScreen() {
           renderForm()
         )}
       </ScrollView>
-    </View>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5'
+    flex: 1
   },
   scrollView: {
     flex: 1
@@ -632,7 +749,6 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     flex: 1,
-    backgroundColor: '#fff',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -653,12 +769,10 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: '#007AFF'
+    fontWeight: 'bold'
   },
   metricLabel: {
     fontSize: 12,
-    color: '#666',
     marginTop: 4
   },
   header: {
@@ -672,13 +786,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold'
   },
   createButton: {
-    backgroundColor: '#007AFF',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8
   },
   createButtonText: {
-    color: '#fff',
     fontWeight: '600'
   },
   filtersContainer: {
@@ -690,26 +802,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd'
-  },
-  filterButtonActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF'
+    borderWidth: 1
   },
   filterButtonText: {
-    color: '#666',
     fontWeight: '500'
-  },
-  filterButtonTextActive: {
-    color: '#fff'
   },
   promotionCard: {
     margin: 16,
     marginTop: 0,
     padding: 16,
-    backgroundColor: '#fff',
     borderRadius: 12,
     ...Platform.select({
       ios: {
@@ -748,7 +849,6 @@ const styles = StyleSheet.create({
     borderRadius: 12
   },
   statusText: {
-    color: '#fff',
     fontSize: 11,
     fontWeight: '600'
   },
@@ -758,7 +858,6 @@ const styles = StyleSheet.create({
   },
   promotionDescription: {
     fontSize: 14,
-    color: '#666',
     marginBottom: 12
   },
   promotionDetails: {
@@ -770,8 +869,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between'
   },
   detailLabel: {
-    fontSize: 14,
-    color: '#666'
+    fontSize: 14
   },
   detailValue: {
     fontSize: 14,
@@ -781,26 +879,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
     paddingTop: 12
   },
   actionButton: {
     flex: 1,
     padding: 8,
     borderRadius: 6,
-    backgroundColor: '#f0f0f0',
     alignItems: 'center'
   },
   actionButtonText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#007AFF'
-  },
-  deleteButton: {
-    backgroundColor: '#ffebee'
-  },
-  deleteButtonText: {
-    color: '#f44336'
+    fontWeight: '500'
   },
   emptyState: {
     padding: 40,
@@ -809,12 +898,10 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#666',
     marginBottom: 8
   },
   emptySubtext: {
-    fontSize: 14,
-    color: '#999'
+    fontSize: 14
   },
   formContainer: {
     flex: 1,
@@ -836,13 +923,10 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '500',
-    marginBottom: 8,
-    color: '#333'
+    marginBottom: 8
   },
   input: {
-    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
@@ -865,12 +949,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#ddd'
-  },
-  radioSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#007AFF'
+    borderWidth: 2
   },
   radioLabel: {
     fontSize: 16
@@ -885,21 +964,14 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#ddd'
-  },
-  checkboxSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#007AFF'
+    borderWidth: 2
   },
   checkboxLabel: {
     fontSize: 16,
     textTransform: 'capitalize'
   },
   dateText: {
-    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
@@ -917,19 +989,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center'
   },
-  cancelButton: {
-    backgroundColor: '#f0f0f0'
-  },
   cancelButtonText: {
-    color: '#666',
     fontWeight: '600',
     fontSize: 16
   },
-  saveButton: {
-    backgroundColor: '#007AFF'
-  },
   saveButtonText: {
-    color: '#fff',
     fontWeight: '600',
     fontSize: 16
   }

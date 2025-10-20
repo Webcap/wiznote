@@ -11,7 +11,7 @@ import { PromotionModal } from './PromotionModal';
 import { PromotionBanner } from './PromotionBanner';
 import type { Promotion, PromotionManagerOptions } from '../types/Promotion';
 import { usePromotions } from '../hooks/usePromotions';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DEFAULT_OPTIONS: PromotionManagerOptions = {

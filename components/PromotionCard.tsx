@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import type { Promotion } from '../types/Promotion';
 import { usePromotions } from '../hooks/usePromotions';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 interface PromotionCardProps {
   promotion: Promotion;
@@ -42,14 +42,18 @@ export function PromotionCard({
   }, [promotion.id, user]);
 
   const handlePress = () => {
+    console.log('PromotionCard: User clicked promotion:', promotion.name);
+    
     trackInteraction(promotion.id, 'clicked', {
       displayMethod: 'inline',
       timestamp: new Date().toISOString()
     });
 
     if (onPress) {
+      console.log('PromotionCard: Using custom onPress handler');
       onPress(promotion);
     } else {
+      console.log('PromotionCard: Using default applyPromotion');
       applyPromotion(promotion);
     }
   };

@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import type { Promotion } from '../types/Promotion';
 import { usePromotions } from '../hooks/usePromotions';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 const { width, height } = Dimensions.get('window');
 
@@ -92,14 +92,18 @@ export function PromotionModal({
 
   const handleApply = () => {
     if (promotion) {
+      console.log('PromotionModal: User clicked apply for:', promotion.name);
+      
       trackInteraction(promotion.id, 'clicked', {
         displayMethod: 'modal',
         timestamp: new Date().toISOString()
       });
 
       if (onApply) {
+        console.log('PromotionModal: Using custom onApply handler');
         onApply(promotion);
       } else {
+        console.log('PromotionModal: Using default applyPromotion');
         applyPromotion(promotion);
       }
       onClose();

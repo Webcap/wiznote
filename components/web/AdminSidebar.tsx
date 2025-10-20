@@ -141,6 +141,13 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
       onPress: () => router.push('/admin/enhanced-plans'),
       isActive: activePage === 'enhanced-plans',
     },
+    {
+      id: 'promotions',
+      label: 'Promotions',
+      icon: 'pricetag' as const,
+      onPress: () => router.push('/admin/promotions'),
+      isActive: activePage === 'promotions',
+    },
 
     {
       id: 'usage-stats',

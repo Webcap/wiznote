@@ -46,14 +46,31 @@ export default function JoinPremiumScreen() {
   
   // Get promo code from URL params
   useEffect(() => {
+    console.log('Join Premium - Search params:', searchParams);
+    console.log('Join Premium - Eligible promotions:', eligiblePromotions.length);
+    
     const promotionId = searchParams.promotionId as string;
+    const couponId = searchParams.couponId as string;
+    
     if (promotionId && eligiblePromotions.length > 0) {
+      console.log('Join Premium - Looking for promotion ID:', promotionId);
       const promo = eligiblePromotions.find(p => p.id === promotionId);
       if (promo) {
+        console.log('Join Premium - Found and applied promotion:', promo.name);
+        setAppliedPromotion(promo);
+      } else {
+        console.warn('Join Premium - Promotion not found in eligible promotions');
+      }
+    } else if (couponId) {
+      console.log('Join Premium - Coupon ID provided:', couponId);
+      // Try to find promotion by coupon ID
+      const promo = eligiblePromotions.find(p => p.stripeCouponId === couponId);
+      if (promo) {
+        console.log('Join Premium - Found promotion by coupon ID:', promo.name);
         setAppliedPromotion(promo);
       }
     }
-  }, [searchParams.promotionId, eligiblePromotions]);
+  }, [searchParams.promotionId, searchParams.couponId, eligiblePromotions]);
 
   // Helper function to format interval display
   const formatInterval = (interval: string) => {
@@ -68,6 +85,15 @@ export default function JoinPremiumScreen() {
         return 'one-time';
       default:
         return interval;
+    }
+  };
+
+  // Calculate discounted price
+  const calculateDiscountedPrice = (price: number, promotion: Promotion) => {
+    if (promotion.discountType === 'percentage') {
+      return price * (1 - promotion.discountValue / 100);
+    } else {
+      return Math.max(0, price - promotion.discountValue);
     }
   };
 
@@ -158,26 +184,44 @@ export default function JoinPremiumScreen() {
         </ThemedView>
       )}
 
+      {/* Applied Promotion Banner */}
+      {appliedPromotion && (
+        <ThemedView style={[styles.appliedPromoBanner, { backgroundColor: accentSuccess }]}>
+          <View style={styles.promoBannerContent}>
+            <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
+            <View style={styles.promoBannerText}>
+              <ThemedText style={[styles.promoBannerTitle, { color: '#FFFFFF' }]}>
+                🎉 Promotion Applied!
+              </ThemedText>
+              <ThemedText style={[styles.promoBannerSubtitle, { color: '#FFFFFF' }]}>
+                {appliedPromotion.discountType === 'percentage'
+                  ? `You're saving ${appliedPromotion.discountValue}% on your subscription`
+                  : `You're saving $${appliedPromotion.discountValue} on your subscription`}
+              </ThemedText>
+            </View>
+            <TouchableOpacity
+              style={styles.removePromoButton}
+              onPress={() => setAppliedPromotion(null)}
+            >
+              <ThemedText style={[styles.removePromoText, { color: '#FFFFFF' }]}>Remove</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </ThemedView>
+      )}
+
       {/* Promotions */}
-      {!user?.premium?.isActive && eligiblePromotions.length > 0 && (
+      {!user?.premium?.isActive && !appliedPromotion && eligiblePromotions.length > 0 && (
         <ThemedView style={styles.promotionsSection}>
-          {appliedPromotion ? (
-            <PromotionCard
-              promotion={appliedPromotion}
-              onPress={(promo) => setAppliedPromotion(promo)}
-            />
-          ) : (
-            eligiblePromotions
-              .filter(p => p.displayMethods.includes('inline'))
-              .slice(0, 1)
-              .map(promo => (
-                <PromotionCard
-                  key={promo.id}
-                  promotion={promo}
-                  onPress={(p) => setAppliedPromotion(p)}
-                />
-              ))
-          )}
+          {eligiblePromotions
+            .filter(p => p.displayMethods.includes('inline'))
+            .slice(0, 1)
+            .map(promo => (
+              <PromotionCard
+                key={promo.id}
+                promotion={promo}
+                onPress={(p) => setAppliedPromotion(p)}
+              />
+            ))}
         </ThemedView>
       )}
 
@@ -213,12 +257,29 @@ export default function JoinPremiumScreen() {
               </View>
               
               <View style={styles.priceContainer}>
-                <ThemedText style={[styles.price, { color: textColor }]}>
-                  ${plan.price}
-                </ThemedText>
-                <ThemedText style={[styles.interval, { color: textSecondaryColor }]}>
-                  /{formatInterval(plan.interval)}
-                </ThemedText>
+                {appliedPromotion && (
+                  <View style={styles.priceWithDiscount}>
+                    <ThemedText style={[styles.originalPrice, { color: textMutedColor }]}>
+                      ${plan.price}
+                    </ThemedText>
+                    <ThemedText style={[styles.price, { color: accentSuccess }]}>
+                      ${calculateDiscountedPrice(plan.price, appliedPromotion).toFixed(2)}
+                    </ThemedText>
+                    <ThemedText style={[styles.interval, { color: textSecondaryColor }]}>
+                      /{formatInterval(plan.interval)}
+                    </ThemedText>
+                  </View>
+                )}
+                {!appliedPromotion && (
+                  <>
+                    <ThemedText style={[styles.price, { color: textColor }]}>
+                      ${plan.price}
+                    </ThemedText>
+                    <ThemedText style={[styles.interval, { color: textSecondaryColor }]}>
+                      /{formatInterval(plan.interval)}
+                    </ThemedText>
+                  </>
+                )}
               </View>
               
               <ThemedText style={[styles.planDescription, { color: textSecondaryColor }]} numberOfLines={3}>
@@ -235,6 +296,39 @@ export default function JoinPremiumScreen() {
           <ThemedText style={[styles.paymentSectionTitle, { color: textColor }]}>
             Complete Your Subscription
           </ThemedText>
+          
+          {/* Discount Summary */}
+          {appliedPromotion && (
+            <ThemedView style={[styles.discountSummary, { backgroundColor: backgroundTertiary }]}>
+              <View style={styles.discountRow}>
+                <ThemedText style={[styles.discountLabel, { color: textSecondaryColor }]}>
+                  Original Price:
+                </ThemedText>
+                <ThemedText style={[styles.discountOriginal, { color: textMutedColor }]}>
+                  ${selectedPlan.price}
+                </ThemedText>
+              </View>
+              <View style={styles.discountRow}>
+                <ThemedText style={[styles.discountLabel, { color: textSecondaryColor }]}>
+                  Discount ({appliedPromotion.name}):
+                </ThemedText>
+                <ThemedText style={[styles.discountAmount, { color: accentSuccess }]}>
+                  {appliedPromotion.discountType === 'percentage'
+                    ? `-${appliedPromotion.discountValue}%`
+                    : `-$${appliedPromotion.discountValue}`}
+                </ThemedText>
+              </View>
+              <View style={[styles.discountRow, styles.discountTotal]}>
+                <ThemedText style={[styles.discountLabel, styles.totalLabel, { color: textColor }]}>
+                  Your Price:
+                </ThemedText>
+                <ThemedText style={[styles.totalPrice, { color: accentSuccess }]}>
+                  ${calculateDiscountedPrice(selectedPlan.price, appliedPromotion).toFixed(2)}/{formatInterval(selectedPlan.interval)}
+                </ThemedText>
+              </View>
+            </ThemedView>
+          )}
+          
           <UnifiedPaymentForm
             planId={selectedPlan.id}
             planName={selectedPlan.name}
@@ -500,6 +594,104 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.8,
   },
+  promotionsSection: {
+    marginBottom: 16,
+  },
+  appliedPromoBanner: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6
+      },
+      android: {
+        elevation: 4
+      },
+      web: {
+        boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+      }
+    })
+  },
+  promoBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12
+  },
+  promoBannerText: {
+    flex: 1
+  },
+  promoBannerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4
+  },
+  promoBannerSubtitle: {
+    fontSize: 14,
+    opacity: 0.95
+  },
+  removePromoButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)'
+  },
+  removePromoText: {
+    fontSize: 13,
+    fontWeight: '600'
+  },
+  priceWithDiscount: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8
+  },
+  originalPrice: {
+    fontSize: 18,
+    fontWeight: '600',
+    textDecorationLine: 'line-through',
+    textDecorationStyle: 'solid'
+  },
+  discountSummary: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 8
+  },
+  discountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4
+  },
+  discountTotal: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    paddingTop: 12,
+    marginTop: 8
+  },
+  discountLabel: {
+    fontSize: 14,
+    fontWeight: '500'
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: '700'
+  },
+  discountOriginal: {
+    fontSize: 14,
+    textDecorationLine: 'line-through'
+  },
+  discountAmount: {
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  totalPrice: {
+    fontSize: 20,
+    fontWeight: 'bold'
+  }
 });
 
 

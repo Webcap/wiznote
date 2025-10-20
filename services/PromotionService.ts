@@ -287,12 +287,17 @@ export class PromotionService {
    */
   static async getUserSegment(userId: string): Promise<UserSegment> {
     try {
-      // Get user profile
-      const { data: profile } = await supabase
+      // Get user profile - using correct columns that exist in the database
+      const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
-        .select('created_at, subscription_status, subscription_tier, last_activity_at')
+        .select('created_at, premium, updated_at')
         .eq('id', userId)
         .single();
+
+      if (profileError) {
+        console.error('Error fetching user profile for segmentation:', profileError);
+        return 'all';
+      }
 
       if (!profile) {
         return 'free_users';
@@ -307,14 +312,19 @@ export class PromotionService {
         return 'new_users';
       }
 
+      // Check premium status from the premium JSONB field
+      const premium = profile.premium as any;
+
       // Check if churned (had premium, now cancelled)
-      if (profile.subscription_status === 'cancelled' || profile.subscription_status === 'expired') {
-        return 'churned';
+      if (premium && premium.status) {
+        if (premium.status === 'cancelled' || premium.status === 'canceled' || premium.status === 'expired') {
+          return 'churned';
+        }
       }
 
-      // Check if inactive (no activity in 30 days)
-      if (profile.last_activity_at) {
-        const lastActivity = new Date(profile.last_activity_at);
+      // Check if inactive (no activity in 30 days based on updated_at)
+      if (profile.updated_at) {
+        const lastActivity = new Date(profile.updated_at);
         const daysSinceActivity = Math.floor((now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24));
         if (daysSinceActivity >= 30) {
           return 'inactive';
@@ -327,8 +337,8 @@ export class PromotionService {
         return 'near_limit';
       }
 
-      // Check if free user
-      if (!profile.subscription_tier || profile.subscription_tier === 'free') {
+      // Check if free user (no active premium)
+      if (!premium || !premium.isActive) {
         return 'free_users';
       }
 
