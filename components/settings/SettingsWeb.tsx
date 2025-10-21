@@ -195,7 +195,10 @@ export function SettingsWeb({
                 )}
               </View>
             </View>
-            <TouchableOpacity style={[styles.editProfileButton, { backgroundColor: accentColor }]}>
+            <TouchableOpacity 
+              style={[styles.editProfileButton, { backgroundColor: accentColor }]}
+              onPress={() => router.push('/edit-profile')}
+            >
               <ThemedText style={[styles.editProfileText, { color: '#FFFFFF' }]}>Edit</ThemedText>
             </TouchableOpacity>
           </View>

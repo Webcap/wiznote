@@ -638,6 +638,24 @@ export const useAuth = () => {
       return await betterAuthService.updatePreferences(preferences);
     }, []),
     
+    // User profile
+    updateProfile: useCallback(async (updates: { displayName?: string; email?: string }) => {
+      if (!betterAuthService) {
+        throw new Error('BetterAuthService not available');
+      }
+      await betterAuthService.updateProfile(updates);
+      // Refresh user data after profile update
+      await refreshUser();
+    }, [refreshUser]),
+    
+    // Password update
+    updatePassword: useCallback(async (currentPassword: string, newPassword: string) => {
+      if (!betterAuthService) {
+        throw new Error('BetterAuthService not available');
+      }
+      return await betterAuthService.updatePassword(currentPassword, newPassword);
+    }, []),
+    
     // Permission checks
     hasPermission,
     hasRole,

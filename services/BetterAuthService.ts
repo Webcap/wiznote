@@ -165,15 +165,15 @@ export class BetterAuthService {
       const user: User = {
         id: supabaseUser.id,
         email: supabaseUser.email,
-        displayName: userProfile.displayName || supabaseUser.email?.split('@')[0],
+        displayName: userProfile.display_name || supabaseUser.email?.split('@')[0],
         photoURL: supabaseUser.user_metadata?.avatar_url,
         role: userProfile.role,
-        createdAt: userProfile.createdAt,
-        lastLoginAt: userProfile.lastLoginAt,
+        createdAt: userProfile.created_at ? new Date(userProfile.created_at) : new Date(),
+        lastLoginAt: userProfile.last_login_at ? new Date(userProfile.last_login_at) : new Date(),
         preferences: userProfile.preferences,
         premium: userProfile.premium,
         permissions: userProfile.permissions,
-        supportInfo: userProfile.supportInfo,
+        supportInfo: userProfile.support_info,
       };
 
       // Update current user
@@ -234,15 +234,15 @@ export class BetterAuthService {
       const user: User = {
         id: supabaseUser.id,
         email: supabaseUser.email,
-        displayName: userProfile.displayName || supabaseUser.email?.split('@')[0],
+        displayName: userProfile.display_name || supabaseUser.email?.split('@')[0],
         photoURL: supabaseUser.user_metadata?.avatar_url,
         role: userProfile.role,
-        createdAt: userProfile.createdAt,
-        lastLoginAt: userProfile.lastLoginAt,
+        createdAt: userProfile.created_at ? new Date(userProfile.created_at) : new Date(),
+        lastLoginAt: userProfile.last_login_at ? new Date(userProfile.last_login_at) : new Date(),
         preferences: userProfile.preferences,
         premium: userProfile.premium,
         permissions: userProfile.permissions,
-        supportInfo: userProfile.supportInfo,
+        supportInfo: userProfile.support_info,
       };
 
       // Update current user
@@ -664,15 +664,15 @@ export class BetterAuthService {
       const user: User = {
         id: data.user.id,
         email: data.user.email || '',
-        displayName: userProfile.displayName || data.user.email?.split('@')[0],
+        displayName: userProfile.display_name || data.user.email?.split('@')[0],
         photoURL: data.user.user_metadata?.avatar_url,
         role: userProfile.role,
-        createdAt: userProfile.createdAt,
-        lastLoginAt: userProfile.lastLoginAt,
+        createdAt: userProfile.created_at ? new Date(userProfile.created_at) : new Date(),
+        lastLoginAt: userProfile.last_login_at ? new Date(userProfile.last_login_at) : new Date(),
         preferences: userProfile.preferences,
         premium: userProfile.premium,
         permissions: userProfile.permissions,
-        supportInfo: userProfile.supportInfo,
+        supportInfo: userProfile.support_info,
       };
 
       // Update current user
@@ -830,7 +830,7 @@ export class BetterAuthService {
     }
   }
 
-  async updatePassword(newPassword: string): Promise<void> {
+  async updatePassword(currentPassword: string, newPassword: string): Promise<void> {
     try {
       console.log('BetterAuthService: Updating password...');
       
@@ -838,15 +838,29 @@ export class BetterAuthService {
         throw new Error('User must be authenticated to update password');
       }
       
-      // ✅ STEP 1: Validate new password
+      // ✅ STEP 1: Verify current password by attempting to sign in
+      console.log('🔐 Verifying current password...');
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: this.currentUser.email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        console.error('❌ Current password verification failed:', signInError);
+        throw new Error('Current password is incorrect');
+      }
+      
+      console.log('✅ Current password verified');
+      
+      // ✅ STEP 2: Validate new password
       const validatedPassword = validateSignIn({
         email: this.currentUser.email,
         password: newPassword,
       }).password;
       
-      console.log('✅ Password validation passed');
+      console.log('✅ New password validation passed');
       
-      // ✅ STEP 2: Update password via Supabase
+      // ✅ STEP 3: Update password via Supabase
       const { error } = await supabase.auth.updateUser({
         password: validatedPassword
       });
@@ -1111,15 +1125,15 @@ export class BetterAuthService {
           const user = {
             id: session.user.id,
             email: session.user.email || '',
-            displayName: userProfile.displayName || session.user.email?.split('@')[0],
+            displayName: userProfile.display_name || session.user.email?.split('@')[0],
             photoURL: session.user.user_metadata?.avatar_url,
             role: userProfile.role,
-            createdAt: userProfile.createdAt,
-            lastLoginAt: userProfile.lastLoginAt,
+            createdAt: userProfile.created_at ? new Date(userProfile.created_at) : new Date(),
+            lastLoginAt: userProfile.last_login_at ? new Date(userProfile.last_login_at) : new Date(),
             preferences: userProfile.preferences,
             premium: userProfile.premium,
             permissions: userProfile.permissions,
-            supportInfo: userProfile.supportInfo,
+            supportInfo: userProfile.support_info,
           };
           
           // Cache the current user
@@ -1743,6 +1757,69 @@ export class BetterAuthService {
       console.log('BetterAuthService: Preferences updated successfully');
     } catch (error) {
       console.error('Error updating preferences:', error);
+      throw error;
+    }
+  }
+
+  async updateProfile(updates: { displayName?: string; email?: string }): Promise<void> {
+    try {
+      if (!this.currentUser) {
+        throw new Error('User not authenticated');
+      }
+
+      console.log('BetterAuthService: Updating profile for user:', this.currentUser.id);
+      console.log('BetterAuthService: Profile updates:', updates);
+
+      // Update auth user if email is being changed
+      if (updates.email && updates.email !== this.currentUser.email) {
+        const sanitizedEmail = sanitizeEmail(updates.email);
+        const validatedEmail = validateEmail(sanitizedEmail);
+        
+        const { error: authError } = await supabase.auth.updateUser({
+          email: validatedEmail
+        });
+
+        if (authError) {
+          console.error('Error updating auth email:', authError);
+          throw new Error('Failed to update email. Please try again.');
+        }
+      }
+
+      // Prepare profile updates
+      const profileUpdates: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (updates.displayName !== undefined) {
+        profileUpdates.display_name = updates.displayName;
+      }
+
+      // Update user profile in database
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .update(profileUpdates)
+        .eq('id', this.currentUser.id);
+
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        throw new Error('Failed to update profile. Please try again.');
+      }
+
+      // Update local user state
+      this.currentUser = {
+        ...this.currentUser,
+        ...(updates.displayName !== undefined && { displayName: updates.displayName }),
+        ...(updates.email !== undefined && { email: updates.email })
+      };
+
+      // Notify auth state change
+      if (this.onAuthStateChange) {
+        this.onAuthStateChange(this.currentUser);
+      }
+
+      console.log('BetterAuthService: Profile updated successfully');
+    } catch (error) {
+      console.error('Error updating profile:', error);
       throw error;
     }
   }
