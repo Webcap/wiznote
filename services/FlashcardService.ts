@@ -33,6 +33,8 @@ export class FlashcardService {
     canUse: boolean;
     reason?: string;
     usageLeft?: number;
+    limit?: number;
+    isPremium?: boolean;
   }> {
     try {
       // Check if feature is enabled
@@ -44,29 +46,77 @@ export class FlashcardService {
         };
       }
 
-      // Check usage limits
+      // Get user's premium status and limit
+      const { isPremium, limit } = await this.getUserFlashcardLimit(userId);
+      
+      // Premium users have unlimited access
+      if (isPremium) {
+        return {
+          canUse: true,
+          usageLeft: -1, // -1 indicates unlimited
+          limit: -1,
+          isPremium: true,
+        };
+      }
+
+      // Check usage limits for free users
       const usage = await featureLimitService.getUserFeatureUsage(userId, 'ai_flashcards', false);
       const currentUsage = usage?.currentPeriod.usage || 0;
-      const limit = 999999; // Premium users have high limits, will be refined later
+      
+      console.log(`[FlashcardService] User ${userId} flashcard usage: ${currentUsage}/${limit}`);
       
       if (currentUsage >= limit) {
         return {
           canUse: false,
-          reason: 'Usage limit reached',
+          reason: `Flashcard generation limit reached (${currentUsage}/${limit}). Upgrade to Premium for unlimited flashcards!`,
           usageLeft: 0,
+          limit,
+          isPremium: false,
         };
       }
 
       return {
         canUse: true,
         usageLeft: limit - currentUsage,
+        limit,
+        isPremium: false,
       };
     } catch (error) {
-      console.error('Error checking AI flashcards capability:', error);
+      console.error('[FlashcardService] Error checking AI flashcards capability:', error);
       return {
         canUse: false,
         reason: 'Unable to check feature availability',
       };
+    }
+  }
+
+  // Get user's flashcard generation limit based on their plan
+  private async getUserFlashcardLimit(userId: string): Promise<{ isPremium: boolean; limit: number }> {
+    try {
+      // Check if user has premium
+      const { data: profile, error } = await supabase
+        .from('user_profiles')
+        .select('premium')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('[FlashcardService] Error fetching user profile:', error);
+        return { isPremium: false, limit: 8 }; // Default free limit
+      }
+
+      const premium = profile?.premium as any;
+      const isPremium = premium?.isActive === true;
+
+      // Get limit from unified feature limits
+      const limit = isPremium ? -1 : 8; // Premium = unlimited, Free = 8/month
+
+      console.log(`[FlashcardService] User ${userId} - Premium: ${isPremium}, Limit: ${limit}`);
+
+      return { isPremium, limit };
+    } catch (error) {
+      console.error('[FlashcardService] Error getting user flashcard limit:', error);
+      return { isPremium: false, limit: 8 }; // Fallback to free limit
     }
   }
 

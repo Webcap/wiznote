@@ -116,23 +116,47 @@ function PaymentSheetFormContent({
 
       console.log('Creating PaymentSheet for user:', user.id, 'plan:', planId, 'stripePriceId:', stripePriceId);
       console.log('Using webhook base URL:', ApiConfig.WEBHOOK_BASE_URL, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');
+      console.log('Full endpoint URL:', ApiConfig.STRIPE.CREATE_PAYMENTSHEET);
       
       // Create PaymentSheet configuration
+      const requestBody = {
+        userId: user.id,
+        email: user.email || '',
+        planId,
+        stripePriceId, // Add this to match web version
+        platform: Platform.OS,
+      };
+      
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
+      
       const response = await fetch(ApiConfig.STRIPE.CREATE_PAYMENTSHEET, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          email: user.email || '',
-          planId,
-          stripePriceId, // Add this to match web version
-          platform: Platform.OS,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      console.log('Response status:', response.status, response.statusText);
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to create PaymentSheet');
+        const contentType = response.headers.get('content-type');
+        let errorData;
+        
+        if (contentType?.includes('application/json')) {
+          errorData = await response.json().catch(() => ({}));
+        } else {
+          const errorText = await response.text();
+          console.error('Non-JSON error response:', errorText.substring(0, 500));
+          errorData = { error: 'Server returned non-JSON response', details: errorText.substring(0, 200) };
+        }
+        
+        console.error('PaymentSheet creation failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+          endpoint: ApiConfig.STRIPE.CREATE_PAYMENTSHEET
+        });
+        
+        throw new Error(errorData.error || errorData.details || 'Failed to create PaymentSheet');
       }
 
       const responseData = await response.json();

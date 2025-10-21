@@ -1,6 +1,116 @@
 {
   "versions": [
     {
+      "version": "1.3.6",
+      "date": "October 21, 2025",
+      "sections": [
+        {
+          "title": "Mobile Payment System Fixes",
+          "emoji": "💳",
+          "items": [
+            {
+              "title": "Fixed mobile subscription payment failures",
+              "description": "Mobile payments now work reliably across all environments",
+              "details": [
+                "Fixed TEST vs LIVE Stripe mode configuration mismatch",
+                "Mobile app now correctly uses environment-specific Stripe backend",
+                "Eliminated \"No such setupintent\" errors during payment flow",
+                "Added proper Stripe price ID synchronization between mobile and backend",
+                "Environment-aware configuration for development and production"
+              ]
+            },
+            {
+              "title": "Fixed Stripe price ID mismatches",
+              "description": "Subscription creation now works without price lookup errors",
+              "details": [
+                "Resolved \"No such price\" errors when subscribing to premium plans",
+                "Added proper handling of TEST and LIVE mode price IDs",
+                "Database plans now correctly reference environment-specific Stripe prices",
+                "Updated plan sync system to validate price IDs against correct Stripe mode",
+                "Added debugging tools for Stripe configuration verification"
+              ]
+            },
+            {
+              "title": "Enhanced native payment form",
+              "description": "Better reliability and error handling",
+              "details": [
+                "Added stripePriceId parameter support to PaymentSheetForm",
+                "Improved payment confirmation flow with better error messages",
+                "Enhanced debug logging for payment troubleshooting",
+                "Better environment configuration visibility (DEV/PROD mode logging)",
+                "Fixed payment intent handling to support both SetupIntent and PaymentIntent"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Configuration Management",
+          "emoji": "🔧",
+          "items": [
+            {
+              "title": "Improved API configuration system",
+              "description": "Better environment handling",
+              "details": [
+                "Enhanced ApiConfig to support multiple deployment environments",
+                "Added environment-specific webhook URL configuration",
+                "Better separation between TEST and LIVE mode settings",
+                "Improved configuration debugging and validation tools"
+              ]
+            },
+            {
+              "title": "Enhanced Stripe mode detection",
+              "description": "Automatic environment detection",
+              "details": [
+                "Better handling of TEST vs LIVE Stripe keys",
+                "Improved price ID validation across different modes",
+                "Added configuration checks for mobile payment setup",
+                "Enhanced error messages for configuration issues",
+                "Better logging of Stripe environment state"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Developer Tools",
+          "emoji": "🛠️",
+          "items": [
+            {
+              "title": "Added comprehensive debugging scripts",
+              "description": "9 new tools for easier troubleshooting",
+              "details": [
+                "check-api-config.js - Verify API endpoint configuration",
+                "check-live-prices.js - Check LIVE mode Stripe prices",
+                "check-stripe-prices.js - Validate Stripe price IDs",
+                "debug-mobile-config.js - Debug mobile app configuration",
+                "debug-stripe-keys.js - Verify Stripe key setup",
+                "test-payment-endpoint.js - Test payment endpoint connectivity",
+                "test-payment-flow.js - End-to-end payment flow testing",
+                "test-sync-endpoint.js - Validate subscription sync",
+                "verify-stripe-price.js - Verify price ID exists in Stripe"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Documentation",
+          "emoji": "📝",
+          "items": [
+            {
+              "title": "Created detailed troubleshooting guides",
+              "description": "Easy reference for common issues",
+              "details": [
+                "MOBILE_APP_CONFIG_FIX.md - Guide for mobile app configuration issues",
+                "STRIPE_PRICE_MISMATCH_FIX.md - Step-by-step guide for price ID issues",
+                "Comprehensive explanation of TEST vs LIVE mode differences",
+                "Quick fix commands for common configuration problems",
+                "Environment setup best practices"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "1.3.5",
       "date": "October 19, 2025",
       "sections": [
