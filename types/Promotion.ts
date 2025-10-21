@@ -15,6 +15,7 @@ export type UserSegment =
   | 'all' 
   | 'new_users' 
   | 'free_users' 
+  | 'premium_users'
   | 'near_limit' 
   | 'inactive' 
   | 'churned';

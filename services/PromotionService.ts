@@ -337,12 +337,13 @@ export class PromotionService {
         return 'near_limit';
       }
 
-      // Check if free user (no active premium)
-      if (!premium || !premium.isActive) {
-        return 'free_users';
+      // Check if user has active premium
+      if (premium && premium.isActive) {
+        return 'premium_users';
       }
 
-      return 'all';
+      // Default to free users
+      return 'free_users';
     } catch (error) {
       console.error('Exception determining user segment:', error);
       return 'all';
@@ -395,6 +396,13 @@ export class PromotionService {
     try {
       // Get user's segment
       const userSegment = await this.getUserSegment(userId);
+
+      // ⚠️ IMPORTANT: Don't show promotions to active premium users
+      // They already have premium, no need to see upgrade offers
+      if (userSegment === 'premium_users') {
+        console.log('User is premium, skipping promotions');
+        return [];
+      }
 
       // Get active promotions
       const now = new Date().toISOString();
