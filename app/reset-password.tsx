@@ -3,6 +3,7 @@ import { router, Stack } from 'expo-router';
 import { useState, useEffect } from 'react';
 import {
     Alert,
+    Dimensions,
     KeyboardAvoidingView,
     Linking,
     Platform,
@@ -30,11 +31,25 @@ export default function ResetPasswordScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isValidSession, setIsValidSession] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [dimensions, setDimensions] = useState(Dimensions.get('window'));
 
   const { showSnackbar } = useSnackbar();
 
   // Set page title for web
   usePageTitle('Reset Password - WizNote');
+
+  // Track window dimensions for responsive layout
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const subscription = Dimensions.addEventListener('change', ({ window }) => {
+        setDimensions(window);
+      });
+      return () => subscription?.remove();
+    }
+  }, []);
+
+  // Determine if we should use mobile layout on web
+  const isMobileWeb = Platform.OS === 'web' && dimensions.width < 768;
 
   useEffect(() => {
     checkSession();
@@ -335,6 +350,140 @@ export default function ResetPasswordScreen() {
 
   // Web layout
   if (Platform.OS === 'web') {
+    // Mobile web layout
+    if (isMobileWeb) {
+      return (
+        <>
+          <Stack.Screen options={{ headerShown: false }} />
+          <ThemedView style={[styles.webContainer, { backgroundColor }]}>
+            <ScrollView 
+              contentContainerStyle={styles.webMobileScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Mobile Header */}
+              <View style={styles.webMobileHeader}>
+                <View style={[styles.webMobileLogoContainer, { backgroundColor: cardBg }]}>
+                  <Logo size={60} />
+                </View>
+                <ThemedText style={[styles.webMobileTitle, { color: textColor }]}>
+                  Reset Password
+                </ThemedText>
+                <ThemedText style={[styles.webMobileSubtitle, { color: textSecondaryColor }]}>
+                  Enter your new password below
+                </ThemedText>
+              </View>
+
+              {/* Mobile Form Card */}
+              <View style={[styles.webMobileFormCard, { backgroundColor: cardBg }]}>
+                {/* New Password Input */}
+                <View style={styles.webMobileInputContainer}>
+                  <ThemedText style={[styles.webMobileLabel, { color: textColor }]}>
+                    New Password
+                  </ThemedText>
+                  <View style={[styles.webPasswordContainer, { backgroundColor: inputBg, borderColor }]}>
+                    <TextInput
+                      style={[styles.webPasswordInput, { color: inputText }]}
+                      placeholder="Enter new password"
+                      placeholderTextColor={textSecondaryColor}
+                      value={newPassword}
+                      onChangeText={setNewPassword}
+                      secureTextEntry={!showNewPassword}
+                      autoCapitalize="none"
+                      autoFocus
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowNewPassword(!showNewPassword)}
+                      style={styles.webEyeButton}
+                    >
+                      <Ionicons
+                        name={showNewPassword ? 'eye-off' : 'eye'}
+                        size={20}
+                        color={textSecondaryColor}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Confirm Password Input */}
+                <View style={styles.webMobileInputContainer}>
+                  <ThemedText style={[styles.webMobileLabel, { color: textColor }]}>
+                    Confirm Password
+                  </ThemedText>
+                  <View style={[styles.webPasswordContainer, { backgroundColor: inputBg, borderColor }]}>
+                    <TextInput
+                      style={[styles.webPasswordInput, { color: inputText }]}
+                      placeholder="Confirm new password"
+                      placeholderTextColor={textSecondaryColor}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry={!showConfirmPassword}
+                      autoCapitalize="none"
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                      style={styles.webEyeButton}
+                    >
+                      <Ionicons
+                        name={showConfirmPassword ? 'eye-off' : 'eye'}
+                        size={20}
+                        color={textSecondaryColor}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Update Password Button */}
+                <TouchableOpacity
+                  style={[styles.webMobileUpdateButton, { backgroundColor: accentColor }, isLoading && styles.webUpdateButtonDisabled]}
+                  onPress={handleResetPassword}
+                  disabled={isLoading}
+                >
+                  <ThemedText style={styles.webUpdateButtonText}>
+                    {isLoading ? 'Updating...' : 'Update Password'}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+
+              {/* Back to Login Link */}
+              <View style={styles.webMobileBackContainer}>
+                <ThemedText style={[styles.webBackText, { color: textSecondaryColor }]}>
+                  Remember your password?{' '}
+                </ThemedText>
+                <TouchableOpacity onPress={handleBackToLogin}>
+                  <ThemedText style={[styles.webBackLink, { color: accentColor }]}>
+                    Back to Login
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+
+              {/* Security Features */}
+              <View style={[styles.webMobileFeaturesCard, { backgroundColor: cardBg }]}>
+                <View style={styles.webFeatureItem}>
+                  <Ionicons name="shield-checkmark" size={16} color="#3CB371" />
+                  <ThemedText style={[styles.webMobileFeatureText, { color: textSecondaryColor }]}>
+                    Secure password update
+                  </ThemedText>
+                </View>
+                <View style={styles.webFeatureItem}>
+                  <Ionicons name="key" size={16} color="#3CB371" />
+                  <ThemedText style={[styles.webMobileFeatureText, { color: textSecondaryColor }]}>
+                    Minimum 6 characters
+                  </ThemedText>
+                </View>
+                <View style={styles.webFeatureItem}>
+                  <Ionicons name="checkmark-circle" size={16} color="#3CB371" />
+                  <ThemedText style={[styles.webMobileFeatureText, { color: textSecondaryColor }]}>
+                    Instant access after reset
+                  </ThemedText>
+                </View>
+              </View>
+            </ScrollView>
+          </ThemedView>
+        </>
+      );
+    }
+
+    // Desktop web layout
     return (
       <>
         <Stack.Screen options={{ headerShown: false }} />
@@ -919,5 +1068,89 @@ const styles = StyleSheet.create({
   },
   webShortcutText: {
     fontSize: 12,
+  },
+  // Mobile Web styles
+  webMobileScrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    paddingBottom: 40,
+  },
+  webMobileHeader: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  webMobileLogoContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  webMobileTitle: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  webMobileSubtitle: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 20,
+  },
+  webMobileFormCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  webMobileInputContainer: {
+    marginBottom: 20,
+  },
+  webMobileLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  webMobileUpdateButton: {
+    height: 52,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  webMobileBackContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginBottom: 24,
+    paddingHorizontal: 20,
+  },
+  webMobileFeaturesCard: {
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+  },
+  webMobileFeatureText: {
+    fontSize: 14,
+    marginLeft: 10,
+    flex: 1,
   },
 });
