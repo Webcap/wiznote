@@ -525,8 +525,8 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   eyeButton: {
-    background: 'none',
-    border: 'none',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
     cursor: 'pointer',
     padding: 4,
   },
@@ -614,8 +614,8 @@ const webStyles = {
     textAlign: 'center' as const,
   },
   closeButton: {
-    background: 'none',
-    border: 'none',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
     cursor: 'pointer',
     padding: '4px',
     display: 'flex',
@@ -685,8 +685,8 @@ const webStyles = {
     padding: '10px 0',
   },
   eyeButton: {
-    background: 'none',
-    border: 'none',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
     cursor: 'pointer',
     padding: '4px',
     display: 'flex',

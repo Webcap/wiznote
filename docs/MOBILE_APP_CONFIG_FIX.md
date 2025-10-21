@@ -76,3 +76,5 @@ After applying the fix, the SetupIntent should be created and confirmed using th
 
 **Recommended Approach**: Use Option 1 (Render TEST server) for development, then switch to Option 2 (LIVE keys) when ready for production.
 
+
+

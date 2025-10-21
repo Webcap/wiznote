@@ -96,6 +96,8 @@ export const supabase = createClient(
     global: {
       headers: {
         'X-Client-Info': `notez-react-app-${Platform.OS}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
       },
     },
     // Optimize realtime configuration

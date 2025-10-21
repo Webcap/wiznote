@@ -424,7 +424,7 @@ export class AudioUtils {
   }
 
   /**
-   * Web-specific audio handler using Web Audio API
+   * Web-specific audio handler using HTML5 Audio API
    * Fallback for when expo-audio doesn't work properly on web
    */
   private static createWebAudioHandler(uri: string): Promise<{ sound: any }> {
@@ -436,26 +436,96 @@ export class AudioUtils {
           return;
         }
 
-        console.log('[AudioUtils] Creating Web Audio API handler for:', uri);
+        console.log('[AudioUtils] Creating HTML5 Audio element for:', uri);
         
         // Create audio element for web
         const audio = new (typeof window !== 'undefined' && window.Audio ? window.Audio : globalThis.Audio)();
-        audio.crossOrigin = 'anonymous';
+        
+        // Important: Don't set crossOrigin for Supabase signed URLs as they handle CORS properly
+        // Setting crossOrigin can actually cause issues with signed URLs
+        if (!uri.includes('supabase.co')) {
+          audio.crossOrigin = 'anonymous';
+        }
+        
         audio.preload = 'metadata';
         
+        let hasResolved = false;
+        
         // Set up event handlers
-        audio.addEventListener('loadedmetadata', () => {
+        const onLoadedMetadata = () => {
+          if (hasResolved) return;
+          hasResolved = true;
           console.log('[AudioUtils] Web audio loaded successfully');
           console.log('[AudioUtils] Web audio duration:', audio.duration, 'seconds');
+          console.log('[AudioUtils] Web audio ready state:', audio.readyState);
+          
+          // Clean up listeners
+          audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+          audio.removeEventListener('canplay', onCanPlay);
+          audio.removeEventListener('error', onError);
+          
           resolve({ sound: audio });
-        });
+        };
         
-        audio.addEventListener('error', (error) => {
-          console.error('[AudioUtils] Web audio error:', error);
-          reject(new Error('Failed to load audio with Web Audio API'));
-        });
+        const onCanPlay = () => {
+          if (hasResolved) return;
+          console.log('[AudioUtils] Web audio can play, ready state:', audio.readyState);
+          // If metadata hasn't loaded yet but we can play, resolve anyway
+          if (audio.readyState >= 2) { // HAVE_ENOUGH_DATA
+            onLoadedMetadata();
+          }
+        };
+        
+        const onError = (event: Event | string) => {
+          if (hasResolved) return;
+          hasResolved = true;
+          
+          // Clean up listeners
+          audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+          audio.removeEventListener('canplay', onCanPlay);
+          audio.removeEventListener('error', onError);
+          
+          // Get detailed error information
+          const errorDetails = audio.error;
+          let errorMessage = 'Failed to load audio';
+          
+          if (errorDetails) {
+            switch (errorDetails.code) {
+              case MediaError.MEDIA_ERR_ABORTED:
+                errorMessage = 'Audio loading aborted';
+                break;
+              case MediaError.MEDIA_ERR_NETWORK:
+                errorMessage = 'Network error while loading audio';
+                break;
+              case MediaError.MEDIA_ERR_DECODE:
+                errorMessage = 'Audio decoding error - format may not be supported';
+                break;
+              case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                errorMessage = 'Audio source not supported - file may be inaccessible or in unsupported format';
+                break;
+              default:
+                errorMessage = errorDetails.message || 'Unknown audio error';
+            }
+          }
+          
+          console.error('[AudioUtils] Web audio error:', errorMessage, errorDetails);
+          reject(new Error(errorMessage));
+        };
+        
+        audio.addEventListener('loadedmetadata', onLoadedMetadata);
+        audio.addEventListener('canplay', onCanPlay);
+        audio.addEventListener('error', onError);
+        
+        // Set timeout in case audio never loads
+        setTimeout(() => {
+          if (!hasResolved) {
+            console.error('[AudioUtils] Web audio loading timeout');
+            onError('Timeout loading audio');
+          }
+        }, 10000); // 10 second timeout
         
         // Set the source and start loading
+        console.log('[AudioUtils] Setting audio source:', uri);
         audio.src = uri;
         audio.load();
         
@@ -464,6 +534,31 @@ export class AudioUtils {
         reject(error);
       }
     });
+  }
+
+  /**
+   * Extract file path from Supabase signed or public URL
+   */
+  private static extractSupabaseFilePath(url: string): string | null {
+    try {
+      // Handle signed URLs: /storage/v1/object/sign/audio-files/path/to/file?token=...
+      const signedMatch = url.match(/\/storage\/v1\/object\/sign\/audio-files\/(.+?)(\?|$)/);
+      if (signedMatch && signedMatch[1]) {
+        return signedMatch[1].split('?')[0]; // Remove query params
+      }
+      
+      // Handle public URLs: /storage/v1/object/public/audio-files/path/to/file
+      const publicMatch = url.match(/\/storage\/v1\/object\/public\/audio-files\/(.+?)$/);
+      if (publicMatch && publicMatch[1]) {
+        return publicMatch[1];
+      }
+      
+      console.warn('[AudioUtils] Could not extract file path from URL:', url);
+      return null;
+    } catch (error) {
+      console.error('[AudioUtils] Error extracting file path:', error);
+      return null;
+    }
   }
 
   /**
@@ -481,48 +576,40 @@ export class AudioUtils {
       if (uri.startsWith('http://') || uri.startsWith('https://')) {
         console.log('[AudioUtils] Detected remote URL, handling authentication...');
         
-        // For Supabase URLs, we need to get a signed URL
+        // For Supabase URLs, we need to get a fresh signed URL
         if (uri.includes('supabase.co')) {
           try {
-            // Check if it's already a signed URL (contains /sign/ or has ?token=)
-            if (uri.includes('/storage/v1/object/sign/') || uri.includes('?token=')) {
-              console.log('[AudioUtils] URL is already a signed URL, using directly');
-              finalUri = uri;
+            // Always get a fresh signed URL for audio playback
+            // This ensures the URL is valid and not expired
+            console.log('[AudioUtils] Generating fresh signed URL for audio playback...');
+            
+            // Import Supabase client
+            const { supabase } = await import('../lib/supabase');
+            
+            // Extract the file path from the URL (works for both signed and public URLs)
+            const filePath = this.extractSupabaseFilePath(uri);
+            
+            if (!filePath) {
+              throw new Error('Could not extract file path from Supabase URL');
+            }
+            
+            console.log('[AudioUtils] Extracted file path:', filePath);
+            
+            // Get a fresh signed URL with 1 hour expiry
+            const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+              .from('audio-files')
+              .createSignedUrl(filePath, 3600); // 1 hour expiry
+            
+            if (signedUrlError) {
+              console.error('[AudioUtils] Error getting signed URL:', signedUrlError);
+              throw new Error(`Failed to get signed URL: ${signedUrlError.message}`);
+            }
+            
+            if (signedUrlData?.signedUrl) {
+              console.log('[AudioUtils] Got fresh signed URL for playback');
+              finalUri = signedUrlData.signedUrl;
             } else {
-              // Import Supabase client
-              const { supabase } = await import('../lib/supabase');
-              
-              // Extract the file path from public URL
-              const urlParts = uri.split('/storage/v1/object/public/');
-              if (urlParts.length === 2) {
-                // The full path after /storage/v1/object/public/ includes the bucket name
-                const fullPath = urlParts[1];
-                
-                // Remove the bucket name from the path (audio-files/)
-                const filePath = fullPath.replace('audio-files/', '');
-                
-                console.log('[AudioUtils] Full path from URL:', fullPath);
-                console.log('[AudioUtils] Extracted file path:', filePath);
-                
-                // Get a signed URL that includes authentication
-                const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-                  .from('audio-files')
-                  .createSignedUrl(filePath, 3600); // 1 hour expiry
-                
-                if (signedUrlError) {
-                  console.error('[AudioUtils] Error getting signed URL:', signedUrlError);
-                  throw new Error(`Failed to get signed URL: ${signedUrlError.message}`);
-                }
-                
-                if (signedUrlData?.signedUrl) {
-                  console.log('[AudioUtils] Got signed URL, using for playback');
-                  finalUri = signedUrlData.signedUrl;
-                } else {
-                  throw new Error('No signed URL received from Supabase');
-                }
-              } else {
-                throw new Error('Invalid Supabase public URL format');
-              }
+              throw new Error('No signed URL received from Supabase');
             }
             
           } catch (error) {
@@ -536,106 +623,64 @@ export class AudioUtils {
       const isWeb = typeof window !== 'undefined' && typeof document !== 'undefined';
       
       if (isWeb) {
-        console.log('[AudioUtils] Detected web platform, using enhanced web audio handling');
+        console.log('[AudioUtils] Detected web platform, using HTML5 Audio for better compatibility');
         
-        // Try expo-audio first
+        // For web, use HTML5 Audio directly for better compatibility with Supabase signed URLs
+        // expo-audio can have issues with signed URLs and CORS on web
         try {
-          // Initialize audio session for web (important for web audio context)
+          console.log('[AudioUtils] Using HTML5 Audio API for web playback');
+          return await this.createWebAudioHandler(finalUri);
+        } catch (webError) {
+          console.error('[AudioUtils] HTML5 Audio failed, trying expo-audio as fallback:', webError);
+          
+          // If HTML5 Audio fails, try expo-audio as a last resort
           try {
-            await setAudioModeAsync({
-              allowsRecording: false,
-              playsInSilentMode: true,
-              shouldPlayInBackground: false,
-              interruptionModeAndroid: 'duckOthers',
-              interruptionMode: 'mixWithOthers',
-            });
-            console.log('[AudioUtils] Audio session initialized for web');
-          } catch (audioModeError) {
-            console.warn('[AudioUtils] Audio mode initialization failed (non-critical):', audioModeError);
-          }
-          
-          // Create sound object from the final URI (either original or signed URL)
-          console.log('[AudioUtils] Creating Audio.Sound with URI:', finalUri);
-          
-          // Enhanced web-specific configuration
-          const soundOptions = {
-            updateInterval: 100,
-            keepAudioSessionActive: true,
-          };
-          
-          // Use createAudioPlayer for SDK 54
-          const sound = createAudioPlayer(finalUri, soundOptions);
-          
-          // Enhanced loading verification for web
-          console.log('[AudioUtils] Waiting for sound to load...');
-          
-          // Initial status check
-          let status = sound.currentStatus;
-          console.log('[AudioUtils] Initial sound status:', status);
-          
-          // Web-specific loading retry logic
-          if (!status.isLoaded) {
-            console.log('[AudioUtils] Sound not loaded initially, waiting for web audio...');
+            // Initialize audio session for web
+            try {
+              await setAudioModeAsync({
+                allowsRecording: false,
+                playsInSilentMode: true,
+                shouldPlayInBackground: false,
+                interruptionModeAndroid: 'duckOthers',
+                interruptionMode: 'mixWithOthers',
+              });
+              console.log('[AudioUtils] Audio session initialized for expo-audio fallback');
+            } catch (audioModeError) {
+              console.warn('[AudioUtils] Audio mode initialization failed (non-critical):', audioModeError);
+            }
             
-            // Multiple retry attempts for web
+            // Create sound object from the final URI
+            console.log('[AudioUtils] Creating expo-audio AudioPlayer as fallback');
+            const sound = createAudioPlayer(finalUri);
+            
+            // Wait for sound to load
+            let status = sound.currentStatus;
             let retryCount = 0;
-            const maxRetries = 5;
-            const retryDelay = 500; // 500ms between retries
+            const maxRetries = 3;
+            const retryDelay = 500;
             
             while (!status.isLoaded && retryCount < maxRetries) {
               retryCount++;
-              console.log(`[AudioUtils] Retry ${retryCount}/${maxRetries} - waiting ${retryDelay}ms...`);
-              
+              console.log(`[AudioUtils] Fallback retry ${retryCount}/${maxRetries}`);
               await new Promise(resolve => setTimeout(resolve, retryDelay));
-              
               try {
                 status = sound.currentStatus;
-                console.log(`[AudioUtils] Retry ${retryCount} status:`, status);
               } catch (retryError) {
-                console.warn(`[AudioUtils] Error checking status on retry ${retryCount}:`, retryError);
+                console.warn(`[AudioUtils] Error checking status:`, retryError);
               }
             }
             
             if (!status.isLoaded) {
-              console.warn('[AudioUtils] expo-audio failed to load, falling back to Web Audio API...');
-              // Fall back to Web Audio API
-              return await this.createWebAudioHandler(finalUri);
-            } else {
-              console.log('[AudioUtils] Sound loaded successfully after retry');
+              throw new Error('expo-audio failed to load sound');
             }
+            
+            console.log('[AudioUtils] expo-audio fallback successful');
+            return { sound };
+            
+          } catch (expoError) {
+            console.error('[AudioUtils] All audio loading methods failed:', expoError);
+            throw new Error(`Failed to load audio: ${webError instanceof Error ? webError.message : String(webError)}`);
           }
-          
-          // Set up status update callback for better web monitoring
-          sound.addListener('playbackStatusUpdate', (playbackStatus) => {
-            if (playbackStatus.isLoaded) {
-              console.log('[AudioUtils] Sound is now loaded and ready for playback');
-              // Log duration for debugging
-              if (playbackStatus.duration && !isNaN(playbackStatus.duration)) {
-                console.log('[AudioUtils] Audio duration detected:', playbackStatus.duration, 'seconds');
-              } else {
-                console.warn('[AudioUtils] No duration detected, this may be normal for some web audio');
-                // Try to detect duration by checking if the audio has metadata
-                setTimeout(() => {
-                  try {
-                    const retryStatus = sound.currentStatus;
-                    if (retryStatus.duration && !isNaN(retryStatus.duration)) {
-                      console.log('[AudioUtils] Duration detected on retry:', retryStatus.duration, 'seconds');
-                    }
-                  } catch (retryError) {
-                    console.warn('[AudioUtils] Error checking duration on retry:', retryError);
-                  }
-                }, 1000);
-              }
-            }
-          });
-          
-          console.log('[AudioUtils] expo-audio sound object created successfully');
-          return { sound };
-          
-        } catch (expoError) {
-          console.warn('[AudioUtils] expo-audio failed, falling back to Web Audio API:', expoError);
-          // Fall back to Web Audio API
-          return await this.createWebAudioHandler(finalUri);
         }
       } else {
         // Mobile platform - use standard expo-audio

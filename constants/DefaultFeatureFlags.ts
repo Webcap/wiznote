@@ -145,8 +145,8 @@ export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlag> = {
     id: 'ai_flashcards',
     name: 'AI Flashcard Generation',
     description: 'Enable AI-powered flashcard generation based on notes content, audio, summaries, and key details',
-    enabled: false,
-    premiumOnly: true, // Premium feature
+    enabled: true,
+    premiumOnly: false, // Premium feature
     trackingEnabled: true, // Track AI flashcard usage
     targetEnvironments: ['development', 'staging', 'production'],
     createdAt: new Date(),

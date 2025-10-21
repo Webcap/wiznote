@@ -74,24 +74,190 @@ export class AudioUtils {
   }
 
   /**
-   * Create sound object for playback (web version)
-   * Alias for createSound to maintain compatibility
+   * Extract file path from Supabase signed or public URL
    */
-  static async createSound(uri: string): Promise<{ sound: AudioPlayer }> {
-    return this.createSoundObject(uri);
+  private static extractSupabaseFilePath(url: string): string | null {
+    try {
+      // Handle signed URLs: /storage/v1/object/sign/audio-files/path/to/file?token=...
+      const signedMatch = url.match(/\/storage\/v1\/object\/sign\/audio-files\/(.+?)(\?|$)/);
+      if (signedMatch && signedMatch[1]) {
+        return signedMatch[1].split('?')[0]; // Remove query params
+      }
+      
+      // Handle public URLs: /storage/v1/object/public/audio-files/path/to/file
+      const publicMatch = url.match(/\/storage\/v1\/object\/public\/audio-files\/(.+?)$/);
+      if (publicMatch && publicMatch[1]) {
+        return publicMatch[1];
+      }
+      
+      console.warn('[AudioUtils Web] Could not extract file path from URL:', url);
+      return null;
+    } catch (error) {
+      console.error('[AudioUtils Web] Error extracting file path:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create HTML5 Audio element for web playback
+   */
+  private static createWebAudioHandler(uri: string): Promise<{ sound: any }> {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log('[AudioUtils Web] Creating HTML5 Audio element for:', uri);
+        
+        const audio = new Audio();
+        
+        // Important: Don't set crossOrigin for Supabase signed URLs
+        if (!uri.includes('supabase.co')) {
+          audio.crossOrigin = 'anonymous';
+        }
+        
+        audio.preload = 'metadata';
+        
+        let hasResolved = false;
+        
+        const onLoadedMetadata = () => {
+          if (hasResolved) return;
+          hasResolved = true;
+          console.log('[AudioUtils Web] HTML5 Audio loaded successfully');
+          console.log('[AudioUtils Web] Duration:', audio.duration, 'seconds');
+          
+          // Clean up listeners
+          audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+          audio.removeEventListener('canplay', onCanPlay);
+          audio.removeEventListener('error', onError);
+          
+          resolve({ sound: audio });
+        };
+        
+        const onCanPlay = () => {
+          if (hasResolved) return;
+          console.log('[AudioUtils Web] Audio can play, ready state:', audio.readyState);
+          if (audio.readyState >= 2) {
+            onLoadedMetadata();
+          }
+        };
+        
+        const onError = (event: Event | string) => {
+          if (hasResolved) return;
+          hasResolved = true;
+          
+          // Clean up listeners
+          audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+          audio.removeEventListener('canplay', onCanPlay);
+          audio.removeEventListener('error', onError);
+          
+          const errorDetails = audio.error;
+          let errorMessage = 'Failed to load audio';
+          
+          if (errorDetails) {
+            switch (errorDetails.code) {
+              case MediaError.MEDIA_ERR_ABORTED:
+                errorMessage = 'Audio loading aborted';
+                break;
+              case MediaError.MEDIA_ERR_NETWORK:
+                errorMessage = 'Network error while loading audio';
+                break;
+              case MediaError.MEDIA_ERR_DECODE:
+                errorMessage = 'Audio decoding error - format may not be supported';
+                break;
+              case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                errorMessage = 'Audio source not supported - file may be inaccessible or in unsupported format';
+                break;
+              default:
+                errorMessage = errorDetails.message || 'Unknown audio error';
+            }
+          }
+          
+          console.error('[AudioUtils Web] HTML5 Audio error:', errorMessage, errorDetails);
+          reject(new Error(errorMessage));
+        };
+        
+        audio.addEventListener('loadedmetadata', onLoadedMetadata);
+        audio.addEventListener('canplay', onCanPlay);
+        audio.addEventListener('error', onError);
+        
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          if (!hasResolved) {
+            console.error('[AudioUtils Web] Audio loading timeout');
+            onError('Timeout loading audio');
+          }
+        }, 10000);
+        
+        // Set source and load
+        console.log('[AudioUtils Web] Setting audio source:', uri);
+        audio.src = uri;
+        audio.load();
+        
+      } catch (error) {
+        console.error('[AudioUtils Web] Error creating HTML5 Audio:', error);
+        reject(error);
+      }
+    });
   }
 
   /**
    * Create sound object for playback (web version)
+   * Alias for createSound to maintain compatibility
    */
-  static async createSoundObject(uri: string): Promise<{ sound: AudioPlayer }> {
+  static async createSound(uri: string): Promise<{ sound: AudioPlayer | any }> {
+    return this.createSoundObject(uri);
+  }
+
+  /**
+   * Create sound object for playback (web version) with fresh signed URLs
+   */
+  static async createSoundObject(uri: string): Promise<{ sound: AudioPlayer | any }> {
     try {
       console.log('[AudioUtils Web] Creating sound object for URI:', uri);
       
-      const sound = createAudioPlayer(uri);
-      console.log('[AudioUtils Web] Sound object created successfully');
+      let finalUri = uri;
       
-      return { sound };
+      // If it's a Supabase URL, get a fresh signed URL
+      if (uri.includes('supabase.co')) {
+        try {
+          console.log('[AudioUtils Web] Generating fresh signed URL for playback...');
+          
+          const { supabase } = await import('../lib/supabase');
+          
+          // Extract the file path from the URL
+          const filePath = this.extractSupabaseFilePath(uri);
+          
+          if (!filePath) {
+            throw new Error('Could not extract file path from Supabase URL');
+          }
+          
+          console.log('[AudioUtils Web] Extracted file path:', filePath);
+          
+          // Get a fresh signed URL with 1 hour expiry
+          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+            .from('audio-files')
+            .createSignedUrl(filePath, 3600); // 1 hour expiry
+          
+          if (signedUrlError) {
+            console.error('[AudioUtils Web] Error getting signed URL:', signedUrlError);
+            throw new Error(`Failed to get signed URL: ${signedUrlError.message}`);
+          }
+          
+          if (signedUrlData?.signedUrl) {
+            console.log('[AudioUtils Web] Got fresh signed URL for playback');
+            finalUri = signedUrlData.signedUrl;
+          } else {
+            throw new Error('No signed URL received from Supabase');
+          }
+          
+        } catch (error) {
+          console.error('[AudioUtils Web] Error handling Supabase URL:', error);
+          throw new Error(`Failed to process audio file: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      
+      // Use HTML5 Audio for web playback (better compatibility with Supabase signed URLs)
+      console.log('[AudioUtils Web] Using HTML5 Audio for web playback');
+      return await this.createWebAudioHandler(finalUri);
+      
     } catch (error) {
       console.error('[AudioUtils Web] Error creating sound object:', error);
       throw new Error(`Failed to create sound object: ${error instanceof Error ? error.message : String(error)}`);
