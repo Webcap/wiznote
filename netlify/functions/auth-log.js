@@ -91,9 +91,9 @@ exports.handler = async (event, context) => {
 
     // Initialize Supabase client with user's token
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseKey) {
       console.error('[auth-log] Missing Supabase configuration');
       return {
         statusCode: 500,
@@ -105,7 +105,7 @@ exports.handler = async (event, context) => {
     }
 
     // Create client with user's session token
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createClient(supabaseUrl, supabaseKey, {
       global: {
         headers: {
           Authorization: `Bearer ${accessToken}`,
