@@ -79,7 +79,9 @@
     Cache-Control = "public, max-age=31536000, immutable"
 
 # Redirects for SPA routing
+# Note: Netlify automatically excludes /.netlify/* paths from this redirect
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  force = false

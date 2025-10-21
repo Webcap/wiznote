@@ -21,6 +21,19 @@
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
+  // Handle CORS preflight
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      },
+      body: '',
+    };
+  }
+
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {
@@ -40,6 +53,20 @@ exports.handler = async (event, context) => {
 
     // Extract user agent
     const userAgent = event.headers['user-agent'] || 'unknown';
+
+    // Get auth token from Authorization header
+    const authHeader = event.headers['authorization'] || event.headers['Authorization'];
+    const accessToken = authHeader?.replace('Bearer ', '');
+
+    if (!accessToken) {
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ 
+          error: 'Unauthorized',
+          details: 'Missing authorization token'
+        }),
+      };
+    }
 
     // Parse request body
     const body = JSON.parse(event.body);
@@ -62,26 +89,56 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Initialize Supabase client
+    // Initialize Supabase client with user's token
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('Missing Supabase credentials');
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('[auth-log] Missing Supabase configuration');
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'Server configuration error' }),
+        body: JSON.stringify({ 
+          error: 'Server configuration error',
+          details: 'Missing Supabase configuration'
+        }),
       };
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Create client with user's session token
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    // Verify the token is valid by getting the user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    
+    if (authError || !user) {
+      console.error('[auth-log] Invalid token:', authError?.message);
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ 
+          error: 'Invalid token',
+          details: authError?.message 
+        }),
+      };
+    }
+
+    console.log('[auth-log] Authenticated user:', user.email);
 
     // Log the security event with captured IP
     const { data, error } = await supabase.rpc('log_security_event', {
       p_event_type: eventType,
       p_severity: severity,
-      p_user_id: userId || null,
-      p_user_email: userEmail || null,
+      p_user_id: user.id, // Use verified user ID from token
+      p_user_email: user.email, // Use verified email from token
       p_user_role: userRole || null,
       p_target_user_id: null,
       p_target_user_email: null,
@@ -96,18 +153,23 @@ exports.handler = async (event, context) => {
       p_error_message: errorMessage || null,
       p_success: success,
       p_metadata: {
-        logged_via: 'netlify_function',
+        logged_via: 'netlify_function_authenticated',
         timestamp: new Date().toISOString(),
       },
     });
 
     if (error) {
-      console.error('Error logging security event:', error);
+      console.error('[auth-log] Error logging security event:', error);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'Failed to log event', details: error.message }),
+        body: JSON.stringify({ 
+          error: 'Failed to log event', 
+          details: error.message 
+        }),
       };
     }
+
+    console.log('[auth-log] ✅ Event logged successfully for user:', user.email);
 
     // Success response
     return {
@@ -115,7 +177,7 @@ exports.handler = async (event, context) => {
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
       },
       body: JSON.stringify({
@@ -126,7 +188,7 @@ exports.handler = async (event, context) => {
       }),
     };
   } catch (error) {
-    console.error('Error in auth-log function:', error);
+    console.error('[auth-log] Error in function:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ 
@@ -136,17 +198,3 @@ exports.handler = async (event, context) => {
     };
   }
 };
-
-// Handle OPTIONS for CORS preflight
-exports.handler.options = async () => {
-  return {
-    statusCode: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    },
-    body: '',
-  };
-};
-
