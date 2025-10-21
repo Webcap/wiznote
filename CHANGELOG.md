@@ -7,6 +7,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.6] - 2025-10-21
+
+### 🐛 Bug Fixes
+
+#### Mobile Payment System Fixes
+- **Fixed mobile subscription payment failures** - Mobile payments now work reliably across all environments
+  - Fixed TEST vs LIVE Stripe mode configuration mismatch
+  - Mobile app now correctly uses environment-specific Stripe backend
+  - Eliminated "No such setupintent" errors during payment flow
+  - Added proper Stripe price ID synchronization between mobile and backend
+  - Environment-aware configuration for development and production
+
+- **Fixed Stripe price ID mismatches** - Subscription creation now works without price lookup errors
+  - Resolved "No such price" errors when subscribing to premium plans
+  - Added proper handling of TEST and LIVE mode price IDs
+  - Database plans now correctly reference environment-specific Stripe prices
+  - Updated plan sync system to validate price IDs against correct Stripe mode
+  - Added debugging tools for Stripe configuration verification
+
+#### Payment Sheet Enhancements
+- **Enhanced native payment form** - Better reliability and error handling
+  - Added `stripePriceId` parameter support to `PaymentSheetForm`
+  - Improved payment confirmation flow with better error messages
+  - Enhanced debug logging for payment troubleshooting
+  - Better environment configuration visibility (DEV/PROD mode logging)
+  - Fixed payment intent handling to support both SetupIntent and PaymentIntent
+
+### 🔧 Technical Improvements
+
+#### Configuration Management
+- **Improved API configuration system** - Better environment handling
+  - Enhanced `ApiConfig` to support multiple deployment environments
+  - Added environment-specific webhook URL configuration
+  - Better separation between TEST and LIVE mode settings
+  - Improved configuration debugging and validation tools
+
+#### Stripe Integration
+- **Enhanced Stripe mode detection** - Automatic environment detection
+  - Better handling of TEST vs LIVE Stripe keys
+  - Improved price ID validation across different modes
+  - Added configuration checks for mobile payment setup
+  - Enhanced error messages for configuration issues
+  - Better logging of Stripe environment state
+
+### 🛠️ Developer Tools
+
+#### New Debugging Scripts
+- **Added comprehensive debugging scripts** for easier troubleshooting
+  - `scripts/check-api-config.js` - Verify API endpoint configuration
+  - `scripts/check-live-prices.js` - Check LIVE mode Stripe prices
+  - `scripts/check-stripe-prices.js` - Validate Stripe price IDs
+  - `scripts/debug-mobile-config.js` - Debug mobile app configuration
+  - `scripts/debug-stripe-keys.js` - Verify Stripe key setup
+  - `scripts/test-payment-endpoint.js` - Test payment endpoint connectivity
+  - `scripts/test-payment-flow.js` - End-to-end payment flow testing
+  - `scripts/test-sync-endpoint.js` - Validate subscription sync
+  - `scripts/verify-stripe-price.js` - Verify price ID exists in Stripe
+
+### 📝 Documentation Updates
+
+#### Fix Guides
+- **Created detailed troubleshooting guides** - Easy reference for common issues
+  - `MOBILE_APP_CONFIG_FIX.md` - Guide for mobile app configuration issues
+  - `STRIPE_PRICE_MISMATCH_FIX.md` - Step-by-step guide for price ID issues
+  - Comprehensive explanation of TEST vs LIVE mode differences
+  - Quick fix commands for common configuration problems
+  - Environment setup best practices
+
+### 🎯 Impact
+
+#### Mobile Users
+- ✅ **Reliable mobile payments** - No more payment failures due to configuration issues
+- ✅ **Better error messages** - Clear feedback when payment issues occur
+- ✅ **Faster troubleshooting** - Improved logging helps identify issues quickly
+- ✅ **Environment flexibility** - Works correctly in development and production
+
+#### Developers
+- ✅ **Better debugging tools** - Comprehensive scripts for troubleshooting
+- ✅ **Clearer configuration** - Better documentation and validation
+- ✅ **Faster issue resolution** - Detailed guides for common problems
+- ✅ **Improved testing** - Tools to verify payment setup before deployment
+
+#### System Reliability
+- ✅ **Configuration validation** - Catch setup issues before they affect users
+- ✅ **Environment consistency** - Proper handling of TEST and LIVE modes
+- ✅ **Better error handling** - Graceful failures with helpful error messages
+- ✅ **Production readiness** - Verified payment flow across all environments
+
+### 📁 Files Modified
+
+#### Components
+- `components/PaymentSheetForm.native.tsx` - Enhanced with `stripePriceId` support and better error handling
+
+#### Documentation
+- `MOBILE_APP_CONFIG_FIX.md` - NEW comprehensive mobile config troubleshooting guide
+- `STRIPE_PRICE_MISMATCH_FIX.md` - NEW step-by-step price ID fix guide
+
+#### Scripts (New)
+- `scripts/check-api-config.js` - API configuration checker
+- `scripts/check-live-prices.js` - LIVE mode price validator
+- `scripts/check-stripe-prices.js` - Stripe price checker
+- `scripts/debug-mobile-config.js` - Mobile configuration debugger
+- `scripts/debug-stripe-keys.js` - Stripe key validator
+- `scripts/test-payment-endpoint.js` - Payment endpoint tester
+- `scripts/test-payment-flow.js` - End-to-end payment tester
+- `scripts/test-sync-endpoint.js` - Subscription sync tester
+- `scripts/verify-stripe-price.js` - Price ID verification tool
+
+---
+
 ## [1.3.5] - 2025-10-19
 
 ### 🚀 Major Improvements

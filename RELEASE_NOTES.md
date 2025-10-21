@@ -1,5 +1,73 @@
 # WizNote - Release Notes
 
+## Version 1.3.6 - Mobile Payment Fixes
+**Release Date:** October 21, 2025
+
+### 📱 Google Play Store Release Notes (500 char limit)
+
+```
+Mobile Payment Fixes 💳
+
+✅ Fixed mobile subscription payments
+💳 Resolved payment processing errors
+🔧 Better error handling & messages
+🐛 Fixed "No such setupintent" errors
+⚡ Improved payment reliability
+🛠️ Enhanced configuration system
+📝 Better debug tools for troubleshooting
+
+Subscribe with confidence! 🚀
+```
+
+---
+
+### 📱 Full Release Notes
+
+**What's New:**
+
+**💳 Mobile Payment System Fixed**
+- Mobile subscription payments now work reliably
+- Fixed TEST vs LIVE Stripe mode configuration issues
+- Eliminated "No such setupintent" payment errors
+- Resolved "No such price" subscription errors
+- Proper Stripe price ID synchronization
+
+**🔧 Enhanced Payment Experience**
+- Better error messages when payment issues occur
+- Improved payment form reliability
+- Enhanced debug logging for troubleshooting
+- Environment-aware configuration (DEV/PROD)
+- Support for both SetupIntent and PaymentIntent
+
+**🛠️ Developer Improvements**
+- Added 9 new debugging scripts for payment troubleshooting
+- Better API configuration validation
+- Enhanced Stripe mode detection
+- Improved error handling and logging
+- Comprehensive troubleshooting documentation
+
+**📝 Documentation**
+- New mobile configuration troubleshooting guide
+- Step-by-step Stripe price mismatch fix guide
+- Clear TEST vs LIVE mode explanations
+- Quick fix commands for common issues
+- Environment setup best practices
+
+**🐛 Bug Fixes**
+- Fixed mobile payment failures in all environments
+- Resolved Stripe configuration mismatches
+- Fixed price ID validation across TEST/LIVE modes
+- Better handling of environment-specific settings
+- Improved payment confirmation flow
+
+**🎯 Impact**
+- ✅ Reliable mobile payments
+- ✅ Better error feedback
+- ✅ Faster issue resolution
+- ✅ Production-ready payment flow
+
+---
+
 ## Version 1.3.5 - Stability & Core Features
 **Release Date:** October 19, 2025
 
