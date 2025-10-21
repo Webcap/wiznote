@@ -29,6 +29,8 @@ export class QuizService {
     canUse: boolean;
     reason?: string;
     usageLeft?: number;
+    limit?: number;
+    isPremium?: boolean;
   }> {
     try {
       // Check if feature is enabled
@@ -40,25 +42,43 @@ export class QuizService {
         };
       }
 
-      // Check usage limits
+      // Get user's premium status and limit
+      const { isPremium, limit } = await this.getUserQuizLimit(userId);
+      
+      // Premium users have unlimited access
+      if (isPremium) {
+        return {
+          canUse: true,
+          usageLeft: -1, // -1 indicates unlimited
+          limit: -1,
+          isPremium: true,
+        };
+      }
+
+      // Check usage limits for free users
       const usage = await featureLimitService.getUserFeatureUsage(userId, 'ai_quiz', false);
       const currentUsage = usage?.currentPeriod.usage || 0;
-      const limit = await this.getUserQuizLimit(userId);
+      
+      console.log(`[QuizService] User ${userId} quiz usage: ${currentUsage}/${limit}`);
       
       if (currentUsage >= limit) {
         return {
           canUse: false,
-          reason: 'Quiz generation limit reached',
+          reason: `Quiz generation limit reached (${currentUsage}/${limit}). Upgrade to Premium for unlimited quizzes!`,
           usageLeft: 0,
+          limit,
+          isPremium: false,
         };
       }
 
       return {
         canUse: true,
         usageLeft: limit - currentUsage,
+        limit,
+        isPremium: false,
       };
     } catch (error) {
-      console.error('Error checking AI quiz capability:', error);
+      console.error('[QuizService] Error checking AI quiz capability:', error);
       return {
         canUse: false,
         reason: 'Unable to check feature availability',
@@ -67,14 +87,32 @@ export class QuizService {
   }
 
   // Get user's quiz generation limit based on their plan
-  private async getUserQuizLimit(userId: string): Promise<number> {
+  private async getUserQuizLimit(userId: string): Promise<{ isPremium: boolean; limit: number }> {
     try {
-      // This would integrate with your plan management system
-      // For now, return a default limit
-      return 10; // Default limit, will be refined with plan integration
+      // Check if user has premium
+      const { data: profile, error } = await supabase
+        .from('user_profiles')
+        .select('premium')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('[QuizService] Error fetching user profile:', error);
+        return { isPremium: false, limit: 3 }; // Default free limit
+      }
+
+      const premium = profile?.premium as any;
+      const isPremium = premium?.isActive === true;
+
+      // Get limit from unified feature limits
+      const limit = isPremium ? -1 : 3; // Premium = unlimited, Free = 3/month
+
+      console.log(`[QuizService] User ${userId} - Premium: ${isPremium}, Limit: ${limit}`);
+
+      return { isPremium, limit };
     } catch (error) {
-      console.error('Error getting user quiz limit:', error);
-      return 5; // Fallback limit
+      console.error('[QuizService] Error getting user quiz limit:', error);
+      return { isPremium: false, limit: 3 }; // Fallback to free limit
     }
   }
 
