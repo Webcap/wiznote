@@ -215,6 +215,7 @@ function AppContent() {
                     <Stack.Screen name="archived" options={{ headerShown: false }} />
                     <Stack.Screen name="join-premium" options={{ headerShown: false }} />
                     <Stack.Screen name="subscription-management" options={{ headerShown: false }} />
+                    <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
                     <Stack.Screen name="privacy" options={{ headerShown: false }} />
                     <Stack.Screen name="terms" options={{ headerShown: false }} />
                     <Stack.Screen name="changelog" options={{ 
