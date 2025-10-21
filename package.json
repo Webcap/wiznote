@@ -77,7 +77,7 @@
     "expo-symbols": "~1.0.7",
     "expo-system-ui": "~6.0.7",
     "expo-web-browser": "~15.0.8",
-    "pdfjs-dist": "^4.0.379",
+    "pdfjs-dist": "^4.10.38",
     "postgres": "^3.4.7",
     "react": "19.1.0",
     "react-dom": "19.1.0",
