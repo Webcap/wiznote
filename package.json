@@ -79,7 +79,7 @@
     "expo-web-browser": "~15.0.8",
     "pdfjs-dist": "^4.0.379",
     "postgres": "^3.4.7",
-    "react": "19.1.0",
+    "react": "19.1.1",
     "react-dom": "19.1.0",
     "react-native": "^0.81.4",
     "react-native-gesture-handler": "~2.28.0",
