@@ -31,7 +31,12 @@ export default function ResetPasswordScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isValidSession, setIsValidSession] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [dimensions, setDimensions] = useState(Dimensions.get('window'));
+  const [windowWidth, setWindowWidth] = useState(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      return window.innerWidth;
+    }
+    return Dimensions.get('window').width;
+  });
 
   const { showSnackbar } = useSnackbar();
 
@@ -40,16 +45,35 @@ export default function ResetPasswordScreen() {
 
   // Track window dimensions for responsive layout
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      const subscription = Dimensions.addEventListener('change', ({ window }) => {
-        setDimensions(window);
-      });
-      return () => subscription?.remove();
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const handleResize = () => {
+        setWindowWidth(window.innerWidth);
+      };
+      
+      // Add event listener
+      window.addEventListener('resize', handleResize);
+      
+      // Set initial width
+      setWindowWidth(window.innerWidth);
+      
+      // Cleanup
+      return () => window.removeEventListener('resize', handleResize);
     }
   }, []);
 
   // Determine if we should use mobile layout on web
-  const isMobileWeb = Platform.OS === 'web' && dimensions.width < 768;
+  const isMobileWeb = Platform.OS === 'web' && windowWidth < 768;
+
+  // Debug logging for mobile detection
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      console.log('🔍 Reset Password - Mobile Detection:', {
+        windowWidth,
+        isMobileWeb,
+        breakpoint: 768,
+      });
+    }
+  }, [windowWidth, isMobileWeb]);
 
   useEffect(() => {
     checkSession();
