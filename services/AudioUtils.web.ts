@@ -267,15 +267,14 @@ export class AudioUtils {
   /**
    * Convert audio blob to base64 (web-specific)
    */
-  static async getBase64FromUri(uri: string): Promise<string> {
+  static async getBase64FromUri(uri: string, blob?: Blob): Promise<string> {
     try {
       console.log('[AudioUtils Web] Converting to base64 from URI:', uri);
+      console.log('[AudioUtils Web] Has blob?', !!blob);
       
-      // For web, the URI could be a blob URL or a remote URL
-      if (uri.startsWith('blob:')) {
-        const response = await fetch(uri);
-        const blob = await response.blob();
-        
+      // If blob is provided directly, use it (most reliable for fresh recordings)
+      if (blob) {
+        console.log('[AudioUtils Web] Using provided blob, size:', blob.size, 'type:', blob.type);
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => {
@@ -283,13 +282,85 @@ export class AudioUtils {
             console.log('[AudioUtils Web] Blob converted to base64, length:', base64.length);
             resolve(base64);
           };
-          reader.onerror = reject;
+          reader.onerror = (error) => {
+            console.error('[AudioUtils Web] FileReader error:', error);
+            reject(error);
+          };
           reader.readAsDataURL(blob);
         });
+      }
+      
+      // For web, the URI could be a blob URL or a remote URL
+      if (uri.startsWith('blob:')) {
+        console.log('[AudioUtils Web] Fetching from blob URL...');
+        try {
+          const response = await fetch(uri);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch blob: ${response.status} ${response.statusText}`);
+          }
+          const fetchedBlob = await response.blob();
+          console.log('[AudioUtils Web] Blob fetched from URL, size:', fetchedBlob.size);
+          
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64 = (reader.result as string).split(',')[1];
+              console.log('[AudioUtils Web] Blob URL converted to base64, length:', base64.length);
+              resolve(base64);
+            };
+            reader.onerror = (error) => {
+              console.error('[AudioUtils Web] FileReader error:', error);
+              reject(error);
+            };
+            reader.readAsDataURL(fetchedBlob);
+          });
+        } catch (blobError) {
+          console.error('[AudioUtils Web] Error fetching blob URL:', blobError);
+          throw new Error(`Blob URL no longer accessible. Recording may have been cleared. ${blobError instanceof Error ? blobError.message : ''}`);
+        }
       } else {
-        // For remote URLs (Supabase storage), retry with delays
-        console.log('[AudioUtils Web] Fetching remote audio file...');
+        // For remote URLs (Supabase storage), get fresh signed URL and fetch
+        console.log('[AudioUtils Web] Processing remote audio URL...');
         
+        // If it's a Supabase URL, get a fresh signed URL
+        if (uri.includes('supabase.co')) {
+          try {
+            console.log('[AudioUtils Web] Getting fresh signed URL for download...');
+            
+            const { supabase } = await import('../lib/supabase');
+            
+            // Extract the file path from the URL
+            const filePath = this.extractSupabaseFilePath(uri);
+            
+            if (!filePath) {
+              throw new Error('Could not extract file path from Supabase URL');
+            }
+            
+            console.log('[AudioUtils Web] Extracted file path:', filePath);
+            
+            // Get a fresh signed URL with 1 hour expiry
+            const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+              .from('audio-files')
+              .createSignedUrl(filePath, 3600); // 1 hour expiry
+            
+            if (signedUrlError) {
+              console.error('[AudioUtils Web] Error getting signed URL:', signedUrlError);
+              throw new Error(`Failed to get signed URL: ${signedUrlError.message}`);
+            }
+            
+            if (!signedUrlData?.signedUrl) {
+              throw new Error('No signed URL received from Supabase');
+            }
+            
+            console.log('[AudioUtils Web] Got fresh signed URL for download');
+            uri = signedUrlData.signedUrl; // Use the fresh signed URL
+          } catch (supabaseError) {
+            console.error('[AudioUtils Web] Error handling Supabase URL:', supabaseError);
+            throw new Error(`Failed to process Supabase URL: ${supabaseError instanceof Error ? supabaseError.message : String(supabaseError)}`);
+          }
+        }
+        
+        // Fetch remote URL with retries
         let lastError: Error | null = null;
         const maxRetries = 3;
         
@@ -297,35 +368,23 @@ export class AudioUtils {
           try {
             console.log(`[AudioUtils Web] Fetch attempt ${attempt}/${maxRetries}...`);
             
-            // Get Supabase auth token if available
-            const { supabase } = await import('../lib/supabase');
-            const { data: { session } } = await supabase.auth.getSession();
-            
-            const headers: Record<string, string> = {
-              'Accept': 'audio/*,*/*',
-            };
-            
-            // Add auth header if we have a session
-            if (session?.access_token) {
-              headers['Authorization'] = `Bearer ${session.access_token}`;
-              console.log('[AudioUtils Web] Using authenticated request');
-            } else {
-              console.log('[AudioUtils Web] Using anonymous request (public bucket)');
-            }
-            
             const response = await fetch(uri, {
               method: 'GET',
-              headers,
+              headers: {
+                'Accept': 'audio/*,*/*',
+              },
+              // Include credentials for CORS if needed
+              credentials: 'omit',
             });
             
             if (!response.ok) {
               const errorText = await response.text().catch(() => 'Unable to read error');
               console.error('[AudioUtils Web] Fetch failed:', response.status, response.statusText, errorText);
-              throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            const blob = await response.blob();
-            console.log('[AudioUtils Web] Remote file fetched, size:', blob.size, 'type:', blob.type);
+            const fetchedBlob = await response.blob();
+            console.log('[AudioUtils Web] Remote file fetched, size:', fetchedBlob.size, 'type:', fetchedBlob.type);
             
             return new Promise((resolve, reject) => {
               const reader = new FileReader();
@@ -334,8 +393,11 @@ export class AudioUtils {
                 console.log('[AudioUtils Web] File converted to base64, length:', base64.length);
                 resolve(base64);
               };
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
+              reader.onerror = (error) => {
+                console.error('[AudioUtils Web] FileReader error:', error);
+                reject(error);
+              };
+              reader.readAsDataURL(fetchedBlob);
             });
           } catch (fetchError) {
             lastError = fetchError instanceof Error ? fetchError : new Error(String(fetchError));
@@ -366,7 +428,8 @@ export class AudioUtils {
     audioUrl: string,
     userId: string,
     noteId: string,
-    onProgress?: (message: string, progress: number) => void
+    onProgress?: (message: string, progress: number) => void,
+    audioBlob?: Blob
   ): Promise<{
     success: boolean;
     transcription?: string;
@@ -377,11 +440,12 @@ export class AudioUtils {
   }> {
     try {
       console.log('[AudioUtils Web] Processing audio for transcription:', audioUrl);
+      console.log('[AudioUtils Web] Has blob?', !!audioBlob);
       
       onProgress?.('Converting audio to base64...', 20);
       
-      // Get base64 audio data
-      const base64Audio = await this.getBase64FromUri(audioUrl);
+      // Get base64 audio data (pass blob if available for better reliability)
+      const base64Audio = await this.getBase64FromUri(audioUrl, audioBlob);
       
       // Import the AI functions
       const { 

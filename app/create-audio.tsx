@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import {
     Alert,
@@ -266,9 +266,18 @@ export default function CreateAudioNoteScreen() {
     setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
+  // Store the blob in a ref so it persists across renders and navigation
+  const audioBlobRef = useRef<Blob | null>(null);
+
   const handleRecordingComplete = async (audioFile: any) => {
     try {
       console.log('[CreateAudio] Recording completed:', audioFile);
+      
+      // Store the blob for later use in transcription
+      if (audioFile.blob) {
+        audioBlobRef.current = audioFile.blob;
+        console.log('[CreateAudio] Stored blob for transcription, size:', audioFile.blob.size);
+      }
       
       // Record audio usage tracking
       try {
@@ -300,13 +309,22 @@ export default function CreateAudioNoteScreen() {
 
       // Upload audio file to Supabase storage
       console.log('[CreateAudio] Uploading audio to storage...');
+      console.log('[CreateAudio] Audio file object:', {
+        hasBlob: !!audioFile.blob,
+        filename: audioFile.filename,
+        duration: audioFile.duration
+      });
+      
       const tempNoteId = `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
       const { audioStorage } = await import('../services/AudioStorage');
+      
+      // Pass the blob if available (web recording provides this)
       const uploadedAudioUrl = await audioStorage.uploadAudioFile(
         audioFile.filename,
         userId,
-        tempNoteId
+        tempNoteId,
+        audioFile.blob // Pass the blob for web uploads
       );
       
       console.log('[CreateAudio] Audio uploaded successfully:', uploadedAudioUrl);
@@ -339,7 +357,7 @@ export default function CreateAudioNoteScreen() {
         // Navigate back to home screen to show the uploading card
         router.replace('/(tabs)');
         
-        // Process in background
+        // Process in background - pass the blob for transcription
         processAudioInBackground(uploadedAudioUrl, audioFile.duration, tempNoteId, title.trim(), tags);
       }, 100);
 
@@ -386,14 +404,25 @@ export default function CreateAudioNoteScreen() {
         updateUploadStatus('processing', 'AI is processing your audio...');
         updateUploadProgress(60, 'Transcribing audio...');
         
+        // Get the stored blob if available (for web recordings)
+        const audioBlob = audioBlobRef.current;
+        console.log('[CreateAudio] Processing with blob:', !!audioBlob);
+        
         const processingResult = await AudioUtils.processAudioForTranscription(
           audioUrl,
           userId,
           note.id,
           (message, progress) => {
             updateUploadProgress(60 + (progress * 0.4), message); // Scale 0-100 to 60-100
-          }
+          },
+          audioBlob || undefined // Pass the blob if available
         );
+        
+        // Clear the blob ref after successful processing
+        if (audioBlob) {
+          audioBlobRef.current = null;
+          console.log('[CreateAudio] Cleared blob ref after processing');
+        }
 
         if (processingResult.success) {
           // Update note with processed content

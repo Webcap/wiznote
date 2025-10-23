@@ -64,13 +64,14 @@ export class AudioStorage {
   }
 
   // Upload audio file to Supabase Storage
-  async uploadAudioFile(audioUri: string, userId: string, noteId: string): Promise<string> {
+  async uploadAudioFile(audioUri: string, userId: string, noteId: string, audioBlob?: Blob): Promise<string> {
     try {
       console.log('AudioStorage: Uploading audio file:', audioUri);
+      console.log('AudioStorage: Has blob?', !!audioBlob);
       
       // Validate input parameters
-      if (!audioUri) {
-        throw new Error('Audio URI is required for upload');
+      if (!audioUri && !audioBlob) {
+        throw new Error('Audio URI or Blob is required for upload');
       }
       if (!userId) {
         throw new Error('User ID is required for upload');
@@ -87,60 +88,137 @@ export class AudioStorage {
 
       // Generate unique filename
       const timestamp = Date.now();
-      let fileExtension = 'm4a'; // Default extension
-      
+      let fileExtension = 'webm'; // Default extension for web
+      let contentType = 'audio/webm'; // Default for web
+
+      let fileBody: Blob | Uint8Array;
+
       if (Platform.OS === 'web') {
-        // For web, we'll use m4a as default since blob URLs don't have extensions
-        // The actual format will be determined by the browser's MediaRecorder
-        fileExtension = 'm4a';
+        // For web, prefer the blob if provided (more reliable than fetching blob URL)
+        let blob: Blob;
+        
+        if (audioBlob) {
+          console.log('AudioStorage: Using provided blob');
+          blob = audioBlob;
+        } else if (audioUri) {
+          console.log('AudioStorage: Fetching from blob URL (fallback)');
+          const response = await fetch(audioUri);
+          blob = await response.blob();
+        } else {
+          throw new Error('No audio data available for upload');
+        }
+        
+        // Get the actual mime type from the blob
+        const originalContentType = blob.type || 'audio/webm';
+        console.log('AudioStorage: Original blob mime type:', originalContentType, 'size:', blob.size, 'bytes');
+        
+        // Convert webm to a more universally supported format
+        // Create a new blob with a different MIME type to force Supabase to accept it
+        if (originalContentType.includes('webm')) {
+          // Create a new blob with audio/mpeg MIME type (most universally supported)
+          blob = new Blob([blob], { type: 'audio/mpeg' });
+          fileExtension = 'mp3';
+          contentType = 'audio/mpeg';
+          console.log('AudioStorage: Converted webm blob to MP3 format for compatibility');
+        } else if (originalContentType.includes('ogg')) {
+          fileExtension = 'ogg';
+          contentType = 'audio/ogg';
+        } else if (originalContentType.includes('mp4') || originalContentType.includes('m4a')) {
+          fileExtension = 'mp4';
+          contentType = 'audio/mp4';
+        } else if (originalContentType.includes('mpeg') || originalContentType.includes('mp3')) {
+          fileExtension = 'mp3';
+          contentType = 'audio/mpeg';
+        } else {
+          console.warn('AudioStorage: Unknown mime type, converting to MP3:', originalContentType);
+          blob = new Blob([blob], { type: 'audio/mpeg' });
+          fileExtension = 'mp3';
+          contentType = 'audio/mpeg';
+        }
+        
+        console.log('AudioStorage: Final file extension:', fileExtension, 'Content type:', contentType);
+        
+        // Use the converted blob
+        fileBody = blob;
+        console.log('AudioStorage: Prepared Blob for upload, size:', blob.size, 'bytes');
       } else {
-        // For native platforms, try to extract from URI
+        // For native platforms, use FileSystem
         fileExtension = audioUri.split('.').pop() || 'm4a';
+        const base64Audio = await FileSystem.readAsStringAsync(audioUri, {
+          encoding: 'base64' as any,
+        });
+        const audioData = this.base64ToUint8Array(base64Audio);
+        fileBody = audioData;
+        contentType = `audio/${fileExtension}`;
       }
       
       const fileName = `${userId}/${noteId}/audio_${timestamp}.${fileExtension}`;
 
-      let audioData: Uint8Array;
-      let contentType = 'audio/webm'; // Default for web
+      // Use the content type as-is since we've normalized it
+      const normalizedContentType = contentType;
+      console.log('AudioStorage: Using content type:', normalizedContentType);
 
-      if (Platform.OS === 'web') {
-        // For web, fetch the blob data directly
-        const response = await fetch(audioUri);
-        const blob = await response.blob();
-        
-        // Get the actual mime type from the blob
-        contentType = blob.type || 'audio/webm';
-        console.log('AudioStorage: Detected blob mime type:', contentType);
-        
-        // Supabase has issues with some mime types, normalize them
-        if (contentType.includes('mp4') || contentType.includes('m4a')) {
-          // Use audio/mpeg for better compatibility
-          contentType = 'audio/mpeg';
-        } else if (!contentType.startsWith('audio/')) {
-          // Fallback to webm if not an audio type
-          contentType = 'audio/webm';
+      // Prepare upload options
+      const uploadOptions: any = { 
+        upsert: false,
+        contentType: normalizedContentType
+      };
+
+      // Try manual upload first for better control over headers
+      let uploadSuccess = false;
+      let data: any = null;
+      let error: any = null;
+
+      if (Platform.OS === 'web' && fileBody instanceof Blob) {
+        try {
+          console.log('AudioStorage: Attempting manual upload with explicit headers');
+          
+          // Get signed upload URL
+          const { data: signedUpload, error: signedErr } = await supabase.storage
+            .from(this.bucketName)
+            .createSignedUploadUrl(fileName);
+          
+          if (!signedErr && signedUpload?.token) {
+            // Manual PUT request with explicit Content-Type
+            const signedUrl = (signedUpload as any).signedUrl || `https://kmzubtegijexwguadyfw.supabase.co/storage/v1/object/upload/sign/${this.bucketName}/${fileName}?token=${signedUpload.token}`;
+            const response = await fetch(signedUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': normalizedContentType,
+                'Content-Length': fileBody.size.toString(),
+              },
+              body: fileBody,
+            });
+
+            if (response.ok) {
+              console.log('AudioStorage: Manual upload succeeded');
+              uploadSuccess = true;
+              data = { path: fileName };
+            } else {
+              const errorText = await response.text();
+              console.warn('AudioStorage: Manual upload failed:', response.status, errorText);
+              error = new Error(`Manual upload failed: ${response.status} ${errorText}`);
+            }
+          } else {
+            console.warn('AudioStorage: Failed to create signed upload URL', signedErr);
+            error = signedErr;
+          }
+        } catch (manualError) {
+          console.warn('AudioStorage: Manual upload error:', manualError);
+          error = manualError;
         }
-        
-        console.log('AudioStorage: Using normalized mime type:', contentType);
-        
-        const arrayBuffer = await blob.arrayBuffer();
-        audioData = new Uint8Array(arrayBuffer);
-      } else {
-        // For native platforms, use FileSystem
-        const base64Audio = await FileSystem.readAsStringAsync(audioUri, {
-          encoding: 'base64' as any,
-        });
-        audioData = this.base64ToUint8Array(base64Audio);
-        contentType = `audio/${fileExtension}`;
       }
 
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from(this.bucketName)
-        .upload(fileName, audioData, {
-          contentType: contentType,
-          upsert: false,
-        });
+      // Fallback to Supabase client upload
+      if (!uploadSuccess) {
+        console.log('AudioStorage: Trying Supabase client upload as fallback');
+        const uploadResult = await supabase.storage
+          .from(this.bucketName)
+          .upload(fileName, fileBody as any, uploadOptions);
+        
+        data = uploadResult.data;
+        error = uploadResult.error;
+      }
 
       if (error) {
         // Handle specific RLS policy errors
