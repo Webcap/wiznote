@@ -66,6 +66,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
       
       console.log('[AudioPlayer] Loading audio from:', audioFile.filename);
+      console.log('[AudioPlayer] Audio file details:', {
+        filename: audioFile.filename,
+        duration: audioFile.duration,
+        type: audioFile.type,
+        hasAudioUri: !!audioFile.audioUri
+      });
       
       // Create sound object from the audio URI (AudioUtils will handle authentication)
       const { sound: newSound } = await AudioUtils.createSound(audioFile.filename);
@@ -73,6 +79,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       // Check if this is HTML5 Audio (web) or expo-audio
       const isWebAudio = typeof HTMLAudioElement !== 'undefined' && newSound instanceof HTMLAudioElement;
       console.log('[AudioPlayer] Sound type:', isWebAudio ? 'HTML5 Audio' : 'expo-audio');
+      
+      if (isWebAudio) {
+        const webAudio = newSound as HTMLAudioElement;
+        console.log('[AudioPlayer] Web audio element created:', {
+          src: webAudio.src,
+          readyState: webAudio.readyState,
+          networkState: webAudio.networkState,
+          preload: webAudio.preload
+        });
+      }
         
       // Note: The new expo-audio AudioPlayer doesn't use setOnPlaybackStatusUpdate
       // Status updates are handled differently - we'll poll for status updates instead
@@ -419,6 +435,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             durationMillis: (webAudio.duration || 0) * 1000,
             duration: webAudio.duration || 0
           };
+          console.log('[AudioPlayer] Web audio status:', {
+            readyState: webAudio.readyState,
+            duration: webAudio.duration,
+            src: webAudio.src,
+            networkState: webAudio.networkState
+          });
         } else {
           status = sound.currentStatus;
         }
@@ -487,11 +509,35 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         // Enhanced play logic for web
         try {
           if (isWebAudio) {
+            const webAudio = sound as HTMLAudioElement;
+            console.log('[AudioPlayer] Attempting to play web audio:', {
+              src: webAudio.src,
+              readyState: webAudio.readyState,
+              networkState: webAudio.networkState,
+              paused: webAudio.paused,
+              ended: webAudio.ended
+            });
+            
             const playPromise = sound.play();
             if (playPromise !== undefined) {
-              playPromise.catch((error: Error) => {
+              playPromise.then(() => {
+                console.log('[AudioPlayer] Web audio play promise resolved');
+              }).catch((error: Error) => {
                 console.error('[AudioPlayer] Web audio play error:', error);
-                Alert.alert('Playback Error', 'Unable to play audio. Please try again.');
+                console.error('[AudioPlayer] Play error details:', {
+                  name: error.name,
+                  message: error.message,
+                  stack: error.stack
+                });
+                
+                // Handle specific web audio errors
+                if (error.name === 'NotAllowedError') {
+                  Alert.alert('Audio Playback', 'Please click the play button to start audio playback. Browser requires user interaction.');
+                } else if (error.name === 'NotSupportedError') {
+                  Alert.alert('Audio Error', 'Audio format not supported by your browser.');
+                } else {
+                  Alert.alert('Playback Error', `Unable to play audio: ${error.message}`);
+                }
               });
             }
           } else {

@@ -308,19 +308,21 @@ export class AudioUtils {
           
           if (signedUrlError) {
             console.error('[AudioUtils Web] All signed URL attempts failed:', signedUrlError);
-            throw new Error(`Failed to get signed URL after ${maxRetries} attempts: ${signedUrlError.message}`);
-          }
-          
-          if (signedUrlData?.signedUrl) {
+            console.warn('[AudioUtils Web] Falling back to original URI for playback');
+            // Don't throw error, try with original URI
+            finalUri = uri;
+          } else if (signedUrlData?.signedUrl) {
             console.log('[AudioUtils Web] Using fresh signed URL for playback');
             finalUri = signedUrlData.signedUrl;
           } else {
-            throw new Error('No signed URL received from Supabase after all attempts');
+            console.warn('[AudioUtils Web] No signed URL received, using original URI');
+            finalUri = uri;
           }
           
         } catch (error) {
           console.error('[AudioUtils Web] Error handling Supabase URL:', error);
-          throw new Error(`Failed to process audio file: ${error instanceof Error ? error.message : String(error)}`);
+          console.warn('[AudioUtils Web] Continuing with original URI despite error');
+          finalUri = uri;
         }
       }
       
