@@ -126,7 +126,7 @@ export const useFeatureFlags = () => {
         console.warn('useFeatureFlags: Service not initialized, checking default behavior');
       }
       // For critical features, check defaults during initialization
-      if (flagKey === 'voice_recording' || flagKey === 'pdf_upload' || flagKey === 'ai_quiz') {
+      if (flagKey === 'voice_recording' || flagKey === 'pdf_upload' || flagKey === 'ai_quiz' || flagKey === 'ai_flashcards') {
         const { DEFAULT_FEATURE_FLAGS } = require('../constants/DefaultFeatureFlags');
         return DEFAULT_FEATURE_FLAGS[flagKey]?.enabled || false;
       }
@@ -134,7 +134,7 @@ export const useFeatureFlags = () => {
     }
 
     return featureFlagService.isFeatureEnabled(flagKey, user || undefined);
-  }, [user]);
+  }, [user, flags]);
 
   // Get all enabled features
   const getEnabledFeatures = useCallback((): FeatureFlagKey[] => {

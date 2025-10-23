@@ -355,13 +355,16 @@ export class PromotionService {
    */
   private static async isUserNearLimit(userId: string): Promise<boolean> {
     try {
-      const { data: usage } = await supabase
-        .from('feature_usage')
+      const { data: usage, error } = await supabase
+        .from('user_feature_usage')
         .select('*')
         .eq('user_id', userId)
         .single();
 
-      if (!usage) return false;
+      if (error || !usage) {
+        console.log('[PromotionService] No usage data found for user, skipping limit check');
+        return false;
+      }
 
       // Check each feature limit
       const features = ['notes', 'audio_transcriptions', 'ai_generations', 'flashcard_sets'];
@@ -494,13 +497,13 @@ export class PromotionService {
 
       // Check usage conditions
       if (conditions.minUsagePercent !== undefined) {
-        const { data: usage } = await supabase
-          .from('feature_usage')
+        const { data: usage, error } = await supabase
+          .from('user_feature_usage')
           .select('*')
           .eq('user_id', userId)
           .single();
 
-        if (usage) {
+        if (!error && usage) {
           const usagePercent = this.calculateOverallUsagePercent(usage);
           if (usagePercent < conditions.minUsagePercent) {
             return false;

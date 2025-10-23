@@ -96,6 +96,8 @@ export const supabase = createClient(
     global: {
       headers: {
         'X-Client-Info': `notez-react-app-${Platform.OS}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
       },
     },
     // Optimize realtime configuration
@@ -115,6 +117,28 @@ export const supabase = createClient(
         return fetch(url, {
           ...options,
           signal: controller.signal,
+        }).finally(() => {
+          clearTimeout(timeoutId);
+        });
+      },
+    }),
+    ...(Platform.OS !== 'web' && {
+      // Mobile-specific optimizations (Android/iOS)
+      fetch: (url: string, options: RequestInit = {}) => {
+        // Add timeout for mobile requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for mobile
+        
+        return fetch(url, {
+          ...options,
+          signal: controller.signal,
+          // Add mobile-specific headers
+          headers: {
+            ...options.headers,
+            'User-Agent': `WizNote-Mobile-${Platform.OS}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
         }).finally(() => {
           clearTimeout(timeoutId);
         });

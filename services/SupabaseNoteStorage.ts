@@ -45,6 +45,10 @@ export class SupabaseNoteStorage {
           console.log('SupabaseNoteStorage: Real-time subscription status:', status);
           if (status === 'CHANNEL_ERROR') {
             console.warn('SupabaseNoteStorage: Real-time subscription error, will retry when user is set');
+          } else if (status === 'TIMED_OUT') {
+            console.warn('SupabaseNoteStorage: Real-time subscription timed out, but will continue to retry automatically');
+          } else if (status === 'SUBSCRIBED') {
+            console.log('SupabaseNoteStorage: Real-time subscription active and connected');
           }
         });
 

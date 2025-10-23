@@ -30,7 +30,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
   const [isRetryingTranscription, setIsRetryingTranscription] = useState(false);
-  const [statusUpdateInterval, setStatusUpdateInterval] = useState<NodeJS.Timeout | null>(null);
+  const statusUpdateInterval = React.useRef<NodeJS.Timeout | null>(null);
 
   const containerBg = useThemeColor({ light: '#F5F6FA', dark: '#282828' }, 'background');
   const textColor = useThemeColor({}, 'text');
@@ -44,9 +44,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     loadAudio();
     return () => {
       // Clear status update interval
-      if (statusUpdateInterval) {
-        clearInterval(statusUpdateInterval);
-        setStatusUpdateInterval(null);
+      if (statusUpdateInterval.current) {
+        clearInterval(statusUpdateInterval.current);
+        statusUpdateInterval.current = null;
       }
       if (sound) {
         // The new expo-audio API doesn't have unloadAsync
@@ -54,7 +54,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         console.log('[AudioPlayer] Cleaning up sound object');
       }
     };
-  }, [audioFile, statusUpdateInterval]);
+  }, [audioFile]);
 
   const loadAudio = async () => {
     try {
@@ -70,8 +70,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       // Create sound object from the audio URI (AudioUtils will handle authentication)
       const { sound: newSound } = await AudioUtils.createSound(audioFile.filename);
       
-      // All sound objects from AudioUtils.createSound() are expo-audio Audio.Sound objects
-      console.log('[AudioPlayer] Using expo-audio for audio playback');
+      // Check if this is HTML5 Audio (web) or expo-audio
+      const isWebAudio = typeof HTMLAudioElement !== 'undefined' && newSound instanceof HTMLAudioElement;
+      console.log('[AudioPlayer] Sound type:', isWebAudio ? 'HTML5 Audio' : 'expo-audio');
         
       // Note: The new expo-audio AudioPlayer doesn't use setOnPlaybackStatusUpdate
       // Status updates are handled differently - we'll poll for status updates instead
@@ -81,8 +82,21 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       // Start polling for status updates
       startStatusPolling(newSound);
       
-      // Enhanced duration and loading verification for web
-      const status = newSound.currentStatus;
+      // Enhanced duration and loading verification
+      let status: any;
+      
+      if (isWebAudio) {
+        // For HTML5 Audio element
+        const webAudio = newSound as HTMLAudioElement;
+        status = {
+          isLoaded: webAudio.readyState >= 2, // HAVE_ENOUGH_DATA
+          durationMillis: (webAudio.duration || 0) * 1000,
+          duration: webAudio.duration || 0
+        };
+      } else {
+        // For expo-audio
+        status = newSound.currentStatus;
+      }
       console.log('[AudioPlayer] Sound loaded with status:', status);
       
       if (status.isLoaded) {
@@ -201,51 +215,109 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   // Start status updates using the new expo-audio API (replacement for setOnPlaybackStatusUpdate)
   const startStatusPolling = (audioSound: any) => {
     // Clear any existing interval
-    if (statusUpdateInterval) {
-      clearInterval(statusUpdateInterval);
+    if (statusUpdateInterval.current) {
+      clearInterval(statusUpdateInterval.current);
+      statusUpdateInterval.current = null;
     }
 
     try {
-      // Use the new expo-audio event listener approach
-      if (audioSound && audioSound.addListener) {
-        audioSound.addListener('playbackStatusUpdate', onPlaybackStatusUpdate);
-        console.log('[AudioPlayer] Added playback status listener');
-      } else {
-        // Fallback to polling if addListener is not available
-        console.log('[AudioPlayer] addListener not available, falling back to polling');
-        const interval = setInterval(() => {
-          try {
-            if (audioSound) {
-              const status = audioSound.currentStatus;
+      // Check if this is a web Audio element (HTML5 Audio) - HTMLAudioElement only exists in browsers
+      const isWebAudio = typeof HTMLAudioElement !== 'undefined' && audioSound instanceof HTMLAudioElement;
+      
+      console.log('[AudioPlayer] Setting up status polling. Is Web Audio:', isWebAudio);
+      
+      const interval = setInterval(() => {
+        try {
+          if (!audioSound) return;
+          
+          if (isWebAudio) {
+            // Handle HTML5 Audio element (web)
+            const webAudio = audioSound as HTMLAudioElement;
+            const webStatus = {
+              isLoaded: !webAudio.paused || webAudio.readyState >= 2,
+              playing: !webAudio.paused && !webAudio.ended,
+              currentTime: webAudio.currentTime || 0,
+              duration: webAudio.duration || 0,
+              didJustFinish: webAudio.ended
+            };
+            onPlaybackStatusUpdate(webStatus);
+          } else {
+            // Handle expo-audio AudioPlayer SDK 54
+            let status;
+            try {
+              status = audioSound.currentStatus;
+            } catch (statusError) {
+              // Try alternative status methods
+              if (typeof audioSound.getStatus === 'function') {
+                status = audioSound.getStatus();
+              } else if (typeof audioSound.status === 'object') {
+                status = audioSound.status;
+              }
+            }
+            
+            if (status) {
               onPlaybackStatusUpdate(status);
             }
-          } catch (error) {
-            console.warn('[AudioPlayer] Error polling status:', error);
           }
-        }, 250); // Poll every 250ms for smooth updates
-        setStatusUpdateInterval(interval);
-      }
+        } catch (error) {
+          console.warn('[AudioPlayer] Error polling status:', error);
+        }
+      }, 250); // Poll every 250ms for smooth updates
+      
+      statusUpdateInterval.current = interval;
+      console.log('[AudioPlayer] Status polling started successfully');
     } catch (error) {
       console.warn('[AudioPlayer] Error setting up status updates:', error);
     }
   };
 
   const onPlaybackStatusUpdate = (status: any) => {
-    console.log('[AudioPlayer] Playback status update:', status);
-    
-    if (status.isLoaded) {
-      setIsPlaying(status.isPlaying);
-      setPosition(status.positionMillis || 0);
+    // Handle both loaded and unloaded states
+    if (status) {
+      // SDK 54 uses 'playing' instead of 'isPlaying'
+      const isCurrentlyPlaying = status.playing ?? status.isPlaying ?? false;
+      const currentPosition = status.currentTime !== undefined 
+        ? status.currentTime * 1000  // Convert seconds to milliseconds
+        : (status.positionMillis ?? 0);
+      const currentDuration = status.duration !== undefined
+        ? status.duration * 1000  // Convert seconds to milliseconds
+        : (status.durationMillis ?? 0);
       
+      // Log full status for debugging
+      if (isCurrentlyPlaying) {
+        console.log('[AudioPlayer] Status update - PLAYING:', {
+          isLoaded: status.isLoaded,
+          playing: isCurrentlyPlaying,
+          position: currentPosition,
+          duration: currentDuration
+        });
+      }
+      
+      // Update playing state
+      console.log('[AudioPlayer] Updating isPlaying state to:', isCurrentlyPlaying);
+      setIsPlaying(isCurrentlyPlaying);
+      
+      // Update position
+      if (currentPosition !== undefined && !isNaN(currentPosition)) {
+        setPosition(currentPosition);
+      }
+      
+      // Update duration if available and valid
+      if (currentDuration > 0 && !isNaN(currentDuration)) {
+        if (duration === 0 || Math.abs(duration - currentDuration) > 100) {
+          console.log('[AudioPlayer] Updating duration to:', currentDuration);
+          setDuration(currentDuration);
+        }
+      }
+      
+      // Handle finish
       if (status.didJustFinish) {
+        console.log('[AudioPlayer] Audio finished playing');
         setIsPlaying(false);
         setPosition(0);
       }
-    } else {
-      // Handle case where sound becomes unloaded
-      console.warn('[AudioPlayer] Sound became unloaded, this may be normal for web audio');
-      // Don't reset isPlaying here as it might be a temporary state
-      // Only reset if we're sure the sound is completely gone
+      
+      // Handle errors
       if (status.error) {
         console.error('[AudioPlayer] Sound error:', status.error);
         setIsPlaying(false);
@@ -294,17 +366,74 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         return;
       }
 
+      // Check if this is HTML5 Audio (web) - HTMLAudioElement only exists in browsers
+      const isWebAudio = typeof HTMLAudioElement !== 'undefined' && sound instanceof HTMLAudioElement;
+
       if (isPlaying) {
         console.log('[AudioPlayer] Pausing audio...');
-        sound.pause();
-        console.log('[AudioPlayer] Audio paused successfully');
+        if (isWebAudio) {
+          sound.pause();
+        } else {
+          sound.pause();
+        }
+        console.log('[AudioPlayer] Audio pause command sent');
+        
+        // Immediately check status for responsive UI
+        setTimeout(() => {
+          try {
+            if (isWebAudio) {
+              const webAudio = sound as HTMLAudioElement;
+              onPlaybackStatusUpdate({
+                isLoaded: true,
+                playing: !webAudio.paused,
+                currentTime: webAudio.currentTime,
+                duration: webAudio.duration
+              });
+            } else {
+              const newStatus = sound.currentStatus;
+              onPlaybackStatusUpdate(newStatus);
+            }
+          } catch (statusError) {
+            console.warn('[AudioPlayer] Error getting immediate status:', statusError);
+          }
+        }, 50);
       } else {
         console.log('[AudioPlayer] Playing audio...');
         
         // Enhanced play logic for web
         try {
-          sound.play();
+          if (isWebAudio) {
+            const playPromise = sound.play();
+            if (playPromise !== undefined) {
+              playPromise.catch((error: Error) => {
+                console.error('[AudioPlayer] Web audio play error:', error);
+                Alert.alert('Playback Error', 'Unable to play audio. Please try again.');
+              });
+            }
+          } else {
+            sound.play();
+          }
           console.log('[AudioPlayer] Audio play command sent successfully');
+          
+          // Immediately check status for responsive UI
+          setTimeout(() => {
+            try {
+              if (isWebAudio) {
+                const webAudio = sound as HTMLAudioElement;
+                onPlaybackStatusUpdate({
+                  isLoaded: true,
+                  playing: !webAudio.paused,
+                  currentTime: webAudio.currentTime,
+                  duration: webAudio.duration
+                });
+              } else {
+                const newStatus = sound.currentStatus;
+                onPlaybackStatusUpdate(newStatus);
+              }
+            } catch (statusError) {
+              console.warn('[AudioPlayer] Error getting immediate status:', statusError);
+            }
+          }, 50);
         } catch (playError) {
           console.error('[AudioPlayer] Play error:', playError);
           
@@ -454,8 +583,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       {/* Audio Controls */}
       <View style={styles.controlsContainer}>
         <TouchableOpacity
-          style={styles.playButton}
-          onPress={isPlaying ? handleStop : handlePlayPause}
+          style={[styles.playButton, isPlaying && styles.playButtonActive]}
+          onPress={handlePlayPause}
           disabled={isLoading}
         >
           {isLoading ? (
@@ -468,19 +597,24 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         </TouchableOpacity>
 
         <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
+          <View style={[styles.progressBar, isPlaying && styles.progressBarActive]}>
             <View
               style={[
                 styles.progressFill,
-                { width: `${(position / duration) * 100}%` }
+                isPlaying && styles.progressFillActive,
+                { 
+                  width: duration > 0 && !isNaN(position) && !isNaN(duration)
+                    ? `${Math.min(100, Math.max(0, (position / duration) * 100))}%`
+                    : '0%'
+                }
               ]}
             />
           </View>
           <View style={styles.timeContainer}>
-            <ThemedText style={styles.timeText}>
+            <ThemedText style={[styles.timeText, isPlaying && styles.timeTextActive]}>
               {formatTime(position)}
             </ThemedText>
-            <ThemedText style={styles.timeText}>
+            <ThemedText style={[styles.timeText, isPlaying && styles.timeTextActive]}>
               {formatTime(duration)}
             </ThemedText>
           </View>
@@ -538,6 +672,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  playButtonActive: {
+    backgroundColor: '#8A7AED',
+    boxShadow: '0px 2px 4px rgba(106, 90, 205, 0.5)',
+    elevation: 4,
+  },
   progressContainer: {
     flex: 1,
     marginHorizontal: 10,
@@ -550,10 +689,16 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: 'hidden',
   },
+  progressBarActive: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
   progressFill: {
     height: '100%',
     backgroundColor: '#FFFFFF',
     borderRadius: 4,
+  },
+  progressFillActive: {
+    backgroundColor: '#8A7AED',
   },
   timeContainer: {
     flexDirection: 'row',
@@ -564,6 +709,10 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 12,
     color: '#FFFFFF',
+  },
+  timeTextActive: {
+    fontWeight: 'bold',
+    color: '#8A7AED',
   },
   retryButton: {
     flexDirection: 'row',

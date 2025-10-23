@@ -550,8 +550,8 @@ const webStyles = {
     margin: 0,
   },
   closeButton: {
-    background: 'none',
-    border: 'none',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
     cursor: 'pointer',
     padding: '4px',
     display: 'flex',
@@ -607,8 +607,8 @@ const webStyles = {
     },
   },
   clearButton: {
-    background: 'none',
-    border: 'none',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
     cursor: 'pointer',
     padding: '4px',
     display: 'flex',
@@ -745,8 +745,8 @@ const webStyles = {
     whiteSpace: 'nowrap' as const,
   },
   copyButton: {
-    background: 'none',
-    border: 'none',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
     cursor: 'pointer',
     padding: '4px',
     display: 'flex',

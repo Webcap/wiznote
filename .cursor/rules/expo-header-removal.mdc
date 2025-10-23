@@ -1,0 +1,80 @@
+# Expo Header Removal Pattern
+
+## When to Remove Expo Headers
+
+**Remove the default Expo header bar when:**
+- Implementing a custom header with back button and title
+- The page has its own navigation controls
+- You want full control over the header appearance and behavior
+
+## Implementation Steps
+
+### 1. Update Layout Configuration
+
+In `app/_layout.native.tsx`, add the page to Stack.Screen with `headerShown: false`:
+
+```typescript
+<Stack.Screen name="page-name" options={{ headerShown: false }} />
+```
+
+### 2. Add Custom Header with Top Padding
+
+Implement a custom header with appropriate top padding to account for the status bar:
+
+```typescript
+{/* Header */}
+<View style={{ 
+  padding: 16, 
+  paddingTop: Platform.OS === 'ios' ? 100 : 80, // Top padding for status bar
+  borderBottomWidth: 1, 
+  borderBottomColor: borderColor,
+  backgroundColor: cardBackground,
+  flexDirection: 'row',
+  alignItems: 'center'
+}}>
+  <TouchableOpacity 
+    style={{ marginRight: 16 }}
+    onPress={() => router.back()}
+  >
+    <Ionicons name="arrow-back" size={24} color={textColor} />
+  </TouchableOpacity>
+  
+  <ThemedText style={{ fontSize: 18, fontWeight: 'bold', color: textColor }}>
+    Page Title
+  </ThemedText>
+</View>
+```
+
+## Padding Guidelines
+
+**Platform-specific top padding:**
+- **iOS**: 100px (accounts for status bar + safe area)
+- **Android**: 80px (accounts for status bar)
+
+**Adjust padding as needed:**
+- Start with recommended values
+- Increase if more breathing room is desired
+- Test on both platforms to ensure proper positioning
+
+## Examples in Codebase
+
+- **Flashcards page**: Custom header with back button and "Flashcards: [Note Title]"
+- **Other pages**: Follow the same pattern for consistency
+
+## Benefits
+
+- **Full control**: Customize header appearance and behavior
+- **Consistent design**: Match app's design language
+- **Better UX**: Integrate seamlessly with app navigation patterns
+- **Platform optimization**: Proper spacing for iOS and Android
+
+## Notes
+
+- Only remove headers when implementing custom alternatives
+- Ensure custom headers include proper back navigation
+- Test on both iOS and Android to verify spacing
+- Consider accessibility and touch target sizes
+description:
+globs:
+alwaysApply: true
+---

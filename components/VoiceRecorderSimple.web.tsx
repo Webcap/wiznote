@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { useAuth } from '../hooks/useAuth';
 import { useFeatureLimits } from '../hooks/useFeatureLimits';
@@ -45,11 +45,12 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
   
   // Refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const hasShownWarningRef = useRef(false);
   const durationRef = useRef(0); // Track duration for closures
+  const recordedBlobRef = useRef<Blob | null>(null); // Store the actual blob
   
   // Load session limit
   useEffect(() => {
@@ -91,14 +92,27 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
     
     // Stop media recorder
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (error) {
+        console.warn('[VoiceRecorderWeb] Error stopping media recorder:', error);
+      }
     }
+    mediaRecorderRef.current = null;
     
     // Stop media stream
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('[VoiceRecorderWeb] Stopped audio track:', track.label);
+      });
       streamRef.current = null;
     }
+    
+    // Clear audio chunks
+    audioChunksRef.current = [];
+    
+    // Note: Don't clear recordedBlobRef here as it may be needed for upload
   };
 
   const startTimer = () => {
@@ -170,35 +184,68 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
       console.log('[VoiceRecorderWeb] Microphone access granted');
       streamRef.current = stream;
       
-      // Create MediaRecorder
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
+      // Determine the best supported mime type for recording
+      let mimeType = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        console.log('[VoiceRecorderWeb] opus codec not supported, trying webm');
+        mimeType = 'audio/webm';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          console.log('[VoiceRecorderWeb] webm not supported, trying mp4');
+          mimeType = 'audio/mp4';
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            console.log('[VoiceRecorderWeb] mp4 not supported, using default');
+            mimeType = '';
+          }
+        }
+      }
       
-      // Handle data available
+      console.log('[VoiceRecorderWeb] Using mime type:', mimeType || 'default');
+      
+      const options = mimeType ? { mimeType } : {};
+      const mediaRecorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      // Handle data available - collect audio chunks
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
+        if (event.data && event.data.size > 0) {
+          console.log('[VoiceRecorderWeb] Received audio chunk:', event.data.size, 'bytes');
+          audioChunksRef.current.push(event.data);
         }
       };
       
-      // Handle stop
+      // Handle stop - process the final recording
       mediaRecorder.onstop = () => {
         console.log('[VoiceRecorderWeb] MediaRecorder stopped');
-        const blob = new Blob(chunksRef.current, { type: mimeType });
+        console.log('[VoiceRecorderWeb] Total chunks collected:', audioChunksRef.current.length);
+        
+        if (audioChunksRef.current.length === 0) {
+          console.error('[VoiceRecorderWeb] No audio chunks recorded!');
+          alert('Recording failed: No audio data was captured. Please try again.');
+          return;
+        }
+        
+        // Create blob from all chunks
+        const recordedMimeType = mediaRecorder.mimeType || mimeType || 'audio/webm';
+        const blob = new Blob(audioChunksRef.current, { type: recordedMimeType });
+        console.log('[VoiceRecorderWeb] Created blob:', blob.size, 'bytes, type:', blob.type);
+        
+        // Store blob in ref for upload
+        recordedBlobRef.current = blob;
+        
+        // Create object URL for immediate playback (temporary)
         const url = URL.createObjectURL(blob);
         
         // Use ref to get current duration (avoids closure issue)
         const finalDuration = durationRef.current;
         console.log('[VoiceRecorderWeb] Recording duration:', finalDuration, 'seconds');
         
-        // Create audio file object
+        // Create audio file object with blob
         const audioFile = {
           id: `audio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          filename: url,
-          blob: blob,
-          duration: finalDuration, // Use ref value instead of state
+          filename: url, // Temporary blob URL for preview
+          blob: blob, // The actual blob data for upload
+          duration: finalDuration,
           transcription: '',
           transcriptionStatus: 'pending' as const,
           aiTranscription: '',
@@ -206,7 +253,13 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
           createdAt: new Date(),
         };
         
-        console.log('[VoiceRecorderWeb] Calling onRecordingComplete with audio file:', audioFile);
+        console.log('[VoiceRecorderWeb] Calling onRecordingComplete with audio file:', {
+          id: audioFile.id,
+          blobSize: blob.size,
+          duration: finalDuration,
+          mimeType: blob.type
+        });
+        
         onRecordingComplete?.(audioFile);
         setHasRecording(true);
       };
@@ -307,9 +360,10 @@ export const VoiceRecorderSimple: React.FC<VoiceRecorderSimpleProps> = ({
       cleanup();
       setIsRecording(false);
       setDuration(0);
-      durationRef.current = 0; // Reset duration ref
+      durationRef.current = 0;
       setHasRecording(false);
-      chunksRef.current = [];
+      audioChunksRef.current = [];
+      recordedBlobRef.current = null; // Clear the recorded blob
     }
   };
 
