@@ -102,7 +102,7 @@ export class AudioStorage {
           blob = audioBlob;
         } else if (audioUri) {
           console.log('AudioStorage: Fetching from blob URL (fallback)');
-          const response = await fetch(audioUri);
+        const response = await fetch(audioUri);
           blob = await response.blob();
         } else {
           throw new Error('No audio data available for upload');
@@ -151,7 +151,7 @@ export class AudioStorage {
         fileBody = audioData;
         contentType = `audio/${fileExtension}`;
       }
-      
+
       const fileName = `${userId}/${noteId}/audio_${timestamp}.${fileExtension}`;
 
       // Use the content type as-is since we've normalized it
@@ -175,7 +175,7 @@ export class AudioStorage {
           
           // Get signed upload URL
           const { data: signedUpload, error: signedErr } = await supabase.storage
-            .from(this.bucketName)
+        .from(this.bucketName)
             .createSignedUploadUrl(fileName);
           
           if (!signedErr && signedUpload?.token) {
@@ -212,12 +212,213 @@ export class AudioStorage {
       // Fallback to Supabase client upload
       if (!uploadSuccess) {
         console.log('AudioStorage: Trying Supabase client upload as fallback');
-        const uploadResult = await supabase.storage
-          .from(this.bucketName)
-          .upload(fileName, fileBody as any, uploadOptions);
         
-        data = uploadResult.data;
-        error = uploadResult.error;
+        // For native platforms, add retry logic for network issues
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        console.log('AudioStorage: Starting upload with options:', uploadOptions);
+        console.log('AudioStorage: File body type:', typeof fileBody, 'size:', fileBody instanceof Uint8Array ? fileBody.length : 'unknown');
+        console.log('AudioStorage: Platform:', Platform.OS, 'Version:', Platform.Version);
+        console.log('AudioStorage: Supabase URL:', process.env.EXPO_PUBLIC_SUPABASE_URL);
+        console.log('AudioStorage: Supabase Key present:', !!(process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY));
+        console.log('AudioStorage: Supabase client URL:', supabase.supabaseUrl);
+        console.log('AudioStorage: Supabase client key present:', !!supabase.supabaseKey);
+        
+        // Check authentication status
+        try {
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          console.log('AudioStorage: Current session:', session ? 'Present' : 'None');
+          console.log('AudioStorage: Session user:', session?.user?.id || 'None');
+          if (sessionError) {
+            console.warn('AudioStorage: Session error:', sessionError);
+          }
+        } catch (authError) {
+          console.warn('AudioStorage: Auth check failed:', authError);
+        }
+        
+        // Test basic network connectivity first (Android-compatible timeout)
+        try {
+          console.log('AudioStorage: Testing network connectivity...');
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+          
+          const testResponse = await fetch('https://httpbin.org/get', {
+            method: 'GET',
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          console.log('AudioStorage: Network test result:', testResponse.ok ? 'SUCCESS' : 'FAILED');
+        } catch (networkError) {
+          console.warn('AudioStorage: Network connectivity test failed:', networkError);
+        }
+        
+        // Test Supabase connectivity specifically (Android-compatible timeout)
+        try {
+          console.log('AudioStorage: Testing Supabase connectivity...');
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+          
+          const supabaseTestUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/rest/v1/`;
+          const supabaseResponse = await fetch(supabaseTestUrl, {
+            method: 'GET',
+            headers: {
+              'apikey': process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
+            },
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          console.log('AudioStorage: Supabase test result:', supabaseResponse.status, supabaseResponse.statusText);
+        } catch (supabaseError) {
+          console.warn('AudioStorage: Supabase connectivity test failed:', supabaseError);
+        }
+        
+        // Test Supabase Storage endpoint specifically
+        try {
+          console.log('AudioStorage: Testing Supabase Storage endpoint...');
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+          
+          const storageTestUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/bucket`;
+          const storageResponse = await fetch(storageTestUrl, {
+            method: 'GET',
+            headers: {
+              'apikey': process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
+              'Authorization': `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || ''}`,
+            },
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          console.log('AudioStorage: Storage endpoint test result:', storageResponse.status, storageResponse.statusText);
+        } catch (storageError) {
+          console.warn('AudioStorage: Storage endpoint test failed:', storageError);
+        }
+        
+        // Test authenticated storage access
+        try {
+          console.log('AudioStorage: Testing authenticated storage access...');
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+          
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            const authStorageUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/bucket`;
+            const authStorageResponse = await fetch(authStorageUrl, {
+              method: 'GET',
+              headers: {
+                'apikey': process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+            console.log('AudioStorage: Authenticated storage test result:', authStorageResponse.status, authStorageResponse.statusText);
+          } else {
+            console.log('AudioStorage: No access token available for authenticated test');
+          }
+        } catch (authStorageError) {
+          console.warn('AudioStorage: Authenticated storage test failed:', authStorageError);
+        }
+        
+        // Try manual authenticated upload first (since we know authentication works)
+        try {
+          console.log('AudioStorage: Attempting manual authenticated upload...');
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session?.access_token) {
+            const uploadUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/${this.bucketName}/${fileName}`;
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for upload
+            
+            const uploadResponse = await fetch(uploadUrl, {
+              method: 'POST',
+              headers: {
+                'apikey': process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': normalizedContentType,
+                'Content-Length': fileBody instanceof Uint8Array ? fileBody.length.toString() : 'unknown',
+              },
+              body: fileBody,
+              signal: controller.signal,
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (uploadResponse.ok) {
+              console.log('AudioStorage: Manual authenticated upload succeeded!');
+              data = { path: fileName };
+              error = null;
+              uploadSuccess = true;
+            } else {
+              const errorText = await uploadResponse.text();
+              console.warn('AudioStorage: Manual upload failed:', uploadResponse.status, errorText);
+              error = new Error(`Manual upload failed: ${uploadResponse.status} ${errorText}`);
+            }
+          } else {
+            console.log('AudioStorage: No access token available for manual upload');
+          }
+        } catch (manualError) {
+          console.warn('AudioStorage: Manual upload error:', manualError);
+          error = manualError;
+        }
+        
+        // Fallback to Supabase client upload if manual upload failed
+        if (!uploadSuccess) {
+          console.log('AudioStorage: Manual upload failed, trying Supabase client...');
+          
+          while (retryCount < maxRetries) {
+            try {
+              console.log(`AudioStorage: Upload attempt ${retryCount + 1}/${maxRetries}`);
+              const uploadResult = await supabase.storage
+                .from(this.bucketName)
+                .upload(fileName, fileBody as any, uploadOptions);
+              
+              if (!uploadResult.error) {
+                console.log(`AudioStorage: Upload succeeded on attempt ${retryCount + 1}`);
+                data = uploadResult.data;
+                error = null;
+                break;
+              } else {
+                console.warn(`AudioStorage: Upload attempt ${retryCount + 1} failed:`, uploadResult.error);
+                error = uploadResult.error;
+                
+                // If it's a network error, retry
+                if (uploadResult.error.message?.includes('Network request failed') || 
+                    uploadResult.error.message?.includes('network') ||
+                    uploadResult.error.message?.includes('timeout')) {
+                  retryCount++;
+                  if (retryCount < maxRetries) {
+                    console.log(`AudioStorage: Retrying upload in ${retryCount * 1000}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
+                    continue;
+                  }
+                }
+                break;
+              }
+            } catch (uploadError) {
+              console.warn(`AudioStorage: Upload attempt ${retryCount + 1} threw error:`, uploadError);
+              error = uploadError;
+              
+              // If it's a network error, retry
+              if (uploadError.message?.includes('Network request failed') || 
+                  uploadError.message?.includes('network') ||
+                  uploadError.message?.includes('timeout')) {
+                retryCount++;
+                if (retryCount < maxRetries) {
+                  console.log(`AudioStorage: Retrying upload in ${retryCount * 1000}ms...`);
+                  await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
+                  continue;
+                }
+              }
+              break;
+            }
+          }
+        }
+        
+        if (retryCount >= maxRetries) {
+          console.error(`AudioStorage: Upload failed after ${maxRetries} attempts`);
+        }
       }
 
       if (error) {
@@ -228,6 +429,12 @@ export class AudioStorage {
         } else if (error.message?.includes('Bucket not found')) {
           console.error('AudioStorage: Bucket not found - bucket may not exist');
           throw new Error('Audio storage bucket not configured. Please contact support.');
+        } else if (error.message?.includes('Network request failed')) {
+          console.error('AudioStorage: Network request failed - check internet connection');
+          throw new Error('Network connection issue. Please check your internet connection and try again.');
+        } else if (error.message?.includes('timeout')) {
+          console.error('AudioStorage: Upload timeout - connection may be slow');
+          throw new Error('Upload timeout. Please check your internet connection and try again.');
         }
         throw error;
       }

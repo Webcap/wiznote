@@ -319,6 +319,13 @@ export default function CreateAudioNoteScreen() {
       
       const { audioStorage } = await import('../services/AudioStorage');
       
+      console.log('[CreateAudio] About to call uploadAudioFile with:', {
+        filename: audioFile.filename,
+        userId: userId,
+        tempNoteId: tempNoteId,
+        hasBlob: !!audioFile.blob
+      });
+      
       // Pass the blob if available (web recording provides this)
       const uploadedAudioUrl = await audioStorage.uploadAudioFile(
         audioFile.filename,
@@ -363,7 +370,25 @@ export default function CreateAudioNoteScreen() {
 
     } catch (error) {
       console.error('[CreateAudio] Error processing recording:', error);
-      Alert.alert('Error', 'Failed to process recording. Please try again.');
+      
+      // Show more specific error message based on the error type
+      let errorMessage = 'Failed to process recording. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Network connection issue')) {
+          errorMessage = 'Network connection issue. Please check your internet connection and try again.';
+        } else if (error.message.includes('Upload timeout')) {
+          errorMessage = 'Upload timeout. Please check your internet connection and try again.';
+        } else if (error.message.includes('Audio storage bucket not configured')) {
+          errorMessage = 'Audio storage not configured. Please contact support.';
+        } else if (error.message.includes('Audio storage permissions not configured')) {
+          errorMessage = 'Audio storage permissions not configured. Please contact support.';
+        } else if (error.message.includes('Failed to upload audio file')) {
+          errorMessage = error.message; // Use the specific error message from AudioStorage
+        }
+      }
+      
+      Alert.alert('Error', errorMessage);
     }
   };
 
