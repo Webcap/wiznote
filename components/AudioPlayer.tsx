@@ -82,7 +82,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       // Start polling for status updates
       startStatusPolling(newSound);
       
-      // Enhanced duration and loading verification
+      // Enhanced duration and loading verification with better error handling
       let status: any;
       
       if (isWebAudio) {
@@ -93,9 +93,47 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           durationMillis: (webAudio.duration || 0) * 1000,
           duration: webAudio.duration || 0
         };
+        
+        // Add error handling for web audio
+        webAudio.addEventListener('error', (event) => {
+          console.error('[AudioPlayer] Web audio error:', webAudio.error);
+          const errorCode = webAudio.error?.code;
+          let errorMessage = 'Audio playback error';
+          
+          switch (errorCode) {
+            case MediaError.MEDIA_ERR_NETWORK:
+              errorMessage = 'Network error - check your internet connection';
+              break;
+            case MediaError.MEDIA_ERR_DECODE:
+              errorMessage = 'Audio format not supported';
+              break;
+            case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+              errorMessage = 'Audio file not accessible';
+              break;
+            default:
+              errorMessage = 'Audio playback failed';
+          }
+          
+          Alert.alert('Playback Error', errorMessage);
+        });
+        
       } else {
         // For expo-audio
-        status = newSound.currentStatus;
+        try {
+          status = newSound.currentStatus;
+        } catch (error) {
+          console.warn('[AudioPlayer] Error getting expo-audio status:', error);
+          // Fallback for web audio elements that don't have currentStatus
+          if (newSound instanceof HTMLAudioElement) {
+            status = {
+              isLoaded: newSound.readyState >= 2,
+              durationMillis: (newSound.duration || 0) * 1000,
+              duration: newSound.duration || 0
+            };
+          } else {
+            status = { isLoaded: false, durationMillis: 0, duration: 0 };
+          }
+        }
       }
       console.log('[AudioPlayer] Sound loaded with status:', status);
       
@@ -161,7 +199,26 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         
         const checkLoading = async () => {
           try {
-            const retryStatus = newSound.currentStatus;
+            let retryStatus: any;
+            
+            if (isWebAudio) {
+              // For HTML5 Audio element
+              const webAudio = newSound as HTMLAudioElement;
+              retryStatus = {
+                isLoaded: webAudio.readyState >= 2,
+                durationMillis: (webAudio.duration || 0) * 1000,
+                duration: webAudio.duration || 0
+              };
+            } else {
+              // For expo-audio
+              try {
+                retryStatus = newSound.currentStatus;
+              } catch (error) {
+                console.warn('[AudioPlayer] Error getting retry status:', error);
+                retryStatus = { isLoaded: false, durationMillis: 0, duration: 0 };
+              }
+            }
+            
             console.log(`[AudioPlayer] Retry ${retryCount + 1} status:`, retryStatus);
             
             if (retryStatus.isLoaded) {
@@ -194,19 +251,30 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     } catch (error) {
       console.error('[AudioPlayer] Error loading audio:', error);
       
-      // Enhanced error handling for web
+      // Enhanced error handling with more specific messages
       let errorMessage = 'Failed to load audio file';
+      
       if (error instanceof Error) {
-        if (error.message.includes('CORS')) {
-          errorMessage = 'Audio file cannot be loaded due to browser restrictions';
+        if (error.message.includes('Network request failed')) {
+          errorMessage = 'Network error - check your internet connection';
+        } else if (error.message.includes('signed URL')) {
+          errorMessage = 'Audio file access error - please try again';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Audio loading timeout - file may be too large';
+        } else if (error.message.includes('format') || error.message.includes('decode')) {
+          errorMessage = 'Audio format not supported';
+        } else if (error.message.includes('CORS') || error.message.includes('cross-origin')) {
+          errorMessage = 'Audio access blocked - please try refreshing';
         } else if (error.message.includes('404')) {
           errorMessage = 'Audio file not found';
         } else if (error.message.includes('network')) {
           errorMessage = 'Network error: Unable to load audio file';
+        } else {
+          errorMessage = `Audio loading failed: ${error.message}`;
         }
       }
       
-      Alert.alert('Error', errorMessage);
+      Alert.alert('Audio Loading Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -341,7 +409,19 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       // Enhanced status checking for web
       let status;
       try {
-        status = sound.currentStatus;
+        // Check if this is HTML5 Audio (web) first
+        const isWebAudio = typeof HTMLAudioElement !== 'undefined' && sound instanceof HTMLAudioElement;
+        
+        if (isWebAudio) {
+          const webAudio = sound as HTMLAudioElement;
+          status = {
+            isLoaded: webAudio.readyState >= 2,
+            durationMillis: (webAudio.duration || 0) * 1000,
+            duration: webAudio.duration || 0
+          };
+        } else {
+          status = sound.currentStatus;
+        }
         console.log('[AudioPlayer] Current sound status:', status);
       } catch (statusError) {
         console.warn('[AudioPlayer] Error getting sound status:', statusError);
@@ -390,8 +470,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                 duration: webAudio.duration
               });
             } else {
-              const newStatus = sound.currentStatus;
-              onPlaybackStatusUpdate(newStatus);
+              try {
+                const newStatus = sound.currentStatus;
+                onPlaybackStatusUpdate(newStatus);
+              } catch (error) {
+                console.warn('[AudioPlayer] Error getting status after pause:', error);
+              }
             }
           } catch (statusError) {
             console.warn('[AudioPlayer] Error getting immediate status:', statusError);
@@ -427,8 +511,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   duration: webAudio.duration
                 });
               } else {
-                const newStatus = sound.currentStatus;
-                onPlaybackStatusUpdate(newStatus);
+                try {
+                  const newStatus = sound.currentStatus;
+                  onPlaybackStatusUpdate(newStatus);
+                } catch (error) {
+                  console.warn('[AudioPlayer] Error getting status after play:', error);
+                }
               }
             } catch (statusError) {
               console.warn('[AudioPlayer] Error getting immediate status:', statusError);

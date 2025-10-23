@@ -99,7 +99,7 @@ export class AudioUtils {
   }
 
   /**
-   * Create HTML5 Audio element for web playback
+   * Create HTML5 Audio element for web playback with enhanced error handling
    */
   private static createWebAudioHandler(uri: string): Promise<{ sound: any }> {
     return new Promise((resolve, reject) => {
@@ -108,26 +108,45 @@ export class AudioUtils {
         
         const audio = new Audio();
         
-        // Important: Don't set crossOrigin for Supabase signed URLs
-        if (!uri.includes('supabase.co')) {
+        // Enhanced cross-origin handling
+        if (uri.includes('supabase.co')) {
+          // For Supabase URLs, don't set crossOrigin to avoid CORS issues
+          console.log('[AudioUtils Web] Supabase URL detected, skipping crossOrigin');
+        } else if (uri.startsWith('blob:')) {
+          // For blob URLs, no crossOrigin needed
+          console.log('[AudioUtils Web] Blob URL detected, skipping crossOrigin');
+        } else {
+          // For other remote URLs, set crossOrigin
           audio.crossOrigin = 'anonymous';
+          console.log('[AudioUtils Web] Remote URL detected, setting crossOrigin');
         }
         
-        audio.preload = 'metadata';
+        // Set preload to auto for better compatibility
+        audio.preload = 'auto';
         
         let hasResolved = false;
+        let timeoutId: NodeJS.Timeout | null = null;
+        
+        const cleanup = () => {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+          audio.removeEventListener('canplay', onCanPlay);
+          audio.removeEventListener('canplaythrough', onCanPlayThrough);
+          audio.removeEventListener('error', onError);
+          audio.removeEventListener('loadstart', onLoadStart);
+        };
         
         const onLoadedMetadata = () => {
           if (hasResolved) return;
           hasResolved = true;
           console.log('[AudioUtils Web] HTML5 Audio loaded successfully');
           console.log('[AudioUtils Web] Duration:', audio.duration, 'seconds');
+          console.log('[AudioUtils Web] Ready state:', audio.readyState);
           
-          // Clean up listeners
-          audio.removeEventListener('loadedmetadata', onLoadedMetadata);
-          audio.removeEventListener('canplay', onCanPlay);
-          audio.removeEventListener('error', onError);
-          
+          cleanup();
           resolve({ sound: audio });
         };
         
@@ -139,52 +158,81 @@ export class AudioUtils {
           }
         };
         
+        const onCanPlayThrough = () => {
+          if (hasResolved) return;
+          console.log('[AudioUtils Web] Audio can play through, ready state:', audio.readyState);
+          if (audio.readyState >= 3) {
+            onLoadedMetadata();
+          }
+        };
+        
+        const onLoadStart = () => {
+          console.log('[AudioUtils Web] Audio loading started');
+        };
+        
         const onError = (event: Event | string) => {
           if (hasResolved) return;
           hasResolved = true;
           
-          // Clean up listeners
-          audio.removeEventListener('loadedmetadata', onLoadedMetadata);
-          audio.removeEventListener('canplay', onCanPlay);
-          audio.removeEventListener('error', onError);
+          cleanup();
           
           const errorDetails = audio.error;
           let errorMessage = 'Failed to load audio';
+          let errorCode = 'UNKNOWN_ERROR';
           
           if (errorDetails) {
             switch (errorDetails.code) {
               case MediaError.MEDIA_ERR_ABORTED:
-                errorMessage = 'Audio loading aborted';
+                errorMessage = 'Audio loading was aborted';
+                errorCode = 'ABORTED';
                 break;
               case MediaError.MEDIA_ERR_NETWORK:
-                errorMessage = 'Network error while loading audio';
+                errorMessage = 'Network error while loading audio - check your internet connection';
+                errorCode = 'NETWORK_ERROR';
                 break;
               case MediaError.MEDIA_ERR_DECODE:
-                errorMessage = 'Audio decoding error - format may not be supported';
+                errorMessage = 'Audio decoding error - the file format may not be supported';
+                errorCode = 'DECODE_ERROR';
                 break;
               case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                errorMessage = 'Audio source not supported - file may be inaccessible or in unsupported format';
+                errorMessage = 'Audio source not supported - file may be inaccessible or corrupted';
+                errorCode = 'SRC_NOT_SUPPORTED';
                 break;
               default:
                 errorMessage = errorDetails.message || 'Unknown audio error';
+                errorCode = 'UNKNOWN_ERROR';
             }
+          } else if (typeof event === 'string') {
+            errorMessage = event;
+            errorCode = 'TIMEOUT';
           }
           
-          console.error('[AudioUtils Web] HTML5 Audio error:', errorMessage, errorDetails);
-          reject(new Error(errorMessage));
+          console.error('[AudioUtils Web] HTML5 Audio error:', {
+            message: errorMessage,
+            code: errorCode,
+            details: errorDetails,
+            uri: uri,
+            readyState: audio.readyState,
+            networkState: audio.networkState
+          });
+          
+          reject(new Error(`${errorMessage} (${errorCode})`));
         };
         
+        // Add multiple event listeners for better compatibility
         audio.addEventListener('loadedmetadata', onLoadedMetadata);
         audio.addEventListener('canplay', onCanPlay);
+        audio.addEventListener('canplaythrough', onCanPlayThrough);
         audio.addEventListener('error', onError);
+        audio.addEventListener('loadstart', onLoadStart);
         
-        // Timeout after 10 seconds
-        setTimeout(() => {
+        // Increased timeout to 15 seconds for better reliability
+        timeoutId = setTimeout(() => {
           if (!hasResolved) {
-            console.error('[AudioUtils Web] Audio loading timeout');
-            onError('Timeout loading audio');
+            console.error('[AudioUtils Web] Audio loading timeout after 15 seconds');
+            onError('Audio loading timeout - the file may be too large or the connection too slow');
           }
-        }, 10000);
+        }, 15000);
         
         // Set source and load
         console.log('[AudioUtils Web] Setting audio source:', uri);
@@ -193,7 +241,7 @@ export class AudioUtils {
         
       } catch (error) {
         console.error('[AudioUtils Web] Error creating HTML5 Audio:', error);
-        reject(error);
+        reject(new Error(`Failed to create audio element: ${error instanceof Error ? error.message : String(error)}`));
       }
     });
   }
@@ -215,7 +263,7 @@ export class AudioUtils {
       
       let finalUri = uri;
       
-      // If it's a Supabase URL, get a fresh signed URL
+      // If it's a Supabase URL, get a fresh signed URL with retry logic
       if (uri.includes('supabase.co')) {
         try {
           console.log('[AudioUtils Web] Generating fresh signed URL for playback...');
@@ -231,21 +279,43 @@ export class AudioUtils {
           
           console.log('[AudioUtils Web] Extracted file path:', filePath);
           
-          // Get a fresh signed URL with 1 hour expiry
-          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-            .from('audio-files')
-            .createSignedUrl(filePath, 3600); // 1 hour expiry
+          // Retry logic for signed URL generation
+          let signedUrlData: any = null;
+          let signedUrlError: any = null;
+          const maxRetries = 3;
+          
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            console.log(`[AudioUtils Web] Signed URL attempt ${attempt}/${maxRetries}`);
+            
+            const result = await supabase.storage
+              .from('audio-files')
+              .createSignedUrl(filePath, 3600); // 1 hour expiry
+            
+            signedUrlData = result.data;
+            signedUrlError = result.error;
+            
+            if (!signedUrlError && signedUrlData?.signedUrl) {
+              console.log(`[AudioUtils Web] Got fresh signed URL on attempt ${attempt}`);
+              break;
+            } else {
+              console.warn(`[AudioUtils Web] Signed URL attempt ${attempt} failed:`, signedUrlError);
+              if (attempt < maxRetries) {
+                // Wait before retry (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+              }
+            }
+          }
           
           if (signedUrlError) {
-            console.error('[AudioUtils Web] Error getting signed URL:', signedUrlError);
-            throw new Error(`Failed to get signed URL: ${signedUrlError.message}`);
+            console.error('[AudioUtils Web] All signed URL attempts failed:', signedUrlError);
+            throw new Error(`Failed to get signed URL after ${maxRetries} attempts: ${signedUrlError.message}`);
           }
           
           if (signedUrlData?.signedUrl) {
-            console.log('[AudioUtils Web] Got fresh signed URL for playback');
+            console.log('[AudioUtils Web] Using fresh signed URL for playback');
             finalUri = signedUrlData.signedUrl;
           } else {
-            throw new Error('No signed URL received from Supabase');
+            throw new Error('No signed URL received from Supabase after all attempts');
           }
           
         } catch (error) {
