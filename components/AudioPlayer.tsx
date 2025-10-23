@@ -217,9 +217,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           try {
             let retryStatus: any;
             
+            // Use the sound state variable instead of newSound
+            const currentSound = sound;
+            if (!currentSound) {
+              console.warn('[AudioPlayer] No sound object available for retry check');
+              return false;
+            }
+            
             if (isWebAudio) {
               // For HTML5 Audio element
-              const webAudio = newSound as HTMLAudioElement;
+              const webAudio = currentSound as HTMLAudioElement;
               retryStatus = {
                 isLoaded: webAudio.readyState >= 2,
                 durationMillis: (webAudio.duration || 0) * 1000,
@@ -228,7 +235,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             } else {
               // For expo-audio
               try {
-                retryStatus = newSound.currentStatus;
+                retryStatus = currentSound.currentStatus;
               } catch (error) {
                 console.warn('[AudioPlayer] Error getting retry status:', error);
                 retryStatus = { isLoaded: false, durationMillis: 0, duration: 0 };
