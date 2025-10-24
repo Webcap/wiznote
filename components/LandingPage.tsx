@@ -132,6 +132,19 @@ export default function LandingPage() {
                 </ThemedText>
               </View>
             </View>
+
+            {/* Product Hunt Badge */}
+            <View style={styles.productHuntBadge}>
+              <a href="https://www.producthunt.com/products/wiznote-2?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-wiznote&#0045;2" target="_blank">
+                <img 
+                  src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1030513&theme=light&t=1761333974901" 
+                  alt="WizNote - Record&#0044;&#0032;transcribe&#0044;&#0032;study&#0032;smarter&#0032;with&#0032;AI&#0045;powered&#0032;notes | Product Hunt" 
+                  style={{width: '250px', height: '54px'}} 
+                  width="250" 
+                  height="54" 
+                />
+              </a>
+            </View>
           </View>
 
           {/* Hero Image/Demo Placeholder */}
@@ -729,6 +742,10 @@ const styles = StyleSheet.create({
   },
   trustText: {
     fontSize: 14,
+  },
+  productHuntBadge: {
+    marginTop: 24,
+    alignItems: 'center',
   },
   heroImage: {
     flex: 1,

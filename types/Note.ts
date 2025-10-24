@@ -5,6 +5,8 @@ export interface Note {
   userId: string; // Link to user
   title: string;
   content: string;
+  contentHtml?: string; // Rich text content in HTML format
+  contentFormat?: 'plain' | 'html'; // Content format: plain text or HTML
   type?: NoteType; // Note type: text, audio, or pdf
   tags: string[];
   isPinned: boolean;
@@ -53,6 +55,8 @@ export interface NoteFormData {
   id?: string; // Optional for new notes, required for updates
   title: string;
   content: string;
+  contentHtml?: string; // Rich text content in HTML format
+  contentFormat?: 'plain' | 'html'; // Content format: plain text or HTML
   type?: NoteType;
   tags: string[];
   isPinned?: boolean;
@@ -69,6 +73,8 @@ export interface NoteFormData {
 export interface UpdateNoteData {
   title?: string;
   content?: string;
+  contentHtml?: string; // Rich text content in HTML format
+  contentFormat?: 'plain' | 'html'; // Content format: plain text or HTML
   type?: NoteType;
   tags?: string[];
   isPinned?: boolean;

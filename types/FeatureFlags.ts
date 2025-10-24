@@ -32,7 +32,7 @@ export type FeatureFlagKey =
   | 'ai_summaries'
   | 'ai_key_details'
   | 'premium_features'
-
+  | 'rich_text_editor'
   | 'advanced_search'
   | 'note_export'
   | 'note_sharing'
