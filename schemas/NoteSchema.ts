@@ -33,6 +33,25 @@ export const NoteContentSchema = z
   .max(500000, 'Content must be 500KB or less');
 
 /**
+ * Note Content Format Schema
+ * - Must be either 'plain' or 'html'
+ */
+export const NoteContentFormatSchema = z.enum(['plain', 'html'], {
+  errorMap: () => ({ message: 'Content format must be plain or html' }),
+});
+
+/**
+ * Rich Text HTML Content Schema
+ * - Optional HTML content for rich text notes
+ * - Max 1MB (1,000,000 characters) for HTML content
+ * - Will be sanitized before storage
+ */
+export const NoteHtmlContentSchema = z
+  .string()
+  .max(1000000, 'HTML content must be 1MB or less')
+  .optional();
+
+/**
  * Note Type Schema
  * - Must be one of the allowed types
  */
@@ -66,6 +85,8 @@ export const NoteMetadataSchema = z
 export const CreateNoteSchema = z.object({
   title: NoteTitleSchema,
   content: NoteContentSchema,
+  contentHtml: NoteHtmlContentSchema,
+  contentFormat: NoteContentFormatSchema.optional().default('plain'),
   type: NoteTypeSchema.optional().default('text'),
   metadata: NoteMetadataSchema,
   userId: z.string().uuid('Invalid user ID'),
@@ -80,6 +101,8 @@ export const UpdateNoteSchema = z.object({
   id: z.string().uuid('Invalid note ID'),
   title: NoteTitleSchema.optional(),
   content: NoteContentSchema.optional(),
+  contentHtml: NoteHtmlContentSchema,
+  contentFormat: NoteContentFormatSchema.optional(),
   type: NoteTypeSchema.optional(),
   metadata: NoteMetadataSchema,
 });
@@ -179,6 +202,21 @@ export function validateNoteTitle(title: unknown): string {
  */
 export function validateNoteContent(content: unknown): string {
   return NoteContentSchema.parse(content);
+}
+
+/**
+ * Validate and sanitize rich text HTML content
+ * Note: HTML sanitization should be applied separately
+ */
+export function validateNoteHtmlContent(contentHtml: unknown): string | undefined {
+  return NoteHtmlContentSchema.parse(contentHtml);
+}
+
+/**
+ * Validate note content format
+ */
+export function validateNoteContentFormat(format: unknown): 'plain' | 'html' {
+  return NoteContentFormatSchema.parse(format);
 }
 
 /**

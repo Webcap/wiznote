@@ -178,5 +178,19 @@ export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlag> = {
     createdAt: new Date(),
     updatedAt: new Date(),
     createdBy: 'system',
+  },
+
+  rich_text_editor: {
+    id: 'rich_text_editor',
+    name: 'Rich Text Editor',
+    description: 'Enable rich text editing with HTML formatting (bold, italic, headings, lists)',
+    enabled: false,
+    premiumOnly: false, // Free for testing, will be premium-only in production
+    trackingEnabled: true, // Track rich text usage
+    rolloutPercentage: 0, // Start with 0% rollout
+    targetEnvironments: ['development', 'staging', 'production'],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    createdBy: 'system',
   }
 };

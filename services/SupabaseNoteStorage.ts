@@ -206,6 +206,8 @@ export class SupabaseNoteStorage {
         userId: note.user_id,
         title: note.title,
         content: note.content,
+        contentHtml: note.content_html,
+        contentFormat: note.content_format || 'plain',
         type: note.type || 'text',
         tags: note.tags || [],
         isPinned: note.is_pinned || false,
@@ -293,6 +295,8 @@ export class SupabaseNoteStorage {
         userId: note.user_id,
         title: note.title,
         content: note.content,
+        contentHtml: note.content_html,
+        contentFormat: note.content_format || 'plain',
         type: note.type || 'text',
         tags: note.tags || [],
         isPinned: note.is_pinned || false,
@@ -354,6 +358,8 @@ export class SupabaseNoteStorage {
         user_id: this.currentUser,
         title: sanitizedTitle, // Use sanitized title
         content: sanitizedContent, // Use sanitized content
+        content_html: noteData.contentHtml ? sanitizeNoteContent(noteData.contentHtml) : null,
+        content_format: noteData.contentFormat || 'plain',
         type: noteData.type || 'text',
         tags: noteData.tags || [],
         is_pinned: noteData.isPinned || false,
@@ -383,6 +389,8 @@ export class SupabaseNoteStorage {
         userId: note.user_id,
         title: note.title,
         content: note.content,
+        contentHtml: note.content_html,
+        contentFormat: note.content_format || 'plain',
         type: note.type || 'text',
         tags: note.tags || [],
         isPinned: note.is_pinned || false,
@@ -423,6 +431,10 @@ export class SupabaseNoteStorage {
         const validatedContent = validateNoteContent(updates.content);
         updateData.content = sanitizeNoteContent(validatedContent);
       }
+      if (updates.contentHtml !== undefined) {
+        updateData.content_html = updates.contentHtml ? sanitizeNoteContent(updates.contentHtml) : null;
+      }
+      if (updates.contentFormat !== undefined) updateData.content_format = updates.contentFormat;
       if (updates.type !== undefined) updateData.type = updates.type;
       if (updates.tags !== undefined) updateData.tags = updates.tags;
       if (updates.isPinned !== undefined) updateData.is_pinned = updates.isPinned;
@@ -451,6 +463,8 @@ export class SupabaseNoteStorage {
         userId: note.user_id,
         title: note.title,
         content: note.content,
+        contentHtml: note.content_html,
+        contentFormat: note.content_format || 'plain',
         type: note.type || 'text',
         tags: note.tags || [],
         isPinned: note.is_pinned || false,
