@@ -359,11 +359,156 @@ export function truncateString(str: string, maxLength: number, ellipsis: string 
 }
 
 /**
+ * Sanitize rich text content specifically for our editor
+ * This is more restrictive than NOTE_CONTENT to match our editor's capabilities
+ */
+export function sanitizeRichTextContent(content: string): string {
+  if (!content || typeof content !== 'string') {
+    return '';
+  }
+
+  // Use a more restrictive config that matches our editor's toolbar
+  const RICH_TEXT_CONFIG = {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 
+      'ul', 'ol', 'li', 'a', 'code', 'pre'
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel'],
+    ALLOW_DATA_ATTR: false,
+    // Ensure links open safely
+    ADD_ATTR: ['target', 'rel'],
+    ADD_TAGS: [],
+    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+    FORBID_ATTR: ['onclick', 'onload', 'onerror', 'onmouseover', 'style'],
+  };
+
+  // Sanitize with our custom config
+  let sanitized = DOMPurify.sanitize(content, RICH_TEXT_CONFIG);
+  
+  // Post-process to ensure links have proper attributes
+  sanitized = sanitized.replace(/<a\s+([^>]*?)>/gi, (match, attrs) => {
+    // Add target="_blank" and rel="noopener noreferrer" if not present
+    if (!attrs.includes('target=')) {
+      attrs += ' target="_blank"';
+    }
+    if (!attrs.includes('rel=')) {
+      attrs += ' rel="noopener noreferrer"';
+    }
+    return `<a ${attrs}>`;
+  });
+
+  return sanitized;
+}
+
+/**
+ * Convert plain text to safe HTML (for display purposes)
+ * Escapes HTML characters and converts newlines to <br> tags
+ */
+export function plainTextToSafeHTML(text: string): string {
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+
+  // Escape HTML characters
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+
+  // Convert newlines to <br> tags
+  html = html.replace(/\n/g, '<br>');
+
+  return html;
+}
+
+/**
+ * Strip HTML tags and return plain text
+ * Useful for creating plain text versions of rich content
+ */
+export function htmlToPlainText(html: string): string {
+  if (!html || typeof html !== 'string') {
+    return '';
+  }
+
+  // Create a temporary div to parse HTML
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  
+  // Get text content and normalize whitespace
+  let text = tempDiv.textContent || tempDiv.innerText || '';
+  
+  // Normalize whitespace
+  text = text.replace(/\s+/g, ' ').trim();
+  
+  return text;
+}
+
+/**
+ * Validate rich text content before saving
+ * Checks for dangerous patterns and validates structure
+ */
+export function validateRichTextContent(content: string): {
+  isValid: boolean;
+  sanitized: string;
+  warnings: string[];
+} {
+  const warnings: string[] = [];
+  let sanitized = content;
+
+  if (!content || typeof content !== 'string') {
+    return { isValid: false, sanitized: '', warnings: ['Content is empty or invalid'] };
+  }
+
+  // Check for suspicious patterns
+  const suspiciousPatterns = [
+    /javascript:/gi,
+    /data:text\/html/gi,
+    /<script/gi,
+    /<iframe/gi,
+    /<object/gi,
+    /<embed/gi,
+    /on\w+\s*=/gi, // Event handlers
+  ];
+
+  for (const pattern of suspiciousPatterns) {
+    if (pattern.test(content)) {
+      warnings.push(`Suspicious content detected: ${pattern.source}`);
+    }
+  }
+
+  // Check content length
+  if (content.length > 100000) { // 100KB limit
+    warnings.push('Content is very large and may impact performance');
+  }
+
+  // Sanitize the content
+  sanitized = sanitizeRichTextContent(content);
+
+  // Check if sanitization removed significant content
+  const originalLength = content.length;
+  const sanitizedLength = sanitized.length;
+  const reductionPercent = ((originalLength - sanitizedLength) / originalLength) * 100;
+
+  if (reductionPercent > 20) {
+    warnings.push(`Significant content was removed during sanitization (${reductionPercent.toFixed(1)}% reduction)`);
+  }
+
+  return {
+    isValid: warnings.length === 0,
+    sanitized,
+    warnings,
+  };
+}
+
+/**
  * Sanitization presets for common use cases
  */
 export const SanitizationPresets = {
   noteTitle: (input: string) => sanitizeNoteTitle(input),
   noteContent: (input: string) => sanitizeNoteContent(input),
+  richTextContent: (input: string) => sanitizeRichTextContent(input),
   plainText: (input: string) => sanitizePlainText(input),
   email: (input: string) => sanitizeEmail(input),
   searchQuery: (input: string) => sanitizeSearchQuery(input),
@@ -375,6 +520,10 @@ export default {
   sanitizeHTML,
   sanitizePlainText,
   sanitizeNoteContent,
+  sanitizeRichTextContent,
+  plainTextToSafeHTML,
+  htmlToPlainText,
+  validateRichTextContent,
   sanitizeNoteTitle,
   sanitizeEmail,
   sanitizeURL,

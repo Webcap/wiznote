@@ -21,10 +21,14 @@ import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
 import { UserSidebar } from '../components/web/UserSidebar';
 import { WebLayout } from '../components/web/WebLayout';
+import { CreateNoteHeader } from '../components/create/CreateNoteHeader';
+import { NoteTitleInput } from '../components/create/NoteTitleInput';
+import { NoteContentEditor } from '../components/create/NoteContentEditor';
+import { NoteTagsInput } from '../components/create/NoteTagsInput';
 
 // Hooks
 import { useAuth } from '../hooks/useAuth';
-import { NOTEZ_SHORTCUTS, useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useFeatureFlags } from '../hooks/useFeatureFlags';
 import { useNotes } from '../hooks/useNotes';
 import { useSaveManager } from '../hooks/useSaveManager';
 import { useThemeColor } from '../hooks/useThemeColor';
@@ -50,6 +54,8 @@ export default function CreateNoteScreen() {
   const [noteId, setNoteId] = useState<string | undefined>(params.noteId || params.id);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [contentHtml, setContentHtml] = useState('');
+  const [contentFormat, setContentFormat] = useState<'plain' | 'html'>('plain');
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
   const [showConflictModal, setShowConflictModal] = useState(false);
@@ -70,6 +76,10 @@ export default function CreateNoteScreen() {
   const isAuthenticated = !!user?.id && !authLoading;
   
   const { notes } = useNotes(userId);
+  
+  // Feature flags
+  const { isFeatureEnabled } = useFeatureFlags();
+  const isRichTextEnabled = isFeatureEnabled('rich_text_editor');
   
   // Generate temporary ID for new notes
   const currentNoteId = useMemo(() => {
@@ -147,6 +157,8 @@ export default function CreateNoteScreen() {
         id: noteId?.startsWith('temp_') ? undefined : noteId,
         title: title.trim(),
         content: content.trim(),
+        contentHtml: contentHtml.trim() || undefined,
+        contentFormat: contentFormat,
         tags,
       };
 
@@ -160,7 +172,7 @@ export default function CreateNoteScreen() {
       console.error('Manual save failed:', error);
       Alert.alert('Save Failed', 'There was an error saving your note. Please try again.');
     }
-  }, [hasContent, isAuthenticated, performManualSave, noteId, title, content, tags]);
+  }, [hasContent, isAuthenticated, performManualSave, noteId, title, content, contentHtml, contentFormat, tags]);
 
   const handleDiscard = useCallback(() => {
     if (hasContent) {
@@ -195,6 +207,8 @@ export default function CreateNoteScreen() {
     if (resolution.strategy === 'remote' || resolution.strategy === 'merged') {
       if (resolution.data.title !== undefined) setTitle(resolution.data.title);
       if (resolution.data.content !== undefined) setContent(resolution.data.content);
+      if (resolution.data.contentHtml !== undefined) setContentHtml(resolution.data.contentHtml);
+      if (resolution.data.contentFormat !== undefined) setContentFormat(resolution.data.contentFormat);
       if (resolution.data.tags !== undefined) setTags(resolution.data.tags);
     }
   }, []);
@@ -217,6 +231,8 @@ export default function CreateNoteScreen() {
           id: noteId?.startsWith('temp_') ? undefined : noteId,
           title: title.trim(),
           content: content.trim(),
+          contentHtml: contentHtml.trim() || undefined,
+          contentFormat: contentFormat,
           tags,
         };
 
@@ -231,7 +247,7 @@ export default function CreateNoteScreen() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [title, content, tags, isAuthenticated, hasContent, noteId, scheduleAutoSave]);
+  }, [title, content, contentHtml, contentFormat, tags, isAuthenticated, hasContent, noteId, scheduleAutoSave]);
 
   // Load existing note data
   useEffect(() => {
@@ -240,6 +256,8 @@ export default function CreateNoteScreen() {
       if (existingNote && isInitialLoadRef.current) {
         setTitle(existingNote.title || '');
         setContent(existingNote.content || '');
+        setContentHtml(existingNote.contentHtml || '');
+        setContentFormat(existingNote.contentFormat || 'plain');
         setTags(existingNote.tags || []);
         isInitialLoadRef.current = false;
       }
@@ -275,25 +293,6 @@ export default function CreateNoteScreen() {
       }
     };
   }, []);
-
-  // Keyboard shortcuts
-  useKeyboardShortcuts(
-    isAuthenticated ? [
-      {
-        ...NOTEZ_SHORTCUTS.SAVE,
-        action: () => {
-          if (!isSaveDisabled) {
-            handleSave();
-          }
-        },
-      },
-      {
-        key: 'Escape',
-        action: handleDiscard,
-        description: 'Discard changes',
-      },
-    ] : []
-  );
 
   // Render save status component
   const renderSaveStatus = useCallback(() => {
@@ -332,130 +331,55 @@ export default function CreateNoteScreen() {
       <ErrorBoundary fallback={<ThemedView style={styles.container}><LoadingSpinner /></ThemedView>}>
       <WebLayout sidebar={<UserSidebar />}>
         <ThemedView style={styles.webContainer}>
-          {/* Header */}
-          <ThemedView style={styles.webHeader}>
-            <View style={styles.webHeaderLeft}>
-              <TouchableOpacity 
-                style={styles.webBackButton}
-                onPress={handleDiscard}
-              >
-                <Ionicons name="arrow-back" size={20} color={inputText} />
-                <ThemedText style={styles.webBackText}>Back</ThemedText>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.webHeaderCenter}>
-              <ThemedText style={styles.webHeaderTitle}>
-                  {isEditMode ? 'Edit Note' : 'Create a Note'}
-              </ThemedText>
-                {renderSaveStatus()}
-            </View>
+          <CreateNoteHeader
+            isEditMode={isEditMode}
+            isRichTextEnabled={isRichTextEnabled}
+            isSaveDisabled={isSaveDisabled}
+            isSaving={isSaving}
+            hasUnsavedChanges={hasUnsavedChanges}
+            lastSaved={lastSaved}
+            error={error}
+            handleSave={handleSave}
+            handleDiscard={handleDiscard}
+            renderSaveStatus={renderSaveStatus}
+            inputText={inputText}
+          />
 
-            <View style={styles.webHeaderRight}>
-              <TouchableOpacity
-                  style={[
-                    styles.webSaveButton,
-                    {
-                  backgroundColor: isSaveDisabled ? '#9CA3AF' : '#6A5ACD',
-                  opacity: isSaveDisabled ? 0.5 : 1
-                    }
-                  ]}
-                onPress={handleSave}
-                disabled={isSaveDisabled}
-              >
-                <ThemedText style={[styles.webSaveButtonText, { color: '#FFFFFF' }]}>
-                  {isSaving ? 'Saving...' : 'Save Note'}
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
-          </ThemedView>
-
-          {/* Main Content */}
-            <ScrollView style={styles.webContent} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.webContent} showsVerticalScrollIndicator={false}>
             {isAuthenticated ? (
               <>
-                {/* Title Section */}
-                <ThemedView style={styles.webSection}>
-                  <View style={styles.webSectionHeader}>
-                    <ThemedText style={styles.webSectionTitle}>Title</ThemedText>
-                    <View style={styles.webSectionBadge}>
-                      <Ionicons name="document-text" size={16} color="#6A5ACD" />
-                      <ThemedText style={styles.webSectionBadgeText}>Required</ThemedText>
-                    </View>
-                  </View>
-                  <TextInput
-                    style={[styles.webInput, { backgroundColor: inputBg, color: inputText, borderColor }]}
-                    value={title}
-                    onChangeText={setTitle}
-                    placeholder="Enter a descriptive title for your note..."
-                    placeholderTextColor={placeholderColor}
-                    multiline
-                    maxLength={200}
-                  />
-                </ThemedView>
+                <NoteTitleInput
+                  title={title}
+                  setTitle={setTitle}
+                  inputBg={inputBg}
+                  inputText={inputText}
+                  borderColor={borderColor}
+                  placeholderColor={placeholderColor}
+                />
 
-                {/* Content Section */}
-                <ThemedView style={styles.webSection}>
-                  <View style={styles.webSectionHeader}>
-                    <ThemedText style={styles.webSectionTitle}>Content</ThemedText>
-                    <View style={styles.webSectionBadge}>
-                      <Ionicons name="create" size={16} color="#6A5ACD" />
-                      <ThemedText style={styles.webSectionBadgeText}>Required</ThemedText>
-                    </View>
-                  </View>
-                  <TextInput
-                    style={[styles.webTextarea, { backgroundColor: inputBg, color: inputText, borderColor }]}
-                    value={content}
-                    onChangeText={setContent}
-                    placeholder="Start writing your note content here..."
-                    placeholderTextColor={placeholderColor}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                </ThemedView>
+                <NoteContentEditor
+                  isRichTextEnabled={isRichTextEnabled}
+                  content={content}
+                  setContent={setContent}
+                  setContentHtml={setContentHtml}
+                  setContentFormat={setContentFormat}
+                  inputBg={inputBg}
+                  inputText={inputText}
+                  borderColor={borderColor}
+                  placeholderColor={placeholderColor}
+                />
 
-                {/* Tags Section */}
-                <ThemedView style={styles.webSection}>
-                  <View style={styles.webSectionHeader}>
-                    <ThemedText style={styles.webSectionTitle}>Tags</ThemedText>
-                    <View style={styles.webSectionBadge}>
-                      <Ionicons name="pricetag" size={16} color="#6A5ACD" />
-                      <ThemedText style={styles.webSectionBadgeText}>Optional</ThemedText>
-                    </View>
-                  </View>
-                  <View style={styles.webTagInputContainer}>
-                    <TextInput
-                      style={[styles.webTagInput, { backgroundColor: inputBg, color: inputText, borderColor }]}
-                      value={newTag}
-                      onChangeText={setNewTag}
-                      placeholder="Add a tag (press Enter to add)..."
-                      placeholderTextColor={placeholderColor}
-                      onSubmitEditing={addTag}
-                    />
-                    <TouchableOpacity 
-                      style={[styles.webAddTagButton, { backgroundColor: '#6A5ACD' }]} 
-                      onPress={addTag}
-                    >
-                      <Ionicons name="add" size={20} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  </View>
-                  
-                  {tags.length > 0 && (
-                    <View style={styles.webTagsContainer}>
-                      {tags.map((tag, index) => (
-                        <View key={index} style={[styles.webTag, { backgroundColor: '#6A5ACD' }]}>
-                          <ThemedText style={styles.webTagText}>{tag}</ThemedText>
-                          <TouchableOpacity
-                            style={styles.webTagRemove}
-                            onPress={() => removeTag(tag)}
-                          >
-                            <ThemedText style={styles.webTagRemoveText}>×</ThemedText>
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </ThemedView>
+                <NoteTagsInput
+                  tags={tags}
+                  newTag={newTag}
+                  setNewTag={setNewTag}
+                  addTag={addTag}
+                  removeTag={removeTag}
+                  inputBg={inputBg}
+                  inputText={inputText}
+                  borderColor={borderColor}
+                  placeholderColor={placeholderColor}
+                />
               </>
             ) : (
               <View style={styles.authContainer}>
@@ -471,7 +395,7 @@ export default function CreateNoteScreen() {
                 </TouchableOpacity>
               </View>
             )}
-            </ScrollView>
+          </ScrollView>
         </ThemedView>
       </WebLayout>
       </ErrorBoundary>
@@ -536,15 +460,28 @@ export default function CreateNoteScreen() {
                   maxLength={200}
                 />
 
-                <TextInput
-                  style={[styles.contentInput, { backgroundColor: inputBg, color: inputText, borderColor }]}
-                  placeholder="Start writing your note..."
-                  placeholderTextColor={placeholderColor}
-                  value={content}
-                  onChangeText={setContent}
-                  multiline
-                  textAlignVertical="top"
-                />
+                {isRichTextEnabled ? (
+                  <RichTextEditor
+                    value={contentHtml || content}
+                    onChange={(html, plainText) => {
+                      setContentHtml(html);
+                      setContent(plainText);
+                      setContentFormat(html ? 'html' : 'plain');
+                    }}
+                    placeholder="Start writing your note..."
+                    style={{ minHeight: 200 }}
+                  />
+                ) : (
+                  <TextInput
+                    style={[styles.contentInput, { backgroundColor: inputBg, color: inputText, borderColor }]}
+                    placeholder="Start writing your note..."
+                    placeholderTextColor={placeholderColor}
+                    value={content}
+                    onChangeText={setContent}
+                    multiline
+                    textAlignVertical="top"
+                  />
+                )}
 
                 {/* Tags Section */}
                 <View style={styles.tagsSection}>
@@ -790,9 +727,31 @@ const styles = StyleSheet.create({
     flex: 2,
     alignItems: 'center',
   },
+  webHeaderTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   webHeaderTitle: {
     fontSize: 24,
     fontWeight: '700',
+  },
+  webRichTextBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.3)',
+  },
+  webRichTextBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginLeft: 4,
   },
   webHeaderRight: {
     flex: 1,
@@ -906,5 +865,98 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  // Rich Text Enhanced Styles
+  webSectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  richTextIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.3)',
+  },
+  richTextIndicatorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginLeft: 4,
+  },
+  richTextFeatures: {
+    marginBottom: 16,
+    padding: 16,
+    backgroundColor: 'rgba(106, 90, 205, 0.05)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(106, 90, 205, 0.1)',
+  },
+  richTextFeaturesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#6A5ACD',
+  },
+  richTextFeaturesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  richTextFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(106, 90, 205, 0.1)',
+    borderRadius: 8,
+  },
+  richTextFeatureText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 6,
+    color: '#6A5ACD',
+  },
+  richTextShortcuts: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(106, 90, 205, 0.2)',
+  },
+  richTextShortcutsTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+    color: '#6A5ACD',
+  },
+  richTextShortcutsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  richTextShortcut: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#6A5ACD',
+    opacity: 0.8,
+  },
+  mobileRichTextNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: 'rgba(255, 165, 0, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 165, 0, 0.3)',
+  },
+  mobileRichTextNoteText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 8,
+    color: '#FFA500',
   },
 }); 

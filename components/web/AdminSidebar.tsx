@@ -44,6 +44,36 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
     return null;
   }
 
+  // Handle keyboard shortcuts
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    // Ignore shortcuts if the user is typing in an input field
+    const target = event.target as HTMLElement;
+    if (
+      target.isContentEditable ||
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.tagName === 'SELECT'
+    ) {
+      return;
+    }
+    if (event.metaKey && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      router.push('/(tabs)/search');
+    }
+    if (event.metaKey && event.key === 'n') {
+      event.preventDefault();
+      setShowCreateDropdown(!showCreateDropdown);
+    }
+    if (event.key === 'Escape') {
+      setShowCreateDropdown(false);
+    }
+    // Arrow key navigation in dropdown
+    if (showCreateDropdown && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+      event.preventDefault();
+      // TODO: Implement arrow key navigation between dropdown items
+    }
+  }, [showCreateDropdown]);
+
   // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -57,22 +87,6 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
       }
     };
 
-    // Handle keyboard shortcuts
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey && event.key === 'n') {
-        event.preventDefault();
-        setShowCreateDropdown(!showCreateDropdown);
-      }
-      if (event.key === 'Escape') {
-        setShowCreateDropdown(false);
-      }
-      // Arrow key navigation in dropdown
-      if (showCreateDropdown && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
-        event.preventDefault();
-        // TODO: Implement arrow key navigation between dropdown items
-      }
-    };
-
     if (showCreateDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('keydown', handleKeyDown);
@@ -82,7 +96,7 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [showCreateDropdown]);
+  }, [showCreateDropdown, handleKeyDown]);
 
   // Close dropdown when navigating
   useEffect(() => {

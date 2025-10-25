@@ -133,6 +133,8 @@ export const useSaveManager = (
       const hasChanged = 
         data.title !== lastSavedDataRef.current.title ||
         data.content !== lastSavedDataRef.current.content ||
+        data.contentHtml !== lastSavedDataRef.current.contentHtml ||
+        data.contentFormat !== lastSavedDataRef.current.contentFormat ||
         JSON.stringify(data.tags) !== JSON.stringify(lastSavedDataRef.current.tags) ||
         data.isPinned !== lastSavedDataRef.current.isPinned ||
         data.isArchived !== lastSavedDataRef.current.isArchived;
