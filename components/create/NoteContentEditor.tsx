@@ -45,11 +45,12 @@ const convertMarkdownToHtml = (markdown: string): string => {
   // Convert links ([text](url))
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
   
-  // Convert newlines to <br> tags
-  html = html.replace(/\n/g, '<br>');
-  
-  // Wrap remaining text in paragraphs
-  html = html.replace(/^(?!<[h1-6]|<ul|<li|<br|<p)(.*?)$/gm, '<p>$1</p>');
+  // Turn intentional blank lines into compact spacers
+  html = html.replace(/\n\s*\n+/g, '\n<div class="rtv-spacer"></div>\n');
+
+  // Wrap plain text lines into paragraphs (no margins via CSS)
+  // Do NOT wrap lines that already start with known block tags
+  html = html.replace(/^(?!<h[1-6]|<ul|<ol|<li|<p|<blockquote|<pre|<code|<div)(.+)$/gm, '<p>$1</p>');
   
   // Clean up empty paragraphs
   html = html.replace(/<p><\/p>/g, '');
