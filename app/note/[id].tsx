@@ -14,6 +14,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { AudioPlayer } from '../../components/AudioPlayer';
 import { FeatureUsageInline } from '../../components/FeatureUsageInline';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
+import { RichTextViewer } from '../../components/RichTextViewer.web';
 import { ShareModal } from '../../components/ShareModal';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
@@ -98,6 +99,7 @@ export default function NoteDetailScreen() {
   const { isFeatureEnabled } = useFeatureFlags();
   const isAISummariesEnabled = isFeatureEnabled('ai_summaries');
   const isAIKeyDetailsEnabled = isFeatureEnabled('ai_key_details');
+  const isRichTextEnabled = isFeatureEnabled('rich_text_editor');
   const isAIQuizEnabled = isFeatureEnabled('ai_quiz');
   const isAIFlashcardsEnabled = isFeatureEnabled('ai_flashcards');
   const isAIChatEnabled = isFeatureEnabled('ai_chat');
@@ -107,6 +109,7 @@ export default function NoteDetailScreen() {
   console.log('🔍 NoteDetailScreen: Feature flag status:', {
     ai_summaries: isAISummariesEnabled,
     ai_key_details: isAIKeyDetailsEnabled,
+    rich_text_editor: isRichTextEnabled,
     ai_quiz: isAIQuizEnabled,
     ai_flashcards: isAIFlashcardsEnabled,
     ai_chat: isAIChatEnabled,
@@ -118,7 +121,23 @@ export default function NoteDetailScreen() {
   
   const { user, isLoading: authLoading } = useAuth();
   
-  
+  // Debug logging for note content
+  useEffect(() => {
+    if (note) {
+      console.log('🔍 NoteDetailScreen: Note content debug:', {
+        noteId: note.id,
+        hasContent: !!note.content,
+        contentLength: note.content?.length || 0,
+        hasContentHtml: !!note.contentHtml,
+        contentHtmlLength: note.contentHtml?.length || 0,
+        contentFormat: note.contentFormat,
+        isRichTextEnabled: isRichTextEnabled,
+        shouldUseRichTextViewer: Platform.OS === 'web' && note.contentFormat === 'html' && note.contentHtml,
+        contentPreview: note.content?.substring(0, 100),
+        contentHtmlPreview: note.contentHtml?.substring(0, 100)
+      });
+    }
+  }, [note, isRichTextEnabled]);
   
   // Global debug function for testing feature flags
   if (typeof window !== 'undefined') {
@@ -1154,9 +1173,18 @@ export default function NoteDetailScreen() {
               <View style={styles.webContentSection}>
                 <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>Content</ThemedText>
                 <View style={[styles.webContentText, { backgroundColor: cardBackground }]}>
-                  <ThemedText style={[styles.webContentTextInner, { color: textColor }]}>
-                    {note.content || 'No content available'}
-                  </ThemedText>
+                  {Platform.OS === 'web' && isRichTextEnabled ? (
+                    <RichTextViewer
+                      content={note.contentHtml || note.content || ''}
+                      contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
+                      textStyle={{ color: textColor }}
+                      style={{ flex: 1 }}
+                    />
+                  ) : (
+                    <ThemedText style={[styles.webContentTextInner, { color: textColor }]}>
+                      {note.content || 'No content available'}
+                    </ThemedText>
+                  )}
                 </View>
               </View>
             )}
@@ -1777,9 +1805,18 @@ export default function NoteDetailScreen() {
           {(!isAudioNote(note) || (isAudioNote(note) && note.content && note.content.trim() !== '')) && (
             <View style={styles.summarySection}>
               <ThemedText style={[styles.summaryTitle, { color: textColor }]}>Content</ThemedText>
-              <ThemedText style={[styles.summaryContent, { color: textColor }]}>
-                {note.content || 'No content available'}
-              </ThemedText>
+              {Platform.OS === 'web' && isRichTextEnabled ? (
+                <RichTextViewer
+                  content={note.contentHtml || note.content || ''}
+                  contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
+                  textStyle={{ color: textColor }}
+                  style={{ flex: 1 }}
+                />
+              ) : (
+                <ThemedText style={[styles.summaryContent, { color: textColor }]}>
+                  {note.content || 'No content available'}
+                </ThemedText>
+              )}
             </View>
           )}
 

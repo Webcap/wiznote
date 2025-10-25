@@ -213,6 +213,76 @@ export function validateNoteHtmlContent(contentHtml: unknown): string | undefine
 }
 
 /**
+ * Validate rich text content with enhanced security checks
+ * Combines schema validation with content security validation
+ */
+export function validateRichTextNoteContent(content: unknown, contentHtml?: unknown): {
+  success: boolean;
+  data?: {
+    content: string;
+    contentHtml?: string;
+    contentFormat: 'plain' | 'html';
+  };
+  error?: string;
+  warnings?: string[];
+} {
+  try {
+    // Validate basic content
+    const validatedContent = NoteContentSchema.parse(content);
+    
+    // Validate HTML content if provided
+    let validatedHtmlContent: string | undefined;
+    if (contentHtml !== undefined) {
+      validatedHtmlContent = NoteHtmlContentSchema.parse(contentHtml);
+    }
+    
+    // Determine content format
+    const contentFormat: 'plain' | 'html' = validatedHtmlContent ? 'html' : 'plain';
+    
+    // Additional security validation for HTML content
+    let warnings: string[] = [];
+    if (validatedHtmlContent && typeof validatedHtmlContent === 'string') {
+      // Check for suspicious patterns
+      const suspiciousPatterns = [
+        /javascript:/gi,
+        /data:text\/html/gi,
+        /<script/gi,
+        /<iframe/gi,
+        /<object/gi,
+        /<embed/gi,
+        /on\w+\s*=/gi, // Event handlers
+      ];
+      
+      for (const pattern of suspiciousPatterns) {
+        if (pattern.test(validatedHtmlContent)) {
+          warnings.push(`Suspicious content detected: ${pattern.source}`);
+        }
+      }
+      
+      // Check content length
+      if (validatedHtmlContent.length > 100000) { // 100KB limit
+        warnings.push('HTML content is very large and may impact performance');
+      }
+    }
+    
+    return {
+      success: true,
+      data: {
+        content: validatedContent,
+        contentHtml: validatedHtmlContent,
+        contentFormat,
+      },
+      warnings: warnings.length > 0 ? warnings : undefined,
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      return { success: false, error: error.message };
+    }
+    return { success: false, error: 'Unknown validation error' };
+  }
+}
+
+/**
  * Validate note content format
  */
 export function validateNoteContentFormat(format: unknown): 'plain' | 'html' {

@@ -184,10 +184,10 @@ export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlag> = {
     id: 'rich_text_editor',
     name: 'Rich Text Editor',
     description: 'Enable rich text editing with HTML formatting (bold, italic, headings, lists)',
-    enabled: false,
+    enabled: true,
     premiumOnly: false, // Free for testing, will be premium-only in production
     trackingEnabled: true, // Track rich text usage
-    rolloutPercentage: 0, // Start with 0% rollout
+    rolloutPercentage: 100, // Enable for all users in development
     targetEnvironments: ['development', 'staging', 'production'],
     createdAt: new Date(),
     updatedAt: new Date(),

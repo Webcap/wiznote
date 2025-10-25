@@ -63,20 +63,32 @@ export function UserSidebar({
   }, []);
 
   // Handle keyboard shortcuts
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (event.metaKey && event.key === 'n') {
-      event.preventDefault();
-      setShowCreateDropdown(!showCreateDropdown);
-    }
-    if (event.key === 'Escape') {
-      setShowCreateDropdown(false);
-    }
-    // Arrow key navigation in dropdown
-    if (showCreateDropdown && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
-      event.preventDefault();
-      // TODO: Implement arrow key navigation between dropdown items
-    }
-  }, [showCreateDropdown]);
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      // Ignore shortcuts if the user is typing in an input field
+      const target = event.target as HTMLElement;
+      if (
+        target.isContentEditable ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT'
+      ) {
+        return;
+      }
+      if (event.metaKey && event.key === 'n') {
+        event.preventDefault();
+        setShowCreateDropdown(!showCreateDropdown);
+      }
+      if (event.key === 'Escape') {
+        setShowCreateDropdown(false);
+      }
+      // Arrow key navigation in dropdown
+      if (showCreateDropdown && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+        event.preventDefault();
+        // TODO: Implement arrow key navigation between dropdown items
+      }
+    }, [showCreateDropdown]
+  );
 
   useEffect(() => {
     if (showCreateDropdown) {

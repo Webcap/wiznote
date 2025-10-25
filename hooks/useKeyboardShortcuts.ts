@@ -41,6 +41,17 @@ export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[]) {
     });
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Ignore shortcuts if the user is typing in an input field
+      const target = event.target as HTMLElement;
+      if (
+        target.isContentEditable ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT'
+      ) {
+        return;
+      }
+
       const shortcut = shortcuts.find(s => {
         // Type guard to ensure key is a string
         if (typeof s.key !== 'string') {
