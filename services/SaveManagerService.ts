@@ -336,6 +336,8 @@ export class SaveManagerService {
       user_id: this.currentUser,
       title: operation.data.title,
       content: operation.data.content || '',
+      content_html: operation.data.contentHtml || null,
+      content_format: operation.data.contentFormat || 'plain',
       tags: operation.data.tags || [],
       is_pinned: operation.data.isPinned || false,
       is_archived: operation.data.isArchived || false,
@@ -387,6 +389,8 @@ export class SaveManagerService {
     // Only include fields that are being updated
     if (operation.data.title !== undefined) updateData.title = operation.data.title;
     if (operation.data.content !== undefined) updateData.content = operation.data.content;
+    if (operation.data.contentHtml !== undefined) updateData.content_html = operation.data.contentHtml;
+    if (operation.data.contentFormat !== undefined) updateData.content_format = operation.data.contentFormat;
     if (operation.data.tags !== undefined) updateData.tags = operation.data.tags;
     if (operation.data.isPinned !== undefined) updateData.is_pinned = operation.data.isPinned;
     if (operation.data.isArchived !== undefined) updateData.is_archived = operation.data.isArchived;

@@ -1,6 +1,110 @@
 {
   "versions": [
     {
+      "version": "1.4.0",
+      "date": "Unreleased",
+      "sections": [
+        {
+          "title": "Rich Text Editing [IN PROGRESS]",
+          "emoji": "🔨",
+          "items": [
+            {
+              "title": "Markdown-style rich text formatting",
+              "description": "Create beautifully formatted notes with markdown syntax",
+              "details": [
+                "Headers: Use # H1, ## H2, ### H3 for headings",
+                "Bold text: Wrap with **text** for bold formatting",
+                "Italic text: Wrap with *text* for italic formatting",
+                "Underline: Wrap with __text__ for underlined text",
+                "Lists: Use - item or • item for bullet lists",
+                "Numbered lists: Use 1. item for ordered lists",
+                "Inline code: Wrap with `code` for code snippets",
+                "Links: Use [text](url) for clickable links",
+                "Intentional spacing: Add blank lines for visual separation"
+              ]
+            },
+            {
+              "title": "Rich text viewer",
+              "description": "View notes with proper HTML rendering",
+              "details": [
+                "Automatic conversion from markdown to HTML",
+                "Theme-aware text colors (adapts to light/dark mode)",
+                "Clean spacing with zero margins on headings",
+                "Proper line breaks and paragraph formatting",
+                "Professional typography with system fonts"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Note Spacing & Layout Fixes",
+          "emoji": "🐛",
+          "items": [
+            {
+              "title": "Fixed excessive spacing in notes",
+              "description": "Notes now display with clean, minimal spacing",
+              "details": [
+                "Eliminated unwanted gaps between headings and text",
+                "Removed default margins from H1, H2, H3 headings",
+                "Fixed line break spacing to be consistent and minimal",
+                "Zero margins on paragraph elements for tight layout",
+                "Proper spacing between consecutive headings"
+              ]
+            },
+            {
+              "title": "Fixed text wrapping issues",
+              "description": "Text now properly wraps and displays",
+              "details": [
+                "Removed paragraph wrapping that added extra space",
+                "Changed line break conversion from <br> to proper paragraphs",
+                "Clean visual hierarchy with proper heading spacing",
+                "Consistent text rendering across all notes"
+              ]
+            },
+            {
+              "title": "Fixed text color in dark theme",
+              "description": "Text now properly inherits theme colors",
+              "details": [
+                "Rich text automatically adapts to light/dark mode",
+                "Heading colors match theme settings",
+                "Proper color inheritance for all text elements",
+                "JavaScript-based color enforcement for reliability"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Improved HTML Generation",
+          "emoji": "🔧",
+          "items": [
+            {
+              "title": "Better markdown to HTML conversion",
+              "description": "Improved HTML generation for better formatting",
+              "details": [
+                "Wraps plain text lines in paragraphs instead of using <br> tags",
+                "Adds spacer elements for intentional blank lines",
+                "Maintains clean semantic HTML structure",
+                "Proper content formatting without excessive spacing"
+              ]
+            },
+            {
+              "title": "Enhanced rich text CSS",
+              "description": "Comprehensive styling for rich text elements",
+              "details": [
+                "Zero margins on all headings for tight layout",
+                "Compact paragraph spacing for readability",
+                "Proper list styling with bullet points and numbering",
+                "Code block styling with syntax highlighting background",
+                "Blockquote styling with left border accent",
+                "Professional table styling with hover effects",
+                "Theme-aware colors for all elements"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "1.3.6",
       "date": "October 21, 2025",
       "sections": [

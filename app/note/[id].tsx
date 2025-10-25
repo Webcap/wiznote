@@ -14,7 +14,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { AudioPlayer } from '../../components/AudioPlayer';
 import { FeatureUsageInline } from '../../components/FeatureUsageInline';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
-import { RichTextViewer } from '../../components/RichTextViewer.web';
+import { RichTextViewer as RichTextViewerWeb } from '../../components/RichTextViewer.web';
+import { RichTextViewer as RichTextViewerNative } from '../../components/RichTextViewer.native';
 import { ShareModal } from '../../components/ShareModal';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
@@ -1173,13 +1174,22 @@ export default function NoteDetailScreen() {
               <View style={styles.webContentSection}>
                 <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>Content</ThemedText>
                 <View style={[styles.webContentText, { backgroundColor: cardBackground }]}>
-                  {Platform.OS === 'web' && isRichTextEnabled ? (
-                    <RichTextViewer
-                      content={note.contentHtml || note.content || ''}
-                      contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
-                      textStyle={{ color: textColor }}
-                      style={{ flex: 1 }}
-                    />
+                  {isRichTextEnabled ? (
+                    Platform.OS === 'web' ? (
+                      <RichTextViewerWeb
+                        content={note.contentHtml || note.content || ''}
+                        contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
+                        textStyle={{ color: textColor }}
+                        style={{ flex: 1 }}
+                      />
+                    ) : (
+                      <RichTextViewerNative
+                        content={note.contentHtml || note.content || ''}
+                        contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
+                        textStyle={{ color: textColor }}
+                        style={{ flex: 1 }}
+                      />
+                    )
                   ) : (
                     <ThemedText style={[styles.webContentTextInner, { color: textColor }]}>
                       {note.content || 'No content available'}
@@ -1805,13 +1815,33 @@ export default function NoteDetailScreen() {
           {(!isAudioNote(note) || (isAudioNote(note) && note.content && note.content.trim() !== '')) && (
             <View style={styles.summarySection}>
               <ThemedText style={[styles.summaryTitle, { color: textColor }]}>Content</ThemedText>
-              {Platform.OS === 'web' && isRichTextEnabled ? (
-                <RichTextViewer
-                  content={note.contentHtml || note.content || ''}
-                  contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
-                  textStyle={{ color: textColor }}
-                  style={{ flex: 1 }}
-                />
+              {(() => {
+                // Debug logging
+                console.log('🔍 RichTextViewer Render:', {
+                  isRichTextEnabled,
+                  contentFormat: note.contentFormat,
+                  hasContentHtml: !!note.contentHtml,
+                  contentHtmlPreview: note.contentHtml?.substring(0, 50),
+                  contentPreview: note.content?.substring(0, 50),
+                });
+                return null;
+              })()}
+              {isRichTextEnabled && note.contentFormat === 'html' && note.contentHtml ? (
+                Platform.OS === 'web' ? (
+                  <RichTextViewerWeb
+                    content={note.contentHtml}
+                    contentFormat="html"
+                    textStyle={{ color: textColor }}
+                    style={{ flex: 1 }}
+                  />
+                ) : (
+                  <RichTextViewerNative
+                    content={note.contentHtml}
+                    contentFormat="html"
+                    textStyle={{ color: textColor }}
+                    style={{ flex: 1 }}
+                  />
+                )
               ) : (
                 <ThemedText style={[styles.summaryContent, { color: textColor }]}>
                   {note.content || 'No content available'}

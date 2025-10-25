@@ -25,6 +25,7 @@ import { CreateNoteHeader } from '../components/create/CreateNoteHeader';
 import { NoteTitleInput } from '../components/create/NoteTitleInput';
 import { NoteContentEditor } from '../components/create/NoteContentEditor';
 import { NoteTagsInput } from '../components/create/NoteTagsInput';
+import { RichTextEditor } from '../components/RichTextEditor';
 
 // Hooks
 import { useAuth } from '../hooks/useAuth';
@@ -161,6 +162,14 @@ export default function CreateNoteScreen() {
         contentFormat: contentFormat,
         tags,
       };
+
+      console.log('🔍 Saving note with data:', {
+        contentFormat,
+        hasContentHtml: !!contentHtml,
+        contentHtmlLength: contentHtml?.length,
+        contentHtmlPreview: contentHtml?.substring(0, 100),
+        contentPreview: content?.substring(0, 100)
+      });
 
         await performManualSave(noteData);
       
@@ -461,16 +470,22 @@ export default function CreateNoteScreen() {
                 />
 
                 {isRichTextEnabled ? (
-                  <RichTextEditor
-                    value={contentHtml || content}
-                    onChange={(html, plainText) => {
-                      setContentHtml(html);
-                      setContent(plainText);
-                      setContentFormat(html ? 'html' : 'plain');
-                    }}
-                    placeholder="Start writing your note..."
-                    style={{ minHeight: 200 }}
-                  />
+                  <View style={{ marginHorizontal: 20, marginTop: 12, marginBottom: 24, minHeight: 400 }}>
+                    <RichTextEditor
+                      value={contentHtml || content}
+                      onChange={(html, plainText) => {
+                        console.log('🔍 RichTextEditor onChange:', { html: html?.substring(0, 100), plainText: plainText?.substring(0, 100), htmlLength: html?.length });
+                        setContentHtml(html);
+                        setContent(plainText);
+                        setContentFormat(html ? 'html' : 'plain');
+                        // Log after state update
+                        setTimeout(() => {
+                          console.log('🔍 State after RichTextEditor onChange - contentHtml:', html?.substring(0, 50), 'contentFormat:', html ? 'html' : 'plain');
+                        }, 0);
+                      }}
+                      placeholder="Start writing your note..."
+                    />
+                  </View>
                 ) : (
                   <TextInput
                     style={[styles.contentInput, { backgroundColor: inputBg, color: inputText, borderColor }]}
@@ -558,10 +573,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
   },
   backButton: {
     padding: 8,
@@ -571,17 +588,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
   },
   saveStatus: {
     marginTop: 4,
   },
   saveButton: {
     backgroundColor: '#6A5ACD',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   saveButtonDisabled: {
     backgroundColor: '#9CA3AF',
@@ -589,60 +611,72 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 16,
   },
   saveButtonTextDisabled: {
     color: '#CCCCCC',
   },
   content: {
     flex: 1,
-    padding: 16,
-    paddingTop: 24,
+    backgroundColor: '#F5F6FA',
   },
   titleInput: {
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-    marginTop: 8,
-    minHeight: 60,
+    borderRadius: 16,
+    padding: 20,
+    fontSize: 22,
+    fontWeight: '700',
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 8,
+    minHeight: 64,
+    lineHeight: 28,
   },
   contentInput: {
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     fontSize: 16,
+    marginHorizontal: 20,
+    marginTop: 12,
     marginBottom: 24,
-    minHeight: 200,
+    minHeight: 400,
+    lineHeight: 24,
   },
   tagsSection: {
-    marginTop: 8,
+    marginHorizontal: 20,
+    marginTop: 24,
+    paddingBottom: 40,
   },
   tagsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
   },
   tagInputContainer: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 16,
+    gap: 12,
   },
   tagInput: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginRight: 8,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
   },
   addTagButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
+    width: 52,
+    height: 52,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -651,15 +685,20 @@ const styles = StyleSheet.create({
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    marginRight: 8,
-    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginRight: 10,
+    marginBottom: 10,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   tagText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   tagRemoveIcon: {
     marginLeft: 6,
