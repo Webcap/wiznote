@@ -78,8 +78,8 @@ export const NoteDetailStyles = StyleSheet.create({
     marginBottom: 20,
   },
   contentText: {
-    fontSize: Platform.OS === 'web' ? 16 : 14,
-    lineHeight: Platform.OS === 'web' ? 24 : 20,
+    fontSize: Platform.OS === 'web' ? 16 : 18,
+    lineHeight: Platform.OS === 'web' ? 24 : 28,
   },
   noteTypeWrapper: {
     marginBottom: Platform.OS === 'web' ? 16 : 12,
@@ -208,8 +208,8 @@ export const NoteDetailStyles = StyleSheet.create({
     marginBottom: Platform.OS === 'web' ? 10 : 8,
   },
   summaryContent: {
-    fontSize: Platform.OS === 'web' ? 20 : 16,
-    lineHeight: Platform.OS === 'web' ? 28 : 22,
+    fontSize: Platform.OS === 'web' ? 20 : 18,
+    lineHeight: Platform.OS === 'web' ? 28 : 28,
   },
   tagsSection: {
     marginBottom: Platform.OS === 'web' ? 20 : 16,

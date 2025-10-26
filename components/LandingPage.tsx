@@ -1025,6 +1025,15 @@ const styles = StyleSheet.create({
   notesSection: {
     flex: 1,
     paddingVertical: 12,
+    minHeight: 200,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        minHeight: 300,
+      },
+      '@media (max-width: 480px)': {
+        minHeight: 400,
+      },
+    } : {}),
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1051,6 +1060,16 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     marginBottom: 12,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        padding: 20,
+        minHeight: 180,
+      },
+      '@media (max-width: 480px)': {
+        padding: 24,
+        minHeight: 220,
+      },
+    } : {}),
   },
   noteHeader: {
     flexDirection: 'row',
@@ -1083,6 +1102,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 16,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 15,
+        lineHeight: 22,
+      },
+      '@media (max-width: 480px)': {
+        fontSize: 16,
+        lineHeight: 24,
+      },
+    } : {}),
   },
   noteActions: {
     flexDirection: 'row',

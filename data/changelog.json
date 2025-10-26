@@ -1,6 +1,55 @@
 {
   "versions": [
     {
+      "version": "1.4.1",
+      "date": "October 26, 2025",
+      "sections": [
+        {
+          "title": "Note Management",
+          "emoji": "🗑️",
+          "items": [
+            {
+              "title": "Delete button on note details page",
+              "description": "Delete notes directly from the note details screen",
+              "details": [
+                "Added delete button next to edit and archive buttons (both mobile and web)",
+                "Includes confirmation dialog to prevent accidental deletions",
+                "Respects permissions for shared notes",
+                "Styled with danger color for clear visual indication",
+                "Both platforms supported for consistent experience"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "UI Enhancements",
+          "emoji": "🎨",
+          "items": [
+            {
+              "title": "Edit button color update",
+              "description": "Changed edit button to distinctive blue color",
+              "details": [
+                "Edit button now uses blue (#007AFF) for better visibility",
+                "Makes the primary edit action more prominent",
+                "Consistent across both mobile and web platforms",
+                "Professional appearance with better button contrast"
+              ]
+            },
+            {
+              "title": "Fixed note page theme",
+              "description": "Note details page now properly respects theme settings",
+              "details": [
+                "All text, backgrounds, and UI elements adapt to light/dark mode correctly",
+                "Buttons and action items use theme-aware colors",
+                "Consistent theming across all note detail components",
+                "Improved readability in both light and dark themes"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "1.4.0",
       "date": "October 25, 2025",
       "sections": [
