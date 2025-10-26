@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TextInput, StyleSheet } from 'react-native';
+import { View, TextInput, StyleSheet, Platform } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,6 +50,17 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        padding: 16,
+        marginBottom: 20,
+        borderRadius: 12,
+      },
+      '@media (max-width: 480px)': {
+        padding: 12,
+        marginBottom: 16,
+      },
+    } : {}),
   },
   webSectionHeader: {
     flexDirection: 'row',
@@ -81,5 +92,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 20,
     fontSize: 16,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        paddingHorizontal: 12,
+        height: 50,
+        fontSize: 16,
+      },
+      '@media (max-width: 480px)': {
+        paddingHorizontal: 10,
+        height: 48,
+        fontSize: 16,
+      },
+    } : {}),
   },
 });

@@ -13,7 +13,7 @@ interface RichTextEditorProps {
 }
 
  // Quill editor HTML template for mobile WebView
-const getQuillHTML = (placeholder: string) => `
+const getQuillHTML = (placeholder: string, backgroundColor: string, textColor: string, borderColor: string) => `
 <!DOCTYPE html>
 <html>
 <head>
@@ -24,24 +24,47 @@ const getQuillHTML = (placeholder: string) => `
       margin: 0;
       padding: 16px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #ffffff;
+      background: ${backgroundColor};
+      color: ${textColor};
     }
     #editor {
       min-height: 200px;
       font-size: 16px;
       line-height: 24px;
     }
+    .ql-editor {
+      color: ${textColor} !important;
+      background: ${backgroundColor} !important;
+    }
     .ql-editor.ql-blank::before {
-      color: #999;
+      color: #999 !important;
       font-style: normal;
     }
     .ql-container {
       border: none !important;
       border-radius: 0 !important;
+      background: ${backgroundColor} !important;
     }
     .ql-toolbar {
       border: none !important;
-      border-bottom: 1px solid #E5E7EB !important;
+      border-bottom: 1px solid ${borderColor} !important;
+      background: ${backgroundColor} !important;
+    }
+    .ql-stroke {
+      stroke: ${textColor} !important;
+    }
+    .ql-fill {
+      fill: ${textColor} !important;
+    }
+    .ql-picker-label {
+      color: ${textColor} !important;
+    }
+    .ql-snow .ql-picker-options {
+      background: ${backgroundColor} !important;
+      border-color: ${borderColor} !important;
+    }
+    .ql-snow .ql-picker-item {
+      color: ${textColor} !important;
     }
   </style>
 </head>
@@ -140,11 +163,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   // For mobile, use WebView with Quill
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, style, { backgroundColor }]}>
       <WebView
         ref={webViewRef}
-        source={{ html: getQuillHTML(placeholder) }}
-        style={[styles.webview, style]}
+        source={{ html: getQuillHTML(placeholder, backgroundColor, textColor, borderColor) }}
+        style={[styles.webview, style, { backgroundColor }]}
         onMessage={handleMessage}
         javaScriptEnabled={true}
         domStorageEnabled={true}
@@ -169,6 +192,5 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
 });

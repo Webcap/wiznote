@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
@@ -81,6 +81,14 @@ const styles = StyleSheet.create({
     padding: 24,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        padding: 16,
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        gap: 16,
+      },
+    } : {}),
   },
   webHeaderLeft: {
     flex: 1,

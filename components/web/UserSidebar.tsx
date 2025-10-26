@@ -33,7 +33,7 @@ export function UserSidebar({
   const accentColor = useThemeColor({}, 'accentPrimary');
   const backgroundColor = useThemeColor({}, 'background');
   const borderColor = useThemeColor({}, 'border');
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, isSupport, user } = useAuth();
   const { showSnackbar } = useSnackbar();
   const { setUploadingPDF, onUploadComplete } = usePDFUpload();
   const { isFeatureEnabled } = useFeatureFlags();
@@ -205,7 +205,26 @@ export function UserSidebar({
     },
   ] : [], [isAdmin, activePage]);
 
-  const allSidebarItems = useMemo(() => [...sidebarItems, ...adminItems], [sidebarItems, adminItems]);
+  // Add support section if user is support
+  const supportItems = useMemo(() => isSupport() && !isAdmin() ? [
+    {
+      id: 'support-separator',
+      label: 'Support',
+      icon: 'headset' as const,
+      onPress: () => {},
+      isActive: false,
+      isSeparator: true,
+    },
+    {
+      id: 'support-dashboard',
+      label: 'Support Dashboard',
+      icon: 'headset' as const,
+      onPress: () => router.push('/admin/support'),
+      isActive: activePage === 'support',
+    },
+  ] : [], [isSupport, isAdmin, activePage]);
+
+  const allSidebarItems = useMemo(() => [...sidebarItems, ...adminItems, ...supportItems], [sidebarItems, adminItems, supportItems]);
 
   // Memoized navigation item renderer
   const renderNavigationItem = useCallback((item: any) => (

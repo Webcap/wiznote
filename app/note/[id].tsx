@@ -151,7 +151,7 @@ export default function NoteDetailScreen() {
     
     // Test function removed - was bypassing usage limits
   }
-  const { notes, toggleArchive, updateNote } = useNotes(user?.id || '');
+  const { notes, toggleArchive, updateNote, deleteNote } = useNotes(user?.id || '');
 
   // Helper functions for note type detection
   const isAudioNote = (note: Note): boolean => {
@@ -658,6 +658,36 @@ export default function NoteDetailScreen() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!note) return;
+    
+    // Check permissions for shared notes
+    if (!canEditNote(note)) {
+      Alert.alert('Cannot Delete', 'You do not have permission to delete this note.');
+      return;
+    }
+    
+    Alert.alert(
+      'Delete Note',
+      'Are you sure you want to delete this note? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteNote(note.id);
+              router.back();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete note');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // Debug function to test Gemini API connection
   const testGeminiAPI = async () => {
     try {
@@ -1157,14 +1187,14 @@ export default function NoteDetailScreen() {
                 style={[
                   styles.webEditButton, 
                   { 
-                    backgroundColor: canEditNote(note) ? cardBackground : '#CCCCCC',
+                    backgroundColor: canEditNote(note) ? '#007AFF' : '#CCCCCC',
                     opacity: canEditNote(note) ? 1 : 0.5
                   }
                 ]} 
                 onPress={() => canEditNote(note) ? router.push(`/create?noteId=${note.id}` as any) : null}
                 disabled={!canEditNote(note)}
               >
-                <Ionicons name="create-outline" size={20} color={canEditNote(note) ? textColor : '#666666'} />
+                <Ionicons name="create-outline" size={20} color="#FFFFFF" />
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[
@@ -1181,6 +1211,23 @@ export default function NoteDetailScreen() {
                   name={note.isArchived ? 'archive' : 'archive-outline'} 
                   size={20} 
                   color={canEditNote(note) ? textColor : '#666666'} 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.webArchiveButton, 
+                  { 
+                    backgroundColor: canEditNote(note) ? cardBackground : '#CCCCCC',
+                    opacity: canEditNote(note) ? 1 : 0.5
+                  }
+                ]} 
+                onPress={() => canEditNote(note) ? handleDelete() : null}
+                disabled={!canEditNote(note)}
+              >
+                <Ionicons 
+                  name="trash-outline" 
+                  size={20} 
+                  color={canEditNote(note) ? accentDangerColor : '#666666'} 
                 />
               </TouchableOpacity>
             </View>
@@ -1237,36 +1284,6 @@ export default function NoteDetailScreen() {
               </View>
             )}
 
-            {/* Note Content - Only show for non-audio notes or audio notes with content */}
-            {(!isAudioNote(note) || (isAudioNote(note) && note.content && note.content.trim() !== '')) && (
-              <View style={styles.webContentSection}>
-                <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>Content</ThemedText>
-                <View style={[styles.webContentText, { backgroundColor: cardBackground }]}>
-                  {isRichTextEnabled ? (
-                    Platform.OS === 'web' ? (
-                      <RichTextViewerWeb
-                        content={note.contentHtml || note.content || ''}
-                        contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
-                        textStyle={{ color: textColor }}
-                        style={{ flex: 1 }}
-                      />
-                    ) : (
-                      <RichTextViewerNative
-                        content={note.contentHtml || note.content || ''}
-                        contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
-                        textStyle={{ color: textColor }}
-                        style={{ flex: 1 }}
-                      />
-                    )
-                  ) : (
-                    <ThemedText style={[styles.webContentTextInner, { color: textColor }]}>
-                      {note.content || 'No content available'}
-                    </ThemedText>
-                  )}
-                </View>
-              </View>
-            )}
-
             {/* Summary Section - Show if enabled and has content or usage limit */}
             {isAISummariesEnabled && (summary || summaryLoading || summaryUsageLimit) && (
               <View style={styles.webContentSection}>
@@ -1310,7 +1327,37 @@ export default function NoteDetailScreen() {
                   </View>
                 )}
               </View>
-                        )}
+            )}
+
+            {/* Note Content - Only show for non-audio notes or audio notes with content */}
+            {(!isAudioNote(note) || (isAudioNote(note) && note.content && note.content.trim() !== '')) && (
+              <View style={styles.webContentSection}>
+                <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>Content</ThemedText>
+                <View style={[styles.webContentText, { backgroundColor: cardBackground }]}>
+                  {isRichTextEnabled ? (
+                    Platform.OS === 'web' ? (
+                      <RichTextViewerWeb
+                        content={note.contentHtml || note.content || ''}
+                        contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
+                        textStyle={{ color: textColor }}
+                        style={{ flex: 1 }}
+                      />
+                    ) : (
+                      <RichTextViewerNative
+                        content={note.contentHtml || note.content || ''}
+                        contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
+                        textStyle={{ color: textColor }}
+                        style={{ flex: 1 }}
+                      />
+                    )
+                  ) : (
+                    <ThemedText style={[styles.webContentTextInner, { color: textColor }]}>
+                      {note.content || 'No content available'}
+                    </ThemedText>
+                  )}
+                </View>
+              </View>
+            )}
 
 
 
@@ -1596,7 +1643,7 @@ export default function NoteDetailScreen() {
               style={[
                 styles.editButton, 
                 { 
-                  backgroundColor: canEditNote(note) ? accentColor : '#CCCCCC',
+                  backgroundColor: canEditNote(note) ? '#007AFF' : '#CCCCCC',
                   opacity: canEditNote(note) ? 1 : 0.5
                 }
               ]} 
@@ -1618,6 +1665,23 @@ export default function NoteDetailScreen() {
             >
               <Ionicons 
                 name={note.isArchived ? 'archive' : 'archive-outline'} 
+                size={24} 
+                color="#FFFFFF" 
+              />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[
+                styles.archiveButton, 
+                { 
+                  backgroundColor: canEditNote(note) ? accentDangerColor : '#CCCCCC',
+                  opacity: canEditNote(note) ? 1 : 0.5
+                }
+              ]} 
+              onPress={() => canEditNote(note) ? handleDelete() : null}
+              disabled={!canEditNote(note)}
+            >
+              <Ionicons 
+                name="trash-outline" 
                 size={24} 
                 color="#FFFFFF" 
               />
@@ -1879,6 +1943,46 @@ export default function NoteDetailScreen() {
 
 
 
+          {/* Summary Section - Show if enabled and has content or usage limit */}
+          {isAISummariesEnabled && (summary || summaryLoading || summaryUsageLimit) && (
+            <View style={styles.summarySection}>
+              <ThemedText style={[styles.summaryTitle, { color: textColor }]}>Summary</ThemedText>
+              {user && (
+                <View>
+                  {(() => {
+                    try {
+                      return <FeatureUsageInline featureId="ai_summaries" compact={true} onUpgradePress={() => router.push('/join-premium')} />;
+                    } catch (error) {
+                      console.warn('Error rendering AI summaries usage display:', error);
+                      return null;
+                    }
+                  })()}
+                </View>
+              )}
+              {summaryLoading && (
+                <ThemedText style={[styles.summaryContent, { color: textColor }]}>Generating summary...</ThemedText>
+              )}
+              {!summaryLoading && summary && (
+                <ThemedText style={[styles.summaryContent, { color: textColor }]}>
+                  {summary}
+                </ThemedText>
+              )}
+              {!summaryLoading && !summary && summaryUsageLimit && (
+                <View>
+                  <ThemedText style={[styles.contentText, { color: mutedTextColor }]}>
+                    {summaryUsageLimit}
+                  </ThemedText>
+                  <TouchableOpacity 
+                    style={[styles.upgradeButton, { backgroundColor: accentColor }]}
+                    onPress={() => router.push('/join-premium')}
+                  >
+                    <ThemedText style={styles.upgradeButtonText}>Upgrade to Premium</ThemedText>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+
           {/* Note Content Section - Only show for non-audio notes or audio notes with content */}
           {(!isAudioNote(note) || (isAudioNote(note) && note.content && note.content.trim() !== '')) && (
             <View style={styles.summarySection}>
@@ -1896,19 +2000,23 @@ export default function NoteDetailScreen() {
               })()}
               {isRichTextEnabled && note.contentFormat === 'html' && note.contentHtml ? (
                 Platform.OS === 'web' ? (
-                  <RichTextViewerWeb
-                    content={note.contentHtml}
-                    contentFormat="html"
-                    textStyle={{ color: textColor }}
-                    style={{ flex: 1 }}
-                  />
+                  <View style={{ flex: 1 }}>
+                    <RichTextViewerWeb
+                      content={note.contentHtml}
+                      contentFormat="html"
+                      textStyle={{ color: textColor }}
+                      style={{ flex: 1 }}
+                    />
+                  </View>
                 ) : (
-                  <RichTextViewerNative
-                    content={note.contentHtml}
-                    contentFormat="html"
-                    textStyle={{ color: textColor }}
-                    style={{ flex: 1 }}
-                  />
+                  <View style={{ width: '100%', minHeight: 300 }}>
+                    <RichTextViewerNative
+                      content={note.contentHtml}
+                      contentFormat="html"
+                      textStyle={{ color: textColor }}
+                      style={{ width: '100%', minHeight: 300 }}
+                    />
+                  </View>
                 )
               ) : (
                 <ThemedText style={[styles.summaryContent, { color: textColor }]}>
@@ -1917,46 +2025,6 @@ export default function NoteDetailScreen() {
               )}
             </View>
           )}
-
-                      {/* Summary Section - Show if enabled and has content or usage limit */}
-            {isAISummariesEnabled && (summary || summaryLoading || summaryUsageLimit) && (
-                          <View style={styles.summarySection}>
-              <ThemedText style={[styles.summaryTitle, { color: textColor }]}>Summary</ThemedText>
-              {user && (
-                <View>
-                  {(() => {
-                    try {
-                      return <FeatureUsageInline featureId="ai_summaries" compact={true} onUpgradePress={() => router.push('/join-premium')} />;
-                    } catch (error) {
-                      console.warn('Error rendering AI summaries usage display:', error);
-                      return null;
-                    }
-                  })()}
-                </View>
-              )}
-                {summaryLoading && (
-                  <ThemedText style={[styles.summaryContent, { color: textColor }]}>Generating summary...</ThemedText>
-                )}
-                {!summaryLoading && summary && (
-                  <ThemedText style={[styles.summaryContent, { color: textColor }]}>
-                    {summary}
-                  </ThemedText>
-                )}
-                {!summaryLoading && !summary && summaryUsageLimit && (
-                  <View>
-                    <ThemedText style={[styles.contentText, { color: mutedTextColor }]}>
-                      {summaryUsageLimit}
-                    </ThemedText>
-                    <TouchableOpacity 
-                      style={[styles.upgradeButton, { backgroundColor: accentColor }]}
-                      onPress={() => router.push('/join-premium')}
-                    >
-                      <ThemedText style={styles.upgradeButtonText}>Upgrade to Premium</ThemedText>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            )}
 
           {/* Key Details Section - Show if enabled and has content or usage limit */}
           {isAIKeyDetailsEnabled && (keyDetailsLoading || (keyDetails && keyDetails.length > 0) || summaryUsageLimit) && (

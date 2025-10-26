@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useState, useEffect } from 'react';
+import { Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View, Dimensions } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { Logo } from './Logo';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -16,6 +17,21 @@ export default function LandingPage() {
   const accentSuccess = useThemeColor({}, 'accentSuccess');
   
   const [userCount] = useState('1,000+');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const updateSize = () => {
+        const { width } = Dimensions.get('window');
+        setIsMobile(width < 768);
+      };
+
+      updateSize();
+      const subscription = Dimensions.addEventListener('change', updateSize);
+      return () => subscription?.remove();
+    }
+  }, []);
 
   if (Platform.OS !== 'web') {
     return null;
@@ -28,7 +44,7 @@ export default function LandingPage() {
         <View style={[styles.header, { backgroundColor: backgroundSecondary }]}>
           <View style={styles.headerContent}>
             <View style={styles.logo}>
-              <Ionicons name="book" size={32} color={accentPrimary} />
+              <Logo size={60} showBackground={true} />
               <ThemedText style={[styles.logoText, { color: textColor }]}>WizNote</ThemedText>
             </View>
             <View style={styles.headerButtons}>
@@ -49,8 +65,10 @@ export default function LandingPage() {
         </View>
 
         {/* Hero Section */}
-        <View style={styles.heroSection}>
-          <View style={styles.heroContent}>
+        {isMobile ? (
+          // Mobile Layout: Stack vertically
+          <View style={styles.heroSectionMobile}>
+            {/* Top: Badge */}
             <View style={[styles.badge, { backgroundColor: 'rgba(106, 90, 205, 0.1)' }]}>
               <Ionicons name="trending-up" size={16} color={accentPrimary} />
               <ThemedText style={[styles.badgeText, { color: accentPrimary }]}>
@@ -58,17 +76,20 @@ export default function LandingPage() {
               </ThemedText>
             </View>
             
-            <ThemedText style={[styles.heroTitle, { color: textColor }]}>
-              Stop Scribbling.{'\n'}Start Acing.
+            {/* Title */}
+            <ThemedText style={[styles.heroTitleMobile, { color: textColor }]}>
+              Stop Scribbling. Start Acing.
             </ThemedText>
             
-            <ThemedText style={[styles.heroSubtitle, { color: textSecondaryColor }]}>
+            {/* Subtitle */}
+            <ThemedText style={[styles.heroSubtitleMobile, { color: textSecondaryColor }]}>
               Turn lectures into flashcards with AI. Perfect for students who want to study smarter, not harder.
             </ThemedText>
 
-            <View style={styles.heroButtons}>
+            {/* CTA Buttons */}
+            <View style={styles.heroButtonsMobile}>
               <TouchableOpacity 
-                style={[styles.ctaButton, { backgroundColor: accentPrimary }]} 
+                style={[styles.ctaButtonMobile, { backgroundColor: accentPrimary }]} 
                 onPress={() => router.push('/signup')}
               >
                 <ThemedText style={styles.ctaButtonText}>Start Free - No Credit Card</ThemedText>
@@ -76,7 +97,7 @@ export default function LandingPage() {
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={[styles.secondaryCta, { borderColor: accentPrimary }]} 
+                style={[styles.secondaryCtaMobile, { borderColor: accentPrimary }]} 
                 onPress={() => {
                   const element = document.getElementById('features');
                   element?.scrollIntoView({ behavior: 'smooth' });
@@ -85,160 +106,137 @@ export default function LandingPage() {
                 <ThemedText style={[styles.secondaryCtaText, { color: accentPrimary }]}>See How It Works</ThemedText>
               </TouchableOpacity>
             </View>
-
-            {/* App Store Badges */}
-            <View style={styles.appBadges}>
-              <TouchableOpacity 
-                style={[styles.appBadge, { backgroundColor: '#000000' }]}
-                onPress={() => window.open('https://play.google.com/store/apps/details?id=com.WizNote.app', '_blank')}
-              >
-                <Ionicons name="logo-google-playstore" size={24} color="#FFFFFF" />
-                <View style={styles.appBadgeText}>
-                  <ThemedText style={[styles.appBadgeLabel, { color: '#FFFFFF' }]}>GET IT ON</ThemedText>
-                  <ThemedText style={[styles.appBadgeStore, { color: '#FFFFFF' }]}>Google Play</ThemedText>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.appBadge, { backgroundColor: '#888888', opacity: 0.6 }]}
-                onPress={() => alert('iOS app coming soon! 🚀')}
-              >
-                <Ionicons name="logo-apple" size={24} color="#FFFFFF" />
-                <View style={styles.appBadgeText}>
-                  <ThemedText style={[styles.appBadgeLabel, { color: '#FFFFFF' }]}>Coming Soon</ThemedText>
-                  <ThemedText style={[styles.appBadgeStore, { color: '#FFFFFF' }]}>App Store</ThemedText>
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* Trust Indicators */}
-            <View style={styles.trustIndicators}>
-              <View style={styles.trustItem}>
-                <Ionicons name="checkmark-circle" size={20} color={accentSuccess} />
-                <ThemedText style={[styles.trustText, { color: textSecondaryColor }]}>
-                  7-day free trial
-                </ThemedText>
-              </View>
-              <View style={styles.trustItem}>
-                <Ionicons name="checkmark-circle" size={20} color={accentSuccess} />
-                <ThemedText style={[styles.trustText, { color: textSecondaryColor }]}>
-                  No credit card required
-                </ThemedText>
-              </View>
-              <View style={styles.trustItem}>
-                <Ionicons name="checkmark-circle" size={20} color={accentSuccess} />
-                <ThemedText style={[styles.trustText, { color: textSecondaryColor }]}>
-                  Works on all devices
-                </ThemedText>
-              </View>
-            </View>
-
-            {/* Product Hunt Badge */}
-            <View style={styles.productHuntBadge}>
-              <a href="https://www.producthunt.com/products/wiznote-2?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-wiznote&#0045;2" target="_blank">
-                <img 
-                  src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1030513&theme=light&t=1761333974901" 
-                  alt="WizNote - Record&#0044;&#0032;transcribe&#0044;&#0032;study&#0032;smarter&#0032;with&#0032;AI&#0045;powered&#0032;notes | Product Hunt" 
-                  style={{width: '250px', height: '54px'}} 
-                  width="250" 
-                  height="54" 
-                />
-              </a>
-            </View>
           </View>
+        ) : (
+          // Desktop Layout: Original side-by-side design
+          <View style={styles.heroSection}>
+            <View style={styles.heroContent}>
+              <View style={[styles.badge, { backgroundColor: 'rgba(138, 43, 226, 0.1)', borderWidth: 1, borderColor: 'rgba(138, 43, 226, 0.3)' }]}>
+                <Ionicons name="trending-up" size={16} color={accentPrimary} />
+                <ThemedText style={[styles.badgeText, { color: accentPrimary }]}>
+                  Join {userCount} Students Studying Smarter
+                </ThemedText>
+              </View>
+              
+              <ThemedText style={[styles.heroTitle, { color: textColor }]}>
+                Stop Scribbling.{'\n'}Start Acing.
+              </ThemedText>
+              
+              <ThemedText style={[styles.heroSubtitle, { color: textSecondaryColor }]}>
+                Turn lectures into flashcards with AI. Perfect for students who want to study smarter, not harder.
+              </ThemedText>
 
-          {/* Hero Image/Demo Placeholder */}
-          <View style={styles.heroImage}>
-            <View style={styles.phoneMockup}>
-              <View style={[styles.phoneFrame, { backgroundColor: '#000000' }]}>
-                <View style={[styles.phoneScreen, { backgroundColor: '#1A1A1A' }]}>
-                  {/* Status Bar */}
-                  <View style={styles.statusBar}>
-                    <ThemedText style={[styles.statusTime, { color: '#FFFFFF' }]}>10:21</ThemedText>
-                    <View style={styles.statusIcons}>
-                      <Ionicons name="cellular" size={16} color="#FFFFFF" />
-                      <Ionicons name="wifi" size={16} color="#FFFFFF" />
-                      <Ionicons name="battery-full" size={16} color="#FFFFFF" />
-                    </View>
-                  </View>
-                  
-                  {/* App Header */}
-                  <View style={styles.appHeader}>
-                    <View style={styles.logoSection}>
-                      <View style={[styles.appLogo, { backgroundColor: accentPrimary }]}>
-                        <Ionicons name="document-text" size={20} color="#FFFFFF" />
-                      </View>
-                      <ThemedText style={[styles.appName, { color: '#FFFFFF' }]}>WizNote</ThemedText>
-                    </View>
-                    <View style={[styles.createButton, { backgroundColor: accentPrimary }]}>
-                      <Ionicons name="add" size={20} color="#FFFFFF" />
-                    </View>
-                  </View>
-                  
-                  {/* Recent Notes Section */}
-                  <View style={styles.notesSection}>
-                    <View style={styles.sectionHeader}>
-                      <ThemedText style={[styles.sectionTitleMobile, { color: '#FFFFFF' }]}>Recent Notes</ThemedText>
-                      <View style={[styles.sortButton, { backgroundColor: '#333333' }]}>
-                        <Ionicons name="chevron-down" size={14} color="#FFFFFF" />
-                        <ThemedText style={[styles.sortText, { color: '#FFFFFF' }]}>Newest First</ThemedText>
+              <View style={styles.heroButtons}>
+                <TouchableOpacity 
+                  style={[styles.ctaButton, { backgroundColor: accentPrimary }]} 
+                  onPress={() => router.push('/signup')}
+                >
+                  <ThemedText style={styles.ctaButtonText}>Start Free - No Credit Card</ThemedText>
+                  <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.secondaryCta, { borderColor: accentPrimary }]} 
+                  onPress={() => {
+                    const element = document.getElementById('features');
+                    element?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  <ThemedText style={[styles.secondaryCtaText, { color: accentPrimary }]}>See How It Works</ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            {/* Phone Mockup - Only shown on desktop web, hidden on mobile devices */}
+            {Platform.OS === 'web' && !isMobile && (
+              <View style={styles.phoneMockup}>
+                <View style={[styles.phoneFrame, { backgroundColor: '#000000' }]}>
+                  <View style={[styles.phoneScreen, { backgroundColor }]}>
+                    {/* Status Bar */}
+                    <View style={[styles.statusBar, { backgroundColor }]}>
+                      <ThemedText style={[styles.statusTime, { color: textColor }]}>10:21</ThemedText>
+                      <View style={styles.statusIcons}>
+                        <Ionicons name="cellular" size={14} color={textColor} />
+                        <Ionicons name="wifi" size={14} color={textColor} />
+                        <Ionicons name="battery-half" size={14} color={textColor} />
                       </View>
                     </View>
                     
-                    {/* Note Card */}
-                    <View style={[styles.noteCard, { backgroundColor: '#2A2A2A' }]}>
-                      <View style={styles.noteHeader}>
-                        <ThemedText style={[styles.noteTitle, { color: '#FFFFFF' }]}>CompTIA A+</ThemedText>
-                        <ThemedText style={[styles.noteTime, { color: '#888888' }]}>Just now</ThemedText>
+                    {/* App Header */}
+                    <View style={styles.appHeader}>
+                      <View style={styles.logoSection}>
+                        <View style={[styles.appLogo, { backgroundColor: accentPrimary }]}>
+                          <Ionicons name="document-text" size={20} color="#FFFFFF" />
+                        </View>
+                        <ThemedText style={[styles.appName, { color: textColor }]}>WizNote</ThemedText>
                       </View>
-                      <View style={[styles.noteTag, { backgroundColor: '#4CAF50' }]}>
-                        <Ionicons name="document-text" size={12} color="#FFFFFF" />
-                        <ThemedText style={[styles.tagText, { color: '#FFFFFF' }]}>Text</ThemedText>
-                      </View>
-                      <ThemedText style={[styles.notePreview, { color: '#CCCCCC' }]} numberOfLines={3}>
-                        Perfect 👍 You want Module 1 Notes for CompTIA A+ (Core 1 - 220-1101). Here's a clean, condensed note-style breakdown...
-                      </ThemedText>
-                      <View style={styles.noteActions}>
-                        <View style={[styles.actionButton, { backgroundColor: '#333333' }]}>
-                          <Ionicons name="pin" size={16} color="#FFFFFF" />
-                        </View>
-                        <View style={[styles.actionButton, { backgroundColor: '#333333' }]}>
-                          <Ionicons name="download" size={16} color="#FFFFFF" />
-                        </View>
-                        <View style={[styles.actionButton, { backgroundColor: '#333333' }]}>
-                          <Ionicons name="trash" size={16} color="#FF6B6B" />
-                        </View>
+                      <View style={[styles.createButton, { backgroundColor: accentPrimary }]}>
+                        <Ionicons name="add" size={20} color="#FFFFFF" />
                       </View>
                     </View>
-                  </View>
-                  
-                  {/* Bottom Navigation */}
-                  <View style={[styles.bottomNav, { backgroundColor: '#FFFFFF' }]}>
-                    <View style={styles.navItem}>
-                      <Ionicons name="home" size={20} color={accentPrimary} />
-                      <ThemedText style={[styles.navText, { color: accentPrimary }]}>Home</ThemedText>
+                    
+                    {/* Recent Notes Section */}
+                    <View style={styles.notesSection}>
+                      <View style={styles.sectionHeader}>
+                        <ThemedText style={[styles.sectionTitleMobile, { color: textColor }]}>Recent Notes</ThemedText>
+                        <View style={[styles.sortButton, { backgroundColor: backgroundSecondary }]}>
+                          <ThemedText style={[styles.sortText, { color: textColor }]}>Newest First</ThemedText>
+                          <Ionicons name="chevron-down" size={14} color={textColor} />
+                        </View>
+                      </View>
+                      
+                      {/* Sample Note Card */}
+                      <View style={[styles.noteCard, { backgroundColor: backgroundSecondary }]}>
+                        <View style={styles.noteHeader}>
+                          <ThemedText style={[styles.noteTitle, { color: textColor }]}>CompTIA A+</ThemedText>
+                          <ThemedText style={[styles.noteTime, { color: textSecondaryColor }]}>Just now</ThemedText>
+                        </View>
+                        <View style={[styles.noteTag, { backgroundColor: 'rgba(76, 175, 80, 0.2)' }]}>
+                          <Ionicons name="document-text" size={12} color="#4CAF50" />
+                          <ThemedText style={[styles.tagText, { color: '#4CAF50' }]}>Text</ThemedText>
+                        </View>
+                        <ThemedText style={[styles.notePreview, { color: textSecondaryColor }]} numberOfLines={2}>
+                          Perfect 👍 You want Module 1 Notes for CompTIA A+ (Core 1 - 220-1101). Here's a clean, comprehensive overview...
+                        </ThemedText>
+                        <View style={styles.noteActions}>
+                          <View style={[styles.actionButton, { backgroundColor: backgroundSecondary }]}>
+                            <Ionicons name="pin" size={14} color={textSecondaryColor} />
+                          </View>
+                          <View style={[styles.actionButton, { backgroundColor: backgroundSecondary }]}>
+                            <Ionicons name="download" size={14} color={textSecondaryColor} />
+                          </View>
+                          <View style={[styles.actionButton, { backgroundColor: backgroundSecondary }]}>
+                            <Ionicons name="trash" size={14} color={textSecondaryColor} />
+                          </View>
+                        </View>
+                      </View>
                     </View>
-                    <View style={styles.navItem}>
-                      <Ionicons name="people" size={20} color="#888888" />
-                      <ThemedText style={[styles.navText, { color: '#888888' }]}>Shared</ThemedText>
-                    </View>
-                    <View style={styles.navItem}>
-                      <Ionicons name="search" size={20} color="#888888" />
-                      <ThemedText style={[styles.navText, { color: '#888888' }]}>Search</ThemedText>
-                    </View>
-                    <View style={styles.navItem}>
-                      <Ionicons name="settings" size={20} color="#888888" />
-                      <ThemedText style={[styles.navText, { color: '#888888' }]}>Settings</ThemedText>
+                    
+                    {/* Bottom Navigation */}
+                    <View style={[styles.bottomNav, { backgroundColor: backgroundSecondary }]}>
+                      <View style={styles.navItem}>
+                        <Ionicons name="document-text" size={20} color={accentPrimary} />
+                        <ThemedText style={[styles.navText, { color: accentPrimary }]}>Notes</ThemedText>
+                      </View>
+                      <View style={styles.navItem}>
+                        <Ionicons name="flash" size={20} color={textSecondaryColor} />
+                        <ThemedText style={[styles.navText, { color: textSecondaryColor }]}>Cards</ThemedText>
+                      </View>
+                      <View style={styles.navItem}>
+                        <Ionicons name="apps" size={20} color={textSecondaryColor} />
+                        <ThemedText style={[styles.navText, { color: textSecondaryColor }]}>Quiz</ThemedText>
+                      </View>
+                      <View style={styles.navItem}>
+                        <Ionicons name="settings" size={20} color={textSecondaryColor} />
+                        <ThemedText style={[styles.navText, { color: textSecondaryColor }]}>Settings</ThemedText>
+                      </View>
                     </View>
                   </View>
                 </View>
               </View>
-            </View>
-            <ThemedText style={[styles.heroImageText, { color: textSecondaryColor }]}>
-              WizNote Mobile App
-            </ThemedText>
+            )}
           </View>
-        </View>
+        )}
 
         {/* Features Section */}
         <View id="features" style={[styles.featuresSection, { backgroundColor: backgroundSecondary }]}>
@@ -594,6 +592,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+      },
+      '@media (max-width: 480px)': {
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+      },
+    } : {}),
   },
   headerContent: {
     flexDirection: 'row',
@@ -602,25 +610,56 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     marginHorizontal: 'auto',
     width: '100%',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        flexDirection: 'column',
+        gap: 16,
+        alignItems: 'stretch',
+      },
+    } : {}),
   },
   logo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        alignSelf: 'center',
+        gap: 8,
+      },
+    } : {}),
   },
   logoText: {
     fontSize: 24,
     fontWeight: 'bold',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 20,
+      },
+    } : {}),
   },
   headerButtons: {
     flexDirection: 'row',
     gap: 12,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: '100%',
+        flexDirection: 'column',
+        gap: 8,
+      },
+    } : {}),
   },
   loginButton: {
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
     borderWidth: 2,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        paddingVertical: 12,
+        flex: 1,
+      },
+    } : {}),
   },
   loginButtonText: {
     fontSize: 16,
@@ -630,11 +669,76 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        paddingVertical: 12,
+        flex: 1,
+      },
+    } : {}),
   },
   signupButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  // Mobile-specific hero section
+  heroSectionMobile: {
+    flexDirection: 'column',
+    paddingVertical: 40,
+    paddingHorizontal: 16,
+    width: '100%',
+    gap: 24,
+    alignItems: 'stretch',
+  },
+  heroTitleMobile: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    lineHeight: 40,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  heroSubtitleMobile: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  heroButtonsMobile: {
+    flexDirection: 'column',
+    gap: 12,
+    alignItems: 'stretch',
+  },
+  ctaButtonMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    width: '100%',
+  },
+  secondaryCtaMobile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 2,
+    width: '100%',
+  },
+  appBadgesMobile: {
+    flexDirection: 'column',
+    gap: 12,
+    alignItems: 'stretch',
+    marginTop: 32,
+  },
+  trustIndicatorsMobile: {
+    flexDirection: 'column',
+    gap: 12,
+    marginTop: 32,
+    alignItems: 'flex-start',
   },
   heroSection: {
     flexDirection: 'row',
@@ -645,9 +749,28 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 60,
     alignItems: 'center',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        flexDirection: 'column',
+        paddingVertical: 40,
+        paddingHorizontal: 16,
+        gap: 40,
+        alignItems: 'stretch',
+      },
+      '@media (max-width: 480px)': {
+        paddingVertical: 32,
+        paddingHorizontal: 12,
+        gap: 32,
+      },
+    } : {}),
   },
   heroContent: {
     flex: 1,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: '100%',
+      },
+    } : {}),
   },
   badge: {
     flexDirection: 'row',
@@ -668,16 +791,41 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     lineHeight: 64,
     marginBottom: 24,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 32,
+        lineHeight: 40,
+        marginBottom: 16,
+      },
+      '@media (max-width: 480px)': {
+        fontSize: 28,
+        lineHeight: 36,
+      },
+    } : {}),
   },
   heroSubtitle: {
     fontSize: 20,
     lineHeight: 30,
     marginBottom: 32,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 16,
+        lineHeight: 24,
+        marginBottom: 24,
+      },
+    } : {}),
   },
   heroButtons: {
     flexDirection: 'row',
     gap: 16,
     marginBottom: 32,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        flexDirection: 'column',
+        gap: 12,
+        marginBottom: 24,
+      },
+    } : {}),
   },
   ctaButton: {
     flexDirection: 'row',
@@ -686,21 +834,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     borderRadius: 12,
     gap: 8,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        justifyContent: 'center',
+        width: '100%',
+        paddingVertical: 14,
+      },
+    } : {}),
   },
   ctaButtonText: {
     fontSize: 18,
     fontWeight: '600',
     color: '#FFFFFF',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 16,
+      },
+    } : {}),
   },
   secondaryCta: {
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 12,
     borderWidth: 2,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: '100%',
+        paddingVertical: 14,
+      },
+    } : {}),
   },
   secondaryCtaText: {
     fontSize: 18,
     fontWeight: '600',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 16,
+      },
+    } : {}),
   },
   appBadges: {
     flexDirection: 'row',
@@ -755,6 +928,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 500,
     backgroundColor: 'transparent',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        minHeight: 300,
+        maxHeight: 400,
+        width: '100%',
+        flex: 'none',
+      },
+      '@media (max-width: 480px)': {
+        minHeight: 250,
+        maxHeight: 350,
+      },
+    } : {}),
   },
   heroImageText: {
     marginTop: 16,
@@ -775,6 +960,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 30,
     elevation: 15,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: 220,
+        height: 440,
+        borderRadius: 30,
+      },
+      '@media (max-width: 480px)': {
+        width: 180,
+        height: 360,
+        borderRadius: 24,
+      },
+    } : {}),
   },
   phoneScreen: {
     flex: 1,
@@ -828,6 +1025,15 @@ const styles = StyleSheet.create({
   notesSection: {
     flex: 1,
     paddingVertical: 12,
+    minHeight: 200,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        minHeight: 300,
+      },
+      '@media (max-width: 480px)': {
+        minHeight: 400,
+      },
+    } : {}),
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -854,6 +1060,16 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     marginBottom: 12,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        padding: 20,
+        minHeight: 180,
+      },
+      '@media (max-width: 480px)': {
+        padding: 24,
+        minHeight: 220,
+      },
+    } : {}),
   },
   noteHeader: {
     flexDirection: 'row',
@@ -886,6 +1102,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 16,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 15,
+        lineHeight: 22,
+      },
+      '@media (max-width: 480px)': {
+        fontSize: 16,
+        lineHeight: 24,
+      },
+    } : {}),
   },
   noteActions: {
     flexDirection: 'row',
@@ -915,17 +1141,46 @@ const styles = StyleSheet.create({
   featuresSection: {
     paddingVertical: 80,
     paddingHorizontal: 24,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        paddingVertical: 40,
+        paddingHorizontal: 16,
+      },
+      '@media (max-width: 480px)': {
+        paddingVertical: 32,
+        paddingHorizontal: 12,
+      },
+    } : {}),
   },
   sectionTitle: {
     fontSize: 42,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 16,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 28,
+        marginBottom: 12,
+      },
+      '@media (max-width: 480px)': {
+        fontSize: 24,
+      },
+    } : {}),
   },
   sectionSubtitle: {
     fontSize: 18,
     textAlign: 'center',
     marginBottom: 60,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 16,
+        marginBottom: 32,
+      },
+      '@media (max-width: 480px)': {
+        fontSize: 14,
+        marginBottom: 24,
+      },
+    } : {}),
   },
   featuresGrid: {
     flexDirection: 'row',
@@ -934,6 +1189,12 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     marginHorizontal: 'auto',
     justifyContent: 'center',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        gap: 16,
+        flexDirection: 'column',
+      },
+    } : {}),
   },
   featureCard: {
     width: 350,
@@ -941,6 +1202,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: '100%',
+        padding: 24,
+      },
+      '@media (max-width: 480px)': {
+        padding: 20,
+      },
+    } : {}),
   },
   featureIcon: {
     width: 64,
@@ -962,6 +1232,16 @@ const styles = StyleSheet.create({
   testimonialsSection: {
     paddingVertical: 80,
     paddingHorizontal: 24,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        paddingVertical: 40,
+        paddingHorizontal: 16,
+      },
+      '@media (max-width: 480px)': {
+        paddingVertical: 32,
+        paddingHorizontal: 12,
+      },
+    } : {}),
   },
   testimonialsGrid: {
     flexDirection: 'row',
@@ -970,6 +1250,12 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     marginHorizontal: 'auto',
     justifyContent: 'center',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        gap: 16,
+        flexDirection: 'column',
+      },
+    } : {}),
   },
   testimonialCard: {
     width: 350,
@@ -977,6 +1263,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: '100%',
+        padding: 24,
+      },
+      '@media (max-width: 480px)': {
+        padding: 20,
+      },
+    } : {}),
   },
   stars: {
     flexDirection: 'row',
@@ -996,6 +1291,16 @@ const styles = StyleSheet.create({
   pricingSection: {
     paddingVertical: 80,
     paddingHorizontal: 24,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        paddingVertical: 40,
+        paddingHorizontal: 16,
+      },
+      '@media (max-width: 480px)': {
+        paddingVertical: 32,
+        paddingHorizontal: 12,
+      },
+    } : {}),
   },
   pricingCards: {
     flexDirection: 'row',
@@ -1004,6 +1309,12 @@ const styles = StyleSheet.create({
     maxWidth: 900,
     marginHorizontal: 'auto',
     justifyContent: 'center',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        flexDirection: 'column',
+        gap: 24,
+      },
+    } : {}),
   },
   pricingCard: {
     width: 350,
@@ -1012,6 +1323,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
     position: 'relative',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: '100%',
+        padding: 32,
+      },
+      '@media (max-width: 480px)': {
+        padding: 24,
+      },
+    } : {}),
   },
   popularCard: {
     borderWidth: 3,
@@ -1078,23 +1398,58 @@ const styles = StyleSheet.create({
     paddingVertical: 80,
     paddingHorizontal: 24,
     alignItems: 'center',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        paddingVertical: 40,
+        paddingHorizontal: 16,
+      },
+      '@media (max-width: 480px)': {
+        paddingVertical: 32,
+        paddingHorizontal: 12,
+      },
+    } : {}),
   },
   finalCtaTitle: {
     fontSize: 42,
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 16,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 28,
+        marginBottom: 12,
+      },
+      '@media (max-width: 480px)': {
+        fontSize: 24,
+      },
+    } : {}),
   },
   finalCtaSubtitle: {
     fontSize: 18,
     textAlign: 'center',
     marginBottom: 32,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 16,
+        marginBottom: 24,
+      },
+    } : {}),
   },
   footer: {
     paddingVertical: 60,
     paddingHorizontal: 24,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        paddingVertical: 40,
+        paddingHorizontal: 16,
+      },
+      '@media (max-width: 480px)': {
+        paddingVertical: 32,
+        paddingHorizontal: 12,
+      },
+    } : {}),
   },
   footerContent: {
     flexDirection: 'row',
@@ -1103,10 +1458,22 @@ const styles = StyleSheet.create({
     maxWidth: 1200,
     marginHorizontal: 'auto',
     marginBottom: 40,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        flexDirection: 'column',
+        gap: 32,
+        marginBottom: 32,
+      },
+    } : {}),
   },
   footerSection: {
     flex: 1,
     minWidth: 200,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        minWidth: 'auto',
+      },
+    } : {}),
   },
   footerTitle: {
     fontSize: 18,

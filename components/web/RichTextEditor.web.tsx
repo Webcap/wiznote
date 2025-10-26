@@ -246,6 +246,15 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 8,
     borderBottomWidth: 1,
     gap: 4,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        paddingHorizontal: 8,
+        paddingVertical: 10,
+        gap: 6,
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
+      },
+    } : {}),
   },
   toolbarButton: {
     paddingHorizontal: 8,
@@ -255,6 +264,14 @@ const styles = StyleSheet.create({
     minWidth: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        minWidth: 44,
+        minHeight: 44,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+      },
+    } : {}),
   },
   toolbarButtonText: {
     fontSize: 14,
@@ -285,5 +302,16 @@ const styles = StyleSheet.create({
     wordWrap: 'break-word',
     overflowWrap: 'break-word',
     whiteSpace: 'pre-wrap',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 16,
+        minHeight: 250,
+        padding: 12,
+      },
+      '@media (max-width: 480px)': {
+        minHeight: 200,
+        padding: 10,
+      },
+    } : {}),
   },
 });
