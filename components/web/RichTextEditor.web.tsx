@@ -26,12 +26,14 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    console.log('🔍 RichTextEditor handleKeyDown:', {
-      key: e.key,
-      value: value,
-      selectionStart: e.currentTarget.selectionStart,
-      selectionEnd: e.currentTarget.selectionEnd
-    });
+    if (__DEV__) {
+      console.log('🔍 RichTextEditor handleKeyDown:', {
+        key: e.key,
+        value: value,
+        selectionStart: e.currentTarget.selectionStart,
+        selectionEnd: e.currentTarget.selectionEnd
+      });
+    }
     
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -206,11 +208,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         value={value}
         onChange={(e) => {
           const newValue = e.target.value;
-          console.log('🔍 RichTextEditor onChange:', {
-            oldValue: value,
-            newValue: newValue,
-            length: newValue.length
-          });
+          if (__DEV__) {
+            console.log('🔍 RichTextEditor onChange:', {
+              oldValue: value,
+              newValue: newValue,
+              length: newValue.length
+            });
+          }
           onChange(newValue);
         }}
         onKeyDown={handleKeyDown}

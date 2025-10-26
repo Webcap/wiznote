@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, memo } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -9,22 +9,17 @@ interface RichTextViewerProps {
   textStyle?: any;
 }
 
-export const RichTextViewer: React.FC<RichTextViewerProps> = ({
+const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
   content,
   contentFormat = 'plain',
   style,
   textStyle
 }) => {
-  console.log('🔍 RichTextViewerNative received:', {
-    contentFormat,
-    contentLength: content?.length,
-    contentPreview: content?.substring(0, 100),
-    shouldRenderHTML: contentFormat === 'html' && content
-  });
-  
-  // For HTML content, render in WebView for proper formatting
-  if (contentFormat === 'html' && content) {
-    const htmlContent = `
+  // Memoize HTML content generation to prevent unnecessary WebView recreation
+  const htmlContent = useMemo(() => {
+    if (!content) return '';
+    
+    return `
       <!DOCTYPE html>
       <html>
         <head>
@@ -32,7 +27,7 @@ export const RichTextViewer: React.FC<RichTextViewerProps> = ({
           <style>
             body {
               margin: 0;
-              padding: 20px;
+              padding: 16px;
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
               font-size: 16px;
               line-height: 24px;
@@ -83,7 +78,19 @@ export const RichTextViewer: React.FC<RichTextViewerProps> = ({
         </body>
       </html>
     `;
+  }, [content]);
 
+  if (__DEV__) {
+    console.log('🔍 RichTextViewerNative received:', {
+      contentFormat,
+      contentLength: content?.length,
+      contentPreview: content?.substring(0, 100),
+      shouldRenderHTML: contentFormat === 'html' && content
+    });
+  }
+  
+  // For HTML content, render in WebView for proper formatting
+  if (contentFormat === 'html' && content) {
     return (
       <View style={[styles.container, style]}>
         <WebView
@@ -96,14 +103,14 @@ export const RichTextViewer: React.FC<RichTextViewerProps> = ({
           nestedScrollEnabled={true}
           onError={(syntheticEvent) => {
             const { nativeEvent } = syntheticEvent;
-            console.error('🔍 RichTextViewer WebView error:', nativeEvent);
+            if (__DEV__) console.error('🔍 RichTextViewer WebView error:', nativeEvent);
           }}
           onHttpError={(syntheticEvent) => {
             const { nativeEvent } = syntheticEvent;
-            console.error('🔍 RichTextViewer WebView HTTP error:', nativeEvent);
+            if (__DEV__) console.error('🔍 RichTextViewer WebView HTTP error:', nativeEvent);
           }}
           onLoad={() => {
-            console.log('🔍 RichTextViewer WebView loaded successfully');
+            if (__DEV__) console.log('🔍 RichTextViewer WebView loaded successfully');
           }}
         />
       </View>
@@ -138,6 +145,15 @@ const styles = StyleSheet.create({
     color: '#333',
     padding: 20,
   },
+});
+
+// Memoize component to prevent unnecessary re-renders
+export const RichTextViewer = memo(RichTextViewerComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.content === nextProps.content &&
+    prevProps.contentFormat === nextProps.contentFormat &&
+    JSON.stringify(prevProps.textStyle) === JSON.stringify(nextProps.textStyle)
+  );
 });
 
 export default RichTextViewer;

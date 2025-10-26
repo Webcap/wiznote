@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useRef, memo } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { sanitizeNoteContent } from '../utils/sanitization';
 
@@ -9,12 +9,13 @@ interface RichTextViewerProps {
   textStyle?: any;
 }
 
-export const RichTextViewer: React.FC<RichTextViewerProps> = ({
+const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
   content,
   contentFormat = 'plain',
   style,
   textStyle
 }) => {
+  const colorAppliedRef = useRef<string | null>(null);
   // Sanitize HTML content to prevent XSS attacks
   const sanitizedContent = useMemo(() => {
     if (!content) return '';
@@ -62,16 +63,18 @@ export const RichTextViewer: React.FC<RichTextViewerProps> = ({
       // }
       
       // Debug log for line break conversion
-      console.log('🔍 RichTextViewer: Line break conversion:', {
-        originalLength: content.length,
-        convertedLength: html.length,
-        hasBrTags: html.includes('<br>'),
-        hasPTags: html.includes('<p>'),
-        brCount: (html.match(/<br>/g) || []).length,
-        pCount: (html.match(/<p>/g) || []).length,
-        preview: html.substring(0, 200),
-        fullHtml: html
-      });
+      if (__DEV__) {
+        console.log('🔍 RichTextViewer: Line break conversion:', {
+          originalLength: content.length,
+          convertedLength: html.length,
+          hasBrTags: html.includes('<br>'),
+          hasPTags: html.includes('<p>'),
+          brCount: (html.match(/<br>/g) || []).length,
+          pCount: (html.match(/<p>/g) || []).length,
+          preview: html.substring(0, 200),
+          fullHtml: html
+        });
+      }
       
       return sanitizeNoteContent(html);
     }
@@ -451,7 +454,7 @@ export const RichTextViewer: React.FC<RichTextViewerProps> = ({
           
         `;
         document.head.appendChild(existingStyle);
-        console.log('🔍 RichTextViewer: CSS styles injected successfully');
+        if (__DEV__) console.log('🔍 RichTextViewer: CSS styles injected successfully');
       }
     }
   }, []);
@@ -459,13 +462,15 @@ export const RichTextViewer: React.FC<RichTextViewerProps> = ({
   // For web platform, render HTML content
   if (Platform.OS === 'web') {
     // Debug theme colors
-    console.log('🔍 RichTextViewer: Theme debug:', {
-      textStyle: textStyle,
-      hasColor: !!textStyle?.color,
-      colorValue: textStyle?.color,
-      sanitizedContentLength: sanitizedContent.length,
-      contentPreview: sanitizedContent.substring(0, 100)
-    });
+    if (__DEV__) {
+      console.log('🔍 RichTextViewer: Theme debug:', {
+        textStyle: textStyle,
+        hasColor: !!textStyle?.color,
+        colorValue: textStyle?.color,
+        sanitizedContentLength: sanitizedContent.length,
+        contentPreview: sanitizedContent.substring(0, 100)
+      });
+    }
 
     // Use the provided color or fall back to inherit
     const themeColor = textStyle?.color || 'inherit';
@@ -498,35 +503,38 @@ export const RichTextViewer: React.FC<RichTextViewerProps> = ({
                 forceColor = isDarkTheme ? '#ffffff' : '#000000';
               }
               
-              // Force color on ALL elements including text nodes
-              const allElements = el.querySelectorAll('*');
-              allElements.forEach((element: any) => {
-                element.style.color = forceColor;
-                element.style.setProperty('color', forceColor, 'important');
-                element.style.setProperty('color', forceColor, 'important');
-              });
-              
-              // Also force on the container itself
-              el.style.color = forceColor;
-              el.style.setProperty('color', forceColor, 'important');
-              
-              // Force color on text nodes too
-              const walker = document.createTreeWalker(
-                el,
-                NodeFilter.SHOW_TEXT,
-                null,
-                false
-              );
-              
-              let textNode;
-              while (textNode = walker.nextNode()) {
-                if (textNode.parentElement) {
-                  textNode.parentElement.style.color = forceColor;
-                  textNode.parentElement.style.setProperty('color', forceColor, 'important');
+              // Only apply color if it hasn't been applied yet or if it changed
+              if (colorAppliedRef.current !== forceColor) {
+                // Force color on ALL elements including text nodes
+                const allElements = el.querySelectorAll('*');
+                allElements.forEach((element: any) => {
+                  element.style.color = forceColor;
+                  element.style.setProperty('color', forceColor, 'important');
+                });
+                
+                // Also force on the container itself
+                el.style.color = forceColor;
+                el.style.setProperty('color', forceColor, 'important');
+                
+                // Force color on text nodes too
+                const walker = document.createTreeWalker(
+                  el,
+                  NodeFilter.SHOW_TEXT,
+                  null,
+                  false
+                );
+                
+                let textNode;
+                while (textNode = walker.nextNode()) {
+                  if (textNode.parentElement) {
+                    textNode.parentElement.style.color = forceColor;
+                    textNode.parentElement.style.setProperty('color', forceColor, 'important');
+                  }
                 }
+                
+                colorAppliedRef.current = forceColor;
+                if (__DEV__) console.log('🔍 RichTextViewer: FORCED color', forceColor, 'on', allElements.length, 'elements + text nodes');
               }
-              
-              console.log('🔍 RichTextViewer: FORCED color', forceColor, 'on', allElements.length, 'elements + text nodes');
             }
           }}
         />
@@ -562,6 +570,15 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: '#333',
   },
+});
+
+// Memoize component to prevent unnecessary re-renders
+export const RichTextViewer = memo(RichTextViewerComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.content === nextProps.content &&
+    prevProps.contentFormat === nextProps.contentFormat &&
+    JSON.stringify(prevProps.textStyle) === JSON.stringify(nextProps.textStyle)
+  );
 });
 
 export default RichTextViewer;
