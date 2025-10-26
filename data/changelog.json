@@ -2,10 +2,10 @@
   "versions": [
     {
       "version": "1.4.0",
-      "date": "Unreleased",
+      "date": "October 25, 2025",
       "sections": [
         {
-          "title": "Rich Text Editing [IN PROGRESS]",
+          "title": "Rich Text Editing [COMPLETED]",
           "emoji": "🔨",
           "items": [
             {
@@ -32,6 +32,24 @@
                 "Clean spacing with zero margins on headings",
                 "Proper line breaks and paragraph formatting",
                 "Professional typography with system fonts"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Audio Player Performance",
+          "emoji": "🎵",
+          "items": [
+            {
+              "title": "Fixed AudioPlayer excessive logging",
+              "description": "Audio player no longer spams console with status updates when idle",
+              "details": [
+                "Modified status polling to only run when audio is actively playing",
+                "Added automatic polling stop when audio is paused or stopped",
+                "Restart polling only when user clicks play button",
+                "Eliminated repeated 'Updating isPlaying state' and 'Updating duration' log messages",
+                "Improved performance by reducing unnecessary background processing",
+                "Better resource management with conditional polling logic"
               ]
             }
           ]

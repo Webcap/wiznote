@@ -7,11 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.4.0] - Unreleased
+## [1.4.0] - 2025-10-25
 
 ### ✨ Added
 
-#### Rich Text Editing (NEW FEATURE)
+#### Rich Text Editing (COMPLETED FEATURE)
 - **Markdown-style rich text formatting** - Create beautifully formatted notes with markdown syntax
   - Headers: Use `# H1`, `## H2`, `### H3` for headings
   - Bold text: Wrap with `**text**` for bold formatting
@@ -31,6 +31,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Professional typography with system fonts
 
 ### 🐛 Fixed
+
+#### Audio Player Performance
+- **Fixed AudioPlayer excessive logging** - Audio player no longer spams console with status updates when idle
+  - Modified status polling to only run when audio is actively playing
+  - Added automatic polling stop when audio is paused or stopped
+  - Restart polling only when user clicks play button
+  - Eliminated repeated "Updating isPlaying state" and "Updating duration" log messages
+  - Improved performance by reducing unnecessary background processing
+  - Better resource management with conditional polling logic
 
 #### Note Spacing & Layout
 - **Fixed excessive spacing in notes** - Notes now display with clean, minimal spacing
@@ -75,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 📁 Files Modified
 
 #### Components
+- `components/AudioPlayer.tsx` - Fixed excessive logging by implementing conditional status polling
 - `components/RichTextViewer.web.tsx` - Rich text rendering with comprehensive CSS styling
 - `components/create/NoteContentEditor.tsx` - Markdown to HTML conversion
 - `app/note/[id].tsx` - Integration of RichTextViewer for note display
@@ -90,12 +100,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ✅ **Consistent display** - Notes render identically across devices
 - ✅ **Faster writing** - Markdown syntax is intuitive and quick to type
 - ✅ **Theme support** - Rich text adapts to user's theme preference
+- ✅ **Cleaner console** - No more spam from idle audio players
 
 #### Developer Benefits
 - ✅ **Maintainable code** - Clean separation between viewing and editing
 - ✅ **Flexible styling** - Easy to add new formatting options
 - ✅ **Performance** - Efficient HTML generation and rendering
 - ✅ **Debugging** - Comprehensive logging for troubleshooting
+- ✅ **Better performance** - Reduced background processing from audio polling
+- ✅ **Cleaner logs** - Easier debugging without excessive audio status messages
 
 ---
 
