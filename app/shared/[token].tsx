@@ -263,7 +263,7 @@ export default function PublicShareScreen() {
               <View style={styles.footerActions}>
                 <TouchableOpacity
                   style={[styles.footerButton, styles.footerButtonPrimary, { backgroundColor: accentColor }]}
-                  onPress={() => router.push('/(auth)/signup')}
+                  onPress={() => router.push('/signup')}
                 >
                   <Ionicons name="rocket" size={18} color="#FFFFFF" />
                   <ThemedText style={[styles.footerButtonText, { color: '#FFFFFF' }]}>

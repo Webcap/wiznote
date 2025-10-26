@@ -96,6 +96,7 @@ function AppContent() {
         const isDeleteAccountRequestPage = currentPath.startsWith('/delete-account-request');
         const isForgotPasswordPage = currentPath.startsWith('/forgot-password') || currentPath === 'forgot-password' || currentPath.includes('/forgot-password');
         const isResetPasswordPage = currentPath.startsWith('/reset-password') || currentPath === 'reset-password' || currentPath.includes('/reset-password');
+        const isSignupPage = currentPath.startsWith('/signup') || currentPath === 'signup' || currentPath.includes('/signup');
         const isIndexPage = currentPath === '/' || currentPath === '' || currentPath === '/index';
         
         // Check if current path is a valid authenticated route
@@ -105,7 +106,7 @@ function AppContent() {
           isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage;
         
         // Check if current path is a public route (accessible without authentication)
-        const isPublicRoute = isPrivacyPage || isTermsPage || isChangelogPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage;
+        const isPublicRoute = isPrivacyPage || isTermsPage || isChangelogPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage || isSignupPage;
         
         console.log('Layout: Current path:', currentPath);
         console.log('Layout: Is payment page:', isPaymentPage);
@@ -195,6 +196,7 @@ function AppContent() {
                     <Stack.Screen name="index" options={{ headerShown: false }} />
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                     <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                    <Stack.Screen name="signup" options={{ headerShown: false }} />
                     <Stack.Screen name="note" options={{ headerShown: false }} />
                     <Stack.Screen name="payment" options={{ headerShown: false }} />
                     <Stack.Screen name="create" options={{ headerShown: false }} />
