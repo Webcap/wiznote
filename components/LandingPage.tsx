@@ -5,6 +5,7 @@ import { Image, Platform, ScrollView, StyleSheet, TouchableOpacity, View, Dimens
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { Logo } from './Logo';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -43,7 +44,7 @@ export default function LandingPage() {
         <View style={[styles.header, { backgroundColor: backgroundSecondary }]}>
           <View style={styles.headerContent}>
             <View style={styles.logo}>
-              <Ionicons name="book" size={32} color={accentPrimary} />
+              <Logo size={60} showBackground={true} />
               <ThemedText style={[styles.logoText, { color: textColor }]}>WizNote</ThemedText>
             </View>
             <View style={styles.headerButtons}>
@@ -110,7 +111,7 @@ export default function LandingPage() {
           // Desktop Layout: Original side-by-side design
           <View style={styles.heroSection}>
             <View style={styles.heroContent}>
-              <View style={[styles.badge, { backgroundColor: 'rgba(106, 90, 205, 0.1)' }]}>
+              <View style={[styles.badge, { backgroundColor: 'rgba(138, 43, 226, 0.1)', borderWidth: 1, borderColor: 'rgba(138, 43, 226, 0.3)' }]}>
                 <Ionicons name="trending-up" size={16} color={accentPrimary} />
                 <ThemedText style={[styles.badgeText, { color: accentPrimary }]}>
                   Join {userCount} Students Studying Smarter
@@ -145,6 +146,95 @@ export default function LandingPage() {
                 </TouchableOpacity>
               </View>
             </View>
+            
+            {/* Phone Mockup - Only shown on desktop web, hidden on mobile devices */}
+            {Platform.OS === 'web' && !isMobile && (
+              <View style={styles.phoneMockup}>
+                <View style={[styles.phoneFrame, { backgroundColor: '#000000' }]}>
+                  <View style={[styles.phoneScreen, { backgroundColor }]}>
+                    {/* Status Bar */}
+                    <View style={[styles.statusBar, { backgroundColor }]}>
+                      <ThemedText style={[styles.statusTime, { color: textColor }]}>10:21</ThemedText>
+                      <View style={styles.statusIcons}>
+                        <Ionicons name="cellular" size={14} color={textColor} />
+                        <Ionicons name="wifi" size={14} color={textColor} />
+                        <Ionicons name="battery-half" size={14} color={textColor} />
+                      </View>
+                    </View>
+                    
+                    {/* App Header */}
+                    <View style={styles.appHeader}>
+                      <View style={styles.logoSection}>
+                        <View style={[styles.appLogo, { backgroundColor: accentPrimary }]}>
+                          <Ionicons name="document-text" size={20} color="#FFFFFF" />
+                        </View>
+                        <ThemedText style={[styles.appName, { color: textColor }]}>WizNote</ThemedText>
+                      </View>
+                      <View style={[styles.createButton, { backgroundColor: accentPrimary }]}>
+                        <Ionicons name="add" size={20} color="#FFFFFF" />
+                      </View>
+                    </View>
+                    
+                    {/* Recent Notes Section */}
+                    <View style={styles.notesSection}>
+                      <View style={styles.sectionHeader}>
+                        <ThemedText style={[styles.sectionTitleMobile, { color: textColor }]}>Recent Notes</ThemedText>
+                        <View style={[styles.sortButton, { backgroundColor: backgroundSecondary }]}>
+                          <ThemedText style={[styles.sortText, { color: textColor }]}>Newest First</ThemedText>
+                          <Ionicons name="chevron-down" size={14} color={textColor} />
+                        </View>
+                      </View>
+                      
+                      {/* Sample Note Card */}
+                      <View style={[styles.noteCard, { backgroundColor: backgroundSecondary }]}>
+                        <View style={styles.noteHeader}>
+                          <ThemedText style={[styles.noteTitle, { color: textColor }]}>CompTIA A+</ThemedText>
+                          <ThemedText style={[styles.noteTime, { color: textSecondaryColor }]}>Just now</ThemedText>
+                        </View>
+                        <View style={[styles.noteTag, { backgroundColor: 'rgba(76, 175, 80, 0.2)' }]}>
+                          <Ionicons name="document-text" size={12} color="#4CAF50" />
+                          <ThemedText style={[styles.tagText, { color: '#4CAF50' }]}>Text</ThemedText>
+                        </View>
+                        <ThemedText style={[styles.notePreview, { color: textSecondaryColor }]} numberOfLines={2}>
+                          Perfect 👍 You want Module 1 Notes for CompTIA A+ (Core 1 - 220-1101). Here's a clean, comprehensive overview...
+                        </ThemedText>
+                        <View style={styles.noteActions}>
+                          <View style={[styles.actionButton, { backgroundColor: backgroundSecondary }]}>
+                            <Ionicons name="pin" size={14} color={textSecondaryColor} />
+                          </View>
+                          <View style={[styles.actionButton, { backgroundColor: backgroundSecondary }]}>
+                            <Ionicons name="download" size={14} color={textSecondaryColor} />
+                          </View>
+                          <View style={[styles.actionButton, { backgroundColor: backgroundSecondary }]}>
+                            <Ionicons name="trash" size={14} color={textSecondaryColor} />
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    {/* Bottom Navigation */}
+                    <View style={[styles.bottomNav, { backgroundColor: backgroundSecondary }]}>
+                      <View style={styles.navItem}>
+                        <Ionicons name="document-text" size={20} color={accentPrimary} />
+                        <ThemedText style={[styles.navText, { color: accentPrimary }]}>Notes</ThemedText>
+                      </View>
+                      <View style={styles.navItem}>
+                        <Ionicons name="flash" size={20} color={textSecondaryColor} />
+                        <ThemedText style={[styles.navText, { color: textSecondaryColor }]}>Cards</ThemedText>
+                      </View>
+                      <View style={styles.navItem}>
+                        <Ionicons name="apps" size={20} color={textSecondaryColor} />
+                        <ThemedText style={[styles.navText, { color: textSecondaryColor }]}>Quiz</ThemedText>
+                      </View>
+                      <View style={styles.navItem}>
+                        <Ionicons name="settings" size={20} color={textSecondaryColor} />
+                        <ThemedText style={[styles.navText, { color: textSecondaryColor }]}>Settings</ThemedText>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
         )}
 
