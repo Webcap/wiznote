@@ -1,8 +1,10 @@
-import React from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useState } from 'react';
+import { Platform, ScrollView, StyleSheet, View, Dimensions } from 'react-native';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { ThemedView } from '../ThemedView';
+import { HamburgerMenu } from './HamburgerMenu';
+import { MobileHeader } from './MobileHeader';
 
 interface WebLayoutProps {
   children: React.ReactNode;
@@ -17,14 +19,74 @@ interface WebLayoutProps {
 export function WebLayout({ children, sidebar, rightSidebar, header, scrollable = true, title, subtitle }: WebLayoutProps) {
   const backgroundColor = useThemeColor({}, 'background');
   const borderColor = useThemeColor({}, 'backgroundTertiary');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Set page title for web
   usePageTitle({ title, subtitle });
+
+  // Detect mobile screen size
+  React.useEffect(() => {
+    if (Platform.OS === 'web') {
+      const updateSize = () => {
+        const { width } = Dimensions.get('window');
+        setIsMobile(width < 768);
+        // Close sidebar when switching to desktop
+        if (width >= 768) {
+          setIsSidebarOpen(false);
+        }
+      };
+
+      updateSize();
+      const subscription = Dimensions.addEventListener('change', updateSize);
+      return () => subscription?.remove();
+    }
+  }, []);
+
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+  const closeSidebar = () => setIsSidebarOpen(false);
 
   if (Platform.OS !== 'web') {
     return <>{children}</>;
   }
 
+  // Mobile layout with hamburger menu
+  if (isMobile && sidebar) {
+    return (
+      <View style={[styles.container, { backgroundColor }]}>
+        <HamburgerMenu isOpen={isSidebarOpen} onToggle={toggleSidebar} onClose={closeSidebar}>
+          {sidebar}
+        </HamburgerMenu>
+
+        <View style={styles.mobileMainContent}>
+          {(title || subtitle) && (
+            <MobileHeader 
+              title={title || ''} 
+              subtitle={subtitle}
+              onMenuPress={toggleSidebar}
+            />
+          )}
+          {header && <View style={[styles.header, { borderBottomColor: borderColor, backgroundColor }]}>{header}</View>}
+          
+          {scrollable ? (
+            <ScrollView 
+              style={[styles.scrollContent, { backgroundColor }]}
+              contentContainerStyle={styles.scrollContentContainer}
+              showsVerticalScrollIndicator={true}
+            >
+              {children}
+            </ScrollView>
+          ) : (
+            <View style={[styles.content, { backgroundColor }]}>
+              {children}
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  // Desktop layout
   const ContentWrapper = scrollable ? ScrollView : View;
   const contentWrapperProps = scrollable ? {
     style: [styles.scrollContent, { backgroundColor }],
@@ -81,6 +143,18 @@ const styles = StyleSheet.create({
     }),
     margin: 0,
     padding: 0,
+  },
+  mobileMainContent: {
+    flex: 1,
+    width: '100%',
+    overflow: 'hidden',
+    ...(Platform.OS === 'web' ? {
+      height: '100vh' as any,
+      maxHeight: '100vh' as any,
+    } : {
+      height: '100%',
+      maxHeight: '100%',
+    }),
   },
   sidebar: {
     width: 280,

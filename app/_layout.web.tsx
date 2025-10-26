@@ -33,6 +33,22 @@ function AppContent() {
   // Set page title for web
   usePageTitle();
 
+  // Set viewport meta tag for mobile responsiveness
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      // Set viewport meta tag
+      const viewportMeta = document.querySelector('meta[name="viewport"]');
+      if (!viewportMeta) {
+        const meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+      } else {
+        viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes');
+      }
+    }
+  }, []);
+
   // Get user preference if available
   const userTheme = user?.preferences?.theme || 'auto';
 

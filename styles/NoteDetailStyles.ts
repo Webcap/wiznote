@@ -346,6 +346,20 @@ export const NoteDetailStyles = StyleSheet.create({
     paddingTop: 40,
     paddingBottom: 30,
     gap: 20,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        gap: 16,
+        paddingTop: 20,
+        paddingBottom: 20,
+      },
+      '@media (max-width: 480px)': {
+        paddingTop: 16,
+        paddingBottom: 16,
+        gap: 12,
+      },
+    } : {}),
   },
   webBackButton: {
     flexDirection: 'row',
@@ -357,6 +371,13 @@ export const NoteDetailStyles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     marginLeft: -24,
     minWidth: 80,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        marginLeft: 0,
+        alignSelf: 'flex-start',
+        minWidth: 70,
+      },
+    } : {}),
   },
   webBackText: {
     fontSize: 14,
@@ -366,6 +387,12 @@ export const NoteDetailStyles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     marginLeft: 40,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        marginLeft: 0,
+        textAlign: 'left',
+      },
+    } : {}),
   },
   webHeaderTitle: {
     fontSize: 20,
@@ -441,14 +468,36 @@ export const NoteDetailStyles = StyleSheet.create({
     flexDirection: 'row',
     padding: 20,
     gap: 20,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        flexDirection: 'column',
+        padding: 16,
+        gap: 16,
+      },
+      '@media (max-width: 480px)': {
+        padding: 12,
+        gap: 12,
+      },
+    } : {}),
   },
   webMainContent: {
     flex: 1,
     maxWidth: '70%',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        maxWidth: '100%',
+      },
+    } : {}),
   },
   webSidebar: {
     width: 320,
     gap: 24,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: '100%',
+        gap: 16,
+      },
+    } : {}),
   },
   webAudioSection: {
     marginBottom: 24,
@@ -525,6 +574,12 @@ export const NoteDetailStyles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     minHeight: 44,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        minHeight: 48,
+        paddingVertical: 14,
+      },
+    } : {}),
   },
   webActionButtonText: {
     fontSize: 14,
