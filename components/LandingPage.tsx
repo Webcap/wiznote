@@ -40,7 +40,7 @@ export default function LandingPage() {
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.signupButton, { backgroundColor: accentPrimary }]} 
-                onPress={() => router.push('/(auth)/signup')}
+                onPress={() => router.push('/signup')}
               >
                 <ThemedText style={styles.signupButtonText}>Get Started Free</ThemedText>
               </TouchableOpacity>
@@ -69,7 +69,7 @@ export default function LandingPage() {
             <View style={styles.heroButtons}>
               <TouchableOpacity 
                 style={[styles.ctaButton, { backgroundColor: accentPrimary }]} 
-                onPress={() => router.push('/(auth)/signup')}
+                onPress={() => router.push('/signup')}
               >
                 <ThemedText style={styles.ctaButtonText}>Start Free - No Credit Card</ThemedText>
                 <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
@@ -432,7 +432,7 @@ export default function LandingPage() {
               </View>
               <TouchableOpacity 
                 style={[styles.planButton, { borderColor: accentPrimary }]} 
-                onPress={() => router.push('/(auth)/signup')}
+                onPress={() => router.push('/signup')}
               >
                 <ThemedText style={[styles.planButtonText, { color: accentPrimary }]}>
                   Get Started
@@ -493,7 +493,7 @@ export default function LandingPage() {
               </View>
               <TouchableOpacity 
                 style={[styles.planButton, { backgroundColor: '#FFFFFF' }]} 
-                onPress={() => router.push('/(auth)/signup')}
+                onPress={() => router.push('/signup')}
               >
                 <ThemedText style={[styles.planButtonText, { color: accentPrimary }]}>
                   Start 7-Day Free Trial
@@ -513,7 +513,7 @@ export default function LandingPage() {
           </ThemedText>
           <TouchableOpacity 
             style={[styles.ctaButton, { backgroundColor: accentPrimary }]} 
-            onPress={() => router.push('/(auth)/signup')}
+            onPress={() => router.push('/signup')}
           >
             <ThemedText style={styles.ctaButtonText}>Get Started Free</ThemedText>
             <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
@@ -559,7 +559,7 @@ export default function LandingPage() {
               <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
                 <ThemedText style={[styles.footerLink, { color: textSecondaryColor }]}>Log In</ThemedText>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
+              <TouchableOpacity onPress={() => router.push('/signup')}>
                 <ThemedText style={[styles.footerLink, { color: textSecondaryColor }]}>Sign Up</ThemedText>
               </TouchableOpacity>
             </View>

@@ -276,7 +276,7 @@ export default function LoginScreen() {
                       <ThemedText style={[loginStyles.webMobileSignupText, { color: textSecondaryColor }]}>
                         Don&apos;t have an account?{' '}
                       </ThemedText>
-                      <TouchableOpacity onPress={() => router.push('/(auth)/signup' as any)}>
+                      <TouchableOpacity onPress={() => router.push('/signup' as any)}>
                         <ThemedText style={[loginStyles.webMobileSignupLink, { color: accentColor }]}>
                           Sign Up
                         </ThemedText>
@@ -513,7 +513,7 @@ export default function LoginScreen() {
                         <ThemedText style={[loginStyles.webSignupText, { color: textSecondaryColor }]}>
                           Don&apos;t have an account?{' '}
                         </ThemedText>
-                        <TouchableOpacity onPress={() => router.push('/(auth)/signup' as any)}>
+                        <TouchableOpacity onPress={() => router.push('/signup' as any)}>
                           <ThemedText style={[loginStyles.webSignupLink, { color: accentColor }]}>
                             Sign Up
                           </ThemedText>
@@ -663,7 +663,7 @@ export default function LoginScreen() {
             <ThemedText style={[loginStyles.signupText, { color: textSecondaryColor }]}>
               Don&apos;t have an account?{' '}
             </ThemedText>
-            <TouchableOpacity onPress={() => router.push('/(auth)/signup' as any)}>
+            <TouchableOpacity onPress={() => router.push('/signup' as any)}>
               <ThemedText style={[loginStyles.signupLink, { color: accentColor }]}>
                 Sign Up
               </ThemedText>
