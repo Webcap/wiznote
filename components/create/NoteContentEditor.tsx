@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { View, TextInput, StyleSheet, Platform } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -11,7 +11,7 @@ const convertMarkdownToHtml = (markdown: string): string => {
   
   let html = markdown;
   
-  console.log('🧪 Converting markdown:', html);
+  if (__DEV__) console.log('🧪 Converting markdown:', html);
   
   // Convert headings first
   html = html.replace(/^### (.*?)$/gm, '<h3>$1</h3>');
@@ -20,7 +20,7 @@ const convertMarkdownToHtml = (markdown: string): string => {
   
   // Convert bold text (**text**)
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  console.log('🧪 After bold conversion:', html);
+  if (__DEV__) console.log('🧪 After bold conversion:', html);
   
   // Convert italic text (*text*)
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
@@ -56,37 +56,9 @@ const convertMarkdownToHtml = (markdown: string): string => {
   html = html.replace(/<p><\/p>/g, '');
   html = html.replace(/<p><br><\/p>/g, '<br>');
   
-  console.log('🧪 Final HTML:', html);
+  if (__DEV__) console.log('🧪 Final HTML:', html);
   return html;
 };
-
-// Test function to verify conversion
-const testConversion = () => {
-  const testMarkdown = '**BOLD TEXT** and *italic* text';
-  const result = convertMarkdownToHtml(testMarkdown);
-  console.log('🧪 Test conversion:', { input: testMarkdown, output: result });
-  return result;
-};
-
-// Test function to create a test note with rich text
-const testRichTextNote = () => {
-  const testContent = '**BOLD TEXT** and *italic* text with `code`';
-  const htmlContent = convertMarkdownToHtml(testContent);
-  console.log('🧪 Test rich text note:', {
-    original: testContent,
-    html: htmlContent,
-    hasBold: testContent.includes('**'),
-    hasItalic: testContent.includes('*'),
-    hasCode: testContent.includes('`')
-  });
-  return { testContent, htmlContent };
-};
-
-// Run test on component mount
-if (typeof window !== 'undefined') {
-  (window as any).testMarkdownConversion = testConversion;
-  (window as any).testRichTextNote = testRichTextNote;
-}
 
 interface NoteContentEditorProps {
   isRichTextEnabled: boolean;
@@ -111,6 +83,18 @@ export const NoteContentEditor: React.FC<NoteContentEditorProps> = ({
   borderColor,
   placeholderColor,
 }) => {
+  // Memoize HTML conversion to prevent unnecessary re-computation
+  const htmlContent = useMemo(() => {
+    if (!isRichTextEnabled || !content) return '';
+    return convertMarkdownToHtml(content);
+  }, [content, isRichTextEnabled]);
+
+  // Update HTML content when memoized value changes
+  useEffect(() => {
+    if (isRichTextEnabled && htmlContent) {
+      setContentHtml(htmlContent);
+    }
+  }, [htmlContent, isRichTextEnabled, setContentHtml]);
   return (
     <ThemedView style={styles.webSection}>
       <View style={styles.webSectionHeader}>
@@ -135,15 +119,7 @@ export const NoteContentEditor: React.FC<NoteContentEditorProps> = ({
           value={content}
           onChange={(newContent: string) => {
             setContent(newContent);
-            // Convert markdown-style formatting to HTML
-            const htmlContent = convertMarkdownToHtml(newContent);
-            console.log('🔍 Rich Text Debug:', {
-              original: newContent,
-              converted: htmlContent,
-              hasBold: newContent.includes('**'),
-              boldRegex: /\*\*(.*?)\*\*/g.test(newContent)
-            });
-            setContentHtml(htmlContent);
+            // HTML conversion is now handled by useMemo above
             // Set content format to HTML when rich text is enabled
             if (setContentFormat) {
               setContentFormat('html');

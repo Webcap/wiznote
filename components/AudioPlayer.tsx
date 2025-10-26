@@ -51,7 +51,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       if (sound) {
         // The new expo-audio API doesn't have unloadAsync
         // Cleanup is handled differently - just clear the reference
-        console.log('[AudioPlayer] Cleaning up sound object');
+        if (__DEV__) console.log('[AudioPlayer] Cleaning up sound object');
       }
     };
   }, [audioFile]);
@@ -65,24 +65,26 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         throw new Error('Invalid audio file data');
       }
       
-      console.log('[AudioPlayer] Loading audio from:', audioFile.filename);
-      console.log('[AudioPlayer] Audio file details:', {
-        filename: audioFile.filename,
-        duration: audioFile.duration,
-        type: audioFile.type,
-        hasAudioUri: !!audioFile.audioUri
-      });
+      if (__DEV__) {
+        console.log('[AudioPlayer] Loading audio from:', audioFile.filename);
+        console.log('[AudioPlayer] Audio file details:', {
+          filename: audioFile.filename,
+          duration: audioFile.duration,
+          type: audioFile.type,
+          hasAudioUri: !!audioFile.audioUri
+        });
+      }
       
       // Create sound object from the audio URI (AudioUtils will handle authentication)
       const { sound: newSound } = await AudioUtils.createSound(audioFile.filename);
       
       // Check if this is HTML5 Audio (web) or expo-audio
       const isWebAudio = typeof HTMLAudioElement !== 'undefined' && newSound instanceof HTMLAudioElement;
-      console.log('[AudioPlayer] Sound type:', isWebAudio ? 'HTML5 Audio' : 'expo-audio');
+      if (__DEV__) console.log('[AudioPlayer] Sound type:', isWebAudio ? 'HTML5 Audio' : 'expo-audio');
       
       if (isWebAudio) {
         const webAudio = newSound as HTMLAudioElement;
-        console.log('[AudioPlayer] Web audio element created:', {
+        if (__DEV__) console.log('[AudioPlayer] Web audio element created:', {
           src: webAudio.src,
           readyState: webAudio.readyState,
           networkState: webAudio.networkState,
@@ -95,8 +97,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       
       setSound(newSound);
       
-      // Start polling for status updates
-      startStatusPolling(newSound);
+      // Don't start polling automatically - only poll when audio is playing
+      // startStatusPolling(newSound);
       
       // Enhanced duration and loading verification with better error handling
       let status: any;
@@ -151,16 +153,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           }
         }
       }
-      console.log('[AudioPlayer] Sound loaded with status:', status);
+      if (__DEV__) console.log('[AudioPlayer] Sound loaded with status:', status);
       
       if (status.isLoaded) {
         const durationMillis = status.durationMillis || 0;
         setDuration(durationMillis);
-        console.log('[AudioPlayer] Audio loaded successfully, duration:', durationMillis);
+        if (__DEV__) console.log('[AudioPlayer] Audio loaded successfully, duration:', durationMillis);
         
         // If duration is NaN or 0, try to get it from the audioFile or wait for it
         if (!durationMillis || isNaN(durationMillis)) {
-          console.log('[AudioPlayer] Duration not detected, trying fallback approaches...');
+          if (__DEV__) console.log('[AudioPlayer] Duration not detected, trying fallback approaches...');
           
           // Try to get duration from audioFile first
           if (audioFile?.duration) {
@@ -315,18 +317,22 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       // Check if this is a web Audio element (HTML5 Audio) - HTMLAudioElement only exists in browsers
       const isWebAudio = typeof HTMLAudioElement !== 'undefined' && audioSound instanceof HTMLAudioElement;
       
-      console.log('[AudioPlayer] Setting up status polling. Is Web Audio:', isWebAudio);
+      if (__DEV__) console.log('[AudioPlayer] Setting up status polling. Is Web Audio:', isWebAudio);
       
       const interval = setInterval(() => {
         try {
           if (!audioSound) return;
           
+          let isCurrentlyPlaying = false;
+          
           if (isWebAudio) {
             // Handle HTML5 Audio element (web)
             const webAudio = audioSound as HTMLAudioElement;
+            isCurrentlyPlaying = !webAudio.paused && !webAudio.ended;
+            
             const webStatus = {
               isLoaded: !webAudio.paused || webAudio.readyState >= 2,
-              playing: !webAudio.paused && !webAudio.ended,
+              playing: isCurrentlyPlaying,
               currentTime: webAudio.currentTime || 0,
               duration: webAudio.duration || 0,
               didJustFinish: webAudio.ended
@@ -337,12 +343,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             let status;
             try {
               status = audioSound.currentStatus;
+              isCurrentlyPlaying = status?.playing ?? status?.isPlaying ?? false;
             } catch (statusError) {
               // Try alternative status methods
               if (typeof audioSound.getStatus === 'function') {
                 status = audioSound.getStatus();
+                isCurrentlyPlaying = status?.playing ?? status?.isPlaying ?? false;
               } else if (typeof audioSound.status === 'object') {
                 status = audioSound.status;
+                isCurrentlyPlaying = status?.playing ?? status?.isPlaying ?? false;
               }
             }
             
@@ -350,13 +359,20 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               onPlaybackStatusUpdate(status);
             }
           }
+          
+          // Stop polling if audio is not playing and not loading
+          if (!isCurrentlyPlaying && !isLoading) {
+            if (__DEV__) console.log('[AudioPlayer] Audio not playing, stopping status polling');
+            clearInterval(statusUpdateInterval.current);
+            statusUpdateInterval.current = null;
+          }
         } catch (error) {
           console.warn('[AudioPlayer] Error polling status:', error);
         }
       }, 250); // Poll every 250ms for smooth updates
       
       statusUpdateInterval.current = interval;
-      console.log('[AudioPlayer] Status polling started successfully');
+      if (__DEV__) console.log('[AudioPlayer] Status polling started successfully');
     } catch (error) {
       console.warn('[AudioPlayer] Error setting up status updates:', error);
     }
@@ -418,7 +434,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const handlePlayPause = async () => {
     try {
-      console.log('[AudioPlayer] Play/Pause pressed. Sound exists:', !!sound, 'Is playing:', isPlaying);
+      if (__DEV__) console.log('[AudioPlayer] Play/Pause pressed. Sound exists:', !!sound, 'Is playing:', isPlaying);
       
       if (!sound) {
         console.warn('[AudioPlayer] No sound object available');
@@ -479,7 +495,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       const isWebAudio = typeof HTMLAudioElement !== 'undefined' && sound instanceof HTMLAudioElement;
 
       if (isPlaying) {
-        console.log('[AudioPlayer] Pausing audio...');
+        if (__DEV__) console.log('[AudioPlayer] Pausing audio...');
         if (isWebAudio) {
           sound.pause();
         } else {
@@ -511,7 +527,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           }
         }, 50);
       } else {
-        console.log('[AudioPlayer] Playing audio...');
+        if (__DEV__) console.log('[AudioPlayer] Playing audio...');
+        
+        // Restart polling when starting playback
+        startStatusPolling(sound);
         
         // Enhanced play logic for web
         try {

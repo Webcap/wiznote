@@ -7,6 +7,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2025-10-25
+
+### ✨ Added
+
+#### Rich Text Editing (COMPLETED FEATURE)
+- **Markdown-style rich text formatting** - Create beautifully formatted notes with markdown syntax
+  - Headers: Use `# H1`, `## H2`, `### H3` for headings
+  - Bold text: Wrap with `**text**` for bold formatting
+  - Italic text: Wrap with `*text*` for italic formatting
+  - Underline: Wrap with `__text__` for underlined text
+  - Lists: Use `- item` or `• item` for bullet lists
+  - Numbered lists: Use `1. item` for ordered lists
+  - Inline code: Wrap with `` `code` `` for code snippets
+  - Links: Use `[text](url)` for clickable links
+  - Intentional spacing: Add blank lines between paragraphs for visual separation
+
+- **Rich text viewer** - View notes with proper HTML rendering
+  - Automatic conversion from markdown to HTML
+  - Theme-aware text colors (adapts to light/dark mode)
+  - Clean spacing with zero margins on headings
+  - Proper line breaks and paragraph formatting
+  - Professional typography with system fonts
+
+### 🐛 Fixed
+
+#### Audio Player Performance
+- **Fixed AudioPlayer excessive logging** - Audio player no longer spams console with status updates when idle
+  - Modified status polling to only run when audio is actively playing
+  - Added automatic polling stop when audio is paused or stopped
+  - Restart polling only when user clicks play button
+  - Eliminated repeated "Updating isPlaying state" and "Updating duration" log messages
+  - Improved performance by reducing unnecessary background processing
+  - Better resource management with conditional polling logic
+
+#### Note Spacing & Layout
+- **Fixed excessive spacing in notes** - Notes now display with clean, minimal spacing
+  - Eliminated unwanted gaps between headings and text
+  - Removed default margins from H1, H2, H3 headings
+  - Fixed line break spacing to be consistent and minimal
+  - Zero margins on paragraph elements for tight layout
+  - Proper spacing between consecutive headings
+
+- **Fixed text wrapping issues** - Text now properly wraps and displays
+  - Removed paragraph wrapping that added extra space
+  - Changed line break conversion from `<br>` to proper paragraphs
+  - Clean visual hierarchy with proper heading spacing
+  - Consistent text rendering across all notes
+
+#### Theme Awareness
+- **Fixed text color in dark theme** - Text now properly inherits theme colors
+  - Rich text automatically adapts to light/dark mode
+  - Heading colors match theme settings
+  - Proper color inheritance for all text elements
+  - JavaScript-based color enforcement for reliability
+
+### 🔧 Changed
+
+#### HTML Generation
+- **Improved HTML conversion** - Better markdown to HTML conversion
+  - Wraps plain text lines in paragraphs instead of using `<br>` tags
+  - Adds spacer elements for intentional blank lines
+  - Maintains clean semantic HTML structure
+  - Proper content formatting without excessive spacing
+
+#### CSS Styling
+- **Enhanced rich text CSS** - Comprehensive styling for rich text elements
+  - Zero margins on all headings for tight layout
+  - Compact paragraph spacing for readability
+  - Proper list styling with bullet points and numbering
+  - Code block styling with syntax highlighting background
+  - Blockquote styling with left border accent
+  - Professional table styling with hover effects
+  - Theme-aware colors for all elements
+
+### 📁 Files Modified
+
+#### Components
+- `components/AudioPlayer.tsx` - Fixed excessive logging by implementing conditional status polling
+- `components/RichTextViewer.web.tsx` - Rich text rendering with comprehensive CSS styling
+- `components/create/NoteContentEditor.tsx` - Markdown to HTML conversion
+- `app/note/[id].tsx` - Integration of RichTextViewer for note display
+
+#### Constants
+- `constants/DefaultFeatureFlags.ts` - Enabled rich text editor feature flag
+
+### 🎯 Impact
+
+#### User Experience
+- ✅ **Better note formatting** - Create professional-looking notes with markdown
+- ✅ **Visual clarity** - Clean spacing and typography improve readability
+- ✅ **Consistent display** - Notes render identically across devices
+- ✅ **Faster writing** - Markdown syntax is intuitive and quick to type
+- ✅ **Theme support** - Rich text adapts to user's theme preference
+- ✅ **Cleaner console** - No more spam from idle audio players
+
+#### Developer Benefits
+- ✅ **Maintainable code** - Clean separation between viewing and editing
+- ✅ **Flexible styling** - Easy to add new formatting options
+- ✅ **Performance** - Efficient HTML generation and rendering
+- ✅ **Debugging** - Comprehensive logging for troubleshooting
+- ✅ **Better performance** - Reduced background processing from audio polling
+- ✅ **Cleaner logs** - Easier debugging without excessive audio status messages
+
+---
+
 ## [1.3.6] - 2025-10-21
 
 ### 🐛 Bug Fixes

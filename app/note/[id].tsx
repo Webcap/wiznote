@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
     Alert,
     Linking,
@@ -14,7 +14,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { AudioPlayer } from '../../components/AudioPlayer';
 import { FeatureUsageInline } from '../../components/FeatureUsageInline';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
-import { RichTextViewer } from '../../components/RichTextViewer.web';
+import { RichTextViewer as RichTextViewerWeb } from '../../components/RichTextViewer.web';
+import { RichTextViewer as RichTextViewerNative } from '../../components/RichTextViewer.native';
 import { ShareModal } from '../../components/ShareModal';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
@@ -280,22 +281,110 @@ export default function NoteDetailScreen() {
     loadNote();
   }, [id, notes, user?.id, authLoading]);
 
+  // Memoize note content combination to prevent unnecessary re-computation
+  const combinedNoteContent = useMemo(() => {
+    if (!note) return '';
+    
+    let text = note.content || '';
+    
+    // Add transcription from note.transcription (legacy field)
+    if ((note as any).transcription) {
+      text += '\n' + (note as any).transcription;
+    }
+    
+    // Add transcriptions from audioFiles (current implementation)
+    if (note.audioFiles && note.audioFiles.length > 0) {
+      note.audioFiles.forEach(f => {
+        if (f.transcription) text += '\n' + f.transcription;
+        if (f.aiTranscription) text += '\n' + f.aiTranscription;
+        if (f.userEditedTranscription) text += '\n' + f.userEditedTranscription;
+      });
+    }
+    
+    return text;
+  }, [note?.content, note?.audioFiles, (note as any)?.transcription]);
+
+  // Memoized key details generation function
+  const generateKeyDetails = useCallback(async (text: string) => {
+    if (!user || !note) return;
+    
+    try {
+      // Check usage limits using unified feature limit system
+      const canUseResult = await featureLimitService.canUseFeature(
+        user.id, 
+        'ai_key_details', 
+        1, 
+        user.premium?.isActive || false
+      );
+      
+      if (!canUseResult.canUse) {
+        if (__DEV__) console.log('🔍 NoteDetailScreen: User cannot use AI key details:', canUseResult.reason);
+        setKeyDetailsGeneratedFor(note.id);
+        setSummaryUsageLimit(`Usage limit reached (${canUseResult.currentUsage}/${canUseResult.limit}). Upgrade to Premium for unlimited key details!`);
+        return;
+      }
+      
+      // Generate key details
+      if (__DEV__) console.log('🔍 NoteDetailScreen: Starting key details generation');
+      setKeyDetailsLoading(true);
+      setKeyDetailsGeneratedFor(note.id);
+      
+      const details = await extractKeyDetailsWithGemini(text);
+      if (__DEV__) console.log('🔍 NoteDetailScreen: Key details generated successfully:', details);
+      
+      setKeyDetails(details);
+      setKeyDetailsLoading(false);
+      
+      // Record usage if generation succeeded
+      if (user?.id && details && details.length > 0) {
+        try {
+          await featureLimitService.recordFeatureUsage(
+            user.id, 
+            'ai_key_details', 
+            1, 
+            user.premium?.isActive || false,
+            'count'
+          );
+          if (__DEV__) console.log('🔍 NoteDetailScreen: AI key details usage recorded');
+        } catch (usageError) {
+          console.error('🔍 NoteDetailScreen: Failed to record AI key details usage:', usageError);
+        }
+      }
+      
+      // Save to Firebase
+      if (note && details && details.length > 0) {
+        try {
+          if (__DEV__) console.log('🔍 NoteDetailScreen: Saving key details to Firebase');
+          await updateNote(note.id, { keyDetails: details });
+        } catch (e) {
+          console.error('🔍 Failed to save key details:', e);
+        }
+      }
+    } catch (error) {
+      console.error('🔍 NoteDetailScreen: Failed to generate key details:', error);
+      setKeyDetailsLoading(false);
+      setKeyDetailsGeneratedFor(null); // Reset on error to allow retry
+    }
+  }, [user, note, updateNote]);
+
   // Generate key details when note changes
   useEffect(() => {
-    console.log('🔍 NoteDetailScreen: Key details effect triggered with:', {
-      note: !!note,
-      isAIKeyDetailsEnabled,
-      noteId: note?.id,
-      hasKeyDetails: note?.keyDetails?.length ? note.keyDetails.length > 0 : false,
-      keyDetailsGeneratedFor
-    });
+    if (__DEV__) {
+      console.log('🔍 NoteDetailScreen: Key details effect triggered with:', {
+        note: !!note,
+        isAIKeyDetailsEnabled,
+        noteId: note?.id,
+        hasKeyDetails: note?.keyDetails?.length ? note.keyDetails.length > 0 : false,
+        keyDetailsGeneratedFor
+      });
+    }
     
     if (note && isAIKeyDetailsEnabled) {
-      console.log('🔍 NoteDetailScreen: Key details effect triggered for note:', note.id);
+      if (__DEV__) console.log('🔍 NoteDetailScreen: Key details effect triggered for note:', note.id);
       
       // Skip generation for shared notes - only show existing key details
       if (note.isSharedNote) {
-        console.log('🔍 NoteDetailScreen: This is a shared note, skipping auto-generation');
+        if (__DEV__) console.log('🔍 NoteDetailScreen: This is a shared note, skipping auto-generation');
         if (note.keyDetails && note.keyDetails.length > 0) {
           setKeyDetails(note.keyDetails);
         }
@@ -305,7 +394,7 @@ export default function NoteDetailScreen() {
       
       // Skip if we already have key details for this note
       if (note.keyDetails && note.keyDetails.length && note.keyDetails.length > 0) {
-        console.log('🔍 NoteDetailScreen: Note already has key details, using existing');
+        if (__DEV__) console.log('🔍 NoteDetailScreen: Note already has key details, using existing');
         setKeyDetails(note.keyDetails);
         setKeyDetailsGeneratedFor(note.id);
         return;
@@ -313,123 +402,103 @@ export default function NoteDetailScreen() {
       
       // Skip if we already attempted to generate for this note
       if (keyDetailsGeneratedFor === note.id) {
-        console.log('🔍 NoteDetailScreen: Already attempted generation for this note');
+        if (__DEV__) console.log('🔍 NoteDetailScreen: Already attempted generation for this note');
         return;
       }
       
       // Check if user has enabled auto key details generation
       if (user?.preferences?.autoKeyDetails === false) {
-        console.log('🔍 NoteDetailScreen: Auto key details generation disabled by user preference');
+        if (__DEV__) console.log('🔍 NoteDetailScreen: Auto key details generation disabled by user preference');
         setKeyDetailsGeneratedFor(note.id);
         return;
       }
       
-      // Combine note content
-      let text = note.content || '';
+      // Use memoized content combination
+      const text = combinedNoteContent;
       
-      // Add transcription from note.transcription (legacy field)
-      if ((note as any).transcription) {
-        text += '\n' + (note as any).transcription;
-        console.log('🔍 NoteDetailScreen: Added legacy transcription, text length now:', text.length);
+      if (__DEV__) {
+        console.log('🔍 NoteDetailScreen: Final combined text length:', text.length);
+        console.log('🔍 NoteDetailScreen: Text preview:', text.substring(0, 200) + '...');
       }
-      
-      // Add transcriptions from audioFiles (current implementation)
-      if (note.audioFiles && note.audioFiles.length > 0) {
-        note.audioFiles.forEach(f => {
-          if (f.transcription) {
-            text += '\n' + f.transcription;
-            console.log('🔍 NoteDetailScreen: Added audio file transcription, text length now:', text.length);
-          }
-          if (f.aiTranscription) {
-            text += '\n' + f.aiTranscription;
-            console.log('🔍 NoteDetailScreen: Added AI transcription, text length now:', text.length);
-          }
-          if (f.userEditedTranscription) {
-            text += '\n' + f.userEditedTranscription;
-            console.log('🔍 NoteDetailScreen: Added user edited transcription, text length now:', text.length);
-          }
-        });
-      }
-      
-      console.log('🔍 NoteDetailScreen: Final combined text length:', text.length);
-      console.log('🔍 NoteDetailScreen: Text preview:', text.substring(0, 200) + '...');
       
       // Skip if no meaningful content
       if (!text.trim()) {
-        console.log('🔍 NoteDetailScreen: No meaningful content for key details generation');
+        if (__DEV__) console.log('🔍 NoteDetailScreen: No meaningful content for key details generation');
         setKeyDetailsGeneratedFor(note.id);
         return;
       }
       
-      console.log('🔍 NoteDetailScreen: Content validation passed, proceeding with generation');
+      if (__DEV__) console.log('🔍 NoteDetailScreen: Content validation passed, proceeding with generation');
       
-      // Check usage limits and generate
-      const generateKeyDetails = async () => {
-        try {
-          if (user) {
-            // Check usage limits using unified feature limit system
-            const canUseResult = await featureLimitService.canUseFeature(
-              user.id, 
-              'ai_key_details', 
-              1, 
-              user.premium?.isActive || false
-            );
-            
-            if (!canUseResult.canUse) {
-              console.log('🔍 NoteDetailScreen: User cannot use AI key details:', canUseResult.reason);
-              setKeyDetailsGeneratedFor(note.id);
-              setSummaryUsageLimit(`Usage limit reached (${canUseResult.currentUsage}/${canUseResult.limit}). Upgrade to Premium for unlimited key details!`);
-              return;
-            }
-          }
-          
-          
-          // Generate key details
-          console.log('🔍 NoteDetailScreen: Starting key details generation');
-          setKeyDetailsLoading(true);
-          setKeyDetailsGeneratedFor(note.id);
-          
-          const details = await extractKeyDetailsWithGemini(text);
-          console.log('🔍 NoteDetailScreen: Key details generated successfully:', details);
-          
-          setKeyDetails(details);
-          setKeyDetailsLoading(false);
-          
-          // Record usage if generation succeeded
-          if (user?.id && details && details.length > 0) {
-            try {
-              await featureLimitService.recordFeatureUsage(
-                user.id, 
-                'ai_key_details', 
-                1, 
-                user.premium?.isActive || false,
-                'count'
-              );
-              console.log('🔍 NoteDetailScreen: AI key details usage recorded');
-            } catch (usageError) {
-              console.error('🔍 NoteDetailScreen: Failed to record AI key details usage:', usageError);
-            }
-          }
-          
-          // Save to Firebase
-          if (note && details && details.length > 0) {
-            try {
-              console.log('🔍 NoteDetailScreen: Saving key details to Firebase');
-              await updateNote(note.id, { keyDetails: details });
-            } catch (e) {
-              console.error('🔍 Failed to save key details:', e);
-            }
-          }
-        } catch (error) {
-          console.error('🔍 NoteDetailScreen: Failed to generate key details:', error);
-          setKeyDetailsLoading(false);
-          setKeyDetailsGeneratedFor(null); // Reset on error to allow retry
-        }
-      };
-      
-      generateKeyDetails();
+      // Use memoized generation function
+      generateKeyDetails(text);
     }
-  }, [note?.id, keyDetailsGeneratedFor, isAIKeyDetailsEnabled, user?.id, user?.premium?.isActive]);
+  }, [note?.id, keyDetailsGeneratedFor, isAIKeyDetailsEnabled, user?.id, user?.preferences?.autoKeyDetails, note?.isSharedNote, combinedNoteContent, generateKeyDetails]);
+
+  // Memoized summary generation function
+  const generateSummary = useCallback(async (text: string) => {
+    if (!user || !note) return;
+    
+    try {
+      // Check feature limits before generating summary
+      if (user) {
+        const canUseResult = await featureLimitService.canUseFeature(
+          user.id, 
+          'ai_summaries', 
+          1, 
+          user.premium?.isActive || false
+        );
+        
+        if (!canUseResult.canUse) {
+          if (__DEV__) console.log('🚫 AI Summary BLOCKED:', canUseResult.reason);
+          setSummaryGeneratedFor(note.id);
+          setSummaryUsageLimit(`Usage limit reached (${canUseResult.currentUsage}/${canUseResult.limit}). Upgrade to Premium for unlimited summaries!`);
+          return;
+        }
+      }
+        
+      // Generate summary
+      if (__DEV__) console.log('🔍 NoteDetailScreen: Starting summary generation');
+      setSummaryLoading(true);
+      setSummaryGeneratedFor(note.id);
+      
+      const generatedSummary = await generateSummaryWithGemini(text);
+      if (__DEV__) console.log('🔍 NoteDetailScreen: Summary generated successfully:', generatedSummary);
+      
+      setSummary(generatedSummary);
+      setSummaryLoading(false);
+      
+      // Record usage if generation succeeded
+      if (user?.id && generatedSummary && generatedSummary.trim().length > 0) {
+        try {
+          await featureLimitService.recordFeatureUsage(
+            user.id, 
+            'ai_summaries', 
+            1, 
+            user.premium?.isActive || false,
+            'count'
+          );
+          if (__DEV__) console.log('🔍 NoteDetailScreen: AI summary usage recorded');
+        } catch (usageError) {
+          console.error('🔍 NoteDetailScreen: Failed to record AI summary usage:', usageError);
+        }
+      }
+      
+      // Save to Firebase
+      if (note && generatedSummary && generatedSummary.trim().length > 0) {
+        try {
+          if (__DEV__) console.log('🔍 NoteDetailScreen: Saving summary to Firebase');
+          await updateNote(note.id, { summary: generatedSummary });
+        } catch (e) {
+          console.error('🔍 Failed to save summary:', e);
+        }
+      }
+    } catch (error) {
+      console.error('🔍 NoteDetailScreen: Failed to generate summary:', error);
+      setSummaryLoading(false);
+      setSummaryGeneratedFor(null); // Reset on error to allow retry
+    }
+  }, [user, note, updateNote]);
 
   // Generate summary when note changes
   useEffect(() => {
@@ -571,7 +640,7 @@ export default function NoteDetailScreen() {
       
       generateSummary();
     }
-  }, [note?.id, summaryGeneratedFor, isAISummariesEnabled, user?.id, user?.premium?.isActive]);
+  }, [note?.id, summaryGeneratedFor, isAISummariesEnabled, user?.id, user?.preferences?.autoAISummaries, note?.isSharedNote, combinedNoteContent, generateSummary]);
 
   const handleArchiveToggle = async () => {
     if (!note) return;
@@ -1173,13 +1242,22 @@ export default function NoteDetailScreen() {
               <View style={styles.webContentSection}>
                 <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>Content</ThemedText>
                 <View style={[styles.webContentText, { backgroundColor: cardBackground }]}>
-                  {Platform.OS === 'web' && isRichTextEnabled ? (
-                    <RichTextViewer
-                      content={note.contentHtml || note.content || ''}
-                      contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
-                      textStyle={{ color: textColor }}
-                      style={{ flex: 1 }}
-                    />
+                  {isRichTextEnabled ? (
+                    Platform.OS === 'web' ? (
+                      <RichTextViewerWeb
+                        content={note.contentHtml || note.content || ''}
+                        contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
+                        textStyle={{ color: textColor }}
+                        style={{ flex: 1 }}
+                      />
+                    ) : (
+                      <RichTextViewerNative
+                        content={note.contentHtml || note.content || ''}
+                        contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
+                        textStyle={{ color: textColor }}
+                        style={{ flex: 1 }}
+                      />
+                    )
                   ) : (
                     <ThemedText style={[styles.webContentTextInner, { color: textColor }]}>
                       {note.content || 'No content available'}
@@ -1805,13 +1883,33 @@ export default function NoteDetailScreen() {
           {(!isAudioNote(note) || (isAudioNote(note) && note.content && note.content.trim() !== '')) && (
             <View style={styles.summarySection}>
               <ThemedText style={[styles.summaryTitle, { color: textColor }]}>Content</ThemedText>
-              {Platform.OS === 'web' && isRichTextEnabled ? (
-                <RichTextViewer
-                  content={note.contentHtml || note.content || ''}
-                  contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
-                  textStyle={{ color: textColor }}
-                  style={{ flex: 1 }}
-                />
+              {(() => {
+                // Debug logging
+                console.log('🔍 RichTextViewer Render:', {
+                  isRichTextEnabled,
+                  contentFormat: note.contentFormat,
+                  hasContentHtml: !!note.contentHtml,
+                  contentHtmlPreview: note.contentHtml?.substring(0, 50),
+                  contentPreview: note.content?.substring(0, 50),
+                });
+                return null;
+              })()}
+              {isRichTextEnabled && note.contentFormat === 'html' && note.contentHtml ? (
+                Platform.OS === 'web' ? (
+                  <RichTextViewerWeb
+                    content={note.contentHtml}
+                    contentFormat="html"
+                    textStyle={{ color: textColor }}
+                    style={{ flex: 1 }}
+                  />
+                ) : (
+                  <RichTextViewerNative
+                    content={note.contentHtml}
+                    contentFormat="html"
+                    textStyle={{ color: textColor }}
+                    style={{ flex: 1 }}
+                  />
+                )
               ) : (
                 <ThemedText style={[styles.summaryContent, { color: textColor }]}>
                   {note.content || 'No content available'}

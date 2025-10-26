@@ -1,5 +1,90 @@
 # WizNote - Release Notes
 
+## Version 1.4.0 - Rich Text Editing & Performance Improvements
+**Release Date:** October 25, 2025
+
+### 📱 Google Play Store Release Notes (500 char limit)
+
+```
+Rich Text Editing & Performance 🎨
+
+✨ NEW: Markdown-style rich text formatting
+📝 Headers, bold, italic, lists, links & more
+🎵 Fixed audio player performance issues
+🐛 Cleaner note spacing & layout
+🌙 Better dark theme text colors
+⚡ Improved HTML rendering & CSS
+🔧 Enhanced developer tools
+
+Create beautiful notes! 📝✨
+```
+
+---
+
+### 📱 Full Release Notes
+
+**What's New:**
+
+**🎨 Rich Text Editing (NEW FEATURE)**
+- **Markdown-style formatting**: Create beautifully formatted notes with intuitive syntax
+- **Headers**: Use # H1, ## H2, ### H3 for professional headings
+- **Text styling**: Bold (**text**), italic (*text*), underline (__text__)
+- **Lists**: Bullet lists (- item) and numbered lists (1. item)
+- **Code snippets**: Inline code with `backticks` for technical notes
+- **Links**: Clickable links with [text](url) syntax
+- **Smart spacing**: Add blank lines for visual separation
+
+**📖 Rich Text Viewer**
+- **HTML rendering**: View notes with proper formatting and styling
+- **Theme adaptation**: Automatically adapts to light/dark mode
+- **Clean typography**: Professional fonts and spacing
+- **Zero margins**: Tight layout with minimal spacing
+- **Consistent display**: Identical rendering across all devices
+
+**🎵 Audio Player Performance Fixes**
+- **Eliminated console spam**: Audio player no longer floods logs when idle
+- **Smart polling**: Status updates only when audio is playing
+- **Better resource management**: Reduced background processing
+- **Improved performance**: Faster app response and cleaner debugging
+- **Automatic optimization**: Polling stops when audio pauses/ends
+
+**🐛 Note Layout & Spacing Improvements**
+- **Fixed excessive spacing**: Notes now display with clean, minimal spacing
+- **Better text wrapping**: Proper paragraph formatting without extra gaps
+- **Consistent headings**: Zero margins on H1, H2, H3 for tight layout
+- **Visual hierarchy**: Clean spacing between headings and content
+- **Theme-aware colors**: Text properly inherits light/dark theme colors
+
+**🔧 Technical Improvements**
+- **Enhanced HTML generation**: Better markdown to HTML conversion
+- **Comprehensive CSS**: Professional styling for all rich text elements
+- **Code block styling**: Syntax highlighting backgrounds
+- **Table support**: Professional table styling with hover effects
+- **Blockquote styling**: Left border accent for quoted text
+- **List styling**: Proper bullet points and numbering
+
+**⚡ Performance & Reliability**
+- **Faster rendering**: Optimized HTML generation and CSS
+- **Better caching**: Improved performance for large notes
+- **Cleaner logs**: Easier debugging without audio spam
+- **Reduced processing**: Less background activity when idle
+- **Memory optimization**: Better resource management
+
+**🎯 User Experience**
+- ✅ **Professional formatting**: Create notes that look great
+- ✅ **Faster writing**: Markdown syntax is intuitive and quick
+- ✅ **Better readability**: Clean spacing improves note clarity
+- ✅ **Theme consistency**: Rich text adapts to your preferences
+- ✅ **Performance boost**: Smoother app experience overall
+
+**🔧 Developer Benefits**
+- ✅ **Maintainable code**: Clean separation between editing and viewing
+- ✅ **Flexible styling**: Easy to add new formatting options
+- ✅ **Better debugging**: Cleaner console without audio spam
+- ✅ **Performance monitoring**: Easier to track app performance
+
+---
+
 ## Version 1.3.6 - Mobile Payment Fixes
 **Release Date:** October 21, 2025
 
