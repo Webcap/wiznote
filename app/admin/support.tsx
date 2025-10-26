@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import SupportDashboard from '../../components/support/SupportDashboard';
 import { ThemedText } from '../../components/ThemedText';
@@ -10,12 +11,34 @@ import { useAuth } from '../../hooks/useAuth';
 import { useThemeColor } from '../../hooks/useThemeColor';
 
 export default function SupportPage() {
-  const { user } = useAuth();
+  const { user, isAdmin, isSupport, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const textColor = useThemeColor({}, 'text');
   
   // Use the current admin/support user's actual ID
   const supportAgentId = user?.id || '';
+  
+  // Check if user is admin or support, redirect if not
+  useEffect(() => {
+    if (!isLoading && (!isAuthenticated || (!isAdmin() && !isSupport()))) {
+      console.log('SupportPage: User not admin or support, redirecting...');
+      router.replace('/(tabs)');
+    }
+  }, [isAuthenticated, isLoading, isAdmin, isSupport, router]);
+  
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <ThemedView style={styles.container}>
+        <ThemedText>Loading...</ThemedText>
+      </ThemedView>
+    );
+  }
+  
+  // Check if user is admin or support before showing content
+  if (!isAuthenticated || (!isAdmin() && !isSupport())) {
+    return null; // Will redirect via useEffect
+  }
   
   return (
     <WebLayout
@@ -44,6 +67,11 @@ export default function SupportPage() {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   // Web Header - Following design.json web header pattern
   webHeader: {
     flexDirection: 'row',

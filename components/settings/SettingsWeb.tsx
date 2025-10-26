@@ -348,7 +348,10 @@ export function SettingsWeb({
         {isSupport() && (
           <View style={styles.section}>
             <ThemedText style={styles.sectionTitle}>Support Settings</ThemedText>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => router.push('/admin/support')}
+            >
               <Ionicons name="headset" size={20} color={iconColor} />
               <ThemedText style={styles.actionButtonText}>Support Dashboard</ThemedText>
               <Ionicons name="chevron-forward" size={20} color={borderColor} />

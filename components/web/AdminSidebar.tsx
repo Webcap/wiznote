@@ -8,6 +8,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { usePDFUpload } from '../../contexts/PDFUploadContext';
 import { useAuth } from '../../hooks/useAuth';
+import { UserRole } from '../../types/User';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { pdfStorage } from '../../services/PDFStorage';
@@ -27,7 +28,7 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
   const accentColor = useThemeColor({}, 'accentPrimary');
   const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
   const borderColor = useThemeColor({}, 'border');
-  const { user } = useAuth();
+  const { user, isAdmin, isSupport } = useAuth();
   const { showSnackbar } = useSnackbar();
   const { setUploadingPDF, onUploadComplete } = usePDFUpload();
   const { isFeatureEnabled } = useFeatureFlags();
@@ -133,13 +134,18 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
     }
   }, [showCreateDropdown, dropdownAnim]);
 
-  const sidebarItems = [
+  // Filter sidebar items based on user role
+  const isUserAdmin = isAdmin();
+  const isUserSupport = isSupport();
+  
+  const allSidebarItems = [
     {
       id: 'home',
       label: 'All Notes',
       icon: 'document-text' as const,
       onPress: () => router.push('/(tabs)'),
       isActive: false,
+      roles: ['admin', 'support', 'user'] as UserRole[],
     },
     {
       id: 'dashboard',
@@ -147,6 +153,7 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
       icon: 'shield' as const,
       onPress: () => router.push('admin-dashboard'),
       isActive: activePage === 'dashboard',
+      roles: ['admin'] as UserRole[],
     },
     {
       id: 'enhanced-plans',
@@ -154,6 +161,7 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
       icon: 'layers' as const,
       onPress: () => router.push('/admin/enhanced-plans'),
       isActive: activePage === 'enhanced-plans',
+      roles: ['admin'] as UserRole[],
     },
     {
       id: 'promotions',
@@ -161,6 +169,7 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
       icon: 'pricetag' as const,
       onPress: () => router.push('/admin/promotions'),
       isActive: activePage === 'promotions',
+      roles: ['admin'] as UserRole[],
     },
 
     {
@@ -169,6 +178,7 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
       icon: 'bar-chart' as const,
       onPress: () => router.push('/admin/usage-stats'),
       isActive: activePage === 'usage-stats',
+      roles: ['admin'] as UserRole[],
     },
     {
       id: 'analytics',
@@ -176,6 +186,7 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
       icon: 'analytics' as const,
       onPress: () => router.push('/admin/analytics'),
       isActive: activePage === 'analytics',
+      roles: ['admin'] as UserRole[],
     },
     {
       id: 'security-dashboard',
@@ -183,6 +194,7 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
       icon: 'shield-checkmark' as const,
       onPress: () => router.push('/admin/security-dashboard'),
       isActive: activePage === 'security-dashboard',
+      roles: ['admin'] as UserRole[],
     },
     {
       id: 'support',
@@ -190,8 +202,16 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
       icon: 'headset' as const,
       onPress: () => router.push('/admin/support'),
       isActive: activePage === 'support',
+      roles: ['admin', 'support'] as UserRole[],
     },
   ];
+  
+  // Filter items based on user role
+  const sidebarItems = allSidebarItems.filter(item => {
+    if (isUserAdmin) return true; // Admins see everything
+    if (!isUserSupport) return item.roles.includes('user'); // Regular users only see 'home'
+    return item.roles.includes('support'); // Support users see support tools + home
+  });
 
   const handleWebCreateNote = () => router.push('create');
   const handleWebCreateAudioNote = () => router.push('/create-audio');

@@ -285,11 +285,13 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
+        flexDirection: 'column',
         gap: 12,
         padding: 16,
+        alignItems: 'stretch',
       },
       '@media (max-width: 480px)': {
-        gap: 8,
+        gap: 10,
         padding: 12,
       },
     } : {}),

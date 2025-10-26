@@ -136,30 +136,55 @@ export class BetterAuthService {
         }
       }
       
-      // Try to load existing user profile
-      let userProfile = await this.loadUserProfile(supabaseUser.id);
+      // Try to load existing user profile with timeout
+      let userProfile;
+      try {
+        const loadProfilePromise = this.loadUserProfile(supabaseUser.id);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database query timeout')), 5000) // 5 second timeout
+        );
+        userProfile = await Promise.race([loadProfilePromise, timeoutPromise]);
+        // If loadUserProfile returns null (profile doesn't exist), that's OK
+        if (!userProfile) {
+          console.log('BetterAuthService: No user profile found in database');
+        }
+      } catch (timeoutError) {
+        console.error('BetterAuthService: Exception loading user profile:', timeoutError);
+        // Return null on timeout - let the flow below handle it
+        userProfile = null;
+      }
       
       if (!userProfile) {
-        // No profile exists - create one for any authenticated user
-        console.log('No user profile found, creating profile for user:', supabaseUser.id);
-        
-        // Create profile for any authenticated user (OAuth or email/password)
-        if (supabaseUser.email) {
-          console.log('Creating new user profile:', supabaseUser.id);
-          try {
-            userProfile = await this.createUserProfile(supabaseUser);
-          } catch (profileError) {
-            console.error('Failed to create user profile:', profileError);
-            // Create a minimal profile as fallback
-            userProfile = await this.createMinimalUserProfile(supabaseUser);
-          }
-        } else {
-          console.error('No user profile found and no email for user:', supabaseUser.id);
-          throw new Error('User profile not found. Please sign up first.');
-        }
-      } else {
-        console.log('Existing profile found, loading user data...');
+        // No profile exists - don't create one here, user must sign up first
+        console.error('No user profile found for user:', supabaseUser.id);
+        throw new Error('User profile not found. Please sign up first.');
       }
+      
+      // Determine correct role based on email domain
+      const expectedRole = roleService.determineUserRole(supabaseUser.email);
+      
+      // If the profile has the wrong role, update it
+      if (userProfile.role !== expectedRole) {
+        console.log(`Updating role from ${userProfile.role} to ${expectedRole} based on email domain`);
+        
+        // Update role in database
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update({ 
+            role: expectedRole,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', supabaseUser.id);
+        
+        if (updateError) {
+          console.warn('Failed to update role:', updateError);
+        }
+        
+        // Update local profile object
+        userProfile.role = expectedRole;
+      }
+      
+      console.log('Existing profile found, loading user data...');
       
       // Create user object from profile
       const user: User = {
@@ -219,8 +244,22 @@ export class BetterAuthService {
         }
       }
       
-      // Load existing user profile (don't create new ones during sign-in)
-      const userProfile = await this.loadUserProfile(supabaseUser.id);
+      // Load existing user profile (don't create new ones during sign-in) with timeout
+      let userProfile;
+      try {
+        const loadProfilePromise = this.loadUserProfile(supabaseUser.id);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database query timeout')), 5000) // 5 second timeout
+        );
+        userProfile = await Promise.race([loadProfilePromise, timeoutPromise]);
+        // If loadUserProfile returns null (profile doesn't exist), that's an error
+        if (!userProfile) {
+          console.log('BetterAuthService: No user profile found in database');
+        }
+      } catch (timeoutError) {
+        console.error('BetterAuthService: Exception loading user profile:', timeoutError);
+        throw new Error('Failed to load user profile. Please try again or sign up first.');
+      }
       
       if (!userProfile) {
         console.error('No user profile found for user:', supabaseUser.id);
@@ -1141,27 +1180,10 @@ export class BetterAuthService {
           
           return user;
         } else {
-          console.log('BetterAuthService: No user profile found, creating minimal profile');
-          // Create a minimal profile as fallback
-          const minimalProfile = await this.createMinimalUserProfile(session.user);
-          const user = {
-            id: session.user.id,
-            email: session.user.email || '',
-            displayName: minimalProfile.displayName || session.user.email?.split('@')[0],
-            photoURL: session.user.user_metadata?.avatar_url,
-            role: minimalProfile.role,
-            createdAt: minimalProfile.createdAt,
-            lastLoginAt: minimalProfile.lastLoginAt,
-            preferences: minimalProfile.preferences,
-            premium: minimalProfile.premium,
-            permissions: minimalProfile.permissions,
-            supportInfo: minimalProfile.supportInfo,
-          };
-          
-          // Cache the current user
-          this.currentUser = user;
-          
-          return user;
+          console.log('BetterAuthService: No user profile found');
+          // Don't create a profile here - user must sign up first
+          this.currentUser = null;
+          return null;
         }
       } else {
         console.log('BetterAuthService: No session found');
@@ -1216,16 +1238,36 @@ export class BetterAuthService {
       console.log('Creating user profile for:', supabaseUser.id);
       console.log('User metadata:', supabaseUser.user_metadata);
       
-      // First, check if a profile already exists to preserve any manually assigned roles
+      // First, check if a profile already exists
       const existingProfile = await this.loadUserProfile(supabaseUser.id);
-      if (existingProfile) {
-        console.log('Profile already exists, preserving existing role:', existingProfile.role);
-        return existingProfile;
-      }
       
       // Use RoleService to determine role based on email domain
       const userRole = roleService.determineUserRole(supabaseUser.email);
       console.log('Assigned role based on domain:', userRole);
+      
+      // If profile already exists, update the role based on email domain
+      if (existingProfile) {
+        console.log('Profile already exists, updating role from', existingProfile.role, 'to', userRole);
+        
+        // Update the role in the database
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update({ 
+            role: userRole,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', supabaseUser.id);
+        
+        if (updateError) {
+          console.warn('Failed to update role in existing profile:', updateError);
+        }
+        
+        // Return the updated profile
+        return {
+          ...existingProfile,
+          role: userRole
+        };
+      }
       
       const profileData = {
         id: supabaseUser.id,
@@ -1324,16 +1366,21 @@ export class BetterAuthService {
     try {
       console.log('Creating minimal user profile as fallback...');
       
-      // First, check if a profile already exists to preserve any manually assigned roles
+      // First, check if a profile already exists
       const existingProfile = await this.loadUserProfile(supabaseUser.id);
-      if (existingProfile) {
-        console.log('Profile already exists, preserving existing role in minimal profile:', existingProfile.role);
-        return existingProfile;
-      }
       
       // Use RoleService to determine role based on email domain
       const userRole = roleService.determineUserRole(supabaseUser.email);
       console.log('Assigned role for minimal profile:', userRole);
+      
+      // If profile already exists, use the updated role
+      if (existingProfile) {
+        console.log('Profile already exists in minimal profile, using updated role:', userRole);
+        return {
+          ...existingProfile,
+          role: userRole
+        };
+      }
       
       // Create a minimal profile object without database insertion
       const minimalProfile = {
@@ -1582,43 +1629,19 @@ export class BetterAuthService {
       if (session?.user) {
         console.log('BetterAuthService: Found session on app activation, restoring...');
         
-        // Try to restore user without profile verification first (faster)
+        // Try to restore user
         try {
           await this.handleSignIn(session.user);
         } catch (profileError) {
-          console.warn('BetterAuthService: Profile verification failed, creating minimal profile:', profileError.message);
+          console.warn('BetterAuthService: Profile verification failed:', profileError.message);
           
-          // If profile verification fails, create a minimal profile
-          try {
-            const minimalProfile = await this.createMinimalUserProfile(session.user);
-            const user = {
-              id: session.user.id,
-              email: session.user.email || '',
-              displayName: minimalProfile.displayName || session.user.email?.split('@')[0],
-              photoURL: session.user.user_metadata?.avatar_url,
-              role: minimalProfile.role,
-              createdAt: minimalProfile.createdAt,
-              lastLoginAt: minimalProfile.lastLoginAt,
-              preferences: minimalProfile.preferences,
-              premium: minimalProfile.premium,
-              permissions: minimalProfile.permissions,
-              supportInfo: minimalProfile.supportInfo,
-            };
-            
-            this.currentUser = user;
-            if (this.onAuthStateChange) {
-              this.onAuthStateChange(user);
-            }
-            
-            console.log('BetterAuthService: Minimal profile restoration successful');
-          } catch (minimalError) {
-            console.error('BetterAuthService: Even minimal profile creation failed:', minimalError);
-            // Clear user and let them sign in again
-            this.currentUser = null;
-            if (this.onAuthStateChange) {
-              this.onAuthStateChange(null);
-            }
+          // Profile doesn't exist or failed to load - clear user
+          this.currentUser = null;
+          if (this.onAuthStateChange) {
+            this.onAuthStateChange(null);
           }
+          
+          console.log('BetterAuthService: Session restoration failed - user must sign up first');
         }
       } else {
         console.log('BetterAuthService: No session found on app activation');
@@ -1920,81 +1943,31 @@ export class BetterAuthService {
           const { data: userProfile, error: profileError } = await Promise.race([profilePromise, profileTimeout]);
           
           if (profileError || !userProfile) {
-            console.warn('User profile not found during session restoration, creating minimal profile:', profileError?.message);
+            console.warn('User profile not found during session restoration:', profileError?.message);
             
-            // Instead of clearing session, create a minimal profile
-            try {
-              const minimalProfile = await this.createMinimalUserProfile(session.user);
-              const user = {
-                id: session.user.id,
-                email: session.user.email || '',
-                displayName: minimalProfile.displayName || session.user.email?.split('@')[0],
-                photoURL: session.user.user_metadata?.avatar_url,
-                role: minimalProfile.role,
-                createdAt: minimalProfile.createdAt,
-                lastLoginAt: minimalProfile.lastLoginAt,
-                preferences: minimalProfile.preferences,
-                premium: minimalProfile.premium,
-                permissions: minimalProfile.permissions,
-                supportInfo: minimalProfile.supportInfo,
-              };
-              
-              this.currentUser = user;
-              if (this.onAuthStateChange) {
-                this.onAuthStateChange(user);
-              }
-              
-              console.log('BetterAuthService: Minimal profile restoration successful');
-              return;
-            } catch (minimalError) {
-              console.error('BetterAuthService: Minimal profile creation failed:', minimalError);
-              // Only clear session if minimal profile creation also fails
-              await supabase.auth.signOut();
-              this.currentUser = null;
-              if (this.onAuthStateChange) {
-                this.onAuthStateChange(null);
-              }
-              return;
-            }
-          }
-          
-          // User exists, proceed with restoration
-          await this.handleSignIn(session.user);
-        } catch (profileError) {
-          console.warn('Error verifying user profile during session restoration, creating minimal profile:', profileError.message);
-          
-          // Create minimal profile as fallback
-          try {
-            const minimalProfile = await this.createMinimalUserProfile(session.user);
-            const user = {
-              id: session.user.id,
-              email: session.user.email || '',
-              displayName: minimalProfile.displayName || session.user.email?.split('@')[0],
-              photoURL: session.user.user_metadata?.avatar_url,
-              role: minimalProfile.role,
-              createdAt: minimalProfile.createdAt,
-              lastLoginAt: minimalProfile.lastLoginAt,
-              preferences: minimalProfile.preferences,
-              premium: minimalProfile.premium,
-              permissions: minimalProfile.permissions,
-              supportInfo: minimalProfile.supportInfo,
-            };
-            
-            this.currentUser = user;
-            if (this.onAuthStateChange) {
-              this.onAuthStateChange(user);
-            }
-            
-            console.log('BetterAuthService: Minimal profile restoration successful after timeout');
-          } catch (minimalError) {
-            console.error('BetterAuthService: Minimal profile creation failed after timeout:', minimalError);
-            // Clear the invalid session
+            // Profile doesn't exist - clear session
+            console.log('BetterAuthService: Profile not found, clearing session');
             await supabase.auth.signOut();
             this.currentUser = null;
             if (this.onAuthStateChange) {
               this.onAuthStateChange(null);
             }
+            return;
           }
+          
+          // User exists, proceed with restoration
+          await this.handleSignIn(session.user);
+        } catch (profileError) {
+          console.warn('Error verifying user profile during session restoration:', profileError.message);
+          
+          // Clear the invalid session
+          await supabase.auth.signOut();
+          this.currentUser = null;
+          if (this.onAuthStateChange) {
+            this.onAuthStateChange(null);
+          }
+          
+          console.log('BetterAuthService: Session restoration failed - user must sign up first');
         }
       } else {
         console.log('BetterAuthService: No stored session found');

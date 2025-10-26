@@ -81,7 +81,7 @@ export function WebNoteCard({
         </View>
         
         {/* Action Buttons */}
-        {(isHovered || isSelected) && (
+        {(isHovered || isSelected || Platform.OS === 'web' && window.innerWidth < 768) && (
           <View style={styles.actions}>
             {onToggleFavorite && (
               <TouchableOpacity style={styles.actionButton} onPress={onToggleFavorite}>
@@ -159,12 +159,15 @@ const styles = StyleSheet.create({
     height: 140,
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        padding: 8,
-        height: 120,
+        padding: 12,
+        height: 'auto',
+        minHeight: 100,
+        maxHeight: 140,
       },
       '@media (max-width: 480px)': {
-        padding: 6,
-        height: 110,
+        padding: 10,
+        minHeight: 90,
+        maxHeight: 130,
       },
     } : {}),
   },
@@ -227,6 +230,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.1)',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+      },
+    } : {}),
   },
   preview: {
     fontSize: 11,
@@ -241,14 +251,14 @@ const styles = StyleSheet.create({
     } : {}),
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        fontSize: 10,
-        lineHeight: 12,
+        fontSize: 13,
+        lineHeight: 16,
         WebkitLineClamp: 2,
       },
       '@media (max-width: 480px)': {
-        fontSize: 9,
-        lineHeight: 11,
-        WebkitLineClamp: 1,
+        fontSize: 12,
+        lineHeight: 15,
+        WebkitLineClamp: 2,
       },
     } : {}),
   },

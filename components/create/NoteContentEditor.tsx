@@ -150,6 +150,17 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        padding: 16,
+        marginBottom: 20,
+        borderRadius: 12,
+      },
+      '@media (max-width: 480px)': {
+        padding: 12,
+        marginBottom: 16,
+      },
+    } : {}),
   },
   webSectionHeader: {
     flexDirection: 'row',
@@ -204,5 +215,19 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     fontSize: 16,
     lineHeight: 24,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        paddingHorizontal: 12,
+        paddingTop: 12,
+        fontSize: 16,
+        minHeight: 250,
+      },
+      '@media (max-width: 480px)': {
+        paddingHorizontal: 10,
+        paddingTop: 10,
+        fontSize: 16,
+        minHeight: 200,
+      },
+    } : {}),
   },
 });

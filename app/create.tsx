@@ -123,6 +123,7 @@ export default function CreateNoteScreen() {
   const tagText = useThemeColor({ light: '#fff', dark: '#fff' }, 'text');
   const placeholderColor = useThemeColor({}, 'textMuted');
   const safeAreaBg = useThemeColor({}, 'background');
+  const borderThemeColor = useThemeColor({ light: '#E5E7EB', dark: '#333333' }, 'border');
 
   // Computed values
   const isEditMode = noteId && !noteId.startsWith('temp_');
@@ -421,7 +422,7 @@ export default function CreateNoteScreen() {
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
           {/* Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, { backgroundColor: safeAreaBg, borderBottomColor: borderThemeColor }]}>
             {isAuthenticated && (
               <TouchableOpacity onPress={handleDiscard} style={styles.backButton}>
                 <Ionicons name="arrow-back" size={24} color={iconColor} />
@@ -452,7 +453,7 @@ export default function CreateNoteScreen() {
 
           {/* Content */}
           <ScrollView 
-            style={styles.content} 
+            style={[styles.content, { backgroundColor: safeAreaBg }]} 
             showsVerticalScrollIndicator={false}
             contentInsetAdjustmentBehavior="automatic"
             keyboardShouldPersistTaps="handled"
@@ -577,8 +578,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
   },
   backButton: {
     padding: 8,
@@ -619,7 +618,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    backgroundColor: '#F5F6FA',
   },
   titleInput: {
     borderWidth: 1,

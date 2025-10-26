@@ -1,5 +1,52 @@
 # WizNote - Release Notes
 
+## Version 1.4.1 - Enhanced Note Management
+**Release Date:** October 26, 2025
+
+### 📱 Google Play Store Release Notes (500 char limit)
+
+```
+Note Management Updates 🗑️
+
+✨ Delete button on note details
+🎨 Blue edit button for clarity
+🌙 Better theme support
+📱 Improved UI consistency
+
+Enhanced note management! ✨
+```
+
+---
+
+### 📱 Full Release Notes
+
+**What's New:**
+
+**🗑️ Delete Button on Note Details Page (NEW FEATURE)**
+- **Quick delete action**: Delete notes directly from the note details screen
+- **Confirmation dialog**: Prevents accidental deletions with a safety prompt
+- **Permission respect**: Respects sharing permissions for shared notes
+- **Visual indication**: Red danger color clearly identifies the delete action
+- **Both platforms**: Available on both mobile and web
+
+**🎨 UI Enhancements**
+- **Edit button color update**: Changed edit button to distinctive blue (#007AFF)
+- **Distinctive blue color**: Edit button now uses blue (#007AFF) for better visibility
+- **Clear visual hierarchy**: Makes the primary edit action more prominent
+- **Consistent design**: Same styling across mobile and web platforms
+- **Professional appearance**: Better button contrast and readability
+- **Note page theme fix**: Note details page now properly respects theme settings
+- **Full theme support**: All elements adapt correctly to light/dark mode
+- **Improved readability**: Better visual consistency in both themes
+
+**🎯 User Experience**
+- ✅ **Easier note management**: Quick delete action with confirmation
+- ✅ **Clearer interface**: Blue edit button for better visual hierarchy
+- ✅ **Better theming**: Note page now properly adapts to light/dark mode
+- ✅ **Consistent design**: Professional appearance across all platforms
+
+---
+
 ## Version 1.4.0 - Rich Text Editing & Performance Improvements
 **Release Date:** October 25, 2025
 

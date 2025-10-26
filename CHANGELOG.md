@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.1] - 2025-10-26
+
+### ✨ Added
+
+#### Note Management
+- **Delete button on note details page** - Delete notes directly from the note details screen
+  - Added delete button next to edit and archive buttons (both mobile and web)
+  - Includes confirmation dialog to prevent accidental deletions
+  - Respects permissions for shared notes
+  - Styled with danger color for clear visual indication
+
+### 🐛 Fixed
+
+#### Authentication Security
+- **Role creation restriction** - Roles are now only created during account signup
+  - Fixed roles being created during sign-in, OAuth flows, and session restoration
+  - Prevents unauthorized role assignment outside of the signup process
+  - Proper role assignment based on email domain during account creation
+  - Improved security by limiting role creation to legitimate account signup only
+
+### 🔧 Changed
+
+#### UI Enhancements
+- **Edit button color update** - Changed edit button to distinctive blue color
+  - Edit button now uses blue (#007AFF) for better visual distinction
+  - Makes the primary edit action more prominent
+  - Consistent across both mobile and web platforms
+
+- **Fixed note page theme** - Note details page now properly respects theme settings
+  - All text, backgrounds, and UI elements adapt to light/dark mode correctly
+  - Buttons and action items use theme-aware colors
+  - Consistent theming across all note detail components
+  - Improved readability in both light and dark themes
+
+### 📁 Files Modified
+
+#### Services
+- `services/BetterAuthService.ts` - Fixed role creation to only happen during signup
+  - Removed profile creation from sign-in, session restoration, and OAuth flows
+  - Added role update logic for existing profiles based on email domain
+  - Ensured roles are only created during legitimate account signup
+
+#### Screens
+- `app/note/[id].tsx` - Added delete button, updated edit button color, and fixed theme
+  - Added delete functionality with confirmation dialog
+  - Changed edit button to blue (#007AFF) color
+  - Improved visual hierarchy of action buttons
+  - Fixed theme support for note details page
+
+#### Styles
+- `styles/NoteDetailStyles.ts` - Updated styles for better theme integration
+
+### 🎯 Impact
+
+#### User Experience
+- ✅ **Better note management** - Quick delete action with confirmation for safety
+- ✅ **Clearer visual hierarchy** - Blue edit button clearly indicates primary action
+- ✅ **Improved security** - Role creation restricted to legitimate signup only
+
+#### Security
+- ✅ **Enhanced authentication** - Prevents unauthorized role assignment
+- ✅ **Proper role enforcement** - Email domain-based roles only assigned during signup
+- ✅ **Better access control** - No role manipulation outside of account creation
+
+---
+
 ## [1.4.0] - 2025-10-25
 
 ### ✨ Added
