@@ -40,14 +40,25 @@ export class BetterAuthService {
   private isSigningOut = false; // Flag to prevent session recovery during sign out
 
   constructor() {
+    // Initialize auth state listener first - this will handle INITIAL_SESSION events
     this.initializeAuthStateListener();
     
-    // Start session restoration immediately - but don't await it to prevent blocking
-    this.sessionRestorationPromise = this.restoreSession().catch(error => {
-      // Silently handle session restoration errors
-      console.warn('BetterAuthService: Session restoration failed silently:', error.message);
-      this.sessionRestorationPromise = null;
-    });
+    // Start session restoration as a backup after a short delay
+    // This allows INITIAL_SESSION to fire first (which is the preferred method)
+    // On mobile, this ensures we restore the session even if INITIAL_SESSION doesn't fire within 3 seconds
+    // On web, this is a backup if the event listener doesn't catch it
+    setTimeout(() => {
+      // Only restore if we still don't have a user and are not already restoring
+      if (!this.currentUser && !this.isRestoringSession) {
+        this.sessionRestorationPromise = this.restoreSession().catch(error => {
+          // Silently handle session restoration errors
+          console.warn('BetterAuthService: Session restoration failed silently:', error.message);
+          this.sessionRestorationPromise = null;
+        });
+      } else {
+        console.log('BetterAuthService: Skipping manual restoration - user already loaded or restoration in progress');
+      }
+    }, 3000); // 3 second delay to let INITIAL_SESSION fire first
   }
 
   private initializeAuthStateListener() {
@@ -62,11 +73,19 @@ export class BetterAuthService {
         clearTimeout(authStateChangeTimeout);
       }
       
+      // Don't debounce INITIAL_SESSION or TOKEN_REFRESHED events - these are critical for session restoration
+      const isImmediateEvent = event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED';
+      
       authStateChangeTimeout = setTimeout(async () => {
         try {
           if (event === 'SIGNED_IN' && session?.user) {
             console.log('🔄 BetterAuthService: Handling SIGNED_IN event');
-            await this.handleSignInOrSignUp(session.user);
+            // Only handle if we don't already have this user loaded
+            if (!this.currentUser || this.currentUser.id !== session.user.id) {
+              await this.handleSignInOrSignUp(session.user);
+            } else {
+              console.log('🔄 BetterAuthService: Skipping SIGNED_IN - user already loaded');
+            }
           } else if (event === 'SIGNED_OUT') {
             console.log('🔄 BetterAuthService: Handling SIGNED_OUT event');
             this.isSigningOut = false; // Reset sign out flag
@@ -81,25 +100,34 @@ export class BetterAuthService {
             console.log('🔄 BetterAuthService: Token refreshed, ensuring user is loaded...');
             if (!this.currentUser || this.currentUser.id !== session.user.id) {
               await this.handleSignInOrSignUp(session.user);
+            } else {
+              console.log('🔄 BetterAuthService: User already loaded with current ID');
             }
           } else if (event === 'INITIAL_SESSION' && session?.user) {
             // Handle initial session load (e.g., on page refresh)
             // But only if we're not in the middle of signing out
             if (!this.isSigningOut) {
-              console.log('🔄 BetterAuthService: Initial session detected, loading user...');
-              await this.handleSignInOrSignUp(session.user);
+              // Only restore if we don't already have this user loaded
+              if (!this.currentUser || this.currentUser.id !== session.user.id) {
+                console.log('🔄 BetterAuthService: Initial session detected, loading user...');
+                await this.handleSignInOrSignUp(session.user);
+              } else {
+                console.log('🔄 BetterAuthService: User already loaded, skipping INITIAL_SESSION');
+              }
             } else {
-              console.log('🔄 BetterAuthService: Ignoring initial session during sign out');
+              console.log('🔄 BetterAuthService: Ignoring initial session - sign out in progress');
             }
           } else if (event === 'USER_UPDATED' && session?.user) {
             // Handle user updates
             console.log('🔄 BetterAuthService: User updated, refreshing user data...');
-            await this.handleSignInOrSignUp(session.user);
+            if (!this.currentUser || this.currentUser.id !== session.user.id) {
+              await this.handleSignInOrSignUp(session.user);
+            }
           }
         } catch (error) {
           console.error('❌ BetterAuthService: Error handling auth state change:', error);
         }
-      }, Platform.OS === 'web' ? 100 : 0); // 100ms debounce on web
+      }, isImmediateEvent ? 0 : (Platform.OS === 'web' ? 100 : 0)); // No debounce for critical events
     });
     
     // Mark auth state listener as initialized
@@ -136,88 +164,64 @@ export class BetterAuthService {
         }
       }
       
-      // Try to load existing user profile with timeout
-      let userProfile;
-      try {
-        const loadProfilePromise = this.loadUserProfile(supabaseUser.id);
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Database query timeout')), 5000) // 5 second timeout
-        );
-        userProfile = await Promise.race([loadProfilePromise, timeoutPromise]);
-        // If loadUserProfile returns null (profile doesn't exist), that's OK
-        if (!userProfile) {
-          console.log('BetterAuthService: No user profile found in database');
-        }
-      } catch (timeoutError) {
-        console.error('BetterAuthService: Exception loading user profile:', timeoutError);
-        // Return null on timeout - let the flow below handle it
-        userProfile = null;
-      }
-      
-      if (!userProfile) {
-        // No profile exists - don't create one here, user must sign up first
-        console.error('No user profile found for user:', supabaseUser.id);
-        throw new Error('User profile not found. Please sign up first.');
-      }
-      
-      // Determine correct role based on email domain
-      const expectedRole = roleService.determineUserRole(supabaseUser.email);
-      
-      // If the profile has the wrong role, update it
-      if (userProfile.role !== expectedRole) {
-        console.log(`Updating role from ${userProfile.role} to ${expectedRole} based on email domain`);
-        
-        // Update role in database
-        const { error: updateError } = await supabase
-          .from('user_profiles')
-          .update({ 
-            role: expectedRole,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', supabaseUser.id);
-        
-        if (updateError) {
-          console.warn('Failed to update role:', updateError);
-        }
-        
-        // Update local profile object
-        userProfile.role = expectedRole;
-      }
-      
-      console.log('Existing profile found, loading user data...');
-      
-      // Create user object from profile
-      const user: User = {
+      // Set minimal user immediately so app doesn't redirect to login
+      const minimalUser: User = {
         id: supabaseUser.id,
         email: supabaseUser.email,
-        displayName: userProfile.display_name || supabaseUser.email?.split('@')[0],
+        displayName: supabaseUser.email?.split('@')[0] || 'User',
         photoURL: supabaseUser.user_metadata?.avatar_url,
-        role: userProfile.role,
-        createdAt: userProfile.created_at ? new Date(userProfile.created_at) : new Date(),
-        lastLoginAt: userProfile.last_login_at ? new Date(userProfile.last_login_at) : new Date(),
-        preferences: userProfile.preferences,
-        premium: userProfile.premium,
-        permissions: userProfile.permissions,
-        supportInfo: userProfile.support_info,
+        role: 'user' as UserRole,
+        createdAt: new Date(),
+        lastLoginAt: new Date(),
+        preferences: { theme: 'auto', language: 'en', autoSync: true, notifications: true },
+        premium: null,
+        permissions: { canCreateNotes: true, canExportNotes: true, canShareNotes: true },
+        supportInfo: null,
       };
-
-      // Update current user
-      this.currentUser = user;
       
-      // Cache user data on web for faster subsequent loads
-      if (isWeb && isLocalStorageAvailable()) {
-        cacheSession(user);
-      }
-      
-      // Update last login
-      await this.updateLastLogin(supabaseUser.id);
-      
-      // Notify listeners
+      this.currentUser = minimalUser;
       if (this.onAuthStateChange) {
-        this.onAuthStateChange(user);
+        this.onAuthStateChange(minimalUser);
       }
+      console.log('BetterAuthService: Minimal user set, loading full profile in background...');
       
-      console.log('User handled successfully:', user.id);
+      // Load full profile in background without blocking
+      this.loadUserProfile(supabaseUser.id).then(userProfile => {
+        if (!userProfile) {
+          console.warn('BetterAuthService: Could not load full profile, using minimal user data');
+          return;
+        }
+        
+        console.log('BetterAuthService: Full profile loaded for handleSignInOrSignUp, updating...');
+        const fullUser: User = {
+          id: supabaseUser.id,
+          email: supabaseUser.email,
+          displayName: userProfile.display_name || supabaseUser.email?.split('@')[0],
+          photoURL: supabaseUser.user_metadata?.avatar_url,
+          role: userProfile.role,
+          createdAt: userProfile.created_at ? new Date(userProfile.created_at) : new Date(),
+          lastLoginAt: userProfile.last_login_at ? new Date(userProfile.last_login_at) : new Date(),
+          preferences: userProfile.preferences,
+          premium: userProfile.premium,
+          permissions: userProfile.permissions,
+          supportInfo: userProfile.support_info,
+        };
+        
+        this.currentUser = fullUser;
+        if (this.onAuthStateChange) {
+          this.onAuthStateChange(fullUser);
+        }
+        
+        if (isWeb && isLocalStorageAvailable()) {
+          cacheSession(fullUser);
+        }
+        
+        this.updateLastLogin(supabaseUser.id).catch(console.error);
+      }).catch(error => {
+        console.error('BetterAuthService: Error loading full profile in background:', error);
+      });
+      
+      console.log('User handled successfully:', minimalUser.id);
       
     } catch (error) {
       console.error('Error handling sign in/sign up:', error);
@@ -244,63 +248,64 @@ export class BetterAuthService {
         }
       }
       
-      // Load existing user profile (don't create new ones during sign-in) with timeout
-      let userProfile;
-      try {
-        const loadProfilePromise = this.loadUserProfile(supabaseUser.id);
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Database query timeout')), 5000) // 5 second timeout
-        );
-        userProfile = await Promise.race([loadProfilePromise, timeoutPromise]);
-        // If loadUserProfile returns null (profile doesn't exist), that's an error
-        if (!userProfile) {
-          console.log('BetterAuthService: No user profile found in database');
-        }
-      } catch (timeoutError) {
-        console.error('BetterAuthService: Exception loading user profile:', timeoutError);
-        throw new Error('Failed to load user profile. Please try again or sign up first.');
-      }
-      
-      if (!userProfile) {
-        console.error('No user profile found for user:', supabaseUser.id);
-        console.error('User must sign up first to create a profile');
-        throw new Error('User profile not found. Please sign up first.');
-      }
-      
-      console.log('Existing profile found, loading user data...');
-      
-      // Create user object from existing profile
-      const user: User = {
+      // Set minimal user immediately so app doesn't redirect to login
+      const minimalUser: User = {
         id: supabaseUser.id,
         email: supabaseUser.email,
-        displayName: userProfile.display_name || supabaseUser.email?.split('@')[0],
+        displayName: supabaseUser.email?.split('@')[0] || 'User',
         photoURL: supabaseUser.user_metadata?.avatar_url,
-        role: userProfile.role,
-        createdAt: userProfile.created_at ? new Date(userProfile.created_at) : new Date(),
-        lastLoginAt: userProfile.last_login_at ? new Date(userProfile.last_login_at) : new Date(),
-        preferences: userProfile.preferences,
-        premium: userProfile.premium,
-        permissions: userProfile.permissions,
-        supportInfo: userProfile.support_info,
+        role: 'user' as UserRole,
+        createdAt: new Date(),
+        lastLoginAt: new Date(),
+        preferences: { theme: 'auto', language: 'en', autoSync: true, notifications: true },
+        premium: null,
+        permissions: { canCreateNotes: true, canExportNotes: true, canShareNotes: true },
+        supportInfo: null,
       };
-
-      // Update current user
-      this.currentUser = user;
       
-      // Cache user data on web for faster subsequent loads
-      if (isWeb && isLocalStorageAvailable()) {
-        cacheSession(user);
-      }
-      
-      // Update last login
-      await this.updateLastLogin(supabaseUser.id);
-      
-      // Notify listeners
+      this.currentUser = minimalUser;
       if (this.onAuthStateChange) {
-        this.onAuthStateChange(user);
+        this.onAuthStateChange(minimalUser);
       }
+      console.log('BetterAuthService: Minimal user set, loading full profile in background...');
       
-      console.log('User signed in successfully:', user.id);
+      // Load full profile in background
+      this.loadUserProfile(supabaseUser.id).then(userProfile => {
+        if (!userProfile) {
+          console.warn('BetterAuthService: Could not load full profile, using minimal user data');
+          return;
+        }
+        
+        console.log('BetterAuthService: Full profile loaded, updating user...');
+        const fullUser: User = {
+          id: supabaseUser.id,
+          email: supabaseUser.email,
+          displayName: userProfile.display_name || supabaseUser.email?.split('@')[0],
+          photoURL: supabaseUser.user_metadata?.avatar_url,
+          role: userProfile.role,
+          createdAt: userProfile.created_at ? new Date(userProfile.created_at) : new Date(),
+          lastLoginAt: userProfile.last_login_at ? new Date(userProfile.last_login_at) : new Date(),
+          preferences: userProfile.preferences,
+          premium: userProfile.premium,
+          permissions: userProfile.permissions,
+          supportInfo: userProfile.support_info,
+        };
+        
+        this.currentUser = fullUser;
+        if (this.onAuthStateChange) {
+          this.onAuthStateChange(fullUser);
+        }
+        
+        if (Platform.OS === 'web' && isLocalStorageAvailable()) {
+          cacheSession(fullUser);
+        }
+        
+        this.updateLastLogin(supabaseUser.id).catch(console.error);
+      }).catch(error => {
+        console.error('BetterAuthService: Error loading full profile:', error);
+      });
+      
+      console.log('User signed in successfully:', minimalUser.id);
       
     } catch (error) {
       console.error('Error handling sign in:', error);
@@ -1198,39 +1203,66 @@ export class BetterAuthService {
   }
 
   private async loadUserProfile(userId: string): Promise<any | null> {
-    try {
-      console.log('BetterAuthService: Loading user profile for:', userId);
-      
-      // Add timeout to prevent hanging on database queries
-      const profilePromise = supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database query timeout')), 10000) // 10 second timeout
-      );
-      
-      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
-      
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // No rows returned - profile doesn't exist
-          console.log('BetterAuthService: No user profile found for:', userId);
+    const maxRetries = Platform.OS === 'web' ? 2 : 3;
+    const retryDelay = 1000; // 1 second between retries
+    const queryTimeoutMs = Platform.OS === 'web' ? 5000 : 15000; // 15s for mobile
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 1) {
+          console.log(`BetterAuthService: Retrying profile load (attempt ${attempt}/${maxRetries}) for:`, userId);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        } else {
+          console.log('BetterAuthService: Loading user profile for:', userId);
+        }
+        
+        const profilePromise = supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database query timeout')), queryTimeoutMs)
+        );
+        
+        const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
+        
+        if (error) {
+          if (error.code === 'PGRST116') {
+            console.log('BetterAuthService: No user profile found for:', userId);
+            return null;
+          }
+          
+          if (attempt < maxRetries) {
+            console.warn(`BetterAuthService: Profile load failed (attempt ${attempt}/${maxRetries}), retrying...`);
+            continue;
+          }
+          
+          console.error('BetterAuthService: Error loading user profile:', error);
           return null;
         }
-        console.error('BetterAuthService: Error loading user profile:', error);
-        return null;
+        
+        console.log('BetterAuthService: User profile loaded successfully');
+        return profile;
+      } catch (raceError) {
+        if (raceError instanceof Error && raceError.message.includes('timeout')) {
+          if (attempt < maxRetries) {
+            console.warn(`BetterAuthService: Database query timed out (attempt ${attempt}/${maxRetries}), retrying...`);
+            continue;
+          }
+          console.error('BetterAuthService: Database query timed out after', maxRetries, 'attempts');
+          return null;
+        }
+        
+        if (attempt === maxRetries) {
+          throw raceError;
+        }
       }
-      
-      console.log('BetterAuthService: User profile loaded successfully');
-      return profile;
-      
-    } catch (error) {
-      console.error('BetterAuthService: Exception loading user profile:', error);
-      return null;
     }
+    
+    console.error('BetterAuthService: Failed to load user profile after', maxRetries, 'attempts');
+    return null;
   }
 
   private async createUserProfile(supabaseUser: any): Promise<any> {
@@ -1245,29 +1277,15 @@ export class BetterAuthService {
       const userRole = roleService.determineUserRole(supabaseUser.email);
       console.log('Assigned role based on domain:', userRole);
       
-      // If profile already exists, update the role based on email domain
+      // If profile already exists, preserve the existing role but update other fields if needed
       if (existingProfile) {
-        console.log('Profile already exists, updating role from', existingProfile.role, 'to', userRole);
-        
-        // Update the role in the database
-        const { error: updateError } = await supabase
-          .from('user_profiles')
-          .update({ 
-            role: userRole,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', supabaseUser.id);
-        
-        if (updateError) {
-          console.warn('Failed to update role in existing profile:', updateError);
-        }
-        
-        // Return the updated profile
-        return {
-          ...existingProfile,
-          role: userRole
-        };
+        console.log('Profile already exists, preserving existing role:', existingProfile.role);
+        // Return existing profile without modification - this prevents overwriting manually assigned roles
+        return existingProfile;
       }
+      
+      // Profile doesn't exist - this means it's the initial signup, create new profile
+      console.log('No existing profile found, creating new user profile');
       
       const profileData = {
         id: supabaseUser.id,
@@ -1373,12 +1391,13 @@ export class BetterAuthService {
       const userRole = roleService.determineUserRole(supabaseUser.email);
       console.log('Assigned role for minimal profile:', userRole);
       
-      // If profile already exists, use the updated role
+      // If profile already exists, preserve the existing role to avoid overwriting manually assigned roles
       if (existingProfile) {
-        console.log('Profile already exists in minimal profile, using updated role:', userRole);
+        const existingRole = existingProfile.role || 'user';
+        console.log('Profile already exists in minimal profile, keeping existing role:', existingRole);
         return {
           ...existingProfile,
-          role: userRole
+          role: existingRole // Keep the existing role, don't overwrite
         };
       }
       
@@ -1848,12 +1867,18 @@ export class BetterAuthService {
   }
 
   private async restoreSession() {
+    // Skip if we already have a current user
+    if (this.currentUser) {
+      console.log('BetterAuthService: User already exists, skipping session restoration');
+      return;
+    }
+
     try {
       console.log('BetterAuthService: Attempting to restore session...');
       
       // Add timeout for session restoration to prevent hanging
       // Mobile needs more time due to slower network and app state changes
-      const timeoutMs = Platform.OS === 'web' ? 8000 : 20000; // Increased mobile timeout to 20s
+      const timeoutMs = Platform.OS === 'web' ? 10000 : 30000; // 10s web, 30s mobile
       const sessionPromise = this.performSessionRestoration();
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error(`Session restoration timeout (${timeoutMs}ms)`)), timeoutMs)
@@ -1865,16 +1890,10 @@ export class BetterAuthService {
       // Handle timeout gracefully without showing error to user
       if (error instanceof Error && error.message.includes('timeout')) {
         console.warn('BetterAuthService: Session restoration timed out - this is normal on slow networks');
-        // Don't show this error to the user, just log it
         return;
       }
       
       console.error('Error restoring session:', error);
-      // Don't throw error to prevent app from crashing
-      // On mobile, try to recover gracefully
-      if (Platform.OS !== 'web') {
-        console.log('BetterAuthService: Mobile session restoration failed, will retry on next app activation');
-      }
     }
   }
 
@@ -1888,10 +1907,11 @@ export class BetterAuthService {
         try {
           console.log(`BetterAuthService: Session restoration attempt ${attempt}/2...`);
           
-          // Add individual timeout for each attempt
+          // Add individual timeout for each attempt - longer for mobile
+          const attemptTimeoutMs = Platform.OS === 'web' ? 5000 : 10000;
           const attemptPromise = supabase.auth.getSession();
           const attemptTimeout = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Session attempt timeout')), 5000) // 5s per attempt
+            setTimeout(() => reject(new Error('Session attempt timeout')), attemptTimeoutMs)
           );
           
           const result = await Promise.race([attemptPromise, attemptTimeout]);
@@ -1927,48 +1947,9 @@ export class BetterAuthService {
       
       if (session?.user) {
         console.log('BetterAuthService: Found stored session, restoring user...');
-        // Verify the user still exists in the database before restoring
-        try {
-          // Add timeout for profile verification
-          const profilePromise = supabase
-            .from('user_profiles')
-            .select('id, role, preferences, premium')
-            .eq('id', session.user.id)
-            .single();
-          
-          const profileTimeout = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Profile verification timeout')), 2000) // Reduced to 2s
-          );
-          
-          const { data: userProfile, error: profileError } = await Promise.race([profilePromise, profileTimeout]);
-          
-          if (profileError || !userProfile) {
-            console.warn('User profile not found during session restoration:', profileError?.message);
-            
-            // Profile doesn't exist - clear session
-            console.log('BetterAuthService: Profile not found, clearing session');
-            await supabase.auth.signOut();
-            this.currentUser = null;
-            if (this.onAuthStateChange) {
-              this.onAuthStateChange(null);
-            }
-            return;
-          }
-          
-          // User exists, proceed with restoration
-          await this.handleSignIn(session.user);
-        } catch (profileError) {
-          console.warn('Error verifying user profile during session restoration:', profileError.message);
-          
-          // Clear the invalid session
-          await supabase.auth.signOut();
-          this.currentUser = null;
-          if (this.onAuthStateChange) {
-            this.onAuthStateChange(null);
-          }
-          
-          console.log('BetterAuthService: Session restoration failed - user must sign up first');
-        }
+        // Proceed with session restoration - don't block on profile verification
+        // The handleSignIn will load the profile and handle errors gracefully
+        await this.handleSignIn(session.user);
       } else {
         console.log('BetterAuthService: No stored session found');
         // Ensure user is cleared when no session exists

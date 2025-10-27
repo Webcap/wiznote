@@ -50,7 +50,7 @@ class MobileAuthLogger {
   ): Promise<{ success: boolean; capturedIp?: string }> {
     // Only use this for mobile platforms
     if (Platform.OS === 'web') {
-      console.warn('[MobileAuthLogger] This service is for mobile only. Use SecurityLoggingService for web.');
+      // Silently skip for web - this is expected
       return { success: false };
     }
 
@@ -134,11 +134,18 @@ class MobileAuthLogger {
         capturedIp: result.capturedIp,
       };
     } catch (error) {
-      console.error('[MobileAuthLogger] ❌ Error logging event:', {
-        error: error instanceof Error ? error.message : String(error),
-        endpoint: this.authLogEndpoint,
-        eventType,
-      });
+      // Silently handle network errors - these are expected if the function isn't deployed or network is unavailable
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Only log if it's not a network error (those are expected in dev/staging)
+      if (!errorMessage.includes('Network request failed') && !errorMessage.includes('Failed to fetch')) {
+        console.error('[MobileAuthLogger] ❌ Error logging event:', {
+          error: errorMessage,
+          endpoint: this.authLogEndpoint,
+          eventType,
+        });
+      }
+      
       return { success: false };
     }
   }

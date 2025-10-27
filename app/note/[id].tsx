@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
     Alert,
@@ -217,69 +218,173 @@ export default function NoteDetailScreen() {
     return null;
   };
 
-  useEffect(() => {
-    const loadNote = async () => {
-      if (!id) return;
-      
-      // Wait for auth to finish loading before checking authentication
-      if (authLoading) {
-        console.log('Waiting for auth to load...');
-        return;
-      }
-      
-      setLoading(true);
-      
-      // First try to find the note in the user's notes
-      const foundNote = notes.find(n => n.id === id);
-      if (foundNote) {
-        setNote(foundNote);
-        setLoading(false);
-        return;
-      }
-      
-      // If not found in user's notes, try to fetch it directly (for shared notes)
-      // This requires authentication
-      if (!user?.id) {
-        console.log('User not authenticated, cannot access shared notes');
-        // Redirect to login if not authenticated
-        if (Platform.OS === 'web') {
-          router.push({
-            pathname: '/(auth)/login',
-            params: { redirect: `/note/${id}` }
-          });
-        } else {
-          Alert.alert(
-            'Authentication Required',
-            'Please sign in to view this shared note.',
-            [
-              { text: 'Cancel', style: 'cancel', onPress: () => router.back() },
-              { text: 'Sign In', onPress: () => router.push('/(auth)/login') }
-            ]
-          );
-        }
-        setLoading(false);
-        return;
-      }
-
-      console.log('Note not found in user notes, trying to fetch as shared note...');
-      try {
-        const sharedNote = await supabaseNoteStorage.getNote(id);
-        if (sharedNote) {
-          console.log('Successfully loaded shared note:', sharedNote.title);
-          setNote(sharedNote);
-        } else {
-          console.log('Note not found or not shared with current user');
-          setNote(null);
-        }
-      } catch (error) {
-        console.error('Error fetching shared note:', error);
-        setNote(null);
+  const loadNote = useCallback(async () => {
+    if (!id) return;
+    
+    // Wait for auth to finish loading before checking authentication
+    if (authLoading) {
+      console.log('Waiting for auth to load...');
+      return;
+    }
+    
+    setLoading(true);
+    
+    // First try to find the note in the user's notes
+    const foundNote = notes.find(n => n.id === id);
+    if (foundNote) {
+      console.log('Note found in user notes, updating display');
+      setNote(foundNote);
+      setLoading(false);
+      return;
+    }
+    
+    // If not found in user's notes, try to fetch it directly (for shared notes)
+    // This requires authentication
+    if (!user?.id) {
+      console.log('User not authenticated, cannot access shared notes');
+      // Redirect to login if not authenticated
+      if (Platform.OS === 'web') {
+        router.push({
+          pathname: '/(auth)/login',
+          params: { redirect: `/note/${id}` }
+        });
+      } else {
+        Alert.alert(
+          'Authentication Required',
+          'Please sign in to view this shared note.',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => router.back() },
+            { text: 'Sign In', onPress: () => router.push('/(auth)/login') }
+          ]
+        );
       }
       setLoading(false);
-    };
+      return;
+    }
 
-    loadNote();
+    console.log('Note not found in user notes, trying to fetch as shared note...');
+    try {
+      const sharedNote = await supabaseNoteStorage.getNote(id);
+      if (sharedNote) {
+        console.log('Successfully loaded shared note:', sharedNote.title);
+        setNote(sharedNote);
+      } else {
+        console.log('Note not found or not shared with current user');
+        setNote(null);
+      }
+    } catch (error) {
+      console.error('Error fetching shared note:', error);
+      setNote(null);
+    }
+    setLoading(false);
   }, [id, notes, user?.id, authLoading]);
+
+  useEffect(() => {
+    loadNote();
+  }, [loadNote]);
+
+  // Track if we need to force refresh
+  const shouldForceRefresh = useRef(false);
+  
+  // Update note when the notes array changes (e.g., after save)
+  useEffect(() => {
+    if (!id || notes.length === 0) return;
+    
+    const updatedNote = notes.find(n => n.id === id);
+    if (!updatedNote) return;
+    
+    setNote(prevNote => {
+      // If we don't have a note yet, set it
+      if (!prevNote) {
+        console.log('[NoteDetail] First load: setting note from notes array');
+        shouldForceRefresh.current = false;
+        return updatedNote;
+      }
+      
+      // If force refresh is requested (e.g., after returning from edit), always update
+      if (shouldForceRefresh.current) {
+        console.log('[NoteDetail] Force refresh requested, updating display');
+        shouldForceRefresh.current = false;
+        return updatedNote;
+      }
+      
+      // Compare content to detect changes
+      const currentContent = prevNote.content || '';
+      const updatedContent = updatedNote.content || '';
+      const currentHtml = prevNote.contentHtml || '';
+      const updatedHtml = updatedNote.contentHtml || '';
+      const currentUpdatedAt = prevNote.updatedAt?.getTime() || 0;
+      const updatedUpdatedAt = updatedNote.updatedAt?.getTime() || 0;
+      
+      const hasContentChanged = currentContent !== updatedContent;
+      const hasHtmlChanged = currentHtml !== updatedHtml;
+      const hasTimestampChanged = currentUpdatedAt !== updatedUpdatedAt;
+      
+      console.log('[NoteDetail] Checking note update:', {
+        noteId: prevNote.id,
+        currentContentLength: currentContent.length,
+        updatedContentLength: updatedContent.length,
+        currentHtmlLength: currentHtml.length,
+        updatedHtmlLength: updatedHtml.length,
+        currentTimestamp: currentUpdatedAt,
+        updatedTimestamp: updatedUpdatedAt,
+        hasContentChanged,
+        hasHtmlChanged,
+        hasTimestampChanged
+      });
+      
+      if (hasContentChanged || hasHtmlChanged || hasTimestampChanged) {
+        console.log('[NoteDetail] Note data changed in notes array, updating display');
+        return updatedNote;
+      }
+      
+      // No changes, return previous note
+      return prevNote;
+    });
+  }, [notes, id]);
+
+  // Refresh note when screen comes into focus (e.g., after returning from edit)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[NoteDetail] 🔄 useFocusEffect triggered');
+      
+      if (!id) {
+        console.log('[NoteDetail] No id, skipping');
+        return;
+      }
+      
+      // Fetch directly from database to get latest data every time
+      const fetchFromDatabase = async () => {
+        try {
+          console.log('[NoteDetail] 📡 Fetching latest note from database...');
+          
+          const freshNote = await supabaseNoteStorage.getNote(id);
+          if (freshNote) {
+            console.log('[NoteDetail] ✅ Got fresh note from database');
+            console.log('[NoteDetail] Fresh data from DB:', {
+              title: freshNote.title,
+              contentLength: freshNote.content?.length || 0,
+              htmlLength: freshNote.contentHtml?.length || 0,
+              updatedAt: freshNote.updatedAt?.getTime(),
+              contentPreview: freshNote.content?.substring(0, 50),
+              htmlPreview: freshNote.contentHtml?.substring(0, 50)
+            });
+            
+            // Force update the note state
+            setNote(freshNote);
+            
+            console.log('[NoteDetail] ✅ Display updated with fresh data!');
+          } else {
+            console.log('[NoteDetail] ❌ No note found in database');
+          }
+        } catch (error) {
+          console.error('[NoteDetail] ❌ Error fetching from database:', error);
+        }
+      };
+      
+      fetchFromDatabase();
+    }, [id])
+  );
 
   // Memoize note content combination to prevent unnecessary re-computation
   const combinedNoteContent = useMemo(() => {
@@ -302,7 +407,7 @@ export default function NoteDetailScreen() {
     }
     
     return text;
-  }, [note?.content, note?.audioFiles, (note as any)?.transcription]);
+  }, [note?.content, note?.contentHtml, note?.updatedAt, note?.audioFiles, (note as any)?.transcription]);
 
   // Memoized key details generation function
   const generateKeyDetails = useCallback(async (text: string) => {

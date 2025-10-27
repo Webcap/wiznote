@@ -22,6 +22,39 @@
           ]
         },
         {
+          "title": "Security Improvements",
+          "emoji": "🔒",
+          "items": [
+            {
+              "title": "Role creation restriction",
+              "description": "Roles now only created during account signup",
+              "details": [
+                "Fixed roles being created during sign-in, OAuth flows, and session restoration",
+                "Prevents unauthorized role assignment outside of the signup process",
+                "Proper role assignment based on email domain during account creation",
+                "Improved security by limiting role creation to legitimate account signup only",
+                "Enhanced role preservation logic to prevent overwriting manually assigned roles"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Rich Text Editing",
+          "emoji": "✏️",
+          "items": [
+            {
+              "title": "Fixed editing rich text notes",
+              "description": "Rich text notes can now be properly edited and saved",
+              "details": [
+                "Fixed content HTML preservation during note editing",
+                "Improved rich text editor state management",
+                "Proper content format handling between edit and view modes",
+                "Enhanced save functionality for rich text content"
+              ]
+            }
+          ]
+        },
+        {
           "title": "UI Enhancements",
           "emoji": "🎨",
           "items": [
@@ -43,6 +76,16 @@
                 "Buttons and action items use theme-aware colors",
                 "Consistent theming across all note detail components",
                 "Improved readability in both light and dark themes"
+              ]
+            },
+            {
+              "title": "Fixed back button on edit screen",
+              "description": "Edit screen navigation now works properly",
+              "details": [
+                "Back button properly disabled during save operations to prevent data loss",
+                "Confirmation dialog appears when attempting to discard unsaved changes",
+                "Improved navigation flow between edit and detail screens",
+                "Better handling of unsaved changes detection"
               ]
             }
           ]

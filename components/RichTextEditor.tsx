@@ -26,15 +26,20 @@ const getQuillHTML = (placeholder: string, backgroundColor: string, textColor: s
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: ${backgroundColor};
       color: ${textColor};
+      height: auto;
+      min-height: 200px;
     }
     #editor {
       min-height: 200px;
       font-size: 16px;
       line-height: 24px;
+      height: auto;
     }
     .ql-editor {
       color: ${textColor} !important;
       background: ${backgroundColor} !important;
+      min-height: 200px;
+      height: auto;
     }
     .ql-editor.ql-blank::before {
       color: #999 !important;
@@ -97,7 +102,13 @@ const getQuillHTML = (placeholder: string, backgroundColor: string, textColor: s
     
     // Expose function to set content
     window.setQuillContent = function(html) {
-      quill.root.innerHTML = html;
+      quill.root.innerHTML = html || '';
+      // Ensure editor expands to fit content
+      setTimeout(function() {
+        var editor = quill.root;
+        editor.style.height = 'auto';
+        editor.style.overflow = 'visible';
+      }, 100);
     };
     
     // Notify ready
@@ -133,10 +144,16 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         setIsReady(true);
         if (value && webViewRef.current) {
           setTimeout(() => {
-            webViewRef.current?.postMessage(JSON.stringify({
-              type: 'set-content',
-              html: value
-            }));
+            // Use injectJavaScript to call the function directly
+            webViewRef.current?.injectJavaScript(`
+              try {
+                if (window.setQuillContent) {
+                  window.setQuillContent(${JSON.stringify(value)});
+                }
+              } catch (e) {
+                console.error('Error setting content:', e);
+              }
+            `);
           }, 100);
         }
       } else if (data.type === 'content-change') {
@@ -154,10 +171,16 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   useEffect(() => {
     if (isReady && value && webViewRef.current) {
-      webViewRef.current.postMessage(JSON.stringify({
-        type: 'set-content',
-        html: value
-      }));
+      // Use injectJavaScript to call the function directly
+      webViewRef.current.injectJavaScript(`
+        try {
+          if (window.setQuillContent) {
+            window.setQuillContent(${JSON.stringify(value)});
+          }
+        } catch (e) {
+          console.error('Error setting content:', e);
+        }
+      `);
     }
   }, [value, isReady]);
 
@@ -172,8 +195,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         javaScriptEnabled={true}
         domStorageEnabled={true}
         startInLoadingState={true}
-        scrollEnabled={false}
-        showsVerticalScrollIndicator={false}
+        scrollEnabled={true}
+        nestedScrollEnabled={true}
+        showsVerticalScrollIndicator={true}
       />
     </View>
   );
@@ -183,7 +207,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     minHeight: 400,
-    overflow: 'hidden',
+    maxHeight: '100%',
   },
   toolbar: {
     paddingHorizontal: 20,
@@ -192,5 +216,6 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
+    height: '100%',
   },
 });

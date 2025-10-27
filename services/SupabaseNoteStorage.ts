@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { Note, SharePermission, UpdateNoteData } from '../types/Note';
 import { validateNoteTitle, validateNoteContent, NoteIdSchema } from '../schemas/NoteSchema';
 import { sanitizeNoteTitle, sanitizeNoteContent } from '../utils/sanitization';
+import { Platform } from 'react-native';
 
 export class SupabaseNoteStorage {
   private currentUser: string | null = null;
@@ -128,6 +129,41 @@ export class SupabaseNoteStorage {
     this.onNotesChange = handler;
   }
 
+  // Trigger a manual refresh of notes (useful after saves)
+  async triggerNotesRefresh(): Promise<void> {
+    console.log('SupabaseNoteStorage: triggerNotesRefresh called', { 
+      hasValidUser: this.hasValidUser(), 
+      hasChangeHandler: !!this.onNotesChange 
+    });
+    
+    if (!this.hasValidUser()) {
+      console.log('SupabaseNoteStorage: Cannot trigger refresh - no valid user');
+      return;
+    }
+
+    try {
+      console.log('SupabaseNoteStorage: Fetching notes...');
+      const notes = await this.getNotes();
+      console.log('SupabaseNoteStorage: Got notes, count:', notes.length);
+      
+      // Always trigger the handler if set, even if it means we'll refresh
+      if (this.onNotesChange) {
+        console.log('SupabaseNoteStorage: Triggering notes change handler with', notes.length, 'notes');
+        console.log('SupabaseNoteStorage: Notes data:', notes.map(n => ({ 
+          id: n.id, 
+          title: n.title, 
+          updatedAt: n.updatedAt?.getTime() 
+        })));
+        this.onNotesChange(notes);
+        console.log('SupabaseNoteStorage: Change handler called successfully');
+      } else {
+        console.warn('SupabaseNoteStorage: No change handler set, cannot notify of updates');
+      }
+    } catch (error) {
+      console.error('SupabaseNoteStorage: Error triggering notes refresh:', error);
+    }
+  }
+
   setOnlineStatus(online: boolean) {
     this.isOnline = online;
   }
@@ -178,9 +214,10 @@ export class SupabaseNoteStorage {
     try {
       console.log('SupabaseNoteStorage: Fetching notes for user:', this.currentUser);
       
-      // Add timeout to prevent blocking
+      // Add timeout to prevent blocking - longer for mobile
+      const timeoutMs = Platform.OS === 'web' ? 20000 : 35000;
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Supabase query timeout')), 15000);
+        setTimeout(() => reject(new Error('Supabase query timeout')), timeoutMs);
       });
       
       const queryPromise = supabase

@@ -129,9 +129,10 @@ export const useNotes = (userId: string) => {
     try {
       console.log('useNotes: Loading notes for user:', effectiveUserId);
       
-      // Add timeout to prevent blocking
+      // Add timeout to prevent blocking - longer for mobile
+      const timeoutMs = Platform.OS === 'web' ? 15000 : 30000;
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Note loading timeout')), 10000);
+        setTimeout(() => reject(new Error('Note loading timeout')), timeoutMs);
       });
       
       // Load notes from Supabase with timeout

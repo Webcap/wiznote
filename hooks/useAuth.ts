@@ -108,11 +108,22 @@ export const useAuth = () => {
       
       const user = await Promise.race([userPromise, timeoutPromise]) as User | null;
       
-      setAuthState({
-        user,
-        isLoading: false,
-        error: null,
-      });
+      // Only update state if we actually got a user
+      // Don't clear the user if auth state change handler already set it
+      if (user) {
+        setAuthState({
+          user,
+          isLoading: false,
+          error: null,
+        });
+      } else if (!authStateRef.current.user) {
+        // Only set to loading=false if no user exists
+        setAuthState({
+          user: null,
+          isLoading: false,
+          error: null,
+        });
+      }
 
       // Update connection state (simplified for now)
       setConnectionState({
@@ -122,11 +133,20 @@ export const useAuth = () => {
       });
     } catch (error) {
       console.error('useAuth: Error loading current user:', error);
-      setAuthState({
-        user: null,
-        isLoading: false,
-        error: 'Failed to load user session',
-      });
+      // Don't clear user on timeout if one is already set
+      if (!authStateRef.current.user) {
+        setAuthState({
+          user: null,
+          isLoading: false,
+          error: 'Failed to load user session',
+        });
+      } else {
+        setAuthState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: null,
+        }));
+      }
     }
   }, []);
 
@@ -155,23 +175,41 @@ export const useAuth = () => {
                   isLoading: false,
                   error: null,
                 });
-              } else {
+              } else if (!authStateRef.current.user) {
+                // Only clear user if one doesn't already exist
                 console.log('useAuth: Crash recovery found no user');
                 setAuthState({
                   user: null,
                   isLoading: false,
                   error: null,
                 });
+              } else {
+                console.log('useAuth: Crash recovery timeout, but user already exists');
+                // Keep existing user, just set loading to false
+                setAuthState(prev => ({
+                  ...prev,
+                  isLoading: false,
+                  error: null,
+                }));
               }
             } catch (error) {
               console.error('useAuth: Crash recovery failed:', error);
-              setAuthState({
-                user: null,
-                isLoading: false,
-                error: 'Failed to restore session. Please sign in again.',
-              });
+              if (!authStateRef.current.user) {
+                setAuthState({
+                  user: null,
+                  isLoading: false,
+                  error: 'Failed to restore session. Please sign in again.',
+                });
+              } else {
+                // Keep existing user on error
+                setAuthState(prev => ({
+                  ...prev,
+                  isLoading: false,
+                  error: null,
+                }));
+              }
             }
-          }, 18000); // Increased to 18 seconds to allow more time for session restoration
+          }, 50000); // Increased to 50 seconds to allow all retry attempts to complete (3 attempts × 15s + delays)
           
           return () => clearTimeout(recoveryTimer);
         }

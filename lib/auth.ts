@@ -166,7 +166,11 @@ async function logAuthEvent(
       );
     }
   } catch (error) {
-    console.error('Error logging auth event:', error);
+    // Silently fail - logging errors shouldn't break the auth flow
+    // Only log in development
+    if (__DEV__) {
+      console.error('[lib/auth] Error logging auth event:', error);
+    }
   }
 }
 

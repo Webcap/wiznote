@@ -20,12 +20,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Fixed
 
+#### Rich Text Editing
+- **Fixed editing rich text notes** - Rich text notes can now be properly edited and saved
+  - Fixed content HTML preservation during note editing
+  - Improved rich text editor state management
+  - Proper content format handling between edit and view modes
+  - Enhanced save functionality for rich text content
+
 #### Authentication Security
 - **Role creation restriction** - Roles are now only created during account signup
   - Fixed roles being created during sign-in, OAuth flows, and session restoration
   - Prevents unauthorized role assignment outside of the signup process
   - Proper role assignment based on email domain during account creation
   - Improved security by limiting role creation to legitimate account signup only
+  - Enhanced role preservation logic to prevent overwriting manually assigned roles
 
 ### 🔧 Changed
 
@@ -40,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Buttons and action items use theme-aware colors
   - Consistent theming across all note detail components
   - Improved readability in both light and dark themes
+
+- **Fixed back button on edit screen** - Edit screen navigation now works properly
+  - Back button properly disabled during save operations to prevent data loss
+  - Confirmation dialog appears when attempting to discard unsaved changes
+  - Improved navigation flow between edit and detail screens
+  - Better handling of unsaved changes detection
 
 ### 📁 Files Modified
 
