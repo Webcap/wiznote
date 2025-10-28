@@ -18,6 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Respects permissions for shared notes
   - Styled with danger color for clear visual indication
 
+#### Note Details Page
+- **Expandable content sections** - Long note content and summaries now have "See more" buttons
+  - Note content shows significantly more text before requiring expansion (3000 chars for rich text, 1500 for plain text)
+  - Summary section now truncates at 800 characters with expand option
+  - Both sections support expand/collapse functionality
+  - Enhanced spacing and line height for better readability
+  - Applied to both mobile and web platforms
+
 ### 🐛 Fixed
 
 #### Rich Text Editing
@@ -54,6 +62,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Confirmation dialog appears when attempting to discard unsaved changes
   - Improved navigation flow between edit and detail screens
   - Better handling of unsaved changes detection
+
+- **Increased content preview area** - Note content now gets more space on mobile
+  - Rich text preview increased from 2000 to 3000 characters
+  - Plain text preview increased from 500 to 1500 characters
+  - Max height increased from 400px to 800px for better content visibility
+  - Minimum height set to 400px for comfortable reading
+  - Improved line height (24px) and padding for better text readability
 
 ### 📁 Files Modified
 

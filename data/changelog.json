@@ -89,6 +89,40 @@
               ]
             }
           ]
+        },
+        {
+          "title": "Note Details Page",
+          "emoji": "📖",
+          "items": [
+            {
+              "title": "Expandable content sections",
+              "description": "Long note content and summaries now have \"See more\" buttons",
+              "details": [
+                "Note content shows significantly more text before requiring expansion (3000 chars for rich text, 1500 for plain text)",
+                "Summary section now truncates at 800 characters with expand option",
+                "Both sections support expand/collapse functionality",
+                "Enhanced spacing and line height for better readability",
+                "Applied to both mobile and web platforms"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Mobile Note Display",
+          "emoji": "📱",
+          "items": [
+            {
+              "title": "Increased content preview area",
+              "description": "Note content now gets more space on mobile",
+              "details": [
+                "Rich text preview increased from 2000 to 3000 characters",
+                "Plain text preview increased from 500 to 1500 characters",
+                "Max height increased from 400px to 800px for better content visibility",
+                "Minimum height set to 400px for comfortable reading",
+                "Improved line height (24px) and padding for better text readability"
+              ]
+            }
+          ]
         }
       ]
     },
