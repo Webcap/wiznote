@@ -109,39 +109,47 @@ function AppContent() {
   // Handle navigation based on auth state
   useEffect(() => {
     if (!isLoading) {
-      console.log('Layout: Auth state determined - isAuthenticated:', isAuthenticated);
+      console.log('Layout: Auth state determined - isAuthenticated:', isAuthenticated, 'user:', user?.id);
       
-
-      
-      if (isAuthenticated) {
-        console.log('Layout: User authenticated, navigating to tabs');
-        try {
-          router.replace('/(tabs)');
-        } catch (error) {
-          console.error('Layout: Error navigating to tabs:', error);
-          // Fallback to push
+      // Wait a bit longer on mobile to ensure auth state is fully propagated
+      // Don't navigate immediately if we don't have a definitive auth state
+      const navigationTimer = setTimeout(() => {
+        // Ensure we have a definitive auth state before navigating
+        const currentIsAuthenticated = !!user;
+        console.log('Layout: After delay - isAuthenticated:', currentIsAuthenticated);
+        
+        if (currentIsAuthenticated) {
+          console.log('Layout: User authenticated, navigating to tabs');
           try {
-            router.push('/(tabs)');
-          } catch (fallbackError) {
-            console.error('Layout: Fallback navigation also failed:', fallbackError);
+            router.replace('/(tabs)');
+          } catch (error) {
+            console.error('Layout: Error navigating to tabs:', error);
+            // Fallback to push
+            try {
+              router.push('/(tabs)');
+            } catch (fallbackError) {
+              console.error('Layout: Fallback navigation also failed:', fallbackError);
+            }
+          }
+        } else {
+          console.log('Layout: User not authenticated, navigating to login');
+          try {
+            router.replace('/(auth)/login');
+          } catch (error) {
+            console.error('Layout: Error navigating to login:', error);
+            // Fallback to push
+            try {
+              router.push('/(auth)/login');
+            } catch (fallbackError) {
+              console.error('Layout: Fallback navigation also failed:', fallbackError);
+            }
           }
         }
-      } else {
-        console.log('Layout: User not authenticated, navigating to login');
-        try {
-          router.replace('/(auth)/login');
-        } catch (error) {
-          console.error('Layout: Error navigating to login:', error);
-          // Fallback to push
-          try {
-            router.push('/(auth)/login');
-          } catch (fallbackError) {
-            console.error('Layout: Fallback navigation also failed:', fallbackError);
-          }
-        }
-      }
+      }, 1500); // Increased to 1500ms to allow auth state to fully propagate on mobile
+      
+      return () => clearTimeout(navigationTimer);
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, user, router]);
 
   // Show loading screen while auth is being determined or fonts are loading
   if (!loaded || isLoading) {

@@ -1,6 +1,6 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
     KeyboardAvoidingView,
@@ -47,6 +47,11 @@ const ErrorBoundary = ({ children, fallback }: { children: React.ReactNode; fall
   }
 };
 
+// Memoize the TextInput to prevent re-renders
+const MemoizedTextInput = React.memo(({ style, value, onChangeText, ...props }: any) => {
+  return <TextInput style={style} value={value} onChangeText={onChangeText} {...props} />;
+});
+
 export default function CreateNoteScreen() {
   // Get URL parameters
   const params = useLocalSearchParams<{ noteId?: string; id?: string }>();
@@ -70,6 +75,12 @@ export default function CreateNoteScreen() {
   const prevNoteIdRef = useRef<string | undefined>(noteId);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialLoadRef = useRef(true);
+  const hasUserMadeChangesRef = useRef(false);
+  const originalNoteDataRef = useRef<{ title: string; content: string; contentHtml: string; tags: string[] } | null>(null);
+  
+  // Refs for TextInput to track cursor position
+  const contentInputRef = useRef<TextInput>(null);
+  const titleInputRef = useRef<TextInput>(null);
   
   // Authentication and data hooks
   const { user, isLoading: authLoading } = useAuth();
@@ -124,10 +135,26 @@ export default function CreateNoteScreen() {
   const placeholderColor = useThemeColor({}, 'textMuted');
   const safeAreaBg = useThemeColor({}, 'background');
   const borderThemeColor = useThemeColor({ light: '#E5E7EB', dark: '#333333' }, 'border');
+  
+  // Memoize input styles to prevent re-renders
+  const titleInputStyle = useMemo(() => [
+    styles.titleInput, 
+    { backgroundColor: inputBg, color: inputText, borderColor }
+  ], [inputBg, inputText, borderColor]);
+  
+  const contentInputStyle = useMemo(() => [
+    styles.contentInput, 
+    { backgroundColor: inputBg, color: inputText, borderColor }
+  ], [inputBg, inputText, borderColor]);
+  
+  const tagInputStyle = useMemo(() => [
+    styles.tagInput, 
+    { backgroundColor: inputBg, color: inputText, borderColor }
+  ], [inputBg, inputText, borderColor]);
 
   // Computed values
   const isEditMode = noteId && !noteId.startsWith('temp_');
-  const hasContent = title.trim() || content.trim();
+  const hasContent = title.trim() || content.trim() || contentHtml.trim();
   const isSaveDisabled = isSaving || authLoading || !isAuthenticated || !hasContent || !performManualSave;
 
   // Handler functions
@@ -185,17 +212,54 @@ export default function CreateNoteScreen() {
   }, [hasContent, isAuthenticated, performManualSave, noteId, title, content, contentHtml, contentFormat, tags]);
 
   const handleDiscard = useCallback(() => {
-    if (hasContent) {
-      Alert.alert(
-        'Discard Changes',
-        'Are you sure you want to discard your changes?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Discard', style: 'destructive', onPress: () => router.back() }
-        ]
-      );
+    const goBack = () => {
+      console.log('Navigating back from edit/create page');
+      try {
+        // Try to go back first
+        if (router.canGoBack()) {
+          console.log('Can go back, calling router.back()');
+          router.back();
+        } else {
+          console.log('Cannot go back, navigating to home');
+          // If there's no history, navigate to home
+          router.push('/(tabs)');
+        }
+      } catch (error) {
+        console.error('Error navigating back:', error);
+        // Fallback to home
+        router.push('/(tabs)');
+      }
+    };
+
+    // Check if user actually made changes
+    const userMadeChanges = hasUserMadeChangesRef.current;
+
+    console.log('Handle discard - hasContent:', hasContent, 'userMadeChanges:', userMadeChanges);
+
+    // On web, use confirm dialog instead of Alert.alert
+    if (Platform.OS === 'web') {
+      if (userMadeChanges) {
+        const shouldDiscard = window.confirm('Are you sure you want to discard your changes?');
+        if (shouldDiscard) {
+          goBack();
+        }
+      } else {
+        goBack();
+      }
     } else {
-      router.back();
+      // Use native Alert for mobile
+      if (userMadeChanges) {
+        Alert.alert(
+          'Discard Changes',
+          'Are you sure you want to discard your changes?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Discard', style: 'destructive', onPress: goBack }
+          ]
+        );
+      } else {
+        goBack();
+      }
     }
   }, [hasContent]);
 
@@ -208,6 +272,53 @@ export default function CreateNoteScreen() {
 
   const removeTag = useCallback((tagToRemove: string) => {
     setTags(prev => prev.filter(tag => tag !== tagToRemove));
+  }, []);
+  
+  // Track if we're currently typing to prevent auto-save from interfering
+  const isTypingRef = useRef(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Memoize onChangeText handlers
+  const handleTitleChange = useCallback((text: string) => {
+    isTypingRef.current = true;
+    
+    // Use startTransition to make state update non-blocking and prevent cursor issues
+    startTransition(() => {
+      setTitle(text);
+    });
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set typing to false after 500ms of no typing
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+    }, 500);
+  }, []);
+  
+  const handleContentChange = useCallback((text: string) => {
+    isTypingRef.current = true;
+    
+    // Use startTransition to make state update non-blocking and prevent cursor issues
+    startTransition(() => {
+      setContent(text);
+    });
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set typing to false after 500ms of no typing
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+    }, 500);
+  }, []);
+  
+  const handleNewTagChange = useCallback((text: string) => {
+    setNewTag(text);
   }, []);
 
   const handleConflictResolve = useCallback((resolution: any) => {
@@ -223,11 +334,44 @@ export default function CreateNoteScreen() {
     }
   }, []);
 
-  // Auto-save effect with debouncing
+  // Track user changes
   useEffect(() => {
-    if (!isAuthenticated || !hasContent || !scheduleAutoSave || isInitialLoadRef.current) {
+    if (!originalNoteDataRef.current || isInitialLoadRef.current) {
+      hasUserMadeChangesRef.current = false;
       return;
     }
+    
+    const hasChanges = 
+      title.trim() !== originalNoteDataRef.current.title ||
+      content.trim() !== originalNoteDataRef.current.content ||
+      contentHtml.trim() !== originalNoteDataRef.current.contentHtml ||
+      JSON.stringify(tags) !== JSON.stringify(originalNoteDataRef.current.tags);
+    
+    hasUserMadeChangesRef.current = hasChanges;
+    
+    if (hasChanges) {
+      console.log('User made changes detected');
+    } else {
+      console.log('No changes detected');
+    }
+  }, [title, content, contentHtml, tags]);
+
+  // Auto-save effect with debouncing
+  useEffect(() => {
+    // Skip auto-save if:
+    // 1. Not authenticated
+    // 2. No content
+    // 3. Initial load (still loading data)
+    // 4. User is currently typing
+    // 5. For existing notes: user hasn't made any changes from original data
+    const isNewNote = !noteId || noteId.startsWith('temp_') || !originalNoteDataRef.current;
+    const shouldSkipAutoSave = !isAuthenticated || !hasContent || !scheduleAutoSave || isInitialLoadRef.current || isTypingRef.current || (!isNewNote && !hasUserMadeChangesRef.current);
+    
+    if (shouldSkipAutoSave) {
+      return;
+    }
+
+    console.log('Auto-save triggered - user made changes');
 
     // Clear existing timeout
     if (autoSaveTimeoutRef.current) {
@@ -247,6 +391,24 @@ export default function CreateNoteScreen() {
         };
 
         await scheduleAutoSave(noteData);
+        
+        // After successful save, update the original data reference
+        // This prevents the discard prompt from showing when there are no unsaved changes
+        if (!noteId || noteId.startsWith('temp_')) {
+          // For new notes, just clear the changes flag
+          hasUserMadeChangesRef.current = false;
+          console.log('Auto-save completed - changes saved, resetting change tracking');
+        } else {
+          // For existing notes, update the original data to match current state
+          originalNoteDataRef.current = {
+            title: title.trim(),
+            content: content.trim(),
+            contentHtml: contentHtml.trim(),
+            tags: [...tags],
+          };
+          hasUserMadeChangesRef.current = false;
+          console.log('Auto-save completed - changes saved, resetting change tracking');
+        }
       } catch (error) {
         console.error('Auto-save failed:', error);
       }
@@ -263,13 +425,31 @@ export default function CreateNoteScreen() {
   useEffect(() => {
     if (isAuthenticated && noteId && !noteId.startsWith('temp_')) {
       const existingNote = notes.find(n => n.id === noteId);
-      if (existingNote && isInitialLoadRef.current) {
+      if (existingNote && (isInitialLoadRef.current || prevNoteIdRef.current !== noteId)) {
+        console.log('🔍 Loading note data:', { 
+          noteId, 
+          hasTitle: !!existingNote.title,
+          hasContent: !!existingNote.content,
+          hasContentHtml: !!existingNote.contentHtml,
+          contentFormat: existingNote.contentFormat
+        });
         setTitle(existingNote.title || '');
         setContent(existingNote.content || '');
         setContentHtml(existingNote.contentHtml || '');
         setContentFormat(existingNote.contentFormat || 'plain');
         setTags(existingNote.tags || []);
+        
+        // Store original data to detect changes
+        originalNoteDataRef.current = {
+          title: existingNote.title || '',
+          content: existingNote.content || '',
+          contentHtml: existingNote.contentHtml || '',
+          tags: existingNote.tags || []
+        };
+        
+        hasUserMadeChangesRef.current = false;
         isInitialLoadRef.current = false;
+        prevNoteIdRef.current = noteId;
       }
     }
   }, [noteId, notes, isAuthenticated]);
@@ -300,6 +480,9 @@ export default function CreateNoteScreen() {
     return () => {
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
     };
   }, []);
@@ -424,8 +607,12 @@ export default function CreateNoteScreen() {
           {/* Header */}
           <View style={[styles.header, { backgroundColor: safeAreaBg, borderBottomColor: borderThemeColor }]}>
             {isAuthenticated && (
-              <TouchableOpacity onPress={handleDiscard} style={styles.backButton}>
-                <Ionicons name="arrow-back" size={24} color={iconColor} />
+              <TouchableOpacity 
+                onPress={handleDiscard} 
+                style={[styles.backButton, isSaving && { opacity: 0.5 }]} 
+                disabled={isSaving}
+              >
+                <Ionicons name="arrow-back" size={24} color={isSaving ? '#999' : iconColor} />
               </TouchableOpacity>
             )}
             
@@ -457,21 +644,24 @@ export default function CreateNoteScreen() {
             showsVerticalScrollIndicator={false}
             contentInsetAdjustmentBehavior="automatic"
             keyboardShouldPersistTaps="handled"
+            removeClippedSubviews={false}
+            keyboardDismissMode="none"
           >
             {isAuthenticated ? (
               <>
-                <TextInput
-                  style={[styles.titleInput, { backgroundColor: inputBg, color: inputText, borderColor }]}
+                <MemoizedTextInput
+                  style={titleInputStyle}
                   placeholder="Note title..."
                   placeholderTextColor={placeholderColor}
                   value={title}
-                  onChangeText={setTitle}
+                  onChangeText={handleTitleChange}
                   multiline
                   maxLength={200}
+                  editable={!isSaving}
                 />
 
                 {isRichTextEnabled ? (
-                  <View style={{ marginHorizontal: 20, marginTop: 12, marginBottom: 24, minHeight: 400 }}>
+                  <View style={{ marginHorizontal: 20, marginTop: 12, marginBottom: 24 }}>
                     <RichTextEditor
                       value={contentHtml || content}
                       onChange={(html, plainText) => {
@@ -485,17 +675,19 @@ export default function CreateNoteScreen() {
                         }, 0);
                       }}
                       placeholder="Start writing your note..."
+                      style={{ minHeight: 400 }}
                     />
                   </View>
                 ) : (
-                  <TextInput
-                    style={[styles.contentInput, { backgroundColor: inputBg, color: inputText, borderColor }]}
+                  <MemoizedTextInput
+                    style={contentInputStyle}
                     placeholder="Start writing your note..."
                     placeholderTextColor={placeholderColor}
                     value={content}
-                    onChangeText={setContent}
+                    onChangeText={handleContentChange}
                     multiline
                     textAlignVertical="top"
+                    editable={!isSaving}
                   />
                 )}
 
@@ -504,13 +696,15 @@ export default function CreateNoteScreen() {
                   <ThemedText style={styles.tagsTitle}>Tags</ThemedText>
                   <View style={styles.tagInputContainer}>
                     <TextInput
-                      style={[styles.tagInput, { backgroundColor: inputBg, color: inputText, borderColor }]}
+                      style={tagInputStyle}
                       placeholder="Add a tag..."
                       placeholderTextColor={placeholderColor}
                       value={newTag}
-                      onChangeText={setNewTag}
+                      onChangeText={handleNewTagChange}
                       onSubmitEditing={addTag}
                       returnKeyType="done"
+                      autoCorrect={false}
+                      textContentType="none"
                     />
                     <TouchableOpacity onPress={addTag} style={[styles.addTagButton, { backgroundColor: tagBg }]}>
                       <Ionicons name="add" size={20} color={tagText} />

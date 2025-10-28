@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { NoteFormData } from '../types/Note';
 import { localSaveManager } from './LocalSaveManager';
+import { supabaseNoteStorage } from './SupabaseNoteStorage';
 
 export interface SaveOperation {
   id: string;
@@ -375,6 +376,10 @@ export class SaveManagerService {
         pendingOp.data.id = note.id;
       }
     }
+
+    // Trigger a refresh of the notes list so the UI shows new note
+    console.log('SaveManagerService: Note created, triggering refresh');
+    this.refreshNotes();
   }
 
   private async updateNote(operation: SaveOperation): Promise<void> {
@@ -382,14 +387,33 @@ export class SaveManagerService {
       throw new Error('User not authenticated');
     }
 
+    console.log('SaveManagerService: Updating note with data:', {
+      noteId: operation.data.id,
+      hasTitle: !!operation.data.title,
+      titleLength: operation.data.title?.length || 0,
+      hasContent: !!operation.data.content,
+      contentLength: operation.data.content?.length || 0,
+      hasContentHtml: !!operation.data.contentHtml,
+      contentHtmlLength: operation.data.contentHtml?.length || 0,
+      contentFormat: operation.data.contentFormat,
+      tagsCount: operation.data.tags?.length || 0
+    });
+
     const updateData: any = {
       updated_at: new Date().toISOString(),
     };
 
-    // Only include fields that are being updated
-    if (operation.data.title !== undefined) updateData.title = operation.data.title;
-    if (operation.data.content !== undefined) updateData.content = operation.data.content;
-    if (operation.data.contentHtml !== undefined) updateData.content_html = operation.data.contentHtml;
+    // Always update title and content if provided
+    if (operation.data.title !== undefined) {
+      updateData.title = operation.data.title;
+    }
+    if (operation.data.content !== undefined) {
+      updateData.content = operation.data.content;
+    }
+    // Always include contentHtml if provided - don't check for undefined explicitly
+    if (operation.data.contentHtml !== null && operation.data.contentHtml !== undefined) {
+      updateData.content_html = operation.data.contentHtml;
+    }
     if (operation.data.contentFormat !== undefined) updateData.content_format = operation.data.contentFormat;
     if (operation.data.tags !== undefined) updateData.tags = operation.data.tags;
     if (operation.data.isPinned !== undefined) updateData.is_pinned = operation.data.isPinned;
@@ -397,6 +421,13 @@ export class SaveManagerService {
     if (operation.data.audioFiles !== undefined) updateData.audio_files = operation.data.audioFiles;
     if (operation.data.keyDetails !== undefined) updateData.key_details = operation.data.keyDetails;
     if (operation.data.summary !== undefined) updateData.summary = operation.data.summary;
+
+    console.log('SaveManagerService: Sending update to database:', {
+      noteId: operation.data.id,
+      updateData: Object.keys(updateData),
+      contentLength: updateData.content?.length || 0,
+      contentHtmlLength: updateData.content_html?.length || 0
+    });
 
     const { error } = await supabase
       .from('notes')
@@ -406,6 +437,23 @@ export class SaveManagerService {
 
     if (error) {
       throw new Error(`Failed to update note: ${error.message}`);
+    }
+
+    console.log('SaveManagerService: Note updated successfully in database');
+
+    // Trigger a refresh of the notes list so the UI shows updated data
+    console.log('SaveManagerService: Note updated, triggering refresh');
+    this.refreshNotes();
+  }
+
+  private async refreshNotes(): Promise<void> {
+    // Trigger a manual refresh to update the notes list
+    try {
+      console.log('SaveManagerService: Starting notes refresh...');
+      await supabaseNoteStorage.triggerNotesRefresh();
+      console.log('SaveManagerService: Notes refresh completed');
+    } catch (error) {
+      console.error('SaveManagerService: Error refreshing notes:', error);
     }
   }
 

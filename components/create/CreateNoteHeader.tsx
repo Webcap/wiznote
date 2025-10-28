@@ -32,9 +32,15 @@ export const CreateNoteHeader: React.FC<CreateNoteHeaderProps> = ({
   return (
     <ThemedView style={styles.webHeader}>
       <View style={styles.webHeaderLeft}>
-        <TouchableOpacity style={styles.webBackButton} onPress={handleDiscard}>
-          <Ionicons name="arrow-back" size={20} color={inputText} />
-          <ThemedText style={styles.webBackText}>Back</ThemedText>
+        <TouchableOpacity 
+          style={[styles.webBackButton, isSaving && styles.webBackButtonDisabled]} 
+          onPress={handleDiscard}
+          disabled={isSaving}
+        >
+          <Ionicons name="arrow-back" size={20} color={isSaving ? '#999' : inputText} />
+          <ThemedText style={[styles.webBackText, isSaving && styles.webBackTextDisabled]}>
+            Back
+          </ThemedText>
         </TouchableOpacity>
       </View>
 
@@ -104,6 +110,13 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 14,
     fontWeight: '500',
+  },
+  webBackButtonDisabled: {
+    opacity: 0.5,
+    pointerEvents: 'none',
+  },
+  webBackTextDisabled: {
+    color: '#999',
   },
   webHeaderCenter: {
     flex: 2,

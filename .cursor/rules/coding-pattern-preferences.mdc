@@ -23,3 +23,8 @@ alwaysApply: true
 - If you create a page for mobile, ask the user if you should proceed with making a web-optimized page as well.
 - If you make a new feature, always ask if a feature flag is desired. 
 - If yes, add the feature flag to the admin feature flag management system so it can be toggled in the admin dashboard.
+
+- When updating `CHANGELOG.md` (developer changelog), also update `changelog.json` (public changelog) to ensure both logs remain in sync and reflect the latest changes.
+  - Review content for consistency between the two files.
+  - If relevant, reference actual line changes in commit or PR descriptions.
+  - This keeps public and internal changelogs aligned for accurate communication of updates.

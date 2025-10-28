@@ -6,14 +6,15 @@
 ### 📱 Google Play Store Release Notes (500 char limit)
 
 ```
-Note Management Updates 🗑️
+Note Management & Reading Updates 🗑️📖
 
 ✨ Delete button on note details
+📖 "See more" buttons for long content
+📝 Bigger content preview (3000 chars)
 🎨 Blue edit button for clarity
 🌙 Better theme support
-📱 Improved UI consistency
 
-Enhanced note management! ✨
+Enhanced viewing & management! ✨
 ```
 
 ---
@@ -29,6 +30,21 @@ Enhanced note management! ✨
 - **Visual indication**: Red danger color clearly identifies the delete action
 - **Both platforms**: Available on both mobile and web
 
+**📖 Expandable Content Sections (NEW FEATURE)**
+- **"See more" buttons**: Expand long note content and summaries
+- **Smart truncation**: Content shows up to 3000 characters before expand
+- **Summary support**: Summary section also supports expand/collapse
+- **Better visibility**: More content visible by default
+- **Consistent UX**: Same behavior across mobile and web
+- **Readability improvements**: Enhanced spacing and line height
+
+**📱 Content Display Improvements**
+- **Larger content preview**: Rich text shows 3000 chars (up from 2000)
+- **More text visible**: Plain text shows 1500 chars (up from 500)
+- **Increased height**: Max height 800px (up from 400px) for better viewing
+- **Better typography**: 24px line height for comfortable reading
+- **Summary enhancement**: Summary shows 800 chars with expand option
+
 **🎨 UI Enhancements**
 - **Edit button color update**: Changed edit button to distinctive blue (#007AFF)
 - **Distinctive blue color**: Edit button now uses blue (#007AFF) for better visibility
@@ -41,6 +57,8 @@ Enhanced note management! ✨
 
 **🎯 User Experience**
 - ✅ **Easier note management**: Quick delete action with confirmation
+- ✅ **Better content viewing**: More content visible without clicking expand
+- ✅ **Improved readability**: Enhanced line height and spacing
 - ✅ **Clearer interface**: Blue edit button for better visual hierarchy
 - ✅ **Better theming**: Note page now properly adapts to light/dark mode
 - ✅ **Consistent design**: Professional appearance across all platforms

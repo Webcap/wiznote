@@ -144,6 +144,19 @@ export class RoleService {
     try {
       console.log(`RoleService: Force assigning role '${newRole}' to user ${userId}`);
       
+      // Get current role and email before updating
+      const { data: currentProfile, error: fetchError } = await supabase
+        .from('user_profiles')
+        .select('role, email')
+        .eq('id', userId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const oldRole = (currentProfile?.role || 'user') as UserRole;
+      const userEmail = currentProfile?.email || 'unknown';
+      
+      // Update the role
       const { error } = await supabase
         .from('user_profiles')
         .update({ 
@@ -154,10 +167,10 @@ export class RoleService {
 
       if (error) throw error;
 
-      // Log the role change
-      await this.logRoleChange(userId, 'user', newRole, assignedBy, reason || 'Force role assignment');
+      // Log the role change with actual old and new roles
+      await this.logRoleChange(userId, oldRole, newRole, assignedBy, reason || 'Admin role assignment');
 
-      console.log(`RoleService: Successfully force assigned role '${newRole}' to user ${userId}`);
+      console.log(`RoleService: Successfully force assigned role '${newRole}' to user ${userId} (${userEmail})`);
     } catch (error) {
       this.handleError(error, 'Force Assign Role');
     }
@@ -468,20 +481,59 @@ export class RoleService {
     reason?: string
   ): Promise<void> {
     try {
-      // Create role_change_logs table if it doesn't exist
-      // This would be part of your database schema
-      const roleChangeLog: Omit<RoleChangeLog, 'id'> = {
+      // Get user and admin emails for logging
+      const [userProfile, adminProfile] = await Promise.all([
+        supabase.from('user_profiles').select('email').eq('id', userId).single(),
+        supabase.from('user_profiles').select('email').eq('id', changedBy).single()
+      ]);
+
+      const userEmail = userProfile.data?.email || 'unknown';
+      const adminEmail = adminProfile.data?.email || 'unknown';
+
+      // Log to security audit log using RPC function
+      const { error } = await supabase.rpc('log_security_event', {
+        p_event_type: 'admin.role.changed',
+        p_severity: 'warning', // Role changes are always logged as warning
+        p_user_id: changedBy, // The admin making the change
+        p_user_email: adminEmail,
+        p_user_role: 'admin', // Assumed since only admins can change roles
+        p_target_user_id: userId,
+        p_target_user_email: userEmail,
+        p_ip_address: null,
+        p_user_agent: null,
+        p_request_path: null,
+        p_request_method: null,
+        p_event_data: {
+          from_role: oldRole,
+          to_role: newRole,
+          reason: reason || 'Role assignment',
+          assigned_by: changedBy,
+          assigned_by_email: adminEmail,
+        },
+        p_error_message: null,
+        p_success: true,
+        p_metadata: {
+          timestamp: new Date().toISOString(),
+          action: 'role_changed',
+        },
+      });
+
+      if (error) {
+        console.error('RoleService: Error logging role change to security audit:', error);
+      } else {
+        console.log(`RoleService: Role change logged to security audit log: ${oldRole} → ${newRole}`);
+      }
+
+      // Also log to console for development
+      console.log('RoleService: Role change logged:', {
         userId,
+        userEmail,
         oldRole,
         newRole,
         changedBy,
-        changedAt: new Date(),
+        adminEmail,
         reason,
-      };
-
-      // Note: You'll need to create the role_change_logs table in your schema
-      // For now, we'll just log to console
-      console.log('RoleService: Role change logged:', roleChangeLog);
+      });
     } catch (error) {
       console.error('RoleService: Error logging role change:', error);
       // Don't throw error for logging failures

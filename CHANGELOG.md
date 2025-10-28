@@ -18,7 +18,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Respects permissions for shared notes
   - Styled with danger color for clear visual indication
 
+#### Note Details Page
+- **Expandable content sections** - Long note content and summaries now have "See more" buttons
+  - Note content shows significantly more text before requiring expansion (3000 chars for rich text, 1500 for plain text)
+  - Summary section now truncates at 800 characters with expand option
+  - Both sections support expand/collapse functionality
+  - Enhanced spacing and line height for better readability
+  - Applied to both mobile and web platforms
+
 ### 🐛 Fixed
+
+#### Rich Text Editing
+- **Fixed editing rich text notes** - Rich text notes can now be properly edited and saved
+  - Fixed content HTML preservation during note editing
+  - Improved rich text editor state management
+  - Proper content format handling between edit and view modes
+  - Enhanced save functionality for rich text content
 
 #### Authentication Security
 - **Role creation restriction** - Roles are now only created during account signup
@@ -26,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Prevents unauthorized role assignment outside of the signup process
   - Proper role assignment based on email domain during account creation
   - Improved security by limiting role creation to legitimate account signup only
+  - Enhanced role preservation logic to prevent overwriting manually assigned roles
 
 ### 🔧 Changed
 
@@ -40,6 +56,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Buttons and action items use theme-aware colors
   - Consistent theming across all note detail components
   - Improved readability in both light and dark themes
+
+- **Fixed back button on edit screen** - Edit screen navigation now works properly
+  - Back button properly disabled during save operations to prevent data loss
+  - Confirmation dialog appears when attempting to discard unsaved changes
+  - Improved navigation flow between edit and detail screens
+  - Better handling of unsaved changes detection
+
+- **Increased content preview area** - Note content now gets more space on mobile
+  - Rich text preview increased from 2000 to 3000 characters
+  - Plain text preview increased from 500 to 1500 characters
+  - Max height increased from 400px to 800px for better content visibility
+  - Minimum height set to 400px for comfortable reading
+  - Improved line height (24px) and padding for better text readability
 
 ### 📁 Files Modified
 
