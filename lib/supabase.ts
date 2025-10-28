@@ -117,6 +117,11 @@ export const supabase = createClient(
         return fetch(url, {
           ...options,
           signal: controller.signal,
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            ...options.headers,
+          },
         }).finally(() => {
           clearTimeout(timeoutId);
         });

@@ -34,7 +34,7 @@ export function getSecurityHeaders(): SecurityHeaders {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https: *.supabase.co",
-      "connect-src 'self' https://*.supabase.co https://generativelanguage.googleapis.com https://api.stripe.com https://api.webcap.media wss://*.supabase.co",
+      "connect-src 'self' https://*.supabase.co https://generativelanguage.googleapis.com https://api.stripe.com https://api.webcap.media https://ingesteer.services-prod.nsvcs.net wss://*.supabase.co",
       "frame-src 'self' https://js.stripe.com",
       "object-src 'none'",
       "base-uri 'self'",
