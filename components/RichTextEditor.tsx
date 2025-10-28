@@ -129,6 +129,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 }) => {
   const webViewRef = useRef<WebView>(null);
   const [isReady, setIsReady] = useState(false);
+  const isTypingRef = useRef(false);
+  const currentContentRef = useRef(value);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
@@ -162,6 +165,19 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           htmlPreview: data.html?.substring(0, 100),
           textLength: data.text?.length 
         });
+        currentContentRef.current = data.html;
+        isTypingRef.current = true;
+        
+        // Clear typing timeout
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        
+        // Set typing to false after 1 second
+        typingTimeoutRef.current = setTimeout(() => {
+          isTypingRef.current = false;
+        }, 1000);
+        
         onChange?.(data.html, data.text || '');
       }
     } catch (error) {
@@ -170,7 +186,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   }, [value, onChange]);
 
   useEffect(() => {
-    if (isReady && value && webViewRef.current) {
+    // Only update content if user is not typing and value actually changed
+    if (isReady && webViewRef.current && !isTypingRef.current && value !== currentContentRef.current) {
+      console.log('🔍 RichTextEditor: Updating content (user not typing)');
       // Use injectJavaScript to call the function directly
       webViewRef.current.injectJavaScript(`
         try {
@@ -181,8 +199,18 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           console.error('Error setting content:', e);
         }
       `);
+      currentContentRef.current = value;
     }
   }, [value, isReady]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // For mobile, use WebView with Quill
   return (

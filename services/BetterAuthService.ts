@@ -45,7 +45,7 @@ export class BetterAuthService {
     
     // Start session restoration as a backup after a short delay
     // This allows INITIAL_SESSION to fire first (which is the preferred method)
-    // On mobile, this ensures we restore the session even if INITIAL_SESSION doesn't fire within 3 seconds
+    // On mobile, this ensures we restore the session even if INITIAL_SESSION doesn't fire within 1 second
     // On web, this is a backup if the event listener doesn't catch it
     setTimeout(() => {
       // Only restore if we still don't have a user and are not already restoring
@@ -58,7 +58,7 @@ export class BetterAuthService {
       } else {
         console.log('BetterAuthService: Skipping manual restoration - user already loaded or restoration in progress');
       }
-    }, 3000); // 3 second delay to let INITIAL_SESSION fire first
+    }, 1000); // Reduced to 1 second delay to fix mobile auth timing issue
   }
 
   private initializeAuthStateListener() {
@@ -164,6 +164,31 @@ export class BetterAuthService {
         }
       }
       
+      // Check AsyncStorage cache on mobile
+      if (Platform.OS !== 'web') {
+        try {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          const cachedUserStr = await AsyncStorage.getItem(`cached_user_${supabaseUser.id}`);
+          if (cachedUserStr) {
+            const cachedUser = JSON.parse(cachedUserStr);
+            // Check if cache is less than 5 minutes old
+            const cacheAge = Date.now() - (cachedUser.cacheTimestamp || 0);
+            if (cacheAge < 5 * 60 * 1000) {
+              console.log('Using cached user data for faster loading on mobile');
+              this.currentUser = cachedUser;
+              if (this.onAuthStateChange) {
+                this.onAuthStateChange(cachedUser);
+              }
+              // Update last login in background
+              this.updateLastLogin(supabaseUser.id).catch(console.error);
+              return;
+            }
+          }
+        } catch (cacheError) {
+          console.warn('Could not load cached user on mobile:', cacheError);
+        }
+      }
+      
       // Set minimal user immediately so app doesn't redirect to login
       const minimalUser: User = {
         id: supabaseUser.id,
@@ -186,7 +211,7 @@ export class BetterAuthService {
       console.log('BetterAuthService: Minimal user set, loading full profile in background...');
       
       // Load full profile in background without blocking
-      this.loadUserProfile(supabaseUser.id).then(userProfile => {
+      this.loadUserProfile(supabaseUser.id).then(async userProfile => {
         if (!userProfile) {
           console.warn('BetterAuthService: Could not load full profile, using minimal user data');
           return;
@@ -212,8 +237,18 @@ export class BetterAuthService {
           this.onAuthStateChange(fullUser);
         }
         
-        if (isWeb && isLocalStorageAvailable()) {
+        if (Platform.OS === 'web' && isLocalStorageAvailable()) {
           cacheSession(fullUser);
+        } else if (Platform.OS !== 'web') {
+          // Cache on mobile using AsyncStorage
+          try {
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            const userWithTimestamp = { ...fullUser, cacheTimestamp: Date.now() };
+            await AsyncStorage.setItem(`cached_user_${supabaseUser.id}`, JSON.stringify(userWithTimestamp));
+            console.log('Cached user data on mobile');
+          } catch (cacheError) {
+            console.warn('Could not cache user on mobile:', cacheError);
+          }
         }
         
         this.updateLastLogin(supabaseUser.id).catch(console.error);
@@ -248,6 +283,31 @@ export class BetterAuthService {
         }
       }
       
+      // Check AsyncStorage cache on mobile
+      if (Platform.OS !== 'web') {
+        try {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          const cachedUserStr = await AsyncStorage.getItem(`cached_user_${supabaseUser.id}`);
+          if (cachedUserStr) {
+            const cachedUser = JSON.parse(cachedUserStr);
+            // Check if cache is less than 5 minutes old
+            const cacheAge = Date.now() - (cachedUser.cacheTimestamp || 0);
+            if (cacheAge < 5 * 60 * 1000) {
+              console.log('Using cached user data for faster loading on mobile');
+              this.currentUser = cachedUser;
+              if (this.onAuthStateChange) {
+                this.onAuthStateChange(cachedUser);
+              }
+              // Update last login in background
+              this.updateLastLogin(supabaseUser.id).catch(console.error);
+              return;
+            }
+          }
+        } catch (cacheError) {
+          console.warn('Could not load cached user on mobile:', cacheError);
+        }
+      }
+      
       // Set minimal user immediately so app doesn't redirect to login
       const minimalUser: User = {
         id: supabaseUser.id,
@@ -270,7 +330,7 @@ export class BetterAuthService {
       console.log('BetterAuthService: Minimal user set, loading full profile in background...');
       
       // Load full profile in background
-      this.loadUserProfile(supabaseUser.id).then(userProfile => {
+      this.loadUserProfile(supabaseUser.id).then(async userProfile => {
         if (!userProfile) {
           console.warn('BetterAuthService: Could not load full profile, using minimal user data');
           return;
@@ -298,6 +358,16 @@ export class BetterAuthService {
         
         if (Platform.OS === 'web' && isLocalStorageAvailable()) {
           cacheSession(fullUser);
+        } else if (Platform.OS !== 'web') {
+          // Cache on mobile using AsyncStorage
+          try {
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            const userWithTimestamp = { ...fullUser, cacheTimestamp: Date.now() };
+            await AsyncStorage.setItem(`cached_user_${supabaseUser.id}`, JSON.stringify(userWithTimestamp));
+            console.log('Cached user data on mobile');
+          } catch (cacheError) {
+            console.warn('Could not cache user on mobile:', cacheError);
+          }
         }
         
         this.updateLastLogin(supabaseUser.id).catch(console.error);

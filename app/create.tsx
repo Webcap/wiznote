@@ -1,6 +1,6 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
     KeyboardAvoidingView,
@@ -47,6 +47,11 @@ const ErrorBoundary = ({ children, fallback }: { children: React.ReactNode; fall
   }
 };
 
+// Memoize the TextInput to prevent re-renders
+const MemoizedTextInput = React.memo(({ style, value, onChangeText, ...props }: any) => {
+  return <TextInput style={style} value={value} onChangeText={onChangeText} {...props} />;
+});
+
 export default function CreateNoteScreen() {
   // Get URL parameters
   const params = useLocalSearchParams<{ noteId?: string; id?: string }>();
@@ -72,6 +77,10 @@ export default function CreateNoteScreen() {
   const isInitialLoadRef = useRef(true);
   const hasUserMadeChangesRef = useRef(false);
   const originalNoteDataRef = useRef<{ title: string; content: string; contentHtml: string; tags: string[] } | null>(null);
+  
+  // Refs for TextInput to track cursor position
+  const contentInputRef = useRef<TextInput>(null);
+  const titleInputRef = useRef<TextInput>(null);
   
   // Authentication and data hooks
   const { user, isLoading: authLoading } = useAuth();
@@ -126,6 +135,22 @@ export default function CreateNoteScreen() {
   const placeholderColor = useThemeColor({}, 'textMuted');
   const safeAreaBg = useThemeColor({}, 'background');
   const borderThemeColor = useThemeColor({ light: '#E5E7EB', dark: '#333333' }, 'border');
+  
+  // Memoize input styles to prevent re-renders
+  const titleInputStyle = useMemo(() => [
+    styles.titleInput, 
+    { backgroundColor: inputBg, color: inputText, borderColor }
+  ], [inputBg, inputText, borderColor]);
+  
+  const contentInputStyle = useMemo(() => [
+    styles.contentInput, 
+    { backgroundColor: inputBg, color: inputText, borderColor }
+  ], [inputBg, inputText, borderColor]);
+  
+  const tagInputStyle = useMemo(() => [
+    styles.tagInput, 
+    { backgroundColor: inputBg, color: inputText, borderColor }
+  ], [inputBg, inputText, borderColor]);
 
   // Computed values
   const isEditMode = noteId && !noteId.startsWith('temp_');
@@ -248,6 +273,53 @@ export default function CreateNoteScreen() {
   const removeTag = useCallback((tagToRemove: string) => {
     setTags(prev => prev.filter(tag => tag !== tagToRemove));
   }, []);
+  
+  // Track if we're currently typing to prevent auto-save from interfering
+  const isTypingRef = useRef(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Memoize onChangeText handlers
+  const handleTitleChange = useCallback((text: string) => {
+    isTypingRef.current = true;
+    
+    // Use startTransition to make state update non-blocking and prevent cursor issues
+    startTransition(() => {
+      setTitle(text);
+    });
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set typing to false after 500ms of no typing
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+    }, 500);
+  }, []);
+  
+  const handleContentChange = useCallback((text: string) => {
+    isTypingRef.current = true;
+    
+    // Use startTransition to make state update non-blocking and prevent cursor issues
+    startTransition(() => {
+      setContent(text);
+    });
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set typing to false after 500ms of no typing
+    typingTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+    }, 500);
+  }, []);
+  
+  const handleNewTagChange = useCallback((text: string) => {
+    setNewTag(text);
+  }, []);
 
   const handleConflictResolve = useCallback((resolution: any) => {
     setShowConflictModal(false);
@@ -290,9 +362,10 @@ export default function CreateNoteScreen() {
     // 1. Not authenticated
     // 2. No content
     // 3. Initial load (still loading data)
-    // 4. For existing notes: user hasn't made any changes from original data
+    // 4. User is currently typing
+    // 5. For existing notes: user hasn't made any changes from original data
     const isNewNote = !noteId || noteId.startsWith('temp_') || !originalNoteDataRef.current;
-    const shouldSkipAutoSave = !isAuthenticated || !hasContent || !scheduleAutoSave || isInitialLoadRef.current || (!isNewNote && !hasUserMadeChangesRef.current);
+    const shouldSkipAutoSave = !isAuthenticated || !hasContent || !scheduleAutoSave || isInitialLoadRef.current || isTypingRef.current || (!isNewNote && !hasUserMadeChangesRef.current);
     
     if (shouldSkipAutoSave) {
       return;
@@ -407,6 +480,9 @@ export default function CreateNoteScreen() {
     return () => {
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
     };
   }, []);
@@ -568,17 +644,20 @@ export default function CreateNoteScreen() {
             showsVerticalScrollIndicator={false}
             contentInsetAdjustmentBehavior="automatic"
             keyboardShouldPersistTaps="handled"
+            removeClippedSubviews={false}
+            keyboardDismissMode="none"
           >
             {isAuthenticated ? (
               <>
-                <TextInput
-                  style={[styles.titleInput, { backgroundColor: inputBg, color: inputText, borderColor }]}
+                <MemoizedTextInput
+                  style={titleInputStyle}
                   placeholder="Note title..."
                   placeholderTextColor={placeholderColor}
                   value={title}
-                  onChangeText={setTitle}
+                  onChangeText={handleTitleChange}
                   multiline
                   maxLength={200}
+                  editable={!isSaving}
                 />
 
                 {isRichTextEnabled ? (
@@ -600,14 +679,15 @@ export default function CreateNoteScreen() {
                     />
                   </View>
                 ) : (
-                  <TextInput
-                    style={[styles.contentInput, { backgroundColor: inputBg, color: inputText, borderColor }]}
+                  <MemoizedTextInput
+                    style={contentInputStyle}
                     placeholder="Start writing your note..."
                     placeholderTextColor={placeholderColor}
                     value={content}
-                    onChangeText={setContent}
+                    onChangeText={handleContentChange}
                     multiline
                     textAlignVertical="top"
+                    editable={!isSaving}
                   />
                 )}
 
@@ -616,13 +696,15 @@ export default function CreateNoteScreen() {
                   <ThemedText style={styles.tagsTitle}>Tags</ThemedText>
                   <View style={styles.tagInputContainer}>
                     <TextInput
-                      style={[styles.tagInput, { backgroundColor: inputBg, color: inputText, borderColor }]}
+                      style={tagInputStyle}
                       placeholder="Add a tag..."
                       placeholderTextColor={placeholderColor}
                       value={newTag}
-                      onChangeText={setNewTag}
+                      onChangeText={handleNewTagChange}
                       onSubmitEditing={addTag}
                       returnKeyType="done"
+                      autoCorrect={false}
+                      textContentType="none"
                     />
                     <TouchableOpacity onPress={addTag} style={[styles.addTagButton, { backgroundColor: tagBg }]}>
                       <Ionicons name="add" size={20} color={tagText} />

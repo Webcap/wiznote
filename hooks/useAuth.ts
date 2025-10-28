@@ -67,10 +67,11 @@ export const useAuth = () => {
     // Set up auth state change handler
     authStateChangeHandlerRef.current = (user: User | null) => {
       console.log(`useAuth: Auth state change - user: ${user ? user.id : 'null'}`);
+      // Only update loading state to false if we have a definitive auth state
       setAuthState(prev => ({
         ...prev,
         user,
-        isLoading: false,
+        isLoading: false, // Auth state change indicates we have a definitive answer
         error: null,
       }));
     };
@@ -100,29 +101,39 @@ export const useAuth = () => {
 
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
       
-      // Add timeout to prevent hanging
+      // Reduce timeout for mobile to fail faster and not block the UI
+      const timeoutMs = Platform.OS === 'web' ? 10000 : 8000; // 8 seconds for mobile, 10 for web
       const userPromise = betterAuthService.getCurrentUser();
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('User loading timeout')), 15000)
+        setTimeout(() => reject(new Error('User loading timeout')), timeoutMs)
       );
       
       const user = await Promise.race([userPromise, timeoutPromise]) as User | null;
       
-      // Only update state if we actually got a user
-      // Don't clear the user if auth state change handler already set it
+      // Only update state if we actually got a user or confirmed no user
+      // Don't update if auth state change handler already set the user
       if (user) {
+        console.log('useAuth: Loaded user from getCurrentUser');
         setAuthState({
           user,
           isLoading: false,
           error: null,
         });
       } else if (!authStateRef.current.user) {
-        // Only set to loading=false if no user exists
+        // Only set to loading=false if no user exists and wasn't set by auth state change
+        console.log('useAuth: No user found, clearing loading state');
         setAuthState({
           user: null,
           isLoading: false,
           error: null,
         });
+      } else {
+        // User was set by auth state change handler, just update loading
+        console.log('useAuth: User already set by auth state change, just updating loading state');
+        setAuthState(prev => ({
+          ...prev,
+          isLoading: false,
+        }));
       }
 
       // Update connection state (simplified for now)
@@ -133,14 +144,15 @@ export const useAuth = () => {
       });
     } catch (error) {
       console.error('useAuth: Error loading current user:', error);
-      // Don't clear user on timeout if one is already set
+      // Don't clear user on timeout if one is already set by auth state change
       if (!authStateRef.current.user) {
         setAuthState({
           user: null,
           isLoading: false,
-          error: 'Failed to load user session',
+          error: error instanceof Error && error.message.includes('timeout') ? 'Connection timeout. Please try again.' : 'Failed to load user session',
         });
       } else {
+        // User was set by auth state change handler, just update loading
         setAuthState(prev => ({
           ...prev,
           isLoading: false,
@@ -209,7 +221,7 @@ export const useAuth = () => {
                 }));
               }
             }
-          }, 50000); // Increased to 50 seconds to allow all retry attempts to complete (3 attempts × 15s + delays)
+          }, 30000); // Reduced to 30 seconds for faster failure (allows 2-3 retry attempts with 8s timeouts)
           
           return () => clearTimeout(recoveryTimer);
         }

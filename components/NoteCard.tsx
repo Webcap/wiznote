@@ -177,7 +177,7 @@ export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onToggle
         </View>
 
         {note.content && (
-          <Text style={styles.content} numberOfLines={3}>
+          <Text style={styles.content} numberOfLines={Platform.OS === 'web' ? 3 : 5}>
             {note.content}
           </Text>
         )}

@@ -77,6 +77,8 @@ export default function NoteDetailScreen() {
   const [summaryGeneratedFor, setSummaryGeneratedFor] = useState<string | null>(null);
   const [summaryUsageLimit, setSummaryUsageLimit] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [isContentExpanded, setIsContentExpanded] = useState(false);
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
 
   // Debug share modal state
   useEffect(() => {
@@ -179,7 +181,7 @@ export default function NoteDetailScreen() {
     if (note.type === 'pdf') return true;
     
     // Fallback to checking for PDF files
-    const hasPDFFiles = note.pdfFiles && note.pdfFiles.length > 0;
+    const hasPDFFiles = !!(note.pdfFiles && note.pdfFiles.length > 0);
     console.log('[NoteDetail] PDF detection:', {
       noteId: note.id,
       type: note.type,
@@ -286,6 +288,12 @@ export default function NoteDetailScreen() {
   // Track if we need to force refresh
   const shouldForceRefresh = useRef(false);
   
+  // Reset content expansion when note changes
+  useEffect(() => {
+    setIsContentExpanded(false);
+    setIsSummaryExpanded(false);
+  }, [id]);
+
   // Update note when the notes array changes (e.g., after save)
   useEffect(() => {
     if (!id || notes.length === 0) return;
@@ -1412,11 +1420,25 @@ export default function NoteDetailScreen() {
                   </View>
                 )}
                 {!summaryLoading && summary && (
-                  <View style={[styles.webContentText, { backgroundColor: cardBackground }]}>
-                    <ThemedText style={[styles.webContentTextInner, { color: textColor }]}>
-                      {summary}
-                    </ThemedText>
-                  </View>
+                  <>
+                    <View style={[styles.webContentText, { backgroundColor: cardBackground }]}>
+                      <ThemedText style={[styles.webContentTextInner, { color: textColor }]}>
+                        {summary.length > 800 && !isSummaryExpanded
+                          ? summary.substring(0, 800) + '...'
+                          : summary}
+                      </ThemedText>
+                    </View>
+                    {summary && summary.length > 800 && (
+                      <TouchableOpacity 
+                        onPress={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                        style={{ marginTop: 8 }}
+                      >
+                        <ThemedText style={{ color: accentColor, fontSize: 16, fontWeight: '600' }}>
+                          {isSummaryExpanded ? 'See less' : 'See more'}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    )}
+                  </>
                 )}
                 {!summaryLoading && !summary && summaryUsageLimit && (
                   <View style={[styles.webContentText, { backgroundColor: cardBackground }]}>
@@ -2068,9 +2090,23 @@ export default function NoteDetailScreen() {
                 <ThemedText style={[styles.summaryContent, { color: textColor }]}>Generating summary...</ThemedText>
               )}
               {!summaryLoading && summary && (
-                <ThemedText style={[styles.summaryContent, { color: textColor }]}>
-                  {summary}
-                </ThemedText>
+                <>
+                  <ThemedText style={[styles.summaryContent, { color: textColor, lineHeight: 22, paddingVertical: 4 }]}>
+                    {summary.length > 800 && !isSummaryExpanded
+                      ? summary.substring(0, 800) + '...'
+                      : summary}
+                  </ThemedText>
+                  {summary && summary.length > 800 && (
+                    <TouchableOpacity 
+                      onPress={() => setIsSummaryExpanded(!isSummaryExpanded)}
+                      style={{ marginTop: 8 }}
+                    >
+                      <ThemedText style={{ color: accentColor, fontSize: 16, fontWeight: '600' }}>
+                        {isSummaryExpanded ? 'See less' : 'See more'}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
               {!summaryLoading && !summary && summaryUsageLimit && (
                 <View>
@@ -2104,29 +2140,50 @@ export default function NoteDetailScreen() {
                 return null;
               })()}
               {isRichTextEnabled && note.contentFormat === 'html' && note.contentHtml ? (
-                Platform.OS === 'web' ? (
-                  <View style={{ flex: 1 }}>
-                    <RichTextViewerWeb
-                      content={note.contentHtml}
-                      contentFormat="html"
-                      textStyle={{ color: textColor }}
-                      style={{ flex: 1 }}
-                    />
-                  </View>
-                ) : (
-                  <View style={{ width: '100%', minHeight: 300 }}>
+                <>
+                  <View style={{ width: '100%', minHeight: isContentExpanded ? 'auto' : 400, maxHeight: isContentExpanded ? undefined : 800 }}>
                     <RichTextViewerNative
-                      content={note.contentHtml}
+                      content={isContentExpanded ? note.contentHtml : note.contentHtml.substring(0, 3000)}
                       contentFormat="html"
                       textStyle={{ color: textColor }}
-                      style={{ width: '100%', minHeight: 300 }}
+                      style={{ width: '100%', minHeight: 400 }}
                     />
                   </View>
-                )
+                  {note.contentHtml && note.contentHtml.length > 3000 && (
+                    <TouchableOpacity 
+                      onPress={() => setIsContentExpanded(!isContentExpanded)}
+                      style={{ marginTop: 16, alignSelf: 'flex-start' }}
+                    >
+                      <ThemedText style={{ color: accentColor, fontSize: 16, fontWeight: '600' }}>
+                        {isContentExpanded ? 'See less' : 'See more'}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  )}
+                </>
               ) : (
-                <ThemedText style={[styles.summaryContent, { color: textColor }]}>
-                  {note.content || 'No content available'}
-                </ThemedText>
+                <>
+                  {(() => {
+                    const textContent = note.content || 'No content available';
+                    const shouldTruncate = textContent.length > 1500 && !isContentExpanded;
+                    const displayContent = shouldTruncate ? textContent.substring(0, 1500) + '...' : textContent;
+                    
+                    return (
+                      <ThemedText style={[styles.summaryContent, { color: textColor, lineHeight: 24, paddingVertical: 8 }]}>
+                        {displayContent}
+                      </ThemedText>
+                    );
+                  })()}
+                  {note.content && note.content.length > 1500 && (
+                    <TouchableOpacity 
+                      onPress={() => setIsContentExpanded(!isContentExpanded)}
+                      style={{ marginTop: 12 }}
+                    >
+                      <ThemedText style={{ color: accentColor, fontSize: 16, fontWeight: '600' }}>
+                        {isContentExpanded ? 'See less' : 'See more'}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
             </View>
           )}
