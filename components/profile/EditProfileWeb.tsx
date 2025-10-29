@@ -9,6 +9,7 @@ import { WebLayout } from '../web/WebLayout';
 import { UserSidebar } from '../web/UserSidebar';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { User } from '../../types/User';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface EditProfileWebProps {
   user: User;
@@ -17,6 +18,7 @@ interface EditProfileWebProps {
 }
 
 export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: EditProfileWebProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const { showSnackbar } = useSnackbar();
   
@@ -69,18 +71,18 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
       
       // Validate inputs
       if (!displayName.trim()) {
-        showSnackbar('Display name cannot be empty', 'error', 4000);
+        showSnackbar(t('editProfile.displayNameEmpty'), 'error', 4000);
         return;
       }
       
       if (!email.trim()) {
-        showSnackbar('Email cannot be empty', 'error', 4000);
+        showSnackbar(t('editProfile.emailEmpty'), 'error', 4000);
         return;
       }
       
       // Check if anything changed
       if (displayName === user.displayName && email === user.email) {
-        showSnackbar('No changes to save', 'info', 3000);
+        showSnackbar(t('editProfile.noChangesToSave'), 'info', 3000);
         return;
       }
       
@@ -97,18 +99,18 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
       
       await onUpdateProfile(updates);
       
-      showSnackbar('Profile updated successfully', 'success', 4000);
+      showSnackbar(t('editProfile.profileUpdatedSuccessfully'), 'success', 4000);
       
       // If email was changed, show additional info
       if (updates.email) {
         setTimeout(() => {
-          showSnackbar('Please check your email to verify the new address', 'info', 6000);
+          showSnackbar(t('editProfile.checkEmailVerification'), 'info', 6000);
         }, 4500);
       }
     } catch (error) {
       console.error('Error updating profile:', error);
       showSnackbar(
-        error instanceof Error ? error.message : 'Failed to update profile',
+        error instanceof Error ? error.message : t('editProfile.failedToUpdateProfile'),
         'error',
         5000
       );
@@ -123,22 +125,22 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
       
       // Validate inputs
       if (!currentPassword || !newPassword || !confirmPassword) {
-        showSnackbar('Please fill in all password fields', 'error', 4000);
+        showSnackbar(t('editProfile.pleaseFillAllPasswordFields'), 'error', 4000);
         return;
       }
       
       if (newPassword !== confirmPassword) {
-        showSnackbar('New passwords do not match', 'error', 4000);
+        showSnackbar(t('editProfile.passwordsDoNotMatch'), 'error', 4000);
         return;
       }
       
       if (newPassword.length < 8) {
-        showSnackbar('Password must be at least 8 characters long', 'error', 4000);
+        showSnackbar(t('editProfile.passwordMinLength'), 'error', 4000);
         return;
       }
       
       if (currentPassword === newPassword) {
-        showSnackbar('New password must be different from current password', 'error', 4000);
+        showSnackbar(t('editProfile.passwordMustBeDifferent'), 'error', 4000);
         return;
       }
       
@@ -149,11 +151,11 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
       setNewPassword('');
       setConfirmPassword('');
       
-      showSnackbar('Password updated successfully', 'success', 4000);
+      showSnackbar(t('editProfile.passwordUpdatedSuccessfully'), 'success', 4000);
     } catch (error) {
       console.error('Error updating password:', error);
       showSnackbar(
-        error instanceof Error ? error.message : 'Failed to update password',
+        error instanceof Error ? error.message : t('editProfile.failedToUpdatePassword'),
         'error',
         5000
       );
@@ -164,8 +166,8 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
 
   return (
     <WebLayout
-      title="Edit Profile"
-      subtitle="Update your account information"
+      title={t('editProfile.editProfile')}
+      subtitle={t('editProfile.updateAccountInformation')}
       sidebar={<UserSidebar activePage="settings" />}
       header={
         <ThemedView style={{ paddingHorizontal: 0, paddingTop: 40, paddingBottom: 30 }}>
@@ -173,7 +175,7 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
             <TouchableOpacity onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={24} color={iconColor} />
             </TouchableOpacity>
-            <ThemedText type="title">Edit Profile</ThemedText>
+            <ThemedText type="title">{t('editProfile.editProfile')}</ThemedText>
           </View>
         </ThemedView>
       }
@@ -182,7 +184,7 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
         {/* Profile Information Section */}
         <ThemedView style={{ marginBottom: 32 }}>
           <ThemedText style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
-            Profile Information
+            {t('editProfile.profileInformation')}
           </ThemedText>
           
           <ThemedView style={{ 
@@ -221,11 +223,11 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
                 }}
               >
                 <ThemedText style={{ color: accentColor, fontWeight: '600' }}>
-                  Change Photo
+                  {t('editProfile.changePhoto')}
                 </ThemedText>
               </TouchableOpacity>
             </View>
-
+            
             {/* Display Name Input */}
             <View>
               <ThemedText style={{ 
@@ -234,12 +236,12 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
                 marginBottom: 8,
                 color: textSecondary 
               }}>
-                Display Name
+                {t('editProfile.displayName')}
               </ThemedText>
               <TextInput
                 value={displayName}
                 onChangeText={setDisplayName}
-                placeholder="Enter your display name"
+                placeholder={t('editProfile.enterDisplayName')}
                 placeholderTextColor={textSecondary}
                 style={{
                   backgroundColor: backgroundColor,
@@ -261,12 +263,12 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
                 marginBottom: 8,
                 color: textSecondary 
               }}>
-                Email Address
+                {t('editProfile.emailAddress')}
               </ThemedText>
               <TextInput
                 value={email}
                 onChangeText={setEmail}
-                placeholder="Enter your email"
+                placeholder={t('editProfile.enterEmail')}
                 placeholderTextColor={textSecondary}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -285,7 +287,7 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
                 marginTop: 4,
                 color: textSecondary 
               }}>
-                Changing your email will require verification
+                {t('editProfile.emailVerificationNotice')}
               </ThemedText>
             </View>
 
@@ -315,7 +317,7 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
                 fontSize: 16, 
                 fontWeight: '600' 
               }}>
-                {isUpdatingProfile ? 'Saving...' : 'Save Profile'}
+                {isUpdatingProfile ? t('editProfile.saving') : t('editProfile.saveProfile')}
               </ThemedText>
             </TouchableOpacity>
           </ThemedView>
@@ -324,7 +326,7 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
         {/* Password Section */}
         <ThemedView style={{ marginBottom: 32 }}>
           <ThemedText style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
-            Change Password
+            {t('editProfile.changePassword')}
           </ThemedText>
           
           <ThemedView style={{ 
@@ -341,12 +343,12 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
                 marginBottom: 8,
                 color: textSecondary 
               }}>
-                Current Password
+                {t('editProfile.currentPassword')}
               </ThemedText>
               <TextInput
                 value={currentPassword}
                 onChangeText={setCurrentPassword}
-                placeholder="Enter current password"
+                placeholder={t('editProfile.enterCurrentPassword')}
                 placeholderTextColor={textSecondary}
                 secureTextEntry
                 autoCapitalize="none"
@@ -370,12 +372,12 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
                 marginBottom: 8,
                 color: textSecondary 
               }}>
-                New Password
+                {t('editProfile.newPassword')}
               </ThemedText>
               <TextInput
                 value={newPassword}
                 onChangeText={setNewPassword}
-                placeholder="Enter new password"
+                placeholder={t('editProfile.enterNewPassword')}
                 placeholderTextColor={textSecondary}
                 secureTextEntry
                 autoCapitalize="none"
@@ -399,12 +401,12 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
                 marginBottom: 8,
                 color: textSecondary 
               }}>
-                Confirm New Password
+                {t('editProfile.confirmNewPassword')}
               </ThemedText>
               <TextInput
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
-                placeholder="Confirm new password"
+                placeholder={t('editProfile.confirmPasswordPlaceholder')}
                 placeholderTextColor={textSecondary}
                 secureTextEntry
                 autoCapitalize="none"
@@ -423,7 +425,7 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
                 marginTop: 4,
                 color: textSecondary 
               }}>
-                Password must be at least 8 characters long
+                {t('editProfile.passwordRequirement')}
               </ThemedText>
             </View>
 
@@ -453,7 +455,7 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
                 fontSize: 16, 
                 fontWeight: '600' 
               }}>
-                {isUpdatingPassword ? 'Updating...' : 'Update Password'}
+                {isUpdatingPassword ? t('editProfile.updating') : t('editProfile.updatePassword')}
               </ThemedText>
             </TouchableOpacity>
           </ThemedView>
@@ -462,7 +464,7 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
         {/* Account Info */}
         <ThemedView style={{ marginBottom: 32 }}>
           <ThemedText style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 16 }}>
-            Account Information
+            {t('editProfile.accountInformation')}
           </ThemedText>
           
           <ThemedView style={{ 
@@ -472,19 +474,19 @@ export function EditProfileWeb({ user, onUpdateProfile, onUpdatePassword }: Edit
             gap: 16 
           }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <ThemedText style={{ color: textSecondary }}>Account ID</ThemedText>
+              <ThemedText style={{ color: textSecondary }}>{t('editProfile.accountId')}</ThemedText>
               <ThemedText style={{ fontWeight: '600' }}>{user.id.slice(0, 8)}...</ThemedText>
             </View>
             
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <ThemedText style={{ color: textSecondary }}>Member Since</ThemedText>
+              <ThemedText style={{ color: textSecondary }}>{t('editProfile.memberSince')}</ThemedText>
               <ThemedText style={{ fontWeight: '600' }}>
                 {formatDate(user.createdAt)}
               </ThemedText>
             </View>
             
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <ThemedText style={{ color: textSecondary }}>Last Login</ThemedText>
+              <ThemedText style={{ color: textSecondary }}>{t('editProfile.lastLogin')}</ThemedText>
               <ThemedText style={{ fontWeight: '600' }}>
                 {formatDate(user.lastLoginAt)}
               </ThemedText>

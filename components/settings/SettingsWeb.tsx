@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { Platform, ScrollView, Switch, TouchableOpacity, View, Alert, Modal } from 'react-native';
+import { Platform, ScrollView, Switch, TouchableOpacity, View, Alert, Modal, Image } from 'react-native';
 import { styles } from '../../styles/SettingsStyles';
 import { RoleBadge } from '../RoleBadge';
 import { ThemedText } from '../ThemedText';
@@ -89,6 +89,13 @@ export function SettingsWeb({
   const textSecondary = useThemeColor({}, 'textSecondary');
 
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  
+  // Language configuration with flags
+  const languages = [
+    { code: 'en', name: t('settings.english'), flagUrl: 'https://raw.githubusercontent.com/hampusborgos/country-flags/main/svg/us.svg' },
+    { code: 'es', name: t('settings.spanish'), flagUrl: 'https://raw.githubusercontent.com/hampusborgos/country-flags/main/svg/es.svg' },
+  ];
+  const currentLanguage = languages.find(lang => lang.code === language) || languages[0];
 
   // Re-render when language changes
   const [, setForceUpdate] = useState(0);
@@ -328,9 +335,12 @@ export function SettingsWeb({
                 alignItems: 'center',
               }}
             >
-              <ThemedText style={{ color: cardText, fontWeight: '500', fontSize: 14 }}>
-                {language === 'en' ? t('settings.english') : t('settings.spanish')}
-              </ThemedText>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Image source={{ uri: currentLanguage.flagUrl }} style={{ width: 20, height: 15, borderRadius: 2 }} />
+                <ThemedText style={{ color: cardText, fontWeight: '500', fontSize: 14 }}>
+                  {currentLanguage.name}
+                </ThemedText>
+              </View>
               <Ionicons name="chevron-down" size={20} color={borderColor} />
             </TouchableOpacity>
           </View>
@@ -365,30 +375,38 @@ export function SettingsWeb({
                 <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
                   {t('settings.language')}
                 </ThemedText>
-                {['en', 'es'].map(lang => (
+                {languages.map(lang => (
                   <TouchableOpacity
-                    key={lang}
+                    key={lang.code}
                     style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
                       paddingVertical: 12,
                       paddingHorizontal: 16,
                       borderRadius: 8,
-                      backgroundColor: language === lang ? accentColor : 'transparent',
+                      backgroundColor: language === lang.code ? accentColor : 'transparent',
                       marginBottom: 8,
+                      gap: 12,
                     }}
                     onPress={() => {
-                      handleLanguageChange(lang);
+                      handleLanguageChange(lang.code);
                       setShowLanguagePicker(false);
                     }}
                   >
+                    <Image source={{ uri: lang.flagUrl }} style={{ width: 24, height: 18, borderRadius: 2 }} />
                     <ThemedText
                       style={{
-                        color: language === lang ? '#fff' : cardText,
+                        flex: 1,
+                        color: language === lang.code ? '#fff' : cardText,
                         fontWeight: '500',
                         fontSize: 16,
                       }}
                     >
-                      {lang === 'en' ? t('settings.english') : t('settings.spanish')}
+                      {lang.name}
                     </ThemedText>
+                    {language === lang.code && (
+                      <Ionicons name="checkmark" size={20} color={language === lang.code ? '#fff' : cardText} />
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>

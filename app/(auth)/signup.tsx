@@ -19,8 +19,10 @@ import { useAuth } from '../../hooks/useAuth';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export default function SignupScreen() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -37,73 +39,73 @@ export default function SignupScreen() {
 
   const validateForm = () => {
     if (!email.trim()) {
-      const message = 'Please enter your email address';
+      const message = t('signup.pleaseEnterEmailAddress');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('signup.error'), message);
       }
       return false;
     }
 
     if (!email.includes('@')) {
-      const message = 'Please enter a valid email address';
+      const message = t('signup.pleaseEnterValidEmailAddress');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('signup.error'), message);
       }
       return false;
     }
 
     if (!password) {
-      const message = 'Please enter a password';
+      const message = t('signup.pleaseEnterPassword');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('signup.error'), message);
       }
       return false;
     }
 
     if (password.length < 8) {
-      const message = 'Password must be at least 8 characters long';
+      const message = t('signup.passwordMinLength');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('signup.error'), message);
       }
       return false;
     }
 
     // Check for at least one letter and one number
     if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
-      const message = 'Password must contain at least one letter and one number';
+      const message = t('signup.passwordRequiresLetterAndNumber');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('signup.error'), message);
       }
       return false;
     }
 
     // Check for at least one special character
     if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
-      const message = 'Password must contain at least one special character (!@#$%^&*()_+-=[]{};\':"|,.<>/?)';
+      const message = t('signup.passwordRequiresSpecialCharacter');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('signup.error'), message);
       }
       return false;
     }
 
     if (password !== confirmPassword) {
-      const message = 'Passwords do not match';
+      const message = t('signup.passwordsDoNotMatch');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('signup.error'), message);
       }
       return false;
     }
@@ -127,14 +129,14 @@ export default function SignupScreen() {
       
       // Show success message on web
       if (Platform.OS === 'web') {
-        showSnackbar('Account created successfully!', 'success', 3000);
+        showSnackbar(t('signup.accountCreatedSuccessfully'), 'success', 3000);
       }
       
       console.log('SignupScreen: Navigating to tabs...');
       router.replace('/(tabs)');
     } catch (error) {
       console.error('SignupScreen: Sign up error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create account';
+      const errorMessage = error instanceof Error ? error.message : t('signup.failedToCreateAccount');
       
       // Check if this is the email verification required message
       if (errorMessage.includes('Please check your email to verify your account') || 
@@ -153,7 +155,7 @@ export default function SignupScreen() {
         if (Platform.OS === 'web') {
           showSnackbar(errorMessage, 'error', 6000);
         } else {
-          Alert.alert('Error', errorMessage);
+          Alert.alert(t('signup.error'), errorMessage);
         }
       }
     } finally {
@@ -166,12 +168,12 @@ export default function SignupScreen() {
     {
       key: 'Enter',
       action: handleSignUp,
-      description: 'Create account',
+      description: t('signup.createAccountShortcut'),
     },
     {
       key: 'Escape',
       action: () => router.back(),
-      description: 'Go back',
+      description: t('signup.goBackShortcut'),
     },
   ]);
 

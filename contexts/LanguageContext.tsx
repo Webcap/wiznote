@@ -29,17 +29,28 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     setLanguage(lng);
   }, []);
 
-  const changeLanguage = useCallback(async (newLanguage: string) => {
-    if (['en', 'es'].includes(newLanguage)) {
-      try {
-        await LanguageStorage.setLanguage(newLanguage);
-        await i18n.changeLanguage(newLanguage);
-        setLanguage(newLanguage);
-      } catch (error) {
-        console.error('Error changing language:', error);
-      }
-    }
-  }, []);
+      const changeLanguage = useCallback(async (newLanguage: string) => {
+        if (['en', 'es'].includes(newLanguage)) {
+          try {
+            await LanguageStorage.setLanguage(newLanguage);
+            await i18n.changeLanguage(newLanguage);
+            setLanguage(newLanguage);
+            
+            // Update backend preferences if user is logged in
+            try {
+              const currentUser = await betterAuthService.getCurrentUser();
+              if (currentUser?.id) {
+                await betterAuthService.updatePreferences({ language: newLanguage });
+              }
+            } catch (userError) {
+              // User might not be logged in, that's okay
+              console.log('Not updating backend language preference - user not logged in');
+            }
+          } catch (error) {
+            console.error('Error changing language:', error);
+          }
+        }
+      }, []);
 
   // Load initial language once on mount
   useEffect(() => {

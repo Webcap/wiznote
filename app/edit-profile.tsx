@@ -7,8 +7,10 @@ import { ThemedView } from '../components/ThemedView';
 import { ThemedText } from '../components/ThemedText';
 import { useRouter, Stack } from 'expo-router';
 import { useEffect } from 'react';
+import { useTranslation } from '../hooks/useTranslation';
 
 export default function EditProfileScreen() {
+  const { t } = useTranslation();
   const { user, updateProfile, updatePassword, isLoading } = useAuth();
   const { showSnackbar } = useSnackbar();
   const router = useRouter();
@@ -28,7 +30,7 @@ export default function EditProfileScreen() {
   if (isLoading || !user) {
     return (
       <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ThemedText>Loading...</ThemedText>
+        <ThemedText>{t('editProfile.loading')}</ThemedText>
       </ThemedView>
     );
   }
@@ -55,7 +57,7 @@ export default function EditProfileScreen() {
       showSnackbar(message, type, 4000);
     } else {
       Alert.alert(
-        type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info',
+        type === 'success' ? t('editProfile.success') : type === 'error' ? t('editProfile.error') : t('editProfile.info'),
         message
       );
     }
