@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Platform, ScrollView, Switch, TouchableOpacity, View, Alert } from 'react-native';
+import { useState, useEffect } from 'react';
+import { Platform, ScrollView, Switch, TouchableOpacity, View, Alert, Modal } from 'react-native';
 import { styles } from '../../styles/SettingsStyles';
 import { RoleBadge } from '../RoleBadge';
 import { ThemedText } from '../ThemedText';
@@ -10,6 +11,8 @@ import { Logo } from '../Logo';
 import { featureFlagService } from '../../services/FeatureFlagService';
 import { featureCacheService } from '../../services/FeatureCacheService';
 import { useSnackbar } from '../../contexts/SnackbarContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { DeleteAccountModal } from '../DeleteAccountModal';
 import { AudioAPIExplorer } from '../AudioAPIExplorer';
 import { AudioImportTest } from '../AudioImportTest';
@@ -76,12 +79,30 @@ export function SettingsWeb({
 }: SettingsWebProps) {
   const router = useRouter();
   const { showSnackbar } = useSnackbar();
+  const { language, changeLanguage } = useLanguage();
+  const { t, i18n: i18nInstance } = useTranslation();
   const iconColor = useThemeColor({}, 'text');
   const cardBg = useThemeColor({}, 'backgroundSecondary');
   const cardText = useThemeColor({}, 'text');
   const borderColor = useThemeColor({}, 'border');
   const accentColor = useThemeColor({}, 'accentPrimary');
   const textSecondary = useThemeColor({}, 'textSecondary');
+
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+
+  // Re-render when language changes
+  const [, setForceUpdate] = useState(0);
+  useEffect(() => {
+    // This will trigger a re-render when language changes
+    const listener = (lng: string) => {
+      console.log('🟢 SettingsWeb: languageChanged event received, language:', lng);
+      setForceUpdate(prev => prev + 1);
+    };
+    i18nInstance.on('languageChanged', listener);
+    return () => {
+      i18nInstance.off('languageChanged', listener);
+    };
+  }, [i18nInstance]);
 
   const currentUser = user;
   const appVersion = getAppVersion();
@@ -145,21 +166,36 @@ export function SettingsWeb({
     }
   };
 
+  const handleLanguageChange = async (newLanguage: string) => {
+    try {
+      console.log('🔵 SettingsWeb: Starting language change to:', newLanguage);
+      console.log('🔵 SettingsWeb: Current language before:', language);
+      await changeLanguage(newLanguage);
+      console.log('🔵 SettingsWeb: changeLanguage completed');
+      console.log('🔵 SettingsWeb: Current language after:', language);
+      console.log('🔵 SettingsWeb: i18n language:', i18nInstance.language);
+      await updatePreferences({ language: newLanguage });
+      console.log('🔵 SettingsWeb: Preferences updated');
+    } catch (error) {
+      console.error('Error changing language:', error);
+    }
+  };
+
   if (isLoading) {
     return (
       <WebLayout
-        title="Settings"
-        subtitle="Manage your account"
+        title={t('settings.settings')}
+        subtitle={t('settings.manageYourAccount')}
         sidebar={<UserSidebar activePage="settings" />}
         header={
           <View style={styles.webHeader}>
-            <ThemedText type="title">Settings</ThemedText>
-            <ThemedText style={styles.webLoadingText}>Loading...</ThemedText>
+            <ThemedText type="title">{t('settings.settings')}</ThemedText>
+            <ThemedText style={styles.webLoadingText}>{t('common.loading')}</ThemedText>
           </View>
         }
       >
         <View style={styles.webLoadingContainer}>
-          <ThemedText style={styles.webLoadingText}>Loading settings...</ThemedText>
+          <ThemedText style={styles.webLoadingText}>{t('common.loading')} {t('settings.settings')}...</ThemedText>
         </View>
       </WebLayout>
     );
@@ -167,19 +203,19 @@ export function SettingsWeb({
 
   return (
     <WebLayout
-      title="Settings"
-      subtitle="Manage your account"
+      title={t('settings.settings')}
+      subtitle={t('settings.manageYourAccount')}
       sidebar={<UserSidebar activePage="settings" />}
       header={
         <View style={styles.webHeader}>
-          <ThemedText type="title">Settings</ThemedText>
+          <ThemedText type="title">{t('settings.settings')}</ThemedText>
         </View>
       }
     >
-      <ScrollView style={styles.webContent}>
+      <ScrollView key={language} style={styles.webContent}>
         {/* User Profile */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Profile</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.profile')}</ThemedText>
           <View style={[styles.profileCard, { backgroundColor: cardBg }]}>
             <View style={styles.profileInfo}>
               <View style={styles.avatar}>
@@ -199,23 +235,23 @@ export function SettingsWeb({
               style={[styles.editProfileButton, { backgroundColor: accentColor }]}
               onPress={() => router.push('/edit-profile')}
             >
-              <ThemedText style={[styles.editProfileText, { color: '#FFFFFF' }]}>Edit</ThemedText>
+              <ThemedText style={[styles.editProfileText, { color: '#FFFFFF' }]}>{t('settings.edit')}</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Premium Section */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Premium</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.premium')}</ThemedText>
           <View style={[styles.profileCard, { backgroundColor: cardBg }]}>
             <View>
               <ThemedText style={{ fontWeight: 'bold', fontSize: 16 }}>
-                Status: {currentUser?.premium?.isActive ? 'Active' : 'Inactive'}
+                {t('settings.status')}: {currentUser?.premium?.isActive ? t('settings.active') : t('settings.inactive')}
               </ThemedText>
               <ThemedText style={{ color: '#A0A0A0', fontSize: 14 }}>
                 {currentUser?.premium?.isActive ? (
                   subscriptionDetails ? `${subscriptionDetails.planName}` : `${currentUser?.premium?.type || 'Premium'}`
-                ) : 'Upgrade to unlock all features!'}
+                ) : t('settings.upgradeToUnlock')}
               </ThemedText>
             </View>
           </View>
@@ -223,34 +259,34 @@ export function SettingsWeb({
 
         {/* Statistics */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Statistics</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.statistics')}</ThemedText>
           <View style={styles.statsGrid}>
             <View style={[styles.statCard, { backgroundColor: cardBg }]}>
               <ThemedText style={styles.statNumber}>{stats.totalNotes}</ThemedText>
-              <ThemedText style={styles.statLabel}>Total Notes</ThemedText>
+              <ThemedText style={styles.statLabel}>{t('settings.totalNotes')}</ThemedText>
             </View>
             <View style={[styles.statCard, { backgroundColor: cardBg }]}>
               <ThemedText style={styles.statNumber}>{stats.pinnedNotes}</ThemedText>
-              <ThemedText style={styles.statLabel}>Pinned</ThemedText>
+              <ThemedText style={styles.statLabel}>{t('settings.pinned')}</ThemedText>
             </View>
             <View style={[styles.statCard, { backgroundColor: cardBg }]}>
               <ThemedText style={styles.statNumber}>{stats.archivedNotes}</ThemedText>
-              <ThemedText style={styles.statLabel}>Archived</ThemedText>
+              <ThemedText style={styles.statLabel}>{t('settings.archived')}</ThemedText>
             </View>
             <View style={[styles.statCard, { backgroundColor: cardBg }]}>
               <ThemedText style={styles.statNumber}>{stats.totalTags}</ThemedText>
-              <ThemedText style={styles.statLabel}>Tags</ThemedText>
+              <ThemedText style={styles.statLabel}>{t('settings.tags')}</ThemedText>
             </View>
           </View>
         </View>
 
         {/* Preferences */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Preferences</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.preferences')}</ThemedText>
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
               <Ionicons name="color-palette" size={20} color="#6A5ACD" />
-              <ThemedText style={styles.preferenceLabel}>Theme</ThemedText>
+              <ThemedText style={styles.preferenceLabel}>{t('settings.theme')}</ThemedText>
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {['light', 'dark', 'auto'].map(option => (
@@ -266,7 +302,7 @@ export function SettingsWeb({
                   onPress={() => handleThemeChange(option as ThemePreference)}
                 >
                   <ThemedText style={{ color: theme === option ? '#fff' : cardText, fontWeight: 'bold', fontSize: 14 }}>
-                    {option === 'light' ? 'Light' : option === 'dark' ? 'Dark' : 'System'}
+                    {option === 'light' ? t('settings.lightTheme') : option === 'dark' ? t('settings.darkTheme') : t('settings.systemTheme')}
                   </ThemedText>
                 </TouchableOpacity>
               ))}
@@ -274,8 +310,94 @@ export function SettingsWeb({
           </View>
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
+              <Ionicons name="language" size={20} color="#6A5ACD" />
+              <ThemedText style={styles.preferenceLabel}>{t('settings.language')}</ThemedText>
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowLanguagePicker(true)}
+              style={{
+                backgroundColor: cardBg,
+                borderWidth: 1,
+                borderColor: borderColor,
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                minWidth: 120,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <ThemedText style={{ color: cardText, fontWeight: '500', fontSize: 14 }}>
+                {language === 'en' ? t('settings.english') : t('settings.spanish')}
+              </ThemedText>
+              <Ionicons name="chevron-down" size={20} color={borderColor} />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Language Picker Modal */}
+          <Modal
+            visible={showLanguagePicker}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowLanguagePicker(false)}
+          >
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              activeOpacity={1}
+              onPress={() => setShowLanguagePicker(false)}
+            >
+              <View
+                style={{
+                  backgroundColor: cardBg,
+                  borderRadius: 16,
+                  padding: 20,
+                  minWidth: 280,
+                  maxWidth: '90%',
+                }}
+                onStartShouldSetResponder={() => true}
+              >
+                <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
+                  {t('settings.language')}
+                </ThemedText>
+                {['en', 'es'].map(lang => (
+                  <TouchableOpacity
+                    key={lang}
+                    style={{
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      backgroundColor: language === lang ? accentColor : 'transparent',
+                      marginBottom: 8,
+                    }}
+                    onPress={() => {
+                      handleLanguageChange(lang);
+                      setShowLanguagePicker(false);
+                    }}
+                  >
+                    <ThemedText
+                      style={{
+                        color: language === lang ? '#fff' : cardText,
+                        fontWeight: '500',
+                        fontSize: 16,
+                      }}
+                    >
+                      {lang === 'en' ? t('settings.english') : t('settings.spanish')}
+                    </ThemedText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableOpacity>
+          </Modal>
+          <View style={styles.preferenceItem}>
+            <View style={styles.preferenceInfo}>
               <Ionicons name="notifications" size={20} color="#6A5ACD" />
-              <ThemedText style={styles.preferenceLabel}>Notifications</ThemedText>
+              <ThemedText style={styles.preferenceLabel}>{t('settings.notifications')}</ThemedText>
             </View>
             <Switch
               value={notifications}
@@ -287,7 +409,7 @@ export function SettingsWeb({
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
               <Ionicons name="cloud-upload" size={20} color="#6A5ACD" />
-              <ThemedText style={styles.preferenceLabel}>Auto Sync</ThemedText>
+              <ThemedText style={styles.preferenceLabel}>{t('settings.autoSync')}</ThemedText>
             </View>
             <Switch
               value={autoSync}
@@ -299,7 +421,7 @@ export function SettingsWeb({
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
               <Ionicons name="key" size={20} color="#6A5ACD" />
-              <ThemedText style={styles.preferenceLabel}>Auto Key Details</ThemedText>
+              <ThemedText style={styles.preferenceLabel}>{t('settings.autoKeyDetails')}</ThemedText>
             </View>
             <Switch
               value={autoKeyDetails}
@@ -311,7 +433,7 @@ export function SettingsWeb({
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
               <Ionicons name="sparkles" size={20} color="#6A5ACD" />
-              <ThemedText style={styles.preferenceLabel}>Auto AI Summaries</ThemedText>
+              <ThemedText style={styles.preferenceLabel}>{t('settings.autoAISummaries')}</ThemedText>
             </View>
             <Switch
               value={autoAISummaries}
@@ -325,13 +447,13 @@ export function SettingsWeb({
         {/* Admin Settings */}
         {isAdmin() && (
           <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Admin Settings</ThemedText>
+            <ThemedText style={styles.sectionTitle}>{t('settings.adminSettings')}</ThemedText>
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => router.push('/admin-dashboard')}
             >
               <Ionicons name="shield" size={20} color={iconColor} />
-              <ThemedText style={styles.actionButtonText}>Admin Dashboard</ThemedText>
+              <ThemedText style={styles.actionButtonText}>{t('settings.adminDashboard')}</ThemedText>
               <Ionicons name="chevron-forward" size={20} color={borderColor} />
             </TouchableOpacity>
             <TouchableOpacity 
@@ -339,7 +461,7 @@ export function SettingsWeb({
               onPress={() => router.push('/admin/feature-management')}
             >
               <Ionicons name="settings" size={20} color={iconColor} />
-              <ThemedText style={styles.actionButtonText}>Feature Management</ThemedText>
+              <ThemedText style={styles.actionButtonText}>{t('settings.featureManagement')}</ThemedText>
               <Ionicons name="chevron-forward" size={20} color={borderColor} />
             </TouchableOpacity>
           </View>
@@ -361,13 +483,13 @@ export function SettingsWeb({
 
         {/* Actions */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Actions</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.actions')}</ThemedText>
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => router.push('/subscription-management')}
           >
             <Ionicons name="card" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>Manage Subscription</ThemedText>
+            <ThemedText style={styles.actionButtonText}>{t('settings.manageSubscription')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           <TouchableOpacity 
@@ -375,7 +497,7 @@ export function SettingsWeb({
             onPress={() => router.push('/simple-usage')}
           >
             <Ionicons name="analytics" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>Usage Statistics</ThemedText>
+            <ThemedText style={styles.actionButtonText}>{t('settings.usageStatistics')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           <TouchableOpacity 
@@ -383,7 +505,7 @@ export function SettingsWeb({
             onPress={() => router.push('/archived')}
           >
             <Ionicons name="archive" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>Archived Notes ({stats.archivedNotes})</ThemedText>
+            <ThemedText style={styles.actionButtonText}>{t('settings.archivedNotes')} ({stats.archivedNotes})</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           
@@ -400,7 +522,7 @@ export function SettingsWeb({
             onPress={() => router.push('/help')}
           >
             <Ionicons name="help-circle" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>Help & Support</ThemedText>
+            <ThemedText style={styles.actionButtonText}>{t('settings.helpSupport')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           
@@ -409,7 +531,7 @@ export function SettingsWeb({
             onPress={() => router.push('/changelog')}
           >
             <Ionicons name="list" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>Changelog</ThemedText>
+            <ThemedText style={styles.actionButtonText}>{t('settings.changelog')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           
@@ -418,7 +540,7 @@ export function SettingsWeb({
             onPress={() => router.push('/about')}
           >
             <Ionicons name="information-circle" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>About WizNote</ThemedText>
+            <ThemedText style={styles.actionButtonText}>{t('settings.aboutWizNote')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
         </View>
@@ -426,7 +548,7 @@ export function SettingsWeb({
         {/* Admin Debug Tools */}
         {isAdmin() && __DEV__ && (
           <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Admin Debug Tools</ThemedText>
+            <ThemedText style={styles.sectionTitle}>{t('settings.adminDebugTools')}</ThemedText>
             
             <TouchableOpacity 
               style={[styles.actionButton, { backgroundColor: '#FF9800', marginBottom: 10 }]}
@@ -445,7 +567,7 @@ export function SettingsWeb({
             >
               <Ionicons name="trash" size={20} color="white" />
               <ThemedText style={[styles.actionButtonText, { color: 'white' }]}>
-                🧹 Clear Feature Cache
+                🧹 {t('settings.clearFeatureCache')}
               </ThemedText>
             </TouchableOpacity>
             
@@ -460,10 +582,10 @@ export function SettingsWeb({
 
         {/* Danger Zone */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Danger Zone</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.dangerZone')}</ThemedText>
           <TouchableOpacity style={[styles.actionButton, styles.dangerButton]} onPress={handleWebSignOut}>
             <Ionicons name="log-out" size={20} color="#FF6B6B" />
-            <ThemedText style={[styles.actionButtonText, styles.dangerText]}>Sign Out</ThemedText>
+            <ThemedText style={[styles.actionButtonText, styles.dangerText]}>{t('settings.signOut')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           <TouchableOpacity 
@@ -471,7 +593,7 @@ export function SettingsWeb({
             onPress={() => setShowDeleteAccountModal(true)}
           >
             <Ionicons name="trash" size={20} color="#FF6B6B" />
-            <ThemedText style={[styles.actionButtonText, styles.dangerText]}>Delete Account</ThemedText>
+            <ThemedText style={[styles.actionButtonText, styles.dangerText]}>{t('settings.deleteAccount')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
         </View>

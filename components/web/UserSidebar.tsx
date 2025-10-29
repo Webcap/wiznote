@@ -16,6 +16,7 @@ import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
 import { PDFSizeLimitWarning } from '../PDFSizeLimitWarning';
 import { PDF_CONFIG } from '../../constants/PDFConfig';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface UserSidebarProps {
   activePage?: string;
@@ -28,6 +29,7 @@ export function UserSidebar({
   searchQuery = '',
   onSearchQueryChange 
 }: UserSidebarProps) {
+  const { t } = useTranslation();
   const textColor = useThemeColor({}, 'text');
   const iconColor = useThemeColor({}, 'icon');
   const accentColor = useThemeColor({}, 'accentPrimary');
@@ -145,7 +147,7 @@ export function UserSidebar({
   const sidebarItems = useMemo(() => [
     {
       id: 'home',
-      label: 'All Notes',
+      label: t('sidebar.allNotes'),
       icon: 'document-text' as const,
       onPress: () => {
         if (onSearchQueryChange) {
@@ -158,21 +160,21 @@ export function UserSidebar({
     },
     {
       id: 'shared',
-      label: 'Shared',
+      label: t('sidebar.shared'),
       icon: 'people' as const,
       onPress: () => router.push('/(tabs)/shared'),
       isActive: activePage === 'shared',
     },
     {
       id: 'favorites',
-      label: 'Favorites',
+      label: t('sidebar.favorites'),
       icon: 'star' as const,
       onPress: () => router.push('/(tabs)/favorites'),
       isActive: activePage === 'favorites',
     },
     {
       id: 'archived',
-      label: 'Archived',
+      label: t('sidebar.archived'),
       icon: 'archive' as const,
       onPress: () => router.push('archived'),
       isActive: activePage === 'archived',
@@ -184,13 +186,13 @@ export function UserSidebar({
     //   onPress: () => router.push('create-audio'),
     //   isActive: activePage === 'audio',
     // },
-  ], [activePage, searchQuery, onSearchQueryChange]);
+  ], [activePage, searchQuery, onSearchQueryChange, t]);
 
   // Add admin section if user is admin
   const adminItems = useMemo(() => isAdmin() ? [
     {
       id: 'admin-separator',
-      label: 'Admin',
+      label: t('sidebar.admin'),
       icon: 'shield' as const,
       onPress: () => {},
       isActive: false,
@@ -198,18 +200,18 @@ export function UserSidebar({
     },
     {
       id: 'admin-dashboard',
-      label: 'Admin Dashboard',
+      label: t('sidebar.adminDashboard'),
       icon: 'shield' as const,
       onPress: () => router.push('admin-dashboard'),
       isActive: activePage === 'admin-dashboard',
     },
-  ] : [], [isAdmin, activePage]);
+  ] : [], [isAdmin, activePage, t]);
 
   // Add support section if user is support
   const supportItems = useMemo(() => isSupport() && !isAdmin() ? [
     {
       id: 'support-separator',
-      label: 'Support',
+      label: t('sidebar.support'),
       icon: 'headset' as const,
       onPress: () => {},
       isActive: false,
@@ -217,12 +219,12 @@ export function UserSidebar({
     },
     {
       id: 'support-dashboard',
-      label: 'Support Dashboard',
+      label: t('sidebar.supportDashboard'),
       icon: 'headset' as const,
       onPress: () => router.push('/admin/support'),
       isActive: activePage === 'support',
     },
-  ] : [], [isSupport, isAdmin, activePage]);
+  ] : [], [isSupport, isAdmin, activePage, t]);
 
   const allSidebarItems = useMemo(() => [...sidebarItems, ...adminItems, ...supportItems], [sidebarItems, adminItems, supportItems]);
 
@@ -266,7 +268,7 @@ export function UserSidebar({
   const handlePDFUploadClick = useCallback(async () => {
     // Check if PDF upload feature is enabled
     if (!isFeatureEnabled('pdf_upload')) {
-      showSnackbar('PDF upload feature is not available', 'error');
+      showSnackbar(t('sidebar.pdfUploadNotAvailable'), 'error');
       setShowCreateDropdown(false);
       return;
     }
@@ -296,7 +298,7 @@ export function UserSidebar({
         
         // Validate file
         if (!asset) {
-          showSnackbar('No file selected', 'error');
+          showSnackbar(t('sidebar.noFileSelected'), 'error');
           return;
         }
 
@@ -308,7 +310,7 @@ export function UserSidebar({
         }
 
         if (!user?.id) {
-          showSnackbar('Please sign in to upload PDFs', 'error');
+          showSnackbar(t('sidebar.signInToUploadPDFs'), 'error');
           return;
         }
 
@@ -317,10 +319,10 @@ export function UserSidebar({
         
       } catch (error) {
         console.error('Error picking PDF:', error);
-        showSnackbar('Failed to select PDF file', 'error');
+        showSnackbar(t('sidebar.failedToSelectPDF'), 'error');
       }
     }
-  }, [isFeatureEnabled, showSnackbar, user]);
+  }, [isFeatureEnabled, showSnackbar, user, t]);
 
   const handleMobilePDFUpload = useCallback(async (fileUri: string, fileName: string, fileSize: number) => {
     if (!user?.id) return;
@@ -332,23 +334,23 @@ export function UserSidebar({
         fileSize: `${(fileSize / (1024 * 1024)).toFixed(2)} MB`,
         progress: 10,
         status: 'uploading',
-        statusMessage: 'Preparing PDF...',
+        statusMessage: t('sidebar.preparingPDF'),
       });
 
       // Create a placeholder note immediately
       const placeholderNote = await supabaseNoteStorage.createNote({
         title: `📄 ${fileName.replace('.pdf', '')}`,
-        content: '⏳ Uploading PDF... Please wait while we process your document.',
+        content: `⏳ ${t('sidebar.uploadingPDF')} Please wait while we process your document.`,
         type: 'pdf',
         tags: ['pdf', 'uploading'],
-        summary: `Uploading ${fileName} (${(fileSize / (1024 * 1024)).toFixed(2)} MB)`,
+        summary: `${t('sidebar.uploadingPDF')} ${fileName} (${(fileSize / (1024 * 1024)).toFixed(2)} MB)`,
       });
 
       // Navigate to home screen immediately
       router.push('/(tabs)');
 
       // Update progress
-      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: 'Uploading to cloud...' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: t('sidebar.uploadingToCloud') } : null);
       
       const uploadedPDFUrl = await pdfStorage.uploadPDFFile(
         fileUri,
@@ -358,7 +360,7 @@ export function UserSidebar({
       );
 
       // Process PDF with AI
-      setUploadingPDF(prev => prev ? { ...prev, progress: 50, status: 'processing', statusMessage: 'Processing with AI...' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 50, status: 'processing', statusMessage: t('sidebar.processingWithAI') } : null);
       
       const aiResult = await pdfStorage.processPDFWithAI(fileUri, {
         generateTitle: true,
@@ -372,12 +374,12 @@ export function UserSidebar({
       const pageCount = aiResult.pageCount || 1;
 
       // Update progress
-      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: 'Saving...' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: t('sidebar.saving') } : null);
 
       // Update note with AI-processed content
       await supabaseNoteStorage.updateNote(placeholderNote.id, {
         title: aiTitle,
-        content: extractedText || `PDF uploaded!\n\n${fileName}\nText extraction failed.`,
+        content: extractedText || `PDF uploaded!\n\n${fileName}\n${t('sidebar.textExtractionFailed')}.`,
         type: 'pdf',
         summary: aiSummary,
         keyDetails: aiResult.keyDetails || [],
@@ -395,7 +397,7 @@ export function UserSidebar({
       });
 
       // Show completion
-      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: 'Upload complete!' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: t('sidebar.uploadComplete') } : null);
 
       // Refresh notes immediately to show the new upload
       if (onUploadComplete) {
@@ -413,14 +415,14 @@ export function UserSidebar({
         ...prev, 
         progress: 100, 
         status: 'error', 
-        statusMessage: 'Upload failed. Please try again.' 
+        statusMessage: t('sidebar.uploadFailed') 
       } : null);
       
       setTimeout(() => {
         setUploadingPDF(null);
       }, 3000);
     }
-  }, [user, setUploadingPDF]);
+  }, [user, setUploadingPDF, t]);
 
   const handlePDFFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -431,7 +433,7 @@ export function UserSidebar({
 
     // Validate file type
     if (file.type !== 'application/pdf') {
-      Alert.alert('Invalid File', 'Please select a PDF file.');
+      Alert.alert(t('sidebar.invalidFile'), t('sidebar.pleaseSelectPDF'));
       return;
     }
 
@@ -443,7 +445,7 @@ export function UserSidebar({
     }
 
     if (!user?.id) {
-      Alert.alert('Authentication Required', 'Please sign in to upload PDFs.');
+      Alert.alert(t('sidebar.authenticationRequired'), t('sidebar.signInToUploadPDFs') + '.');
       return;
     }
 
@@ -454,23 +456,23 @@ export function UserSidebar({
         fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
         progress: 10,
         status: 'uploading',
-        statusMessage: 'Preparing PDF...',
+        statusMessage: t('sidebar.preparingPDF'),
       });
 
       // Create a placeholder note immediately with special indicator
       const placeholderNote = await supabaseNoteStorage.createNote({
         title: `📄 ${file.name.replace('.pdf', '')}`,
-        content: '⏳ Uploading PDF... Please wait while we process your document.',
+        content: `⏳ ${t('sidebar.uploadingPDF')} Please wait while we process your document.`,
         type: 'pdf',
         tags: ['pdf', 'uploading'],
-        summary: `Uploading ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
+        summary: `${t('sidebar.uploadingPDF')} ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
       });
 
       // Navigate to home screen immediately
       router.push('/(tabs)');
 
       // Update progress
-      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: 'Uploading to cloud...' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: t('sidebar.uploadingToCloud') } : null);
       
       const uploadedPDFUrl = await pdfStorage.uploadPDFFile(
         file,
@@ -479,7 +481,7 @@ export function UserSidebar({
       );
 
       // Process PDF with AI
-      setUploadingPDF(prev => prev ? { ...prev, progress: 50, status: 'processing', statusMessage: 'Processing with AI...' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 50, status: 'processing', statusMessage: t('sidebar.processingWithAI') } : null);
       
       const aiResult = await pdfStorage.processPDFWithAI(file, {
         generateTitle: true,
@@ -493,12 +495,12 @@ export function UserSidebar({
       const pageCount = aiResult.pageCount || 1;
 
       // Update progress
-      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: 'Saving...' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: t('sidebar.saving') } : null);
 
       // Update note with AI-processed content
       await supabaseNoteStorage.updateNote(placeholderNote.id, {
         title: aiTitle,
-        content: extractedText || `PDF uploaded!\n\n${file.name}\nText extraction failed.`,
+        content: extractedText || `PDF uploaded!\n\n${file.name}\n${t('sidebar.textExtractionFailed')}.`,
         type: 'pdf',
         summary: aiSummary,
         keyDetails: aiResult.keyDetails || [],
@@ -516,7 +518,7 @@ export function UserSidebar({
       });
 
       // Show completion
-      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: 'Upload complete!' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: t('sidebar.uploadComplete') } : null);
 
       // Refresh notes immediately to show the new upload
       if (onUploadComplete) {
@@ -534,14 +536,14 @@ export function UserSidebar({
         ...prev, 
         progress: 100, 
         status: 'error', 
-        statusMessage: 'Upload failed. Please try again.' 
+        statusMessage: t('sidebar.uploadFailed') 
       } : null);
       
       setTimeout(() => {
         setUploadingPDF(null);
       }, 3000);
     }
-  }, [user, setUploadingPDF]);
+  }, [user, setUploadingPDF, t]);
 
   const handleCreateDropdownToggle = useCallback(() => {
     if (!showCreateDropdown && buttonRef.current) {
@@ -594,7 +596,7 @@ export function UserSidebar({
             accessibilityState={{ expanded: showCreateDropdown }}
           >
             <Ionicons name="add" size={20} color="#FFFFFF" />
-            <ThemedText style={styles.createButtonText}>New Note</ThemedText>
+            <ThemedText style={styles.createButtonText}>{t('sidebar.newNote')}</ThemedText>
             <View style={styles.createButtonRight}>
               <ThemedText style={styles.shortcut}>⌘N</ThemedText>
               <Ionicons 
@@ -652,8 +654,8 @@ export function UserSidebar({
                     <Ionicons name="document-text" size={18} color="#6A5ACD" />
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#333333', marginBottom: '2px' }}>Create Text Note</div>
-                    <div style={{ fontSize: '12px', color: '#666666', fontWeight: '400' }}>Rich text with formatting</div>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#333333', marginBottom: '2px' }}>{t('sidebar.createTextNote')}</div>
+                    <div style={{ fontSize: '12px', color: '#666666', fontWeight: '400' }}>{t('sidebar.createTextNoteDesc')}</div>
                   </div>
                 </div>
                 
@@ -679,8 +681,8 @@ export function UserSidebar({
                     <Ionicons name="mic" size={18} color="#6A5ACD" />
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#333333', marginBottom: '2px' }}>Create Audio Note</div>
-                    <div style={{ fontSize: '12px', color: '#666666', fontWeight: '400' }}>Voice recording & transcription</div>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#333333', marginBottom: '2px' }}>{t('sidebar.createAudioNote')}</div>
+                    <div style={{ fontSize: '12px', color: '#666666', fontWeight: '400' }}>{t('sidebar.createAudioNoteDesc')}</div>
                   </div>
                 </div>
                 
@@ -708,8 +710,8 @@ export function UserSidebar({
                       <Ionicons name="document" size={18} color="#6A5ACD" />
                     </div>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#333333', marginBottom: '2px' }}>Upload PDF</div>
-                      <div style={{ fontSize: '12px', color: '#666666', fontWeight: '400' }}>Extract text from PDF documents</div>
+                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#333333', marginBottom: '2px' }}>{t('sidebar.uploadPDF')}</div>
+                      <div style={{ fontSize: '12px', color: '#666666', fontWeight: '400' }}>{t('sidebar.uploadPDFDesc')}</div>
                     </div>
                   </div>
                 )}
@@ -729,16 +731,16 @@ export function UserSidebar({
       <View style={styles.bottomActions}>
         <TouchableOpacity style={styles.bottomItem} onPress={handleWebSearch}>
           <Ionicons name="search" size={20} color={iconColor} />
-          <ThemedText style={styles.bottomLabel}>Search</ThemedText>
+          <ThemedText style={styles.bottomLabel}>{t('sidebar.search')}</ThemedText>
           <ThemedText style={styles.shortcut}>⌘K</ThemedText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.bottomItem} onPress={() => router.push('/help')}>
           <Ionicons name="help-circle" size={20} color={iconColor} />
-          <ThemedText style={styles.bottomLabel}>Help & Support</ThemedText>
+          <ThemedText style={styles.bottomLabel}>{t('sidebar.helpSupport')}</ThemedText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.bottomItem} onPress={handleWebSettings}>
           <Ionicons name="settings" size={20} color={iconColor} />
-          <ThemedText style={styles.bottomLabel}>Settings</ThemedText>
+          <ThemedText style={styles.bottomLabel}>{t('sidebar.settings')}</ThemedText>
         </TouchableOpacity>
       </View>
 

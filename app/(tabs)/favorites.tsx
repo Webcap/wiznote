@@ -10,6 +10,7 @@ import { WebNoteCard } from '../../components/web/WebNoteCard';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotes } from '../../hooks/useNotes';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { useTranslation } from '../../hooks/useTranslation';
 import { Note } from '../../types/Note';
 
 export const options = {
@@ -17,6 +18,7 @@ export const options = {
 };
 
 export default function FavoritesScreen() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { notes, loading, toggleFavorite, togglePin, toggleArchive, deleteNote } = useNotes(user?.id || '');
   const router = useRouter();
@@ -43,7 +45,7 @@ export default function FavoritesScreen() {
   };
 
   const handleWebDeleteNote = async (note: Note) => {
-    if (confirm('Are you sure you want to delete this note?')) {
+    if (confirm(t('favorites.confirmDeleteNote'))) {
       await deleteNote(note.id);
     }
   };
@@ -68,26 +70,26 @@ export default function FavoritesScreen() {
           <View style={[styles.webHeader, { backgroundColor: cardBackground }]}>
             <View style={styles.webHeaderLeft}>
               <Ionicons name="star" size={28} color="#FFD700" />
-              <ThemedText style={styles.webTitle}>Favorite Notes</ThemedText>
+              <ThemedText style={styles.webTitle}>{t('favorites.favoriteNotes')}</ThemedText>
             </View>
             <ThemedText style={[styles.webCount, { color: iconColor }]}>
-              {favoriteNotes.length} {favoriteNotes.length === 1 ? 'note' : 'notes'}
+              {favoriteNotes.length} {favoriteNotes.length === 1 ? t('favorites.note') : t('favorites.notes')}
             </ThemedText>
           </View>
 
           {favoriteNotes.length === 0 ? (
             <View style={styles.webEmptyState}>
               <Ionicons name="star-outline" size={64} color="#FFD700" />
-              <ThemedText style={styles.webEmptyTitle}>No Favorite Notes</ThemedText>
+              <ThemedText style={styles.webEmptyTitle}>{t('favorites.noFavoriteNotes')}</ThemedText>
               <ThemedText style={styles.webEmptySubtitle}>
-                Star your important notes to see them here
+                {t('favorites.starImportantNotes')}
               </ThemedText>
               <TouchableOpacity 
                 style={styles.webBackButton}
                 onPress={() => router.push('/(tabs)')}
               >
                 <Ionicons name="arrow-back" size={16} color="#FFFFFF" />
-                <ThemedText style={styles.webBackButtonText}>Back to All Notes</ThemedText>
+                <ThemedText style={styles.webBackButtonText}>{t('favorites.backToAllNotes')}</ThemedText>
               </TouchableOpacity>
             </View>
           ) : (
@@ -117,7 +119,7 @@ export default function FavoritesScreen() {
       <View style={[styles.header, { backgroundColor: cardBackground }]}>
         <View style={styles.headerContent}>
           <Ionicons name="star" size={24} color="#FFD700" />
-          <ThemedText style={[styles.title, { color: textColor }]}>Favorites</ThemedText>
+          <ThemedText style={[styles.title, { color: textColor }]}>{t('favorites.favorites')}</ThemedText>
         </View>
         <ThemedText style={[styles.count, { color: iconColor }]}>
           {favoriteNotes.length}
@@ -128,16 +130,16 @@ export default function FavoritesScreen() {
       {favoriteNotes.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="star-outline" size={64} color="#FFD700" />
-          <ThemedText style={[styles.emptyText, { color: textColor }]}>No Favorite Notes</ThemedText>
+          <ThemedText style={[styles.emptyText, { color: textColor }]}>{t('favorites.noFavoriteNotes')}</ThemedText>
           <ThemedText style={[styles.emptySubtext, { color: iconColor }]}>
-            Star your important notes to see them here
+            {t('favorites.starImportantNotes')}
           </ThemedText>
           <TouchableOpacity 
             style={styles.goToNotesButton}
             onPress={() => router.push('/(tabs)')}
           >
             <Ionicons name="arrow-back" size={16} color="#FFFFFF" />
-            <ThemedText style={styles.goToNotesButtonText}>View All Notes</ThemedText>
+            <ThemedText style={styles.goToNotesButtonText}>{t('favorites.viewAllNotes')}</ThemedText>
           </TouchableOpacity>
         </View>
       ) : (

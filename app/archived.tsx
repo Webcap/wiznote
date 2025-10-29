@@ -12,12 +12,14 @@ import { WebNoteCard } from '../components/web/WebNoteCard';
 import { useAuth } from '../hooks/useAuth';
 import { useNotes } from '../hooks/useNotes';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useTranslation } from '../hooks/useTranslation';
 
 export const options = {
   headerShown: false,
 };
 
 export default function ArchivedNotesScreen() {
+  const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
   const { notes, loading, toggleArchive, toggleFavorite, deleteNote } = useNotes(user?.id || '');
   const router = useRouter();
@@ -47,7 +49,7 @@ export default function ArchivedNotesScreen() {
   };
 
   const handleWebDeleteNote = async (note: any) => {
-    if (confirm('Are you sure you want to delete this note?')) {
+    if (confirm(t('archived.confirmDeleteNote'))) {
       await deleteNote(note.id);
     }
   };
@@ -69,14 +71,14 @@ export default function ArchivedNotesScreen() {
           <View style={styles.webHeader}>
             <TouchableOpacity style={styles.webBackButton} onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={20} color={iconColor} />
-              <ThemedText style={styles.webBackText}>Back</ThemedText>
+              <ThemedText style={styles.webBackText}>{t('archived.back')}</ThemedText>
             </TouchableOpacity>
             <ThemedText style={styles.webHeaderTitle}>
-              Archived Notes
+              {t('archived.archivedNotes')}
             </ThemedText>
             <View style={styles.webHeaderRight}>
               <ThemedText style={styles.webNoteCount}>
-                {archivedNotes.length} {archivedNotes.length === 1 ? 'note' : 'notes'}
+                {archivedNotes.length} {archivedNotes.length === 1 ? t('archived.note') : t('archived.notes')}
               </ThemedText>
             </View>
           </View>
@@ -86,9 +88,9 @@ export default function ArchivedNotesScreen() {
           {archivedNotes.length === 0 ? (
             <View style={styles.webEmptyState}>
               <Ionicons name="archive-outline" size={64} color="#A0A0A0" />
-              <ThemedText style={styles.webEmptyTitle}>No archived notes</ThemedText>
+              <ThemedText style={styles.webEmptyTitle}>{t('archived.noArchivedNotes')}</ThemedText>
               <ThemedText style={styles.webEmptySubtitle}>
-                Notes you archive will appear here
+                {t('archived.archivedNotesDesc')}
               </ThemedText>
             </View>
           ) : (
@@ -118,13 +120,13 @@ export default function ArchivedNotesScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={iconColor} />
         </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>Archived Notes</ThemedText>
+        <ThemedText style={styles.headerTitle}>{t('archived.archivedNotes')}</ThemedText>
       </View>
 
       {archivedNotes.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="archive-outline" size={64} color="#A0A0A0" />
-          <ThemedText style={styles.emptyText}>No archived notes</ThemedText>
+          <ThemedText style={styles.emptyText}>{t('archived.noArchivedNotes')}</ThemedText>
         </View>
       ) : (
         <FlatList

@@ -4,6 +4,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
 import { RichTextEditor } from '@/components/web/RichTextEditor.web';
+import { useTranslation } from '@/hooks/useTranslation';
 
 // Convert markdown-style formatting to HTML
 const convertMarkdownToHtml = (markdown: string): string => {
@@ -95,21 +96,24 @@ export const NoteContentEditor: React.FC<NoteContentEditorProps> = ({
       setContentHtml(htmlContent);
     }
   }, [htmlContent, isRichTextEnabled, setContentHtml]);
+  
+  const { t } = useTranslation();
+  
   return (
     <ThemedView style={styles.webSection}>
       <View style={styles.webSectionHeader}>
         <View style={styles.webSectionTitleContainer}>
-          <ThemedText style={styles.webSectionTitle}>Content</ThemedText>
+          <ThemedText style={styles.webSectionTitle}>{t('createNote.content')}</ThemedText>
           {isRichTextEnabled && (
             <View style={styles.richTextIndicator}>
               <Ionicons name="text" size={14} color="#4CAF50" />
-              <ThemedText style={styles.richTextIndicatorText}>Rich Text</ThemedText>
+              <ThemedText style={styles.richTextIndicatorText}>{t('createNote.richText')}</ThemedText>
             </View>
           )}
         </View>
         <View style={styles.webSectionBadge}>
           <Ionicons name="create" size={16} color="#6A5ACD" />
-          <ThemedText style={styles.webSectionBadgeText}>Required</ThemedText>
+          <ThemedText style={styles.webSectionBadgeText}>{t('createNote.required')}</ThemedText>
         </View>
       </View>
 
@@ -125,7 +129,7 @@ export const NoteContentEditor: React.FC<NoteContentEditorProps> = ({
               setContentFormat('html');
             }
           }}
-          placeholder="Start writing your note content here..."
+          placeholder={t('createNote.startWritingContent')}
           style={{ minHeight: 300 }}
         />
       ) : (
@@ -133,7 +137,7 @@ export const NoteContentEditor: React.FC<NoteContentEditorProps> = ({
           style={[styles.webTextarea, { backgroundColor: inputBg, color: inputText, borderColor }]}
           value={content}
           onChangeText={setContent}
-          placeholder="Start writing your note content here..."
+          placeholder={t('createNote.startWritingContent')}
           placeholderTextColor={placeholderColor}
           multiline
           textAlignVertical="top"

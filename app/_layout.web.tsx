@@ -14,11 +14,13 @@ import { SmartAppBanner } from '../components/web/SmartAppBanner';
 import { SnackbarProvider, useSnackbar } from '../contexts/SnackbarContext';
 import { PDFUploadProvider } from '../contexts/PDFUploadContext';
 import { AudioUploadProvider } from '../contexts/AudioUploadContext';
+import { LanguageProvider } from '../contexts/LanguageContext';
 import { useAuth } from '../hooks/useAuth';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { featureFlagService } from '../services/FeatureFlagService';
 import { ThemeProvider as CustomThemeProvider, ThemeContext } from '../ThemeContext';
+import '../lib/i18n';
 
 function AppContent() {
   const colorScheme = useColorScheme();
@@ -178,16 +180,19 @@ function AppContent() {
   if (!loaded || isLoading) {
     return (
       <CustomThemeProvider initialTheme={userTheme}>
-        <AuthLoadingScreen message="Initializing..." />
+        <LanguageProvider>
+          <AuthLoadingScreen message="Initializing..." />
+        </LanguageProvider>
       </CustomThemeProvider>
     );
   }
 
   return (
     <CustomThemeProvider initialTheme={userTheme}>
-      <SnackbarProvider>
-        <PDFUploadProvider>
-          <AudioUploadProvider>
+      <LanguageProvider>
+        <SnackbarProvider>
+          <PDFUploadProvider>
+            <AudioUploadProvider>
             <ThemeContext.Consumer>
             {theme => {
               const isDark = theme === 'dark' || (theme === 'auto' && colorScheme === 'dark');
@@ -265,9 +270,10 @@ function AppContent() {
             );
           }}
         </ThemeContext.Consumer>
-          </AudioUploadProvider>
-        </PDFUploadProvider>
-      </SnackbarProvider>
+            </AudioUploadProvider>
+          </PDFUploadProvider>
+        </SnackbarProvider>
+      </LanguageProvider>
     </CustomThemeProvider>
   );
 }

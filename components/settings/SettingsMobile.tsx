@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Alert, Platform, ScrollView, Switch, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Modal, Platform, ScrollView, Switch, TouchableOpacity, View } from 'react-native';
 import { styles } from '../../styles/SettingsStyles';
 import { RoleBadge } from '../RoleBadge';
 import { ThemedText } from '../ThemedText';
@@ -11,6 +12,8 @@ import { Logo } from '../Logo';
 import { featureFlagService } from '../../services/FeatureFlagService';
 import { featureCacheService } from '../../services/FeatureCacheService';
 import { useSnackbar } from '../../contexts/SnackbarContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { DeleteAccountModal } from '../DeleteAccountModal';
 import { AudioAPIExplorer } from '../AudioAPIExplorer';
 import { AudioImportTest } from '../AudioImportTest';
@@ -73,12 +76,29 @@ export function SettingsMobile({
 }: SettingsMobileProps) {
   const router = useRouter();
   const { showSnackbar } = useSnackbar();
+  const { language, changeLanguage } = useLanguage();
+  const { t, i18n: i18nInstance } = useTranslation();
   const iconColor = useThemeColor({}, 'text');
   const cardBg = useThemeColor({}, 'backgroundSecondary');
   const cardText = useThemeColor({}, 'text');
   const borderColor = useThemeColor({}, 'border');
   const accentColor = useThemeColor({}, 'accentPrimary');
   const textSecondary = useThemeColor({}, 'textSecondary');
+  
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  
+  // Re-render when language changes
+  const [, setForceUpdate] = useState(0);
+  useEffect(() => {
+    // This will trigger a re-render when language changes
+    const listener = () => {
+      setForceUpdate(prev => prev + 1);
+    };
+    i18nInstance.on('languageChanged', listener);
+    return () => {
+      i18nInstance.off('languageChanged', listener);
+    };
+  }, [i18nInstance]);
 
   const currentUser = user;
   const appVersion = getAppVersion();
@@ -134,6 +154,18 @@ export function SettingsMobile({
       await updatePreferences({ autoAISummaries: value });
     } catch (error) {
       console.error('Error updating auto AI summaries preference:', error);
+    }
+  };
+
+  const handleLanguageChange = async (newLanguage: string) => {
+    try {
+      console.log('Settings: Changing language to', newLanguage);
+      await changeLanguage(newLanguage);
+      console.log('Settings: Language changed successfully');
+      await updatePreferences({ language: newLanguage });
+      console.log('Settings: Preferences updated');
+    } catch (error) {
+      console.error('Error changing language:', error);
     }
   };
 
@@ -235,7 +267,7 @@ export function SettingsMobile({
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
               <Ionicons name="color-palette" size={20} color="#6A5ACD" />
-              <ThemedText style={styles.preferenceLabel}>Theme</ThemedText>
+              <ThemedText style={styles.preferenceLabel}>{t('settings.theme')}</ThemedText>
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {['light', 'dark', 'auto'].map(option => (
@@ -251,12 +283,98 @@ export function SettingsMobile({
                   onPress={() => handleThemeChange(option as ThemePreference)}
                 >
                   <ThemedText style={{ color: theme === option ? '#fff' : cardText, fontWeight: 'bold', fontSize: 14 }}>
-                    {option === 'light' ? 'Light' : option === 'dark' ? 'Dark' : 'System'}
+                    {option === 'light' ? t('settings.lightTheme') : option === 'dark' ? t('settings.darkTheme') : t('settings.systemTheme')}
                   </ThemedText>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
+          <View style={styles.preferenceItem}>
+            <View style={styles.preferenceInfo}>
+              <Ionicons name="language" size={20} color="#6A5ACD" />
+              <ThemedText style={styles.preferenceLabel}>{t('settings.language')}</ThemedText>
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowLanguagePicker(true)}
+              style={{
+                backgroundColor: cardBg,
+                borderWidth: 1,
+                borderColor: borderColor,
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                minWidth: 120,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <ThemedText style={{ color: cardText, fontWeight: '500', fontSize: 14 }}>
+                {language === 'en' ? t('settings.english') : t('settings.spanish')}
+              </ThemedText>
+              <Ionicons name="chevron-down" size={20} color={borderColor} />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Language Picker Modal */}
+          <Modal
+            visible={showLanguagePicker}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowLanguagePicker(false)}
+          >
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              activeOpacity={1}
+              onPress={() => setShowLanguagePicker(false)}
+            >
+              <View
+                style={{
+                  backgroundColor: cardBg,
+                  borderRadius: 16,
+                  padding: 20,
+                  minWidth: 280,
+                  maxWidth: '90%',
+                }}
+                onStartShouldSetResponder={() => true}
+              >
+                <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
+                  {t('settings.language')}
+                </ThemedText>
+                {['en', 'es'].map(lang => (
+                  <TouchableOpacity
+                    key={lang}
+                    style={{
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      backgroundColor: language === lang ? accentColor : 'transparent',
+                      marginBottom: 8,
+                    }}
+                    onPress={() => {
+                      handleLanguageChange(lang);
+                      setShowLanguagePicker(false);
+                    }}
+                  >
+                    <ThemedText
+                      style={{
+                        color: language === lang ? '#fff' : cardText,
+                        fontWeight: '500',
+                        fontSize: 16,
+                      }}
+                    >
+                      {lang === 'en' ? t('settings.english') : t('settings.spanish')}
+                    </ThemedText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableOpacity>
+          </Modal>
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
               <Ionicons name="notifications" size={20} color="#6A5ACD" />
