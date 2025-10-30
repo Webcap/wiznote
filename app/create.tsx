@@ -89,7 +89,7 @@ export default function CreateNoteScreen() {
   const userId = user?.id || '';
   const isAuthenticated = !!user?.id && !authLoading;
   
-  const { notes } = useNotes(userId);
+  const { notes, loading: notesLoading } = useNotes(userId);
   
   // Feature flags
   const { isFeatureEnabled } = useFeatureFlags();
@@ -122,9 +122,10 @@ export default function CreateNoteScreen() {
     }, [isAuthenticated, noteId]),
     onSaveError: useCallback((errorMessage: string) => {
       if (isAuthenticated) {
-        Alert.alert('Save Error', errorMessage);
+        // Use common.error as fallback, errorMessage should already be translated
+        Alert.alert(t('common.error'), errorMessage);
       }
-    }, [isAuthenticated]),
+    }, [isAuthenticated, t]),
   });
 
   // Theme colors
@@ -158,6 +159,9 @@ export default function CreateNoteScreen() {
   const isEditMode = noteId && !noteId.startsWith('temp_');
   const hasContent = title.trim() || content.trim() || contentHtml.trim();
   const isSaveDisabled = isSaving || authLoading || !isAuthenticated || !hasContent || !performManualSave;
+  
+  // Loading state: show loading while fetching note data in edit mode
+  const isLoadingNote = isEditMode && (notesLoading || (isAuthenticated && notes.length === 0));
 
   // Handler functions
   const handleSave = useCallback(async () => {
@@ -541,7 +545,12 @@ export default function CreateNoteScreen() {
           />
 
           <ScrollView style={styles.webContent} showsVerticalScrollIndicator={false}>
-            {isAuthenticated ? (
+            {isLoadingNote ? (
+              <View style={styles.webLoadingContainer}>
+                <LoadingSpinner size={50} />
+                <ThemedText style={styles.webLoadingText}>{t('createNote.loadingNote')}</ThemedText>
+              </View>
+            ) : isAuthenticated ? (
               <>
                 <NoteTitleInput
                   title={title}
@@ -649,7 +658,12 @@ export default function CreateNoteScreen() {
             removeClippedSubviews={false}
             keyboardDismissMode="none"
           >
-            {isAuthenticated ? (
+            {isLoadingNote ? (
+              <View style={styles.loadingContainer}>
+                <LoadingSpinner size={50} />
+                <ThemedText style={styles.loadingText}>{t('createNote.loadingNote')}</ThemedText>
+              </View>
+            ) : isAuthenticated ? (
               <>
                 <MemoizedTextInput
                   style={titleInputStyle}
@@ -999,6 +1013,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  webLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+    minHeight: 400,
+  },
+  webLoadingText: {
+    fontSize: 16,
+    marginTop: 16,
+    opacity: 0.7,
+    textAlign: 'center',
+  },
   webContent: {
     flex: 1,
     padding: 24,
@@ -1185,6 +1212,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 165, 0, 0.3)',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+    minHeight: 400,
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 16,
+    opacity: 0.7,
+    textAlign: 'center',
   },
   mobileRichTextNoteText: {
     fontSize: 12,

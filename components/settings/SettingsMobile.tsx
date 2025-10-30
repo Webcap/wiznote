@@ -31,10 +31,6 @@ interface SettingsMobileProps {
   updatePreferences: (preferences: any) => Promise<void>;
   theme: ThemePreference;
   setTheme: (theme: ThemePreference) => void;
-  notifications: boolean;
-  setNotifications: (value: boolean) => void;
-  autoSync: boolean;
-  setAutoSync: (value: boolean) => void;
   autoKeyDetails: boolean;
   setAutoKeyDetails: (value: boolean) => void;
   autoAISummaries: boolean;
@@ -60,10 +56,6 @@ export function SettingsMobile({
   updatePreferences,
   theme,
   setTheme,
-  notifications,
-  setNotifications,
-  autoSync,
-  setAutoSync,
   autoKeyDetails,
   setAutoKeyDetails,
   autoAISummaries,
@@ -485,30 +477,6 @@ export function SettingsMobile({
               </View>
             </TouchableOpacity>
           </Modal>
-          <View style={styles.preferenceItem}>
-            <View style={styles.preferenceInfo}>
-              <Ionicons name="notifications" size={20} color="#6A5ACD" />
-              <ThemedText style={styles.preferenceLabel}>{t('settings.notifications')}</ThemedText>
-            </View>
-            <Switch
-              value={notifications}
-              onValueChange={setNotifications}
-              trackColor={{ false: borderColor, true: '#6A5ACD' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-          <View style={styles.preferenceItem}>
-            <View style={styles.preferenceInfo}>
-              <Ionicons name="cloud-upload" size={20} color="#6A5ACD" />
-              <ThemedText style={styles.preferenceLabel}>{t('settings.autoSync')}</ThemedText>
-            </View>
-            <Switch
-              value={autoSync}
-              onValueChange={setAutoSync}
-              trackColor={{ false: borderColor, true: '#6A5ACD' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
               <Ionicons name="key" size={20} color="#6A5ACD" />

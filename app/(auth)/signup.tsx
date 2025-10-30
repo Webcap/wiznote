@@ -256,19 +256,19 @@ export default function SignupScreen() {
           <View style={styles.webRightPanel}>
             <View style={styles.webFormContainer}>
               <View style={styles.webFormHeader}>
-                <ThemedText style={[styles.webFormTitle, { color: textColor }]}>Create Account</ThemedText>
+                <ThemedText style={[styles.webFormTitle, { color: textColor }]}>{t('signup.createAccount')}</ThemedText>
                 <ThemedText style={[styles.webFormSubtitle, { color: textSecondaryColor }]}>
-                  Join Notez and start organizing your thoughts
+                  {t('signup.createAccountDesc')}
                 </ThemedText>
               </View>
 
               <View style={styles.webForm}>
                 {/* Display Name Input */}
                 <View style={styles.webInputContainer}>
-                  <ThemedText style={[styles.webLabel, { color: textColor }]}>Display Name (Optional)</ThemedText>
+                  <ThemedText style={[styles.webLabel, { color: textColor }]}>{t('signup.displayName')}</ThemedText>
                   <TextInput
                     style={[styles.webInput, { color: inputText, backgroundColor: inputBg, borderColor }]}
-                    placeholder="Enter your name"
+                    placeholder={t('signup.enterYourName')}
                     placeholderTextColor={borderColor}
                     value={displayName}
                     onChangeText={setDisplayName}
@@ -280,10 +280,10 @@ export default function SignupScreen() {
 
                 {/* Email Input */}
                 <View style={styles.webInputContainer}>
-                  <ThemedText style={[styles.webLabel, { color: textColor }]}>Email Address</ThemedText>
+                  <ThemedText style={[styles.webLabel, { color: textColor }]}>{t('signup.emailAddress')}</ThemedText>
                   <TextInput
                     style={[styles.webInput, { color: inputText, backgroundColor: inputBg, borderColor }]}
-                    placeholder="Enter your email"
+                    placeholder={t('signup.enterYourEmail')}
                     placeholderTextColor={borderColor}
                     value={email}
                     onChangeText={setEmail}
@@ -295,11 +295,11 @@ export default function SignupScreen() {
 
                 {/* Password Input */}
                 <View style={styles.webInputContainer}>
-                  <ThemedText style={[styles.webLabel, { color: textColor }]}>Password</ThemedText>
+                  <ThemedText style={[styles.webLabel, { color: textColor }]}>{t('signup.password')}</ThemedText>
                   <View style={[styles.webPasswordContainer, { backgroundColor: inputBg, borderColor }] }>
                     <TextInput
                       style={[styles.webPasswordInput, { color: inputText }]}
-                      placeholder="Enter your password"
+                      placeholder={t('signup.enterYourPassword')}
                       placeholderTextColor={borderColor}
                       value={password}
                       onChangeText={setPassword}
@@ -318,17 +318,17 @@ export default function SignupScreen() {
                     </TouchableOpacity>
                   </View>
                   <ThemedText style={[styles.webPasswordHint, { color: textSecondaryColor }]}>
-                    Must be 8+ characters with a letter, number, and special character (!@#$%^&amp;*()_+-=[]{})
+                    {t('signup.passwordRequirement')}
                   </ThemedText>
                 </View>
 
                 {/* Confirm Password Input */}
                 <View style={styles.webInputContainer}>
-                  <ThemedText style={[styles.webLabel, { color: textColor }]}>Confirm Password</ThemedText>
+                  <ThemedText style={[styles.webLabel, { color: textColor }]}>{t('signup.confirmPassword')}</ThemedText>
                   <View style={[styles.webPasswordContainer, { backgroundColor: inputBg, borderColor }] }>
                     <TextInput
                       style={[styles.webPasswordInput, { color: inputText }]}
-                      placeholder="Confirm your password"
+                      placeholder={t('signup.confirmYourPassword')}
                       placeholderTextColor={borderColor}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
@@ -357,21 +357,21 @@ export default function SignupScreen() {
                   {isLoading ? (
                     <View style={styles.webLoadingContainer}>
                       <LoadingSpinner size={20} color="#FFFFFF" />
-                      <ThemedText style={styles.webSignupButtonText}>Creating Account...</ThemedText>
+                      <ThemedText style={styles.webSignupButtonText}>{t('signup.creatingAccount')}</ThemedText>
                     </View>
                   ) : (
-                    <ThemedText style={styles.webSignupButtonText}>Create Account</ThemedText>
+                    <ThemedText style={styles.webSignupButtonText}>{t('signup.createAccount')}</ThemedText>
                   )}
                 </TouchableOpacity>
 
                 {/* Sign In Link */}
                 <View style={styles.webSigninContainer}>
                   <ThemedText style={[styles.webSigninText, { color: textSecondaryColor }]}>
-                    Already have an account?{' '}
+                    {t('auth.alreadyHaveAccount')}{' '}
                   </ThemedText>
                   <TouchableOpacity onPress={() => router.push('/(auth)/login' as any)}>
                     <ThemedText style={[styles.webSigninLink, { color: accentColor }]}>
-                      Sign In
+                      {t('auth.login')}
                     </ThemedText>
                   </TouchableOpacity>
                 </View>
@@ -380,14 +380,14 @@ export default function SignupScreen() {
               {/* Terms and Privacy */}
               <View style={styles.webTermsContainer}>
                 <ThemedText style={[styles.webTermsText, { color: textSecondaryColor }]}>
-                  By creating an account, you agree to our{' '}
+                  {t('signup.byCreatingAccountAgree')}{' '}
                 </ThemedText>
                 <TouchableOpacity onPress={() => router.push('/terms' as any)}>
-                  <ThemedText style={[styles.webTermsLink, { color: accentColor }]}>Terms of Service</ThemedText>
+                  <ThemedText style={[styles.webTermsLink, { color: accentColor }]}>{t('signup.termsOfService')}</ThemedText>
                 </TouchableOpacity>
-                <ThemedText style={[styles.webTermsText, { color: textSecondaryColor }]}> and </ThemedText>
+                <ThemedText style={[styles.webTermsText, { color: textSecondaryColor }]}> {t('auth.and')} </ThemedText>
                 <TouchableOpacity onPress={() => router.push('/privacy' as any)}>
-                  <ThemedText style={[styles.webTermsLink, { color: accentColor }]}>Privacy Policy</ThemedText>
+                  <ThemedText style={[styles.webTermsLink, { color: accentColor }]}>{t('signup.privacyPolicy')}</ThemedText>
                 </TouchableOpacity>
               </View>
 
@@ -396,12 +396,12 @@ export default function SignupScreen() {
                 <ThemedText style={[styles.webShortcutsTitle, { color: textSecondaryColor }]}>{t('auth.keyboardShortcuts')}</ThemedText>
                 <View style={styles.webShortcutsList}>
                   <View style={styles.webShortcutItem}>
-                    <ThemedText style={[styles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>Enter</ThemedText>
-                    <ThemedText style={[styles.webShortcutText, { color: textSecondaryColor }]}>Create account</ThemedText>
+                    <ThemedText style={[styles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>{t('auth.enter')}</ThemedText>
+                    <ThemedText style={[styles.webShortcutText, { color: textSecondaryColor }]}>{t('signup.createAccountShortcut')}</ThemedText>
                   </View>
                   <View style={styles.webShortcutItem}>
-                    <ThemedText style={[styles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>Esc</ThemedText>
-                    <ThemedText style={[styles.webShortcutText, { color: textSecondaryColor }]}>Go back</ThemedText>
+                    <ThemedText style={[styles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>{t('auth.esc')}</ThemedText>
+                    <ThemedText style={[styles.webShortcutText, { color: textSecondaryColor }]}>{t('signup.goBackShortcut')}</ThemedText>
                   </View>
                 </View>
               </View>
@@ -424,18 +424,18 @@ export default function SignupScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <ThemedText style={[styles.title, { color: textColor }]}>Create Account</ThemedText>
+            <ThemedText style={[styles.title, { color: textColor }]}>{t('signup.createAccount')}</ThemedText>
             <ThemedText style={[styles.subtitle, { color: textSecondaryColor }]}>
-              Join WizNote and start organizing your thoughts
+              {t('signup.createAccountDesc')}
             </ThemedText>
           </View>
           <View style={styles.form}>
             {/* Display Name Input */}
             <View style={styles.inputContainer}>
-              <ThemedText style={[styles.label, { color: textColor }]}>Display Name (Optional)</ThemedText>
+              <ThemedText style={[styles.label, { color: textColor }]}>{t('signup.displayName')}</ThemedText>
               <TextInput
                 style={[styles.input, { color: inputText, backgroundColor: inputBg, borderColor }]}
-                placeholder="Enter your name"
+                placeholder={t('signup.enterYourName')}
                 placeholderTextColor={borderColor}
                 value={displayName}
                 onChangeText={setDisplayName}
@@ -445,10 +445,10 @@ export default function SignupScreen() {
             </View>
             {/* Email Input */}
             <View style={styles.inputContainer}>
-              <ThemedText style={[styles.label, { color: textColor }]}>Email Address</ThemedText>
+              <ThemedText style={[styles.label, { color: textColor }]}>{t('signup.emailAddress')}</ThemedText>
               <TextInput
                 style={[styles.input, { color: inputText, backgroundColor: inputBg, borderColor }]}
-                placeholder="Enter your email"
+                placeholder={t('signup.enterYourEmail')}
                 placeholderTextColor={borderColor}
                 value={email}
                 onChangeText={setEmail}
@@ -459,11 +459,11 @@ export default function SignupScreen() {
             </View>
             {/* Password Input */}
             <View style={styles.inputContainer}>
-              <ThemedText style={[styles.label, { color: textColor }]}>Password</ThemedText>
+              <ThemedText style={[styles.label, { color: textColor }]}>{t('signup.password')}</ThemedText>
               <View style={[styles.passwordContainer, { backgroundColor: inputBg, borderColor }] }>
                 <TextInput
                   style={[styles.passwordInput, { color: inputText }]}
-                  placeholder="Enter your password"
+                  placeholder={t('signup.enterYourPassword')}
                   placeholderTextColor={borderColor}
                   value={password}
                   onChangeText={setPassword}
@@ -484,11 +484,11 @@ export default function SignupScreen() {
             </View>
             {/* Confirm Password Input */}
             <View style={styles.inputContainer}>
-              <ThemedText style={[styles.label, { color: textColor }]}>Confirm Password</ThemedText>
+              <ThemedText style={[styles.label, { color: textColor }]}>{t('signup.confirmPassword')}</ThemedText>
               <View style={[styles.passwordContainer, { backgroundColor: inputBg, borderColor }] }>
                 <TextInput
                   style={[styles.passwordInput, { color: inputText }]}
-                  placeholder="Confirm your password"
+                  placeholder={t('signup.confirmYourPassword')}
                   placeholderTextColor={borderColor}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
@@ -516,20 +516,20 @@ export default function SignupScreen() {
               {isLoading ? (
                 <View style={styles.loadingContainer}>
                   <LoadingSpinner size={20} color={inputText} />
-                  <ThemedText style={styles.signupButtonText}>Creating Account...</ThemedText>
+                  <ThemedText style={styles.signupButtonText}>{t('signup.creatingAccount')}</ThemedText>
                 </View>
               ) : (
-                <ThemedText style={styles.signupButtonText}>Create Account</ThemedText>
+                <ThemedText style={styles.signupButtonText}>{t('signup.createAccount')}</ThemedText>
               )}
             </TouchableOpacity>
             {/* Sign In Link */}
             <View style={styles.signinContainer}>
               <ThemedText style={[styles.signinText, { color: textSecondaryColor }]}>
-                Already have an account?{' '}
+                {t('auth.alreadyHaveAccount')}{' '}
               </ThemedText>
               <TouchableOpacity onPress={() => router.push('/(auth)/login' as any)}>
                 <ThemedText style={[styles.signinLink, { color: accentColor }]}>
-                  Sign In
+                  {t('auth.login')}
                 </ThemedText>
               </TouchableOpacity>
             </View>
@@ -537,17 +537,17 @@ export default function SignupScreen() {
             {/* Terms and Privacy Links */}
             <View style={styles.privacyContainer}>
               <ThemedText style={[styles.privacyText, { color: textSecondaryColor }]}>
-                By signing up, you agree to our{' '}
+                {t('signup.byCreatingAccountAgree')}{' '}
               </ThemedText>
               <TouchableOpacity onPress={() => router.push('/terms' as any)}>
                 <ThemedText style={[styles.privacyLink, { color: accentColor }]}>
-                  Terms of Service
+                  {t('signup.termsOfService')}
                 </ThemedText>
               </TouchableOpacity>
-              <ThemedText style={[styles.privacyText, { color: textSecondaryColor }]}> and </ThemedText>
+              <ThemedText style={[styles.privacyText, { color: textSecondaryColor }]}> {t('auth.and')} </ThemedText>
               <TouchableOpacity onPress={() => router.push('/privacy' as any)}>
                 <ThemedText style={[styles.privacyLink, { color: accentColor }]}>
-                  Privacy Policy
+                  {t('signup.privacyPolicy')}
                 </ThemedText>
               </TouchableOpacity>
             </View>

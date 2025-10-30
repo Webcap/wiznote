@@ -1400,7 +1400,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: Platform.OS === 'web' ? 40 : 20,
     paddingTop: 60,
     paddingBottom: 20,
   },
@@ -1432,8 +1432,7 @@ const styles = StyleSheet.create({
   },
   notesSection: {
     flex: 1,
-    paddingHorizontal: 40,
-    paddingRight: Platform.OS === 'web' ? 40 : 20,
+    paddingHorizontal: Platform.OS === 'web' ? 40 : 20,
   },
   notesSectionHeader: {
     flexDirection: 'row',
@@ -1455,7 +1454,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: Platform.OS === 'web' ? 40 : 20,
   },
   emptyText: {
     fontSize: 20,
@@ -1501,13 +1500,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: Platform.OS === 'web' ? 40 : 20,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: Platform.OS === 'web' ? 40 : 20,
   },
   retryButton: {
     backgroundColor: '#6A5ACD',

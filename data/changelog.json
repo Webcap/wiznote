@@ -1,6 +1,61 @@
 {
   "versions": [
     {
+      "version": "1.5.0",
+      "date": "Unreleased",
+      "sections": [
+        {
+          "title": "Multi-Language Support",
+          "emoji": "🌐",
+          "items": [
+            {
+              "title": "Note sharing translations",
+              "description": "Share feature now fully translated for English and Spanish",
+              "details": [
+                "All share-related UI elements, labels, and messages now translatable",
+                "Success and error messages properly localized",
+                "Search results and user selection messages translated",
+                "Public link creation and sharing flows fully translated",
+                "Both web and mobile share interfaces support multiple languages"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "UI Improvements",
+          "emoji": "🎨",
+          "items": [
+            {
+              "title": "Fixed button cut-off on home screen",
+              "description": "Notas Recientes buttons no longer get cut off on smaller screens",
+              "details": [
+                "Buttons now properly wrap when needed",
+                "Responsive design improvements for all screen sizes",
+                "Better spacing and layout on mobile devices",
+                "Buttons display fully without being cut off at screen edges"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Profile & Settings",
+          "emoji": "⚙️",
+          "items": [
+            {
+              "title": "Fixed premium status loading",
+              "description": "Premium status now displays correctly from the start",
+              "details": [
+                "No more incorrect 'inactive' state flash on page reload",
+                "Premium status loads immediately from user profile",
+                "Better loading states and visual feedback",
+                "Improved user experience with consistent status display"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "1.4.1",
       "date": "October 26, 2025",
       "sections": [

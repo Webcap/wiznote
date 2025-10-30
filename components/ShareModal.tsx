@@ -316,7 +316,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
                 <div style={{...webStyles.selectedUser, backgroundColor: backgroundSecondary, borderColor}}>
                   <Ionicons name="checkmark-circle" size={20} color={accentPrimary} />
                   <div style={webStyles.userInfo}>
-                    <div style={{...webStyles.userName, color: textColor}}>{selectedUser.display_name || 'Unknown User'}</div>
+                    <div style={{...webStyles.userName, color: textColor}}>{selectedUser.display_name || t('share.unknownUser')}</div>
                     <div style={{...webStyles.userEmail, color: textMutedColor}}>{selectedUser.email}</div>
                   </div>
                   <button onClick={handleClearSelection} style={webStyles.clearButton}>

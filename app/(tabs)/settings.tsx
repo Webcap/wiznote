@@ -19,8 +19,6 @@ export default function SettingsScreen() {
     isSupport
   } = useAuth();
   const { notes } = useNotes(user?.id || '');
-  const [notifications, setNotifications] = useState(true);
-  const [autoSync, setAutoSync] = useState(true);
   const [autoKeyDetails, setAutoKeyDetails] = useState(true);
   const [autoAISummaries, setAutoAISummaries] = useState(true);
   const [subscriptionDetails, setSubscriptionDetails] = useState<any>(null);
@@ -66,8 +64,6 @@ export default function SettingsScreen() {
   // Load user preferences when user changes
   useEffect(() => {
     if (user?.preferences) {
-      setNotifications(user.preferences.notifications ?? true);
-      setAutoSync(user.preferences.autoSync ?? true);
       setAutoKeyDetails(user.preferences.autoKeyDetails ?? true);
       setAutoAISummaries(user.preferences.autoAISummaries ?? true);
     }
@@ -101,10 +97,6 @@ export default function SettingsScreen() {
     updatePreferences,
     theme,
     setTheme,
-    notifications,
-    setNotifications,
-    autoSync,
-    setAutoSync,
     autoKeyDetails,
     setAutoKeyDetails,
     autoAISummaries,

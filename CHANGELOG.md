@@ -7,6 +7,97 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - Unreleased
+
+### ✨ Added
+
+#### Internationalization (i18n) Support
+- **Note sharing translations** - Share feature now fully translated for English and Spanish
+  - Added complete translation support for ShareModal and ShareCard components
+  - All share-related UI elements, labels, placeholders, and messages now translatable
+  - Success and error messages properly localized
+  - Search results and user selection messages translated
+  - Public link creation and sharing flows fully translated
+  - Both web and mobile share interfaces support multiple languages
+
+#### Translation Infrastructure
+- **Enhanced translation system** - Expanded translation coverage across the app
+  - Added `share` namespace with 33 translation keys for sharing functionality
+  - Translation keys organized by feature for better maintainability
+  - Support for pluralization and variable interpolation
+  - Consistent translation key naming conventions
+
+### 🐛 Fixed
+
+#### UI & Layout Issues
+- **Fixed button cut-off on home screen** - "Notas Recientes" buttons no longer get cut off
+  - Added proper flex wrapping to header container
+  - Adjusted button sizing for better responsive behavior
+  - Reduced icon and font sizes for more compact layout
+  - Reduced padding to prevent overflow on smaller screens
+  - Added conditional padding (20px mobile, 40px web) to prevent screen edge cut-off
+  - Buttons now properly wrap when needed and display fully on all screen sizes
+
+#### Premium Status Loading
+- **Fixed premium status flash on reload** - Profile no longer shows incorrect "no premium" state initially
+  - Premium status now uses `user.premium.isActive` for immediate display (faster than subscription details)
+  - Added proper loading state display while subscription details are being fetched
+  - Improved loading state initialization (starts as loading instead of inactive)
+  - Fixed mobile settings to match web version's premium status check logic
+  - Prevents white background flash showing "inactive" before correct state loads
+  - Better coordination between auth loading and subscription loading states
+
+### 🔧 Changed
+
+#### Settings Premium Display
+- **Improved premium status rendering** - Better handling of loading and state transitions
+  - SettingsMobile now checks `user.premium.isActive` first (matches SettingsWeb behavior)
+  - Shows "Loading..." state when either auth or subscription data is loading
+  - Graceful fallback to user premium type when subscription details aren't loaded yet
+  - Better error handling for subscription loading failures
+  - Improved user experience with immediate status from auth context
+
+#### Translation System Integration
+- **Updated components to use translation hooks** - ShareModal and ShareCard components migrated
+  - Replaced hardcoded English strings with translation function calls
+  - Consistent translation pattern across all share-related messages
+  - Both platforms (web and mobile) use same translation keys
+
+### 📁 Files Modified
+
+#### Components
+- `components/ShareModal.tsx` - Added translation support for all UI elements and messages
+- `components/ShareCard.tsx` - Added translation support for mobile share interface
+- `components/settings/SettingsMobile.tsx` - Fixed premium status to use user.premium.isActive and added loading states
+
+#### Screens
+- `app/(tabs)/index.tsx` - Fixed button layout issues on home screen with responsive design
+- `app/(tabs)/settings.tsx` - Improved subscription loading state initialization and coordination
+
+#### Translations
+- `locales/en/translations.json` - Added `share` namespace with 33 English translation keys
+- `locales/es/translations.json` - Added `share` namespace with 33 Spanish translation keys
+
+### 🎯 Impact
+
+#### User Experience
+- ✅ **Better responsive design** - Home screen buttons work properly on all screen sizes
+- ✅ **No more status flash** - Premium status displays correctly from the start
+- ✅ **Consistent loading states** - Clear feedback while data is being fetched
+- ✅ **Multi-language support** - Share feature works in both English and Spanish
+
+#### Internationalization
+- ✅ **Foundation for full i18n** - Translation system expanded to cover share functionality
+- ✅ **Consistent user experience** - Users can interact with app in their preferred language
+- ✅ **Easier localization** - Organized translation keys make adding new languages simpler
+
+#### Code Quality
+- ✅ **Reduced hardcoded strings** - More translatable strings moved to translation files
+- ✅ **Better state management** - Improved loading state coordination across components
+- ✅ **Responsive design improvements** - Better handling of different screen sizes
+
+---
+
 ## [1.4.1] - 2025-10-26
 
 ### ✨ Added

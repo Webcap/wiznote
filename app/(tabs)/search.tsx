@@ -290,7 +290,7 @@ export default function SearchScreen() {
           <Ionicons name="search" size={20} color={iconColor} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: inputText }]}
-            placeholder="Search notes..."
+            placeholder={t('search.searchNotesPlaceholder')}
             placeholderTextColor={tagText}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -305,11 +305,11 @@ export default function SearchScreen() {
 
       {/* Filters */}
       <View style={styles.filtersContainer}>
-        <ThemedText style={styles.sectionTitle}>Filters</ThemedText>
+        <ThemedText style={styles.sectionTitle}>{t('search.filters')}</ThemedText>
         
         {/* Note Type Filter */}
         <View style={styles.filterSection}>
-          <ThemedText style={styles.filterLabel}>Note Type</ThemedText>
+          <ThemedText style={styles.filterLabel}>{t('search.noteType')}</ThemedText>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {['all', 'text', 'audio'].map(type => (
               <TouchableOpacity
@@ -317,7 +317,9 @@ export default function SearchScreen() {
                 style={[styles.sortButton, noteType === type && styles.activeSortButton]}
                 onPress={() => setNoteType(type as any)}
               >
-                <ThemedText style={[styles.sortButtonText, noteType === type && styles.activeSortButtonText]}>{type.charAt(0).toUpperCase() + type.slice(1)}</ThemedText>
+                <ThemedText style={[styles.sortButtonText, noteType === type && styles.activeSortButtonText]}>
+                  {type === 'all' ? t('search.all') : type === 'text' ? t('search.text') : t('search.audio')}
+                </ThemedText>
               </TouchableOpacity>
             ))}
           </View>
@@ -326,7 +328,7 @@ export default function SearchScreen() {
         {/* Tags Filter */}
         {allTags.length > 0 && (
           <View style={styles.filterSection}>
-            <ThemedText style={styles.filterLabel}>Tags</ThemedText>
+            <ThemedText style={styles.filterLabel}>{t('search.tags')}</ThemedText>
             <View style={styles.tagsContainer}>
               {allTags.map(tag => (
                 <TouchableOpacity
@@ -345,7 +347,7 @@ export default function SearchScreen() {
 
         {/* Sort Options */}
         <View style={styles.filterSection}>
-          <ThemedText style={styles.filterLabel}>Sort By</ThemedText>
+          <ThemedText style={styles.filterLabel}>{t('search.sortBy')}</ThemedText>
           <View style={styles.sortButtons}>
             {['updatedAt', 'createdAt', 'title'].map(option => (
               <TouchableOpacity
@@ -354,7 +356,7 @@ export default function SearchScreen() {
                 onPress={() => setSortBy(option as any)}
               >
                 <ThemedText style={[styles.sortButtonText, sortBy === option && styles.activeSortButtonText]}>
-                  {option === 'updatedAt' ? 'Last Modified' : option === 'createdAt' ? 'Created Date' : 'Title'}
+                  {option === 'updatedAt' ? t('search.lastModified') : option === 'createdAt' ? t('search.createdDate') : t('search.title')}
                 </ThemedText>
               </TouchableOpacity>
             ))}
@@ -363,7 +365,7 @@ export default function SearchScreen() {
 
         {/* Order Toggle */}
         <View style={styles.filterSection}>
-          <ThemedText style={styles.filterLabel}>Order</ThemedText>
+          <ThemedText style={styles.filterLabel}>{t('search.order')}</ThemedText>
           <View style={styles.orderButtons}>
             {['desc', 'asc'].map(order => (
               <TouchableOpacity
@@ -372,7 +374,7 @@ export default function SearchScreen() {
                 onPress={() => setSortOrder(order as any)}
               >
                 <ThemedText style={[styles.orderButtonText, sortOrder === order && styles.activeOrderButtonText]}>
-                  {order === 'desc' ? 'Newest First' : 'Oldest First'}
+                  {order === 'desc' ? t('search.newestFirst') : t('search.oldestFirst')}
                 </ThemedText>
               </TouchableOpacity>
             ))}
@@ -399,7 +401,7 @@ export default function SearchScreen() {
         {/* Clear Filters */}
         {(searchQuery || selectedTags.length > 0 || showArchived) && (
           <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
-            <ThemedText style={styles.clearFiltersText}>Clear All Filters</ThemedText>
+            <ThemedText style={styles.clearFiltersText}>{t('search.clearAllFilters')}</ThemedText>
           </TouchableOpacity>
         )}
       </View>
@@ -407,13 +409,13 @@ export default function SearchScreen() {
       {/* Results */}
       <View style={styles.resultsContainer}>
         <ThemedText style={styles.resultsTitle}>
-          {filteredNotes.length} note{filteredNotes.length !== 1 ? 's' : ''} found
+          {filteredNotes.length} {filteredNotes.length === 1 ? t('search.noteFound') : t('search.notesFound')}
         </ThemedText>
         
         {loading ? (
           <View style={styles.loadingContainer}>
             <LoadingSpinner size={40} />
-            <ThemedText style={styles.loadingText}>Searching notes...</ThemedText>
+            <ThemedText style={styles.loadingText}>{t('search.searchingNotes')}</ThemedText>
           </View>
         ) : (
           <FlatList

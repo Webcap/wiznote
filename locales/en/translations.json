@@ -1226,7 +1226,14 @@
     "failedToLoadQuizzes": "Failed to load quizzes",
     "failedToLoadQuizDetails": "Failed to load quiz details",
     "failedToLoadQuiz": "Failed to load quiz",
-    "failedToSubmitQuiz": "Failed to submit quiz"
+    "failedToSubmitQuiz": "Failed to submit quiz",
+    "incompleteQuiz": "Incomplete Quiz",
+    "unansweredQuestions": "You have {{count}} unanswered question. Do you want to submit anyway?",
+    "unansweredQuestionsPlural": "You have {{count}} unanswered questions. Do you want to submit anyway?",
+    "submit": "Submit",
+    "typeAnswerHere": "Type your answer here...",
+    "deleteQuizConfirm": "Delete Quiz",
+    "deleteQuizConfirmMessage": "Are you sure you want to delete this quiz? This action cannot be undone."
   },
   "share": {
     "shareNote": "Share Note",

@@ -322,7 +322,7 @@ export default function TermsOfServiceScreen() {
         </View>
 
         <ThemedText style={[styles.mobileLastUpdated, { color: textSecondaryColor }]}>
-          {t('terms.lastUpdated', { date: 'January 2025' })}
+          {t('terms.lastUpdated', { date: 'October 2025' })}
         </ThemedText>
 
         <ThemedText style={[styles.mobileSectionTitle, { color: textColor }]}>
@@ -547,7 +547,7 @@ export default function TermsOfServiceScreen() {
 
         <View style={styles.mobileFooter}>
           <ThemedText style={[styles.mobileFooterText, { color: textSecondaryColor }]}>
-            {t('terms.effectiveText', { date: 'January 2025' })}
+            {t('terms.effectiveText', { date: 'October 2025' })}
           </ThemedText>
         </View>
       </ScrollView>

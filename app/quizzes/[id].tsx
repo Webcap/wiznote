@@ -40,13 +40,13 @@ export default function QuizDetailScreen() {
 
   useEffect(() => {
     if (!id) {
-      Alert.alert('Error', 'No quiz ID provided');
+      Alert.alert(t('quizzes.error'), t('quizzes.noQuizIdProvided'));
       router.back();
       return;
     }
 
     loadQuizDetails();
-  }, [id]);
+  }, [id, t]);
 
   const loadQuizDetails = async () => {
     try {
@@ -110,7 +110,7 @@ export default function QuizDetailScreen() {
       setQuestions(mappedQuestions);
     } catch (error) {
       console.error('Error loading quiz:', error);
-      Alert.alert('Error', 'Failed to load quiz details');
+      Alert.alert(t('quizzes.error'), t('quizzes.failedToLoadQuizDetails'));
       router.back();
     } finally {
       setIsLoading(false);
@@ -123,12 +123,12 @@ export default function QuizDetailScreen() {
 
   const handleDeleteQuiz = () => {
     Alert.alert(
-      'Delete Quiz',
-      'Are you sure you want to delete this quiz? This action cannot be undone.',
+      t('quizzes.deleteQuizConfirm'),
+      t('quizzes.deleteQuizConfirmMessage'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -139,11 +139,11 @@ export default function QuizDetailScreen() {
 
               if (error) throw error;
 
-              Alert.alert('Success', 'Quiz deleted successfully');
+              Alert.alert(t('quizzes.success'), t('quizzes.quizDeletedSuccessfully'));
               router.back();
             } catch (error) {
               console.error('Error deleting quiz:', error);
-              Alert.alert('Error', 'Failed to delete quiz');
+              Alert.alert(t('quizzes.error'), t('quizzes.failedToDeleteQuiz'));
             }
           },
         },
