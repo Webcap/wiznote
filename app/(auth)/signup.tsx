@@ -393,7 +393,7 @@ export default function SignupScreen() {
 
               {/* Keyboard Shortcuts */}
               <View style={[styles.webShortcutsContainer, { borderTopColor: borderColor }]}>
-                <ThemedText style={[styles.webShortcutsTitle, { color: textSecondaryColor }]}>Keyboard Shortcuts</ThemedText>
+                <ThemedText style={[styles.webShortcutsTitle, { color: textSecondaryColor }]}>{t('auth.keyboardShortcuts')}</ThemedText>
                 <View style={styles.webShortcutsList}>
                   <View style={styles.webShortcutItem}>
                     <ThemedText style={[styles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>Enter</ThemedText>

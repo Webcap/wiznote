@@ -5,8 +5,10 @@ import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useTranslation } from '../hooks/useTranslation';
 
 export default function PaymentCancelledScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
@@ -24,16 +26,16 @@ export default function PaymentCancelledScreen() {
     <ThemedView style={[styles.container, { backgroundColor }]}>
       <View style={styles.content}>
         <Ionicons name="close-circle" size={64} color={dangerColor} />
-        <ThemedText type="title" style={[styles.title, { color: textColor }]}>Payment Cancelled</ThemedText>
-        <ThemedText style={[styles.subtitle, { color: mutedTextColor }]}>No charges were made. You can try again anytime.</ThemedText>
+        <ThemedText type="title" style={[styles.title, { color: textColor }]}>{t('paymentCancelled.title')}</ThemedText>
+        <ThemedText style={[styles.subtitle, { color: mutedTextColor }]}>{t('paymentCancelled.message')}</ThemedText>
         <View style={styles.row}>
           <TouchableOpacity style={[styles.button, styles.secondary]} onPress={() => router.replace('/join-premium')}>
             <Ionicons name="card" size={20} color="#FFFFFF" />
-            <ThemedText style={styles.buttonText}>Try Again</ThemedText>
+            <ThemedText style={styles.buttonText}>{t('paymentCancelled.tryAgain')}</ThemedText>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.button, styles.primary]} onPress={() => router.replace('/(tabs)')}>
             <Ionicons name="home" size={20} color="#FFFFFF" />
-            <ThemedText style={styles.buttonText}>Go to Home</ThemedText>
+            <ThemedText style={styles.buttonText}>{t('paymentCancelled.goToHome')}</ThemedText>
           </TouchableOpacity>
         </View>
       </View>

@@ -1,8 +1,16 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
-import * as Localization from 'expo-localization';
+import { Platform } from 'react-native';
 import { LanguageStorage } from '../lib/i18nStorage';
 import i18n from '../lib/i18n';
 import { betterAuthService } from '../services/BetterAuthService';
+
+// Safely import expo-localization with fallback
+let Localization: typeof import('expo-localization') | null = null;
+try {
+  Localization = require('expo-localization');
+} catch (error) {
+  console.warn('expo-localization not available, using fallback:', error);
+}
 
 interface LanguageContextType {
   language: string;
@@ -78,16 +86,40 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
         
         // If no saved language, detect from device locale
         if (!savedLanguage) {
-          const locales = Localization.getLocales();
-          const detectedLanguage = locales[0]?.languageCode || 'en';
-          // Only use detected language if it's supported
-          if (['en', 'es'].includes(detectedLanguage)) {
-            savedLanguage = detectedLanguage;
-            await LanguageStorage.setLanguage(detectedLanguage);
+          if (Localization && Localization.getLocales) {
+            try {
+              const locales = Localization.getLocales();
+              const detectedLanguage = locales[0]?.languageCode || 'en';
+              // Only use detected language if it's supported
+              if (['en', 'es'].includes(detectedLanguage)) {
+                savedLanguage = detectedLanguage;
+                await LanguageStorage.setLanguage(detectedLanguage);
+              } else {
+                // Default to English if not supported
+                savedLanguage = 'en';
+                await LanguageStorage.setLanguage('en');
+              }
+            } catch (error) {
+              console.warn('Error getting locales, defaulting to English:', error);
+              savedLanguage = 'en';
+              await LanguageStorage.setLanguage('en');
+            }
           } else {
-            // Default to English if not supported
-            savedLanguage = 'en';
-            await LanguageStorage.setLanguage('en');
+            // Fallback: try to use browser/system locale if on web
+            if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
+              const browserLang = navigator.language.split('-')[0];
+              if (['en', 'es'].includes(browserLang)) {
+                savedLanguage = browserLang;
+                await LanguageStorage.setLanguage(browserLang);
+              } else {
+                savedLanguage = 'en';
+                await LanguageStorage.setLanguage('en');
+              }
+            } else {
+              // Default to English if localization not available
+              savedLanguage = 'en';
+              await LanguageStorage.setLanguage('en');
+            }
           }
         }
 

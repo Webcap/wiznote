@@ -89,6 +89,7 @@ export function SettingsWeb({
   const textSecondary = useThemeColor({}, 'textSecondary');
 
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
   
   // Language configuration with flags
   const languages = [
@@ -295,26 +296,94 @@ export function SettingsWeb({
               <Ionicons name="color-palette" size={20} color="#6A5ACD" />
               <ThemedText style={styles.preferenceLabel}>{t('settings.theme')}</ThemedText>
             </View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {['light', 'dark', 'auto'].map(option => (
-                <TouchableOpacity
-                  key={option}
-                  style={{
-                    backgroundColor: theme === option ? accentColor : cardBg,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 16,
-                    marginHorizontal: 2,
-                  }}
-                  onPress={() => handleThemeChange(option as ThemePreference)}
-                >
-                  <ThemedText style={{ color: theme === option ? '#fff' : cardText, fontWeight: 'bold', fontSize: 14 }}>
-                    {option === 'light' ? t('settings.lightTheme') : option === 'dark' ? t('settings.darkTheme') : t('settings.systemTheme')}
-                  </ThemedText>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <TouchableOpacity
+              onPress={() => setShowThemePicker(true)}
+              style={{
+                backgroundColor: cardBg,
+                borderWidth: 1,
+                borderColor: borderColor,
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                minWidth: 120,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <ThemedText style={{ color: cardText, fontWeight: '500', fontSize: 14 }}>
+                {theme === 'light' ? t('settings.lightTheme') : theme === 'dark' ? t('settings.darkTheme') : t('settings.systemTheme')}
+              </ThemedText>
+              <Ionicons name="chevron-down" size={20} color={borderColor} />
+            </TouchableOpacity>
           </View>
+          
+          {/* Theme Picker Modal */}
+          <Modal
+            visible={showThemePicker}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowThemePicker(false)}
+          >
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              activeOpacity={1}
+              onPress={() => setShowThemePicker(false)}
+            >
+              <View
+                style={{
+                  backgroundColor: cardBg,
+                  borderRadius: 16,
+                  padding: 20,
+                  minWidth: 280,
+                  maxWidth: '90%',
+                }}
+                onStartShouldSetResponder={() => true}
+              >
+                <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
+                  {t('settings.theme')}
+                </ThemedText>
+                {['light', 'dark', 'auto'].map(option => (
+                  <TouchableOpacity
+                    key={option}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      backgroundColor: theme === option ? accentColor : 'transparent',
+                      marginBottom: 8,
+                      gap: 12,
+                    }}
+                    onPress={() => {
+                      handleThemeChange(option as ThemePreference);
+                      setShowThemePicker(false);
+                    }}
+                  >
+                    <ThemedText
+                      style={{
+                        flex: 1,
+                        color: theme === option ? '#fff' : cardText,
+                        fontWeight: '500',
+                        fontSize: 16,
+                      }}
+                    >
+                      {option === 'light' ? t('settings.lightTheme') : option === 'dark' ? t('settings.darkTheme') : t('settings.systemTheme')}
+                    </ThemedText>
+                    {theme === option && (
+                      <Ionicons name="checkmark" size={20} color={theme === option ? '#fff' : cardText} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableOpacity>
+          </Modal>
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
               <Ionicons name="language" size={20} color="#6A5ACD" />

@@ -265,6 +265,7 @@ export async function generateFlashcardsWithGemini(
     difficulty: 'easy' | 'medium' | 'hard';
     focusAreas?: string[];
     includeExplanations: boolean;
+    language?: string; // User's language preference ('en' or 'es')
   }
 ): Promise<{
   success: boolean;
@@ -306,8 +307,15 @@ export async function generateFlashcardsWithGemini(
       ? 'Include a brief explanation for each answer. '
       : '';
     
-    const prompt = `Generate ${options.numCards} flashcards based on this content.
+    // Language instruction for the AI
+    const languageInstruction = options.language === 'es' 
+      ? 'IMPORTANT: Generate all flashcards (questions, answers, explanations, categories, and tags) in Spanish. Respond completely in Spanish.'
+      : 'IMPORTANT: Generate all flashcards (questions, answers, explanations, categories, and tags) in English. Respond completely in English.';
     
+    const prompt = `Generate ${options.numCards} flashcards based on this content.
+
+${languageInstruction}
+
 Requirements:
 - Difficulty level: ${options.difficulty}
 - ${focusAreasText}${explanationsText}

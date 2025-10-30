@@ -391,7 +391,7 @@ export default function SearchScreen() {
               color={showArchived ? '#6A5ACD' : tagText}
             />
             <ThemedText style={[styles.archivedText, showArchived && styles.archivedTextActive]}>
-              Show Archived Notes
+              {t('notes.showArchivedNotes')}
             </ThemedText>
           </TouchableOpacity>
         </View>

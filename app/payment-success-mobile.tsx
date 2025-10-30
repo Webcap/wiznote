@@ -7,8 +7,10 @@ import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useTranslation } from '../hooks/useTranslation';
 
 export default function PaymentSuccessMobileScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { user, forceRefreshSession } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(true);
@@ -79,7 +81,7 @@ export default function PaymentSuccessMobileScreen() {
         <ThemedView style={[styles.loadingContainer, { backgroundColor }]}>
           <LoadingSpinner size={60} />
           <ThemedText style={[styles.loadingText, { color: textColor }]}>
-            Activating your premium features...
+            {t('paymentSuccess.activatingPremium')}
           </ThemedText>
         </ThemedView>
       </>
@@ -107,45 +109,45 @@ export default function PaymentSuccessMobileScreen() {
 
         {/* Success Message */}
         <ThemedText style={[styles.title, { color: textColor }]}>
-          🎉 Welcome to Premium! 🎉
+          {t('paymentSuccess.welcomeToPremium')}
         </ThemedText>
         
         <ThemedText style={[styles.subtitle, { color: textColor }]}>
-          Your subscription is now active
+          {t('paymentSuccess.subscriptionActive')}
         </ThemedText>
 
         {/* Feature Highlights */}
         <View style={styles.featuresContainer}>
           <ThemedText style={[styles.featuresTitle, { color: textColor }]}>
-            You now have access to:
+            {t('paymentSuccess.youNowHaveAccess')}
           </ThemedText>
           
           <View style={styles.featureList}>
             <View style={styles.featureItem}>
               <Ionicons name="infinite" size={24} color={accentColor} />
               <ThemedText style={[styles.featureText, { color: textColor }]}>
-                Unlimited notes
+                {t('paymentSuccess.unlimitedNotes')}
               </ThemedText>
             </View>
             
             <View style={styles.featureItem}>
               <Ionicons name="mic" size={24} color={accentColor} />
               <ThemedText style={[styles.featureText, { color: textColor }]}>
-                Extended voice recording
+                {t('paymentSuccess.extendedVoiceRecording')}
               </ThemedText>
             </View>
             
             <View style={styles.featureItem}>
               <Ionicons name="sparkles" size={24} color={accentColor} />
               <ThemedText style={[styles.featureText, { color: textColor }]}>
-                AI-powered features
+                {t('paymentSuccess.aiPoweredFeatures')}
               </ThemedText>
             </View>
             
             <View style={styles.featureItem}>
               <Ionicons name="flash" size={24} color={accentColor} />
               <ThemedText style={[styles.featureText, { color: textColor }]}>
-                Priority support
+                {t('paymentSuccess.prioritySupport')}
               </ThemedText>
             </View>
           </View>
@@ -160,7 +162,7 @@ export default function PaymentSuccessMobileScreen() {
           >
             <Ionicons name="rocket" size={20} color="#FFFFFF" />
             <ThemedText style={styles.primaryButtonText}>
-              Start Using Premium
+              {t('paymentSuccess.startUsingPremium')}
             </ThemedText>
           </TouchableOpacity>
 
@@ -170,14 +172,14 @@ export default function PaymentSuccessMobileScreen() {
             activeOpacity={0.8}
           >
             <ThemedText style={[styles.secondaryButtonText, { color: accentColor }]}>
-              View All Features
+              {t('paymentSuccess.viewAllFeatures')}
             </ThemedText>
           </TouchableOpacity>
         </View>
 
         {/* Thank You Message */}
         <ThemedText style={[styles.thankYou, { color: textColor }]}>
-          Thank you for choosing Wiznote! 🚀
+          {t('paymentSuccess.thankYouMessage')}
         </ThemedText>
       </Animated.View>
     </ThemedView>

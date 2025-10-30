@@ -17,6 +17,7 @@ import { WebLayout } from '../../../components/web/WebLayout';
 import { UserSidebar } from '../../../components/web/UserSidebar';
 import { useAuth } from '../../../hooks/useAuth';
 import { useThemeColor } from '../../../hooks/useThemeColor';
+import { useTranslation } from '../../../hooks/useTranslation';
 import { supabase } from '../../../lib/supabase';
 import { Quiz, QuizQuestion } from '../../../types/Quizzes';
 
@@ -27,6 +28,7 @@ interface UserAnswer {
 }
 
 export default function TakeQuizScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -307,7 +309,7 @@ export default function TakeQuizScreen() {
                   style={[styles.secondaryButton, { borderColor }]}
                   onPress={() => router.push(`/quizzes/${id}`)}
                 >
-                  <ThemedText style={styles.secondaryButtonText}>View Details</ThemedText>
+                  <ThemedText style={styles.secondaryButtonText}>{t('quizzes.viewDetails')}</ThemedText>
                 </TouchableOpacity>
               </View>
             </ThemedView>

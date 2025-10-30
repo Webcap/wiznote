@@ -144,7 +144,7 @@ export class QuizGenerationService {
 
   // Build the prompt for quiz generation
   private buildQuizGenerationPrompt(options: QuizGenerationOptions): string {
-    const { questionCount, difficulty, questionTypes, focusAreas, includeExplanations, sourceContent, sourceType } = options;
+    const { questionCount, difficulty, questionTypes, focusAreas, includeExplanations, sourceContent, sourceType, language } = options;
 
     const questionTypesText = questionTypes.join(', ');
     const focusAreasText = focusAreas && focusAreas.length > 0 
@@ -153,7 +153,12 @@ export class QuizGenerationService {
 
     const sourceTypeText = this.getSourceTypeDescription(sourceType);
     
-    const prompt = `Generate a ${difficulty} level quiz with ${questionCount} questions based on this ${sourceTypeText} content: 
+    // Determine language instruction
+    const languageInstruction = language && language !== 'en' 
+      ? `\nIMPORTANT: Generate all quiz content (questions, answers, explanations) in ${language === 'es' ? 'Spanish' : language} language. All text must be in the user's language.`
+      : '';
+    
+    const prompt = `Generate a ${difficulty} level quiz with ${questionCount} questions based on this ${sourceTypeText} content:${languageInstruction} 
 
 ${sourceContent}
 

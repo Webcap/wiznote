@@ -12,6 +12,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useFeatureFlags } from '../hooks/useFeatureFlags';
 import { useNotes } from '../hooks/useNotes';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useTranslation } from '../hooks/useTranslation';
+import { useLanguage } from '../contexts/LanguageContext';
 import { FlashcardService } from '../services/FlashcardService';
 import { FlashcardSet } from '../types/Flashcards';
 import { AudioFile } from '../types/Note';
@@ -27,6 +29,8 @@ interface Flashcard {
 }
 
 export default function FlashcardsPage() {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const { noteId } = useLocalSearchParams<{ noteId: string }>();
   const { user } = useAuth();
   const { notes, updateNote } = useNotes(user?.id || '');
@@ -252,9 +256,9 @@ export default function FlashcardsPage() {
       
       if (!hasContent && !hasAudioFilesWithTranscription) {
         Alert.alert(
-          'No Content Available',
-          'This note doesn\'t have any content to generate flashcards from. Please add some text or audio content with transcription first.',
-          [{ text: 'OK' }]
+          t('flashcards.noContentAvailable'),
+          t('flashcards.noContentAvailableMessage'),
+          [{ text: t('noteDetail.ok') }]
         );
         return;
       }
@@ -288,7 +292,7 @@ export default function FlashcardsPage() {
       }
     } catch (error) {
       console.error('Error in handleCreateFlashcards:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      Alert.alert(t('flashcards.error'), t('flashcards.somethingWentWrongTryAgain'));
     }
   };
 
@@ -326,7 +330,7 @@ export default function FlashcardsPage() {
       // Finished reviewing all cards
       setCurrentCardIndex(0);
       setShowAnswer(false);
-      Alert.alert('Review Complete', 'You\'ve reviewed all flashcards!');
+      Alert.alert(t('flashcards.reviewComplete'), t('flashcards.reviewedAllFlashcards'));
     }
   };
 
@@ -338,7 +342,7 @@ export default function FlashcardsPage() {
     return (
       <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor }}>
         <LoadingSpinner size={50} />
-        <ThemedText style={{ marginTop: 16, color: textColor }}>Loading flashcards...</ThemedText>
+        <ThemedText style={{ marginTop: 16, color: textColor }}>{t('flashcards.loadingFlashcards')}</ThemedText>
       </ThemedView>
     );
   }
@@ -347,12 +351,12 @@ export default function FlashcardsPage() {
     return (
       <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor }}>
         <Ionicons name="document-outline" size={64} color={accentColor} />
-        <ThemedText style={{ marginTop: 16, color: textColor }}>Note not found</ThemedText>
+        <ThemedText style={{ marginTop: 16, color: textColor }}>{t('flashcards.noteNotFound')}</ThemedText>
         <TouchableOpacity 
           style={{ marginTop: 16, padding: 12, backgroundColor: accentColor, borderRadius: 8 }}
           onPress={() => router.back()}
         >
-          <ThemedText style={{ color: '#FFFFFF' }}>Go Back</ThemedText>
+          <ThemedText style={{ color: '#FFFFFF' }}>{t('flashcards.goBack')}</ThemedText>
         </TouchableOpacity>
       </ThemedView>
     );
@@ -386,12 +390,12 @@ export default function FlashcardsPage() {
               onPress={() => router.back()}
             >
               <Ionicons name="arrow-back" size={20} color={textColor} />
-              <ThemedText style={{ marginLeft: 8, color: textColor }}>Back to Note</ThemedText>
+              <ThemedText style={{ marginLeft: 8, color: textColor }}>{t('flashcards.backToNote')}</ThemedText>
             </TouchableOpacity>
             
             <View style={{ alignItems: 'center' }}>
               <ThemedText style={{ fontSize: 18, fontWeight: 'bold', color: textColor }}>
-                Flashcards: {note.title || 'Untitled Note'}
+                {t('flashcards.flashcardsTitle', { title: note.title || t('flashcards.untitledNote') })}
               </ThemedText>
               
             </View>
@@ -419,7 +423,7 @@ export default function FlashcardsPage() {
                 marginBottom: 8,
                 color: textColor 
               }}>
-                Generate Flashcards
+                {t('flashcards.generateFlashcards')}
               </ThemedText>
               <ThemedText style={{ 
                 textAlign: 'center', 
@@ -427,7 +431,7 @@ export default function FlashcardsPage() {
                 color: textColor,
                 opacity: 0.8
               }}>
-                AI will analyze your note content and create relevant flashcards.
+                {t('flashcards.aiAnalyzeNote')}
               </ThemedText>
               
               <View style={{ flexDirection: 'row', gap: 16 }}>
@@ -445,7 +449,7 @@ export default function FlashcardsPage() {
                     setShowCreateWizard(false);
                   }}
                 >
-                  <ThemedText style={{ color: '#FFFFFF' }}>Cancel</ThemedText>
+                  <ThemedText style={{ color: '#FFFFFF' }}>{t('flashcards.cancel')}</ThemedText>
                 </TouchableOpacity>
                 
                 <TouchableOpacity
@@ -468,7 +472,7 @@ export default function FlashcardsPage() {
                   }}
                 >
                   <ThemedText style={{ color: '#FFFFFF', fontWeight: '600' }}>
-                    Generate
+                    {t('flashcards.generate')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -493,7 +497,7 @@ export default function FlashcardsPage() {
                     marginBottom: 8,
                     color: textColor 
                   }}>
-                    No Flashcards Yet
+                    {t('flashcards.noFlashcardsYet')}
                   </ThemedText>
                              <ThemedText style={{ 
                    textAlign: 'center', 
@@ -502,8 +506,8 @@ export default function FlashcardsPage() {
                    opacity: 0.8
                  }}>
                    {isFeatureEnabled('ai_flashcards')
-                     ? 'Create flashcards from your note content to help you study and remember key information.'
-                     : 'Upgrade to Premium to unlock AI-powered flashcard generation and enhance your study experience.'
+                     ? t('flashcards.createFlashcardsDescription')
+                     : t('flashcards.upgradeDescription')
                    }
                  </ThemedText>
                  
@@ -521,7 +525,7 @@ export default function FlashcardsPage() {
                   >
                     <Ionicons name="add" size={20} color="#FFFFFF" />
                     <ThemedText style={{ marginLeft: 8, color: '#FFFFFF', fontWeight: '600' }}>
-                      Create Flashcards
+                      {t('flashcards.createFlashcards')}
                     </ThemedText>
                   </TouchableOpacity>
                 ) : (
@@ -538,7 +542,7 @@ export default function FlashcardsPage() {
                   >
                     <Ionicons name="star" size={20} color="#FFFFFF" />
                     <ThemedText style={{ marginLeft: 8, color: '#FFFFFF', fontWeight: '600' }}>
-                      Upgrade to Premium
+                      {t('flashcards.upgradeToPremium')}
                     </ThemedText>
                   </TouchableOpacity>
                 )}
@@ -553,7 +557,7 @@ export default function FlashcardsPage() {
                   marginBottom: 24
                 }}>
                   <ThemedText style={{ fontSize: 20, fontWeight: 'bold', color: textColor }}>
-                    {flashcards.length} Flashcards
+                    {t('flashcards.flashcardsCount', { count: flashcards.length })}
                   </ThemedText>
                   
                   {isFeatureEnabled('ai_flashcards') ? (
@@ -570,7 +574,7 @@ export default function FlashcardsPage() {
                     >
                       <Ionicons name="add" size={16} color="#FFFFFF" />
                       <ThemedText style={{ marginLeft: 4, color: '#FFFFFF', fontWeight: '600', fontSize: 14 }}>
-                        Add More
+                        {t('flashcards.addMore')}
                       </ThemedText>
                     </TouchableOpacity>
                   ) : null}
@@ -592,10 +596,10 @@ export default function FlashcardsPage() {
                       marginBottom: 20
                     }}>
                       <ThemedText style={{ fontSize: 16, color: textColor, opacity: 0.8 }}>
-                        Card {currentCardIndex + 1} of {flashcards.length}
+                        {t('flashcards.cardOf', { current: currentCardIndex + 1, total: flashcards.length })}
                       </ThemedText>
                       <ThemedText style={{ fontSize: 14, color: textColor, opacity: 0.6 }}>
-                        {Math.round(((currentCardIndex + 1) / flashcards.length) * 100)}% Complete
+                        {t('flashcards.complete', { percent: Math.round(((currentCardIndex + 1) / flashcards.length) * 100) })}
                       </ThemedText>
                     </View>
                     
@@ -677,7 +681,7 @@ export default function FlashcardsPage() {
                       opacity: 0.6,
                       marginBottom: 24
                     }}>
-                      {showAnswer ? 'Tap to see question again' : 'Tap to reveal answer'}
+                      {showAnswer ? t('flashcards.tapToSeeQuestionAgain') : t('flashcards.tapToRevealAnswer')}
                     </ThemedText>
 
                     {/* Review Buttons - Only show when answer is visible */}
@@ -704,7 +708,7 @@ export default function FlashcardsPage() {
                             marginTop: 4,
                             fontSize: 14
                           }}>
-                            Hard
+                            {t('flashcards.hard')}
                           </ThemedText>
                         </TouchableOpacity>
                         
@@ -725,7 +729,7 @@ export default function FlashcardsPage() {
                             marginTop: 4,
                             fontSize: 14
                           }}>
-                            Medium
+                            {t('flashcards.medium')}
                           </ThemedText>
                         </TouchableOpacity>
                         
@@ -746,7 +750,7 @@ export default function FlashcardsPage() {
                             marginTop: 4,
                             fontSize: 14
                           }}>
-                            Easy
+                            {t('flashcards.easy')}
                           </ThemedText>
                         </TouchableOpacity>
                       </View>
@@ -778,7 +782,7 @@ export default function FlashcardsPage() {
                       >
                         <Ionicons name="chevron-back" size={20} color={textColor} />
                         <ThemedText style={{ marginLeft: 4, color: textColor, fontWeight: '600' }}>
-                          Previous
+                          {t('flashcards.previous')}
                         </ThemedText>
                       </TouchableOpacity>
                       
@@ -801,7 +805,7 @@ export default function FlashcardsPage() {
                         disabled={currentCardIndex === flashcards.length - 1}
                       >
                         <ThemedText style={{ marginRight: 4, color: textColor, fontWeight: '600' }}>
-                          Next
+                          {t('flashcards.next')}
                         </ThemedText>
                         <Ionicons name="chevron-forward" size={20} color={textColor} />
                       </TouchableOpacity>
@@ -829,7 +833,7 @@ export default function FlashcardsPage() {
                       fontWeight: 'bold', 
                       color: textColor 
                     }}>
-                      All Flashcards ({flashcards.length})
+                      {t('flashcards.allFlashcards', { count: flashcards.length })}
                     </ThemedText>
                     <Ionicons 
                       name={showAllCards ? "chevron-up" : "chevron-down"} 
@@ -853,7 +857,7 @@ export default function FlashcardsPage() {
                             textAlign: 'center',
                             marginBottom: 8
                           }}>
-                            No flashcards created yet
+                            {t('flashcards.noFlashcardsCreatedYet')}
                           </ThemedText>
                           <ThemedText style={{ 
                             fontSize: 14, 
@@ -861,7 +865,7 @@ export default function FlashcardsPage() {
                             opacity: 0.7,
                             textAlign: 'center'
                           }}>
-                            Create your first set of flashcards using the button above
+                            {t('flashcards.createFirstSet')}
                           </ThemedText>
                         </View>
                       ) : (
@@ -884,14 +888,14 @@ export default function FlashcardsPage() {
                                   marginBottom: 8,
                                   color: textColor 
                                 }}>
-                                  Front: {card.front}
+                                  {t('flashcards.front')} {card.front}
                                 </ThemedText>
                                 <ThemedText style={{ 
                                   fontSize: 14, 
                                   color: textColor,
                                   opacity: 0.8 
                                 }}>
-                                  Back: {card.back}
+                                  {t('flashcards.back')} {card.back}
                                 </ThemedText>
                               </View>
                               
@@ -902,7 +906,7 @@ export default function FlashcardsPage() {
                                 borderRadius: 12 
                               }}>
                                 <ThemedText style={{ fontSize: 12, color: textColor }}>
-                                  {card.reviewCount} reviews
+                                  {t('flashcards.reviews', { count: card.reviewCount })}
                                 </ThemedText>
                               </View>
                             </View>
@@ -938,6 +942,7 @@ export default function FlashcardsPage() {
                noteId={note?.id || ''}
                noteContent={note?.content || ''}
                userId={user?.id || ''}
+               language={language || 'en'}
               onSuccess={async () => {
                 if (__DEV__) {
                   console.log('Flashcards generated successfully on web, refreshing list...');
@@ -973,7 +978,7 @@ export default function FlashcardsPage() {
           </TouchableOpacity>
           
           <ThemedText style={{ fontSize: 18, fontWeight: 'bold', color: textColor }}>
-            Flashcards: {note.title || 'Untitled Note'}
+            {t('flashcards.flashcardsTitle', { title: note.title || t('flashcards.untitledNote') })}
           </ThemedText>
         </View>
 
@@ -995,7 +1000,7 @@ export default function FlashcardsPage() {
                 marginBottom: 8,
                 color: textColor 
               }}>
-                No Flashcards Yet
+                {t('flashcards.noFlashcardsYet')}
               </ThemedText>
               <ThemedText style={{ 
                 textAlign: 'center', 
@@ -1004,8 +1009,8 @@ export default function FlashcardsPage() {
                 opacity: 0.8
               }}>
                 {isFeatureEnabled('ai_flashcards')
-                  ? 'Create flashcards from your note content to help you study.'
-                  : 'Upgrade to Premium to unlock AI-powered flashcard generation and enhance your study experience.'
+                  ? t('flashcards.createFlashcardsDescriptionShort')
+                  : t('flashcards.upgradeDescription')
                 }
               </ThemedText>
               
@@ -1025,7 +1030,7 @@ export default function FlashcardsPage() {
                   >
                     <Ionicons name="add" size={20} color="#FFFFFF" />
                     <ThemedText style={{ marginLeft: 8, color: '#FFFFFF', fontWeight: '600' }}>
-                      Create Flashcards
+                      {t('flashcards.createFlashcards')}
                     </ThemedText>
                   </TouchableOpacity>
                   
@@ -1044,7 +1049,7 @@ export default function FlashcardsPage() {
                 >
                   <Ionicons name="star" size={20} color="#FFFFFF" />
                   <ThemedText style={{ marginLeft: 8, color: '#FFFFFF', fontWeight: '600' }}>
-                    Upgrade to Premium
+                    {t('flashcards.upgradeToPremium')}
                   </ThemedText>
                 </TouchableOpacity>
               )}
@@ -1059,7 +1064,7 @@ export default function FlashcardsPage() {
                 marginBottom: 24
               }}>
                 <ThemedText style={{ fontSize: 18, fontWeight: 'bold', color: textColor }}>
-                  {flashcards.length} Flashcards
+                  {t('flashcards.flashcardsCount', { count: flashcards.length })}
                 </ThemedText>
                 
                 {isFeatureEnabled('ai_flashcards') ? (
@@ -1076,7 +1081,7 @@ export default function FlashcardsPage() {
                   >
                     <Ionicons name="add" size={16} color="#FFFFFF" />
                     <ThemedText style={{ marginLeft: 4, color: '#FFFFFF', fontSize: 14 }}>
-                      Add More
+                      {t('flashcards.addMore')}
                     </ThemedText>
                   </TouchableOpacity>
                 ) : (
@@ -1093,7 +1098,7 @@ export default function FlashcardsPage() {
                   >
                     <Ionicons name="information-circle" size={16} color="#FFFFFF" />
                     <ThemedText style={{ marginLeft: 4, color: '#FFFFFF', fontSize: 14 }}>
-                      Upgrade
+                      {t('flashcards.upgrade')}
                     </ThemedText>
                   </TouchableOpacity>
                 )}
@@ -1115,10 +1120,10 @@ export default function FlashcardsPage() {
                   marginBottom: 16
                 }}>
                   <ThemedText style={{ fontSize: 14, color: textColor, opacity: 0.8 }}>
-                    Card {currentCardIndex + 1} of {flashcards.length}
+                    {t('flashcards.cardOf', { current: currentCardIndex + 1, total: flashcards.length })}
                   </ThemedText>
                   <ThemedText style={{ fontSize: 12, color: textColor, opacity: 0.6 }}>
-                    {Math.round(((currentCardIndex + 1) / flashcards.length) * 100)}% Complete
+                    {t('flashcards.complete', { percent: Math.round(((currentCardIndex + 1) / flashcards.length) * 100) })}
                   </ThemedText>
                 </View>
                 
@@ -1200,7 +1205,7 @@ export default function FlashcardsPage() {
                   opacity: 0.6,
                   marginBottom: 20
                 }}>
-                  {showAnswer ? 'Tap to see question again' : 'Tap to reveal answer'}
+                  {showAnswer ? t('flashcards.tapToSeeQuestionAgain') : t('flashcards.tapToRevealAnswer')}
                 </ThemedText>
 
                 {/* Review Buttons - Only show when answer is visible */}
@@ -1227,7 +1232,7 @@ export default function FlashcardsPage() {
                         marginTop: 2,
                         fontSize: 12
                       }}>
-                        Hard
+                        {t('flashcards.hard')}
                       </ThemedText>
                     </TouchableOpacity>
                     
@@ -1248,7 +1253,7 @@ export default function FlashcardsPage() {
                         marginTop: 2,
                         fontSize: 12
                       }}>
-                        Medium
+                        {t('flashcards.medium')}
                       </ThemedText>
                     </TouchableOpacity>
                     
@@ -1269,7 +1274,7 @@ export default function FlashcardsPage() {
                         marginTop: 2,
                         fontSize: 12
                       }}>
-                        Easy
+                        {t('flashcards.easy')}
                       </ThemedText>
                     </TouchableOpacity>
                   </View>
@@ -1301,7 +1306,7 @@ export default function FlashcardsPage() {
                   >
                     <Ionicons name="chevron-back" size={18} color={textColor} />
                     <ThemedText style={{ marginLeft: 2, color: textColor, fontWeight: '600', fontSize: 14 }}>
-                      Previous
+                      {t('flashcards.previous')}
                     </ThemedText>
                   </TouchableOpacity>
                     
@@ -1324,7 +1329,7 @@ export default function FlashcardsPage() {
                       disabled={currentCardIndex === flashcards.length - 1}
                     >
                       <ThemedText style={{ marginRight: 2, color: textColor, fontWeight: '600', fontSize: 14 }}>
-                        Next
+                        {t('flashcards.next')}
                       </ThemedText>
                       <Ionicons name="chevron-forward" size={18} color={textColor} />
                     </TouchableOpacity>
@@ -1348,7 +1353,7 @@ export default function FlashcardsPage() {
                     fontWeight: 'bold', 
                     color: textColor 
                   }}>
-                    All Flashcards ({flashcards.length})
+                    {t('flashcards.allFlashcards', { count: flashcards.length })}
                   </ThemedText>
                   <Ionicons 
                     name={showAllCards ? "chevron-up" : "chevron-down"} 
@@ -1372,7 +1377,7 @@ export default function FlashcardsPage() {
                           textAlign: 'center',
                           marginBottom: 6
                         }}>
-                          No flashcards created yet
+                          {t('flashcards.noFlashcardsCreatedYet')}
                         </ThemedText>
                         <ThemedText style={{ 
                           fontSize: 12, 
@@ -1380,7 +1385,7 @@ export default function FlashcardsPage() {
                           opacity: 0.7,
                           textAlign: 'center'
                         }}>
-                          Create your first set of flashcards using the button above
+                          {t('flashcards.createFirstSet')}
                         </ThemedText>
                       </View>
                     ) : (
@@ -1403,14 +1408,14 @@ export default function FlashcardsPage() {
                                 marginBottom: 6,
                                 color: textColor 
                               }}>
-                                Front: {card.front}
+                                {t('flashcards.front')} {card.front}
                               </ThemedText>
                               <ThemedText style={{ 
                                 fontSize: 13, 
                                 color: textColor,
                                 opacity: 0.8 
                               }}>
-                                Back: {card.back}
+                                {t('flashcards.back')} {card.back}
                               </ThemedText>
                             </View>
                             
@@ -1421,7 +1426,7 @@ export default function FlashcardsPage() {
                               borderRadius: 10 
                             }}>
                               <ThemedText style={{ fontSize: 11, color: textColor }}>
-                                {card.reviewCount} reviews
+                                {t('flashcards.reviews', { count: card.reviewCount })}
                               </ThemedText>
                             </View>
                           </View>
@@ -1456,6 +1461,7 @@ export default function FlashcardsPage() {
               noteContent={note?.content || ''}
               note={note}
               userId={user?.id || ''}
+              language={language || 'en'}
               onSuccess={async () => {
                 if (__DEV__) {
                   console.log('Flashcards generated successfully, refreshing list...');
@@ -1473,13 +1479,13 @@ export default function FlashcardsPage() {
       <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
         <Ionicons name="alert-circle" size={64} color="#FF0000" />
         <ThemedText style={{ marginTop: 16, color: '#000000', textAlign: 'center' }}>
-          Something went wrong loading flashcards.{'\n'}Please try again.
+          {t('flashcards.somethingWentWrong')}
         </ThemedText>
         <TouchableOpacity 
           style={{ marginTop: 16, padding: 12, backgroundColor: '#007AFF', borderRadius: 8 }}
           onPress={() => router.back()}
         >
-          <ThemedText style={{ color: '#FFFFFF' }}>Go Back</ThemedText>
+          <ThemedText style={{ color: '#FFFFFF' }}>{t('flashcards.goBack')}</ThemedText>
         </TouchableOpacity>
       </ThemedView>
     );

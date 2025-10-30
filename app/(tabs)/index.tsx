@@ -1044,23 +1044,26 @@ export default function HomeScreen() {
             >
               <Ionicons
                 name={showFavorites ? 'star' : 'star-outline'}
-                size={18}
+                size={16}
                 color={showFavorites ? '#000' : iconColor}
               />
-              <ThemedText style={[styles.sortOrderText, { color: showFavorites ? '#000' : iconColor }]}>
+              <ThemedText 
+                style={[styles.sortOrderText, { color: showFavorites ? '#000' : iconColor }]}
+                numberOfLines={1}
+              >
                 {showFavorites ? t('home.favorites') : t('home.all')}
               </ThemedText>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.sortOrderButton, { backgroundColor: sortOrderButtonBg, marginLeft: 8 }]}
+              style={[styles.sortOrderButton, { backgroundColor: sortOrderButtonBg }]}
               onPress={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
             >
               <Ionicons
                 name={sortOrder === 'desc' ? 'arrow-down' : 'arrow-up'}
-                size={18}
+                size={16}
                 color={iconColor}
               />
-              <ThemedText style={styles.sortOrderText}>
+              <ThemedText style={styles.sortOrderText} numberOfLines={1}>
                 {sortOrder === 'desc' ? t('home.newest') : t('home.oldest')}
               </ThemedText>
             </TouchableOpacity>
@@ -1250,6 +1253,7 @@ const CreateOptionsSheet = ({
   isPDFUploadEnabled: boolean;
   testID?: string;
 }) => {
+  const { t } = useTranslation();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const slideCardBg = useThemeColor({ light: '#fff', dark: '#2A2A2A' }, 'background');
   const optionBg = useThemeColor({ light: '#F5F6FA', dark: '#282828' }, 'background');
@@ -1429,16 +1433,20 @@ const styles = StyleSheet.create({
   notesSection: {
     flex: 1,
     paddingHorizontal: 40,
+    paddingRight: Platform.OS === 'web' ? 40 : 20,
   },
   notesSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    flexShrink: 0,
   },
   listContainer: {
     paddingBottom: 20,
@@ -1576,19 +1584,26 @@ const styles = StyleSheet.create({
   sortOrderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   sortOrderButton: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: '100%',
   },
   sortOrderText: {
     color: '#6A5ACD',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginLeft: 6,
+    marginLeft: 4,
+    flexShrink: 1,
   },
   pinnedLabel: {
     fontSize: 16,

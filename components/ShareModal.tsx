@@ -13,6 +13,7 @@ import BottomSheet, { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useTranslation } from '../hooks/useTranslation';
 import { noteSharingService } from '../services/NoteSharingService';
 import { Note, ShareOptions, SharePermission } from '../types/Note';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -26,6 +27,7 @@ interface ShareModalProps {
 }
 
 export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModalProps) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { showSnackbar } = useSnackbar();
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,13 +79,16 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
       setSearchResults(results);
       
       if (results.length === 0) {
-        showSnackbar('No users found matching your search', 'info', 3000);
+        showSnackbar(t('share.noUsersFound'), 'info', 3000);
       } else {
-        showSnackbar(`Found ${results.length} user${results.length === 1 ? '' : 's'}`, 'success', 2000);
+        const message = results.length === 1 
+          ? t('share.usersFound', { count: results.length })
+          : t('share.usersFoundPlural', { count: results.length });
+        showSnackbar(message, 'success', 2000);
       }
     } catch (error) {
       console.error('Search error:', error);
-      showSnackbar('Search failed. Please try again.', 'error', 3000);
+      showSnackbar(t('share.searchFailed'), 'error', 3000);
     } finally {
       setSearching(false);
     }
@@ -93,14 +98,14 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
     setSelectedUser(user);
     setSearchQuery(user.email || user.display_name || '');
     setSearchResults([]);
-    showSnackbar(`Selected ${user.display_name || user.email}`, 'success', 2000);
+    showSnackbar(t('share.selectedUser', { user: user.display_name || user.email }), 'success', 2000);
   };
 
   const handleClearSelection = () => {
     setSelectedUser(null);
     setSearchQuery('');
     setSearchResults([]);
-    showSnackbar('Selection cleared', 'info', 1500);
+    showSnackbar(t('share.selectionCleared'), 'info', 1500);
   };
 
   const handleClearSearch = () => {
@@ -112,7 +117,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
     if (!selectedUser || !user) return;
 
     setLoading(true);
-    showSnackbar('Sharing note...', 'info', 2000);
+    showSnackbar(t('share.sharingNote'), 'info', 2000);
     
     try {
       const shareOptions: ShareOptions = {
@@ -123,12 +128,12 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
 
       await noteSharingService.shareNote(note!.id, user!.id, shareOptions);
       
-      showSnackbar(`Note shared successfully with ${selectedUser.display_name || selectedUser.email}!`, 'success', 4000);
+      showSnackbar(t('share.noteSharedSuccess', { user: selectedUser.display_name || selectedUser.email }), 'success', 4000);
       onShareSuccess?.();
       onClose();
     } catch (error) {
       console.error('Error sharing note:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to share note. Please try again.';
+      const errorMessage = error instanceof Error ? error.message : t('share.shareFailed');
       showSnackbar(errorMessage, 'error', 5000);
     } finally {
       setLoading(false);
@@ -139,7 +144,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
     if (!searchQuery.includes('@') || !user) return;
 
     setLoading(true);
-    showSnackbar('Sharing note via email...', 'info', 2000);
+    showSnackbar(t('share.sharingViaEmail'), 'info', 2000);
     
     try {
       const shareOptions: ShareOptions = {
@@ -150,12 +155,12 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
 
       await noteSharingService.shareNote(note!.id, user!.id, shareOptions);
       
-      showSnackbar(`Note shared successfully with ${searchQuery}!`, 'success', 4000);
+      showSnackbar(t('share.noteSharedEmailSuccess', { email: searchQuery }), 'success', 4000);
       onShareSuccess?.();
       onClose();
     } catch (error) {
       console.error('Error sharing note:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to share note. Please try again.';
+      const errorMessage = error instanceof Error ? error.message : t('share.shareFailed');
       showSnackbar(errorMessage, 'error', 5000);
     } finally {
       setLoading(false);
@@ -166,7 +171,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
     if (!user) return;
 
     setLoading(true);
-    showSnackbar('Creating public link...', 'info', 2000);
+    showSnackbar(t('share.creatingPublicLink'), 'info', 2000);
     
     try {
       const { shareUrl } = await noteSharingService.createPublicShare(
@@ -175,10 +180,10 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
       );
       
       setPublicLink(shareUrl);
-      showSnackbar('Public link created!', 'success', 3000);
+      showSnackbar(t('share.publicLinkCreated'), 'success', 3000);
     } catch (error) {
       console.error('Error creating public link:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create public link.';
+      const errorMessage = error instanceof Error ? error.message : t('share.createPublicLinkFailed');
       showSnackbar(errorMessage, 'error', 5000);
     } finally {
       setLoading(false);
@@ -190,11 +195,11 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
     
     navigator.clipboard.writeText(publicLink).then(() => {
       setLinkCopied(true);
-      showSnackbar('Link copied to clipboard!', 'success', 2000);
+      showSnackbar(t('share.linkCopied'), 'success', 2000);
       
       setTimeout(() => setLinkCopied(false), 3000);
     }).catch(() => {
-      showSnackbar('Failed to copy link', 'error', 2000);
+      showSnackbar(t('share.copyLinkFailed'), 'error', 2000);
     });
   };
 
@@ -244,7 +249,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
           {/* Header */}
           <div style={{...webStyles.header, borderBottomColor: borderColor}}>
             <div style={webStyles.headerSpacer} />
-            <h2 style={{...webStyles.headerTitle, color: textColor}}>Share Note</h2>
+            <h2 style={{...webStyles.headerTitle, color: textColor}}>{t('share.shareNote')}</h2>
             <button style={webStyles.closeButton} onClick={onClose}>
               <Ionicons name="close" size={24} color={textColor} />
             </button>
@@ -259,12 +264,12 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
 
             {/* User Search */}
             <div style={webStyles.section}>
-              <h3 style={{...webStyles.sectionTitle, color: textColor}}>Share with</h3>
+              <h3 style={{...webStyles.sectionTitle, color: textColor}}>{t('share.shareWith')}</h3>
               <div style={{...webStyles.searchContainer, backgroundColor: backgroundSecondary, borderColor}}>
                 <Ionicons name="search" size={20} color={textMutedColor} />
                 <input
                   style={{...webStyles.searchInput, color: textColor, backgroundColor: 'transparent'}}
-                  placeholder="Search users or enter email..."
+                  placeholder={t('share.searchUsersOrEmail')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoCapitalize="none"
@@ -281,7 +286,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
               {searching && (
                 <div style={webStyles.searchingContainer}>
                   <LoadingSpinner size={20} />
-                  <span style={{...webStyles.searchingText, color: textMutedColor}}>Searching...</span>
+                  <span style={{...webStyles.searchingText, color: textMutedColor}}>{t('share.searching')}</span>
                 </div>
               )}
 
@@ -298,7 +303,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
                     >
                       <Ionicons name="person" size={20} color={textMutedColor} />
                       <div style={webStyles.userInfo}>
-                        <div style={{...webStyles.userName, color: textColor}}>{user.display_name || 'Unknown User'}</div>
+                        <div style={{...webStyles.userName, color: textColor}}>{user.display_name || t('share.unknownUser')}</div>
                         <div style={{...webStyles.userEmail, color: textMutedColor}}>{user.email}</div>
                       </div>
                     </div>
@@ -323,12 +328,12 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
 
             {/* Permission Level */}
             <div style={webStyles.section}>
-              <h3 style={{...webStyles.sectionTitle, color: textColor}}>Permission Level</h3>
+              <h3 style={{...webStyles.sectionTitle, color: textColor}}>{t('share.permissionLevel')}</h3>
               <div style={webStyles.permissionOptions}>
                 {[
-                  { key: 'read' as SharePermission, label: 'View Only', icon: 'eye' },
-                  { key: 'admin' as SharePermission, label: 'Admin', icon: 'shield' },
-                  { key: 'edit' as SharePermission, label: 'Edit', icon: 'create' },
+                  { key: 'read' as SharePermission, labelKey: 'share.viewOnly', icon: 'eye' },
+                  { key: 'admin' as SharePermission, labelKey: 'share.admin', icon: 'shield' },
+                  { key: 'edit' as SharePermission, labelKey: 'share.edit', icon: 'create' },
                 ].map((option) => (
                   <button
                     key={option.key}
@@ -345,7 +350,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
                       size={20} 
                       color={permission === option.key ? '#FFFFFF' : textMutedColor} 
                     />
-                    {option.label}
+                    {t(option.labelKey)}
                   </button>
                 ))}
               </div>
@@ -353,7 +358,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
 
             {/* Optional Message */}
             <div style={webStyles.section}>
-              <h3 style={{...webStyles.sectionTitle, color: textColor}}>Message (Optional)</h3>
+              <h3 style={{...webStyles.sectionTitle, color: textColor}}>{t('share.messageOptional')}</h3>
               <textarea
                 style={{
                   ...webStyles.messageInput,
@@ -361,7 +366,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
                   borderColor,
                   color: textColor,
                 }}
-                placeholder="Add a message..."
+                placeholder={t('share.addMessage')}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={3}
@@ -370,9 +375,9 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
 
             {/* Public Link Section */}
             <div style={webStyles.section}>
-              <h3 style={{...webStyles.sectionTitle, color: textColor}}>Public Link</h3>
+              <h3 style={{...webStyles.sectionTitle, color: textColor}}>{t('share.publicLink')}</h3>
               <p style={{...webStyles.sectionSubtitle, color: textMutedColor}}>
-                Anyone with the link can view this note
+                {t('share.publicLinkDescription')}
               </p>
               
               {!publicLink ? (
@@ -394,7 +399,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
                   ) : (
                     <>
                       <Ionicons name="link" size={20} color={accentPrimary} />
-                      Create Public Link
+                      {t('share.createPublicLink')}
                     </>
                   )}
                 </button>
@@ -432,7 +437,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
               style={{...webStyles.cancelButton, borderColor, color: textColor}}
               onClick={onClose}
             >
-              Cancel
+              {t('share.cancel')}
             </button>
             
             <button
@@ -449,7 +454,7 @@ export const ShareModal = ({ visible, onClose, onShareSuccess, note }: ShareModa
               ) : (
                 <>
                   <Ionicons name="share" size={20} color="#FFFFFF" />
-                  Share
+                  {t('share.shareButton')}
                 </>
               )}
             </button>

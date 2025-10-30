@@ -107,6 +107,7 @@ export interface QuizGenerationOptions {
   includeExplanations: boolean;
   sourceContent: string;
   sourceType: ContentSourceType;
+  language?: string; // Language code for generating quiz in user's language (e.g., 'en', 'es')
 }
 
 export interface QuizCreationOptions {

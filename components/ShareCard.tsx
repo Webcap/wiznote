@@ -10,6 +10,7 @@ import { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-shee
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useTranslation } from '../hooks/useTranslation';
 import { noteSharingService } from '../services/NoteSharingService';
 import { Note, ShareOptions, SharePermission } from '../types/Note';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -23,6 +24,7 @@ interface ShareCardProps {
 }
 
 export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { showSnackbar } = useSnackbar();
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,13 +61,16 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
       setSearchResults(results);
       
       if (results.length === 0) {
-        showSnackbar('No users found matching your search', 'info', 3000);
+        showSnackbar(t('share.noUsersFound'), 'info', 3000);
       } else {
-        showSnackbar(`Found ${results.length} user${results.length === 1 ? '' : 's'}`, 'success', 2000);
+        const message = results.length === 1 
+          ? t('share.usersFound', { count: results.length })
+          : t('share.usersFoundPlural', { count: results.length });
+        showSnackbar(message, 'success', 2000);
       }
     } catch (error) {
       console.error('Search error:', error);
-      showSnackbar('Search failed. Please try again.', 'error', 3000);
+      showSnackbar(t('share.searchFailed'), 'error', 3000);
     } finally {
       setSearching(false);
     }
@@ -78,14 +83,14 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
     setSearchQuery(user.email || user.display_name || '');
     setSearchResults([]);
     console.log('📱 ShareCard: User selection complete, showing snackbar');
-    showSnackbar(`Selected ${user.display_name || user.email}`, 'success', 2000);
+    showSnackbar(t('share.selectedUser', { user: user.display_name || user.email }), 'success', 2000);
   };
 
   const handleClearSelection = () => {
     setSelectedUser(null);
     setSearchQuery('');
     setSearchResults([]);
-    showSnackbar('Selection cleared', 'info', 1500);
+    showSnackbar(t('share.selectionCleared'), 'info', 1500);
   };
 
   const handleClearSearch = () => {
@@ -97,7 +102,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
     if (!selectedUser || !user) return;
 
     setLoading(true);
-    showSnackbar('Sharing note...', 'info', 2000);
+    showSnackbar(t('share.sharingNote'), 'info', 2000);
     
     try {
       const shareOptions: ShareOptions = {
@@ -108,12 +113,12 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
 
       await noteSharingService.shareNote(note.id, user.id, shareOptions);
       
-      showSnackbar(`Note shared successfully with ${selectedUser.display_name || selectedUser.email}!`, 'success', 4000);
+      showSnackbar(t('share.noteSharedSuccess', { user: selectedUser.display_name || selectedUser.email }), 'success', 4000);
       onShareSuccess?.();
       onClose();
     } catch (error) {
       console.error('Error sharing note:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to share note. Please try again.';
+      const errorMessage = error instanceof Error ? error.message : t('share.shareFailed');
       showSnackbar(errorMessage, 'error', 5000);
     } finally {
       setLoading(false);
@@ -124,7 +129,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
     if (!searchQuery.includes('@') || !user) return;
 
     setLoading(true);
-    showSnackbar('Sharing note via email...', 'info', 2000);
+    showSnackbar(t('share.sharingViaEmail'), 'info', 2000);
     
     try {
       const shareOptions: ShareOptions = {
@@ -135,12 +140,12 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
 
       await noteSharingService.shareNote(note.id, user.id, shareOptions);
       
-      showSnackbar(`Note shared successfully with ${searchQuery}!`, 'success', 4000);
+      showSnackbar(t('share.noteSharedEmailSuccess', { email: searchQuery }), 'success', 4000);
       onShareSuccess?.();
       onClose();
     } catch (error) {
       console.error('Error sharing note:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to share note. Please try again.';
+      const errorMessage = error instanceof Error ? error.message : t('share.shareFailed');
       showSnackbar(errorMessage, 'error', 5000);
     } finally {
       setLoading(false);
@@ -151,7 +156,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
     if (!user) return;
 
     setLoading(true);
-    showSnackbar('Creating public link...', 'info', 2000);
+    showSnackbar(t('share.creatingPublicLink'), 'info', 2000);
     
     try {
       const { shareUrl } = await noteSharingService.createPublicShare(
@@ -160,10 +165,10 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
       );
       
       setPublicLink(shareUrl);
-      showSnackbar('Public link created!', 'success', 3000);
+      showSnackbar(t('share.publicLinkCreated'), 'success', 3000);
     } catch (error) {
       console.error('Error creating public link:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create public link.';
+      const errorMessage = error instanceof Error ? error.message : t('share.createPublicLinkFailed');
       showSnackbar(errorMessage, 'error', 5000);
     } finally {
       setLoading(false);
@@ -176,11 +181,11 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
     try {
       await Clipboard.setString(publicLink);
       setLinkCopied(true);
-      showSnackbar('Link copied to clipboard!', 'success', 2000);
+      showSnackbar(t('share.linkCopied'), 'success', 2000);
       
       setTimeout(() => setLinkCopied(false), 3000);
     } catch (error) {
-      showSnackbar('Failed to copy link', 'error', 2000);
+      showSnackbar(t('share.copyLinkFailed'), 'error', 2000);
     }
   };
 
@@ -191,7 +196,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: borderColor }]}>
         <ThemedText style={[styles.title, { color: textColor }]}>
-          Share Note
+          {t('share.shareNote')}
         </ThemedText>
         <TouchableOpacity onPress={() => {
           console.log('🚨 ShareCard: Close button pressed');
@@ -217,13 +222,13 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
         {/* User Search */}
         <View style={styles.section}>
           <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-            Share with
+            {t('share.shareWith')}
           </ThemedText>
           <View style={[styles.searchContainer, { backgroundColor: backgroundSecondary, borderColor }]}>
             <Ionicons name="search" size={16} color={textMutedColor} />
             <BottomSheetTextInput
               style={[styles.searchInput, { color: textColor }]}
-              placeholder="Search users or enter email..."
+              placeholder={t('share.searchUsersOrEmail')}
               placeholderTextColor={textMutedColor}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -242,7 +247,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
             <View style={styles.searchingContainer}>
               <LoadingSpinner size={16} />
               <ThemedText style={[styles.searchingText, { color: textMutedColor }]}>
-                Searching...
+                {t('share.searching')}
               </ThemedText>
             </View>
           )}
@@ -258,7 +263,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
                   <Ionicons name="person" size={16} color={textMutedColor} />
                   <View style={styles.userInfo}>
                     <ThemedText style={[styles.userName, { color: textColor }]}>
-                      {user.display_name || 'Unknown User'}
+                      {user.display_name || t('share.unknownUser')}
                     </ThemedText>
                     <ThemedText style={[styles.userEmail, { color: textMutedColor }]}>
                       {user.email}
@@ -291,13 +296,13 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
         {/* Permission Level */}
         <View style={styles.section}>
           <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-            Permission Level
+            {t('share.permissionLevel')}
           </ThemedText>
           <View style={styles.permissionOptions}>
             {[
-              { key: 'read' as SharePermission, label: 'View Only', icon: 'eye' },
-              { key: 'admin' as SharePermission, label: 'Admin', icon: 'shield' },
-              { key: 'edit' as SharePermission, label: 'Edit', icon: 'create' },
+              { key: 'read' as SharePermission, labelKey: 'share.viewOnly', icon: 'eye' },
+              { key: 'admin' as SharePermission, labelKey: 'share.admin', icon: 'shield' },
+              { key: 'edit' as SharePermission, labelKey: 'share.edit', icon: 'create' },
             ].map((option) => (
               <TouchableOpacity
                 key={option.key}
@@ -319,7 +324,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
                   styles.permissionText,
                   { color: permission === option.key ? '#FFFFFF' : textColor }
                 ]}>
-                  {option.label}
+                  {t(option.labelKey)}
                 </ThemedText>
               </TouchableOpacity>
             ))}
@@ -329,7 +334,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
         {/* Optional Message */}
         <View style={styles.section}>
           <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-            Message (Optional)
+            {t('share.messageOptional')}
           </ThemedText>
           <BottomSheetTextInput
             style={[styles.messageInput, { 
@@ -337,7 +342,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
               borderColor, 
               color: textColor 
             }]}
-            placeholder="Add a message..."
+            placeholder={t('share.addMessage')}
             placeholderTextColor={textMutedColor}
             value={message}
             onChangeText={setMessage}
@@ -350,10 +355,10 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
         {/* Public Link Section */}
         <View style={styles.section}>
           <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-            Public Link
+            {t('share.publicLink')}
           </ThemedText>
           <ThemedText style={[styles.sectionSubtitle, { color: textMutedColor }]}>
-            Anyone with the link can view this note
+            {t('share.publicLinkDescription')}
           </ThemedText>
           
           {!publicLink ? (
@@ -368,7 +373,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
                 <>
                   <Ionicons name="link" size={16} color={accentPrimary} />
                   <ThemedText style={[styles.createLinkText, { color: accentPrimary }]}>
-                    Create Public Link
+                    {t('share.createPublicLink')}
                   </ThemedText>
                 </>
               )}
@@ -394,7 +399,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
           onPress={onClose}
         >
           <ThemedText style={[styles.cancelButtonText, { color: textColor }]}>
-            Cancel
+            {t('share.cancel')}
           </ThemedText>
         </TouchableOpacity>
         
@@ -414,7 +419,7 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
           ) : (
             <>
               <Ionicons name="share" size={16} color="#FFFFFF" />
-              <ThemedText style={styles.shareButtonText}>Share</ThemedText>
+              <ThemedText style={styles.shareButtonText}>{t('share.shareButton')}</ThemedText>
             </>
           )}
         </TouchableOpacity>

@@ -19,11 +19,13 @@ import { Logo } from '../components/Logo';
 import { supportService } from '../services/SupportService';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { useAuth } from '../hooks/useAuth';
+import { useTranslation } from '../hooks/useTranslation';
 
 // Import web components
 import { WebLayout } from '../components/web/WebLayout';
 
 export default function DeleteAccountRequestScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { user } = useAuth();
   const { showSnackbar } = useSnackbar();
@@ -45,9 +47,9 @@ export default function DeleteAccountRequestScreen() {
     // Validate email
     if (!email || !email.includes('@')) {
       if (Platform.OS === 'web') {
-        showSnackbar('Please enter a valid email address', 'error');
+        showSnackbar(t('deleteAccount.pleaseEnterValidEmail'), 'error');
       } else {
-        Alert.alert('Invalid Email', 'Please enter a valid email address');
+        Alert.alert(t('deleteAccount.invalidEmail'), t('deleteAccount.pleaseEnterValidEmail'));
       }
       return;
     }
@@ -68,11 +70,11 @@ export default function DeleteAccountRequestScreen() {
 
       if (result.success) {
         // Show success message
-        const successMessage = `Your account deletion request has been submitted successfully.\n\nTicket ID: ${result.ticketId}\n\nYou will receive a confirmation email within 24-48 hours.`;
+        const successMessage = t('deleteAccount.successMessage', { ticketId: result.ticketId });
         
         if (Platform.OS === 'web') {
           showSnackbar(
-            `Deletion request submitted! Ticket ID: ${result.ticketId}`,
+            t('deleteAccount.successSnackbar', { ticketId: result.ticketId }),
             'success',
             5000
           );
@@ -83,10 +85,10 @@ export default function DeleteAccountRequestScreen() {
           }, 500);
         } else {
           Alert.alert(
-            'Request Submitted',
+            t('deleteAccount.requestSubmitted'),
             successMessage,
             [
-              { text: 'OK' }
+              { text: t('common.done') }
             ]
           );
         }
@@ -98,19 +100,19 @@ export default function DeleteAccountRequestScreen() {
     } catch (error) {
       console.error('Error submitting deletion request:', error);
       
-      const errorMessage = error instanceof Error ? error.message : 'Failed to submit request';
+      const errorMessage = error instanceof Error ? error.message : t('deleteAccount.submissionError');
       
       if (Platform.OS === 'web') {
         showSnackbar(
-          `Error: ${errorMessage}. Please email support@wiznote.app directly.`,
+          t('deleteAccount.errorSnackbar', { error: errorMessage }),
           'error',
           5000
         );
       } else {
         Alert.alert(
-          'Submission Error',
-          `${errorMessage}\n\nPlease email support@wiznote.app directly with your account email (${email}) to request deletion.`,
-          [{ text: 'OK' }]
+          t('deleteAccount.submissionError'),
+          t('deleteAccount.errorMessage', { error: errorMessage, email }),
+          [{ text: t('common.done') }]
         );
       }
     } finally {
@@ -140,9 +142,9 @@ export default function DeleteAccountRequestScreen() {
       {/* Logo and Title */}
       <View style={styles.titleSection}>
         <Logo size={60} />
-        <ThemedText style={styles.title}>Account Deletion Request</ThemedText>
+        <ThemedText style={styles.title}>{t('deleteAccount.title')}</ThemedText>
         <ThemedText style={styles.subtitle}>
-          Request to delete your WizNote account and all associated data
+          {t('deleteAccount.subtitle')}
         </ThemedText>
       </View>
 
@@ -151,13 +153,9 @@ export default function DeleteAccountRequestScreen() {
         <View style={styles.infoRow}>
           <Ionicons name="information-circle" size={24} color={accentPrimary} />
           <View style={styles.infoTextContainer}>
-            <ThemedText style={styles.infoTitle}>What happens when you delete your account?</ThemedText>
+            <ThemedText style={styles.infoTitle}>{t('deleteAccount.whatHappens')}</ThemedText>
             <ThemedText style={styles.infoText}>
-              • All your notes and documents will be permanently deleted{'\n'}
-              • Your account profile and settings will be removed{'\n'}
-              • Any active subscriptions will be cancelled{'\n'}
-              • This action cannot be undone{'\n'}
-              • Processing time: 24-48 hours
+              {t('deleteAccount.consequences')}
             </ThemedText>
           </View>
         </View>
@@ -165,15 +163,15 @@ export default function DeleteAccountRequestScreen() {
 
       {/* Form */}
       <ThemedView style={styles.formCard}>
-        <ThemedText style={styles.formTitle}>Deletion Request Form</ThemedText>
+        <ThemedText style={styles.formTitle}>{t('deleteAccount.formTitle')}</ThemedText>
         
         <View style={styles.inputGroup}>
           <ThemedText style={styles.label}>
-            Email Address <ThemedText style={[styles.required, { color: accentDanger }]}>*</ThemedText>
+            {t('deleteAccount.emailLabel')} <ThemedText style={[styles.required, { color: accentDanger }]}>{t('deleteAccount.required')}</ThemedText>
           </ThemedText>
           <TextInput
             style={[styles.input, { backgroundColor: backgroundSecondary, color: textColor, borderColor: backgroundTertiary }]}
-            placeholder="Enter your account email"
+            placeholder={t('deleteAccount.emailPlaceholder')}
             placeholderTextColor={textMuted}
             value={email}
             onChangeText={setEmail}
@@ -182,17 +180,17 @@ export default function DeleteAccountRequestScreen() {
             autoCorrect={false}
           />
           <ThemedText style={styles.helpText}>
-            Enter the email address associated with your WizNote account
+            {t('deleteAccount.emailHelpText')}
           </ThemedText>
         </View>
 
         <View style={styles.inputGroup}>
           <ThemedText style={styles.label}>
-            Reason for deletion (optional)
+            {t('deleteAccount.reasonLabel')}
           </ThemedText>
           <TextInput
             style={[styles.textArea, { backgroundColor: backgroundSecondary, color: textColor, borderColor: backgroundTertiary }]}
-            placeholder="Tell us why you're leaving (optional)"
+            placeholder={t('deleteAccount.reasonPlaceholder')}
             placeholderTextColor={textMuted}
             value={reason}
             onChangeText={setReason}
@@ -213,20 +211,20 @@ export default function DeleteAccountRequestScreen() {
             color="#FFFFFF" 
           />
           <ThemedText style={styles.submitButtonText}>
-            {isSubmitting ? 'Opening Email Client...' : 'Submit Deletion Request'}
+            {isSubmitting ? t('deleteAccount.submitting') : t('deleteAccount.submitButton')}
           </ThemedText>
         </TouchableOpacity>
 
         <ThemedText style={styles.privacyNote}>
-          By submitting this request, you confirm that you want to permanently delete your account and all associated data. You will receive a confirmation email within 24-48 hours.
+          {t('deleteAccount.privacyNote')}
         </ThemedText>
       </ThemedView>
 
       {/* Alternative Contact */}
       <ThemedView style={styles.contactCard}>
-        <ThemedText style={styles.contactTitle}>Need Help?</ThemedText>
+        <ThemedText style={styles.contactTitle}>{t('deleteAccount.needHelp')}</ThemedText>
         <ThemedText style={styles.contactText}>
-          If you're having trouble with this form, you can also email us directly at:
+          {t('deleteAccount.alternativeContact')}
         </ThemedText>
         <TouchableOpacity
           onPress={() => {
@@ -247,8 +245,8 @@ export default function DeleteAccountRequestScreen() {
   if (Platform.OS === 'web') {
     return (
       <WebLayout
-        title="Account Deletion Request"
-        subtitle="Permanently delete your account and data"
+        title={t('deleteAccount.webTitle')}
+        subtitle={t('deleteAccount.webSubtitle')}
         sidebar={null}
         header={
           <View style={styles.webHeader}>
@@ -257,9 +255,9 @@ export default function DeleteAccountRequestScreen() {
               style={styles.webBackButton}
             >
               <Ionicons name="arrow-back" size={24} color={textColor} />
-              <ThemedText style={styles.webBackText}>Back</ThemedText>
+              <ThemedText style={styles.webBackText}>{t('deleteAccount.back')}</ThemedText>
             </TouchableOpacity>
-            <ThemedText style={styles.webHeaderTitle}>Account Deletion</ThemedText>
+            <ThemedText style={styles.webHeaderTitle}>{t('deleteAccount.webHeaderTitle')}</ThemedText>
             <View style={styles.webHeaderSpacer} />
           </View>
         }

@@ -2,9 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { Platform, View } from 'react-native';
 import { useColorScheme } from '../../hooks/useColorScheme';
+import { useTranslation } from '../../hooks/useTranslation';
 import { PromotionManager } from '../../components/PromotionManager';
 
 export default function TabLayout() {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const tabBarBg = colorScheme === 'light' ? '#fff' : '#1A1A1A';
   const borderTopColor = colorScheme === 'light' ? '#E5E7EB' : '#333333';
@@ -21,31 +23,31 @@ export default function TabLayout() {
           <Tabs.Screen
             name="index"
             options={{
-              title: 'Home',
+              title: t('tabs.home'),
             }}
           />
           <Tabs.Screen
             name="favorites"
             options={{
-              title: 'Favorites',
+              title: t('tabs.favorites'),
             }}
           />
           <Tabs.Screen
             name="shared"
             options={{
-              title: 'Shared',
+              title: t('tabs.shared'),
             }}
           />
           <Tabs.Screen
             name="search"
             options={{
-              title: 'Search',
+              title: t('tabs.search'),
             }}
           />
           <Tabs.Screen
             name="settings"
             options={{
-              title: 'Settings',
+              title: t('tabs.settings'),
             }}
           />
         </Tabs>
@@ -84,7 +86,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Home',
+            title: t('tabs.home'),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
             ),
@@ -94,7 +96,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="favorites"
           options={{
-            title: 'Favorites',
+            title: t('tabs.favorites'),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'star' : 'star-outline'} size={24} color={color} />
             ),
@@ -104,7 +106,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="shared"
           options={{
-            title: 'Shared',
+            title: t('tabs.shared'),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'people' : 'people-outline'} size={24} color={color} />
             ),
@@ -114,7 +116,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="search"
           options={{
-            title: 'Search',
+            title: t('tabs.search'),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'search' : 'search-outline'} size={24} color={color} />
             ),
@@ -124,7 +126,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="settings"
           options={{
-            title: 'Settings',
+            title: t('tabs.settings'),
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'settings' : 'settings-outline'} size={24} color={color} />
             ),

@@ -16,10 +16,12 @@ import { WebLayout } from '../../components/web/WebLayout';
 import { UserSidebar } from '../../components/web/UserSidebar';
 import { useAuth } from '../../hooks/useAuth';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { useTranslation } from '../../hooks/useTranslation';
 import { supabase } from '../../lib/supabase';
 import { Quiz, QuizQuestion } from '../../types/Quizzes';
 
 export default function QuizDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -339,7 +341,7 @@ export default function QuizDetailScreen() {
       <WebLayout
         sidebar={<UserSidebar />}
         title={quiz.title}
-        subtitle="Quiz Details"
+        subtitle={t('quizzes.quizDetails')}
         scrollable={false}
       >
         {mainContent}

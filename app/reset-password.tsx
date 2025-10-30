@@ -21,9 +21,11 @@ import { betterAuthService } from '../services/BetterAuthService';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useTranslation } from '../hooks/useTranslation';
 import { supabase } from '../lib/supabase';
 
 export default function ResetPasswordScreen() {
+  const { t } = useTranslation();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -41,7 +43,7 @@ export default function ResetPasswordScreen() {
   const { showSnackbar } = useSnackbar();
 
   // Set page title for web
-  usePageTitle('Reset Password - WizNote');
+  usePageTitle(`${t('auth.resetPassword')} - WizNote`);
 
   // Track window dimensions for responsive layout
   useEffect(() => {
@@ -110,7 +112,7 @@ export default function ResetPasswordScreen() {
         if (errorCode) {
           console.error('❌ Error in URL:', errorCode, errorDescription);
           if (Platform.OS === 'web') {
-            showSnackbar(`Reset link error: ${errorDescription || errorCode}`, 'error', 6000);
+            showSnackbar(t('auth.resetLinkError', { error: errorDescription || errorCode }), 'error', 6000);
           }
           setTimeout(() => router.replace('/(auth)/login'), 3000);
           return;
@@ -138,7 +140,7 @@ export default function ResetPasswordScreen() {
           } catch (sessionError) {
             console.error('❌ Failed to set session:', sessionError);
             if (Platform.OS === 'web') {
-              showSnackbar('Failed to validate reset link. Please try again.', 'error', 5000);
+              showSnackbar(t('auth.failedToValidateResetLink'), 'error', 5000);
             }
             setTimeout(() => router.replace('/(auth)/login'), 2000);
             return;
@@ -182,18 +184,18 @@ export default function ResetPasswordScreen() {
       console.log('💡 Check your .env file and Supabase dashboard settings!');
       
       if (Platform.OS === 'web') {
-        showSnackbar('Invalid or expired reset link. Please request a new one.', 'error', 6000);
+        showSnackbar(t('auth.invalidOrExpiredResetLink'), 'error', 6000);
       } else {
-        Alert.alert('Invalid Link', 'This reset link is invalid or expired. Please request a new one.');
+        Alert.alert(t('auth.invalidResetLink'), t('auth.resetLinkInvalidOrExpired'));
       }
       setTimeout(() => router.replace('/(auth)/login'), 3000);
       
     } catch (error) {
       console.error('❌ Error checking session:', error);
       if (Platform.OS === 'web') {
-        showSnackbar('Error validating reset link. Please try again.', 'error', 4000);
+        showSnackbar(t('auth.errorValidatingResetLink'), 'error', 4000);
       } else {
-        Alert.alert('Error', 'Failed to validate reset link. Please try again.');
+        Alert.alert(t('common.error'), t('auth.failedToValidateResetLink'));
       }
       setTimeout(() => router.replace('/(auth)/login'), 2000);
     } finally {
@@ -203,41 +205,41 @@ export default function ResetPasswordScreen() {
 
   const validateForm = () => {
     if (!newPassword.trim()) {
-      const message = 'Please enter a new password';
+      const message = t('auth.pleaseEnterNewPassword');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('common.error'), message);
       }
       return false;
     }
 
     if (newPassword.length < 6) {
-      const message = 'Password must be at least 6 characters long';
+      const message = t('auth.passwordMustBe6Characters');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('common.error'), message);
       }
       return false;
     }
 
     if (!confirmPassword.trim()) {
-      const message = 'Please confirm your new password';
+      const message = t('auth.pleaseConfirmNewPassword');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('common.error'), message);
       }
       return false;
     }
 
     if (newPassword !== confirmPassword) {
-      const message = 'Passwords do not match';
+      const message = t('auth.passwordsDoNotMatch');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('common.error'), message);
       }
       return false;
     }
@@ -254,10 +256,10 @@ export default function ResetPasswordScreen() {
       
       // Show success message
       if (Platform.OS === 'web') {
-        showSnackbar('Password updated successfully! Redirecting to login...', 'success', 3000);
+        showSnackbar(t('auth.passwordUpdatedSuccessfully'), 'success', 3000);
       } else {
-        Alert.alert('Success', 'Password updated successfully!', [
-          { text: 'OK', onPress: () => router.replace('/(auth)/login') }
+        Alert.alert(t('noteDetail.success'), t('auth.passwordUpdatedSuccess'), [
+          { text: t('noteDetail.ok'), onPress: () => router.replace('/(auth)/login') }
         ]);
       }
       
@@ -268,7 +270,7 @@ export default function ResetPasswordScreen() {
       
     } catch (error) {
       // Parse error message and provide user-friendly feedback
-      let errorMessage = 'Failed to update password. Please try again.';
+      let errorMessage = t('auth.failedToUpdatePassword');
       let errorDuration = 6000;
       
       if (error instanceof Error) {
@@ -276,17 +278,17 @@ export default function ResetPasswordScreen() {
         
         // Password too weak
         if (message.includes('password') && message.includes('weak')) {
-          errorMessage = 'Password is too weak. Please choose a stronger password.';
+          errorMessage = t('auth.passwordTooWeak');
           errorDuration = 6000;
         }
         // Session expired
         else if (message.includes('session') || message.includes('expired')) {
-          errorMessage = 'Your session has expired. Please request a new password reset link.';
+          errorMessage = t('auth.sessionExpired');
           errorDuration = 8000;
         }
         // Network errors
         else if (message.includes('network') || message.includes('fetch')) {
-          errorMessage = 'Network error. Please check your internet connection and try again.';
+          errorMessage = t('auth.networkErrorPasswordReset');
           errorDuration = 6000;
         }
         // Generic error with message
@@ -299,7 +301,7 @@ export default function ResetPasswordScreen() {
       if (Platform.OS === 'web') {
         showSnackbar(errorMessage, 'error', errorDuration);
       } else {
-        Alert.alert('Password Reset Error', errorMessage);
+        Alert.alert(t('auth.passwordResetError'), errorMessage);
       }
     } finally {
       setIsLoading(false);
@@ -315,12 +317,12 @@ export default function ResetPasswordScreen() {
     {
       key: 'Enter',
       action: handleResetPassword,
-      description: 'Update password',
+      description: t('auth.updatePasswordShortcut'),
     },
     {
       key: 'Escape',
       action: handleBackToLogin,
-      description: 'Go back',
+      description: t('auth.goBack'),
     },
   ]);
 
@@ -340,7 +342,7 @@ export default function ResetPasswordScreen() {
         <View style={styles.loadingContent}>
           <Logo size={80} />
           <ThemedText style={[styles.loadingText, { color: textColor }]}>
-            Verifying reset link...
+            {t('auth.verifyingResetLink')}
           </ThemedText>
         </View>
       </ThemedView>
@@ -354,17 +356,17 @@ export default function ResetPasswordScreen() {
         <View style={styles.errorContent}>
           <Ionicons name="alert-circle" size={64} color="#FF6B6B" />
           <ThemedText style={[styles.errorTitle, { color: textColor }]}>
-            Invalid Reset Link
+            {t('auth.invalidResetLink')}
           </ThemedText>
           <ThemedText style={[styles.errorSubtitle, { color: textSecondaryColor }]}>
-            This password reset link is invalid or has expired.
+            {t('auth.resetLinkInvalidOrExpired')}
           </ThemedText>
           <TouchableOpacity
             style={[styles.errorButton, { backgroundColor: accentColor }]}
             onPress={handleBackToLogin}
           >
             <ThemedText style={styles.errorButtonText}>
-              Back to Login
+              {t('auth.backToLogin')}
             </ThemedText>
           </TouchableOpacity>
         </View>
@@ -390,10 +392,10 @@ export default function ResetPasswordScreen() {
                   <Logo size={60} />
                 </View>
                 <ThemedText style={[styles.webMobileTitle, { color: textColor }]}>
-                  Reset Password
+                  {t('auth.resetPassword')}
                 </ThemedText>
                 <ThemedText style={[styles.webMobileSubtitle, { color: textSecondaryColor }]}>
-                  Enter your new password below
+                  {t('auth.enterNewPasswordBelow')}
                 </ThemedText>
               </View>
 
@@ -402,12 +404,12 @@ export default function ResetPasswordScreen() {
                 {/* New Password Input */}
                 <View style={styles.webMobileInputContainer}>
                   <ThemedText style={[styles.webMobileLabel, { color: textColor }]}>
-                    New Password
+                    {t('auth.newPassword')}
                   </ThemedText>
                   <View style={[styles.webPasswordContainer, { backgroundColor: inputBg, borderColor }]}>
                     <TextInput
                       style={[styles.webPasswordInput, { color: inputText }]}
-                      placeholder="Enter new password"
+                      placeholder={t('auth.enterNewPassword')}
                       placeholderTextColor={textSecondaryColor}
                       value={newPassword}
                       onChangeText={setNewPassword}
@@ -431,12 +433,12 @@ export default function ResetPasswordScreen() {
                 {/* Confirm Password Input */}
                 <View style={styles.webMobileInputContainer}>
                   <ThemedText style={[styles.webMobileLabel, { color: textColor }]}>
-                    Confirm Password
+                    {t('auth.confirmPassword')}
                   </ThemedText>
                   <View style={[styles.webPasswordContainer, { backgroundColor: inputBg, borderColor }]}>
                     <TextInput
                       style={[styles.webPasswordInput, { color: inputText }]}
-                      placeholder="Confirm new password"
+                      placeholder={t('auth.confirmNewPassword')}
                       placeholderTextColor={textSecondaryColor}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
@@ -463,7 +465,7 @@ export default function ResetPasswordScreen() {
                   disabled={isLoading}
                 >
                   <ThemedText style={styles.webUpdateButtonText}>
-                    {isLoading ? 'Updating...' : 'Update Password'}
+                    {isLoading ? t('auth.updating') : t('auth.updatePassword')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -471,11 +473,11 @@ export default function ResetPasswordScreen() {
               {/* Back to Login Link */}
               <View style={styles.webMobileBackContainer}>
                 <ThemedText style={[styles.webBackText, { color: textSecondaryColor }]}>
-                  Remember your password?{' '}
+                  {t('auth.rememberYourPassword')}{' '}
                 </ThemedText>
                 <TouchableOpacity onPress={handleBackToLogin}>
                   <ThemedText style={[styles.webBackLink, { color: accentColor }]}>
-                    Back to Login
+                    {t('auth.backToLogin')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -485,19 +487,19 @@ export default function ResetPasswordScreen() {
                 <View style={styles.webFeatureItem}>
                   <Ionicons name="shield-checkmark" size={16} color="#3CB371" />
                   <ThemedText style={[styles.webMobileFeatureText, { color: textSecondaryColor }]}>
-                    Secure password update
+                    {t('auth.securePasswordUpdate')}
                   </ThemedText>
                 </View>
                 <View style={styles.webFeatureItem}>
                   <Ionicons name="key" size={16} color="#3CB371" />
                   <ThemedText style={[styles.webMobileFeatureText, { color: textSecondaryColor }]}>
-                    Minimum 6 characters
+                    {t('auth.minimum6Characters')}
                   </ThemedText>
                 </View>
                 <View style={styles.webFeatureItem}>
                   <Ionicons name="checkmark-circle" size={16} color="#3CB371" />
                   <ThemedText style={[styles.webMobileFeatureText, { color: textSecondaryColor }]}>
-                    Instant access after reset
+                    {t('auth.instantAccessAfterReset')}
                   </ThemedText>
                 </View>
               </View>
@@ -521,7 +523,7 @@ export default function ResetPasswordScreen() {
                 </View>
                 <ThemedText style={[styles.webBrandTitle, { color: textColor }]}>WizNote</ThemedText>
                 <ThemedText style={[styles.webBrandSubtitle, { color: textSecondaryColor }]}>
-                  Set your new password
+                  {t('auth.setYourNewPassword')}
                 </ThemedText>
               </View>
               
@@ -529,19 +531,19 @@ export default function ResetPasswordScreen() {
                 <View style={styles.webFeatureItem}>
                   <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
                   <ThemedText style={[styles.webFeatureText, { color: textColor }]}>
-                    Secure password update
+                    {t('auth.securePasswordUpdate')}
                   </ThemedText>
                 </View>
                 <View style={styles.webFeatureItem}>
                   <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
                   <ThemedText style={[styles.webFeatureText, { color: textColor }]}>
-                    Minimum 6 characters
+                    {t('auth.minimum6Characters')}
                   </ThemedText>
                 </View>
                 <View style={styles.webFeatureItem}>
                   <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
                   <ThemedText style={[styles.webFeatureText, { color: textColor }]}>
-                    Instant access after reset
+                    {t('auth.instantAccessAfterReset')}
                   </ThemedText>
                 </View>
               </View>
@@ -552,21 +554,21 @@ export default function ResetPasswordScreen() {
               <View style={styles.webFormContainer}>
                 <View style={styles.webFormHeader}>
                   <ThemedText style={[styles.webFormTitle, { color: textColor }]}>
-                    Reset Password
+                    {t('auth.resetPassword')}
                   </ThemedText>
                   <ThemedText style={[styles.webFormSubtitle, { color: textSecondaryColor }]}>
-                    Enter your new password below
+                    {t('auth.enterNewPasswordBelow')}
                   </ThemedText>
                 </View>
 
                 <View style={styles.webForm}>
                   {/* New Password Input */}
                   <View style={styles.webInputContainer}>
-                    <ThemedText style={[styles.webLabel, { color: textColor }]}>New Password</ThemedText>
+                    <ThemedText style={[styles.webLabel, { color: textColor }]}>{t('auth.newPassword')}</ThemedText>
                     <View style={[styles.webPasswordContainer, { backgroundColor: inputBg, borderColor }]}>
                       <TextInput
                         style={[styles.webPasswordInput, { color: inputText }]}
-                        placeholder="Enter new password"
+                        placeholder={t('auth.enterNewPassword')}
                         placeholderTextColor={borderColor}
                         value={newPassword}
                         onChangeText={setNewPassword}
@@ -589,11 +591,11 @@ export default function ResetPasswordScreen() {
 
                   {/* Confirm Password Input */}
                   <View style={styles.webInputContainer}>
-                    <ThemedText style={[styles.webLabel, { color: textColor }]}>Confirm Password</ThemedText>
+                    <ThemedText style={[styles.webLabel, { color: textColor }]}>{t('auth.confirmPassword')}</ThemedText>
                     <View style={[styles.webPasswordContainer, { backgroundColor: inputBg, borderColor }]}>
                       <TextInput
                         style={[styles.webPasswordInput, { color: inputText }]}
-                        placeholder="Confirm new password"
+                        placeholder={t('auth.confirmNewPassword')}
                         placeholderTextColor={borderColor}
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
@@ -620,18 +622,18 @@ export default function ResetPasswordScreen() {
                     disabled={isLoading}
                   >
                     <ThemedText style={styles.webUpdateButtonText}>
-                      {isLoading ? 'Updating...' : 'Update Password'}
+                      {isLoading ? t('auth.updating') : t('auth.updatePassword')}
                     </ThemedText>
                   </TouchableOpacity>
 
                   {/* Back to Login Link */}
                   <View style={styles.webBackContainer}>
                     <ThemedText style={[styles.webBackText, { color: textSecondaryColor }]}>
-                      Remember your password?{' '}
+                      {t('auth.rememberYourPassword')}{' '}
                     </ThemedText>
                     <TouchableOpacity onPress={handleBackToLogin}>
                       <ThemedText style={[styles.webBackLink, { color: accentColor }]}>
-                        Back to Login
+                        {t('auth.backToLogin')}
                       </ThemedText>
                     </TouchableOpacity>
                   </View>
@@ -639,15 +641,15 @@ export default function ResetPasswordScreen() {
 
                 {/* Keyboard Shortcuts */}
                 <View style={[styles.webShortcutsContainer, { borderTopColor: borderColor }]}>
-                  <ThemedText style={[styles.webShortcutsTitle, { color: textSecondaryColor }]}>Keyboard Shortcuts</ThemedText>
+                  <ThemedText style={[styles.webShortcutsTitle, { color: textSecondaryColor }]}>{t('auth.keyboardShortcuts')}</ThemedText>
                   <View style={styles.webShortcutsList}>
                     <View style={styles.webShortcutItem}>
-                      <ThemedText style={[styles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>Enter</ThemedText>
-                      <ThemedText style={[styles.webShortcutText, { color: textSecondaryColor }]}>Update password</ThemedText>
+                      <ThemedText style={[styles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>{t('auth.enter')}</ThemedText>
+                      <ThemedText style={[styles.webShortcutText, { color: textSecondaryColor }]}>{t('auth.updatePasswordShortcut')}</ThemedText>
                     </View>
                     <View style={styles.webShortcutItem}>
-                      <ThemedText style={[styles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>Esc</ThemedText>
-                      <ThemedText style={[styles.webShortcutText, { color: textSecondaryColor }]}>Go back</ThemedText>
+                      <ThemedText style={[styles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>{t('auth.esc')}</ThemedText>
+                      <ThemedText style={[styles.webShortcutText, { color: textSecondaryColor }]}>{t('auth.goBack')}</ThemedText>
                     </View>
                   </View>
                 </View>
@@ -677,9 +679,9 @@ export default function ResetPasswordScreen() {
               <View style={[styles.logoContainer, { backgroundColor: cardBg }]}>
                 <Logo size={100} />
               </View>
-              <ThemedText style={[styles.title, { color: textColor }]}>Reset Password</ThemedText>
+              <ThemedText style={[styles.title, { color: textColor }]}>{t('auth.resetPassword')}</ThemedText>
               <ThemedText style={[styles.subtitle, { color: textSecondaryColor }]}>
-                Enter your new password below
+                {t('auth.enterNewPasswordBelow')}
               </ThemedText>
             </View>
 
@@ -690,12 +692,12 @@ export default function ResetPasswordScreen() {
                 <View style={styles.inputContainer}>
                   <View style={styles.inputLabelContainer}>
                     <Ionicons name="lock-closed" size={18} color={accentColor} />
-                    <ThemedText style={[styles.label, { color: textColor }]}>New Password</ThemedText>
+                    <ThemedText style={[styles.label, { color: textColor }]}>{t('auth.newPassword')}</ThemedText>
                   </View>
                   <View style={[styles.passwordContainer, { backgroundColor: inputBg, borderColor }]}>
                     <TextInput
                       style={[styles.passwordInput, { color: inputText }]}
-                      placeholder="Enter new password"
+                      placeholder={t('auth.enterNewPassword')}
                       placeholderTextColor={textSecondaryColor}
                       value={newPassword}
                       onChangeText={setNewPassword}
@@ -719,12 +721,12 @@ export default function ResetPasswordScreen() {
                 <View style={styles.inputContainer}>
                   <View style={styles.inputLabelContainer}>
                     <Ionicons name="lock-closed" size={18} color={accentColor} />
-                    <ThemedText style={[styles.label, { color: textColor }]}>Confirm Password</ThemedText>
+                    <ThemedText style={[styles.label, { color: textColor }]}>{t('auth.confirmPassword')}</ThemedText>
                   </View>
                   <View style={[styles.passwordContainer, { backgroundColor: inputBg, borderColor }]}>
                     <TextInput
                       style={[styles.passwordInput, { color: inputText }]}
-                      placeholder="Confirm new password"
+                      placeholder={t('auth.confirmNewPassword')}
                       placeholderTextColor={textSecondaryColor}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
@@ -751,7 +753,7 @@ export default function ResetPasswordScreen() {
                   disabled={isLoading}
                 >
                   <ThemedText style={styles.updateButtonText}>
-                    {isLoading ? 'Updating...' : 'Update Password'}
+                    {isLoading ? t('auth.updating') : t('auth.updatePassword')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -760,11 +762,11 @@ export default function ResetPasswordScreen() {
             {/* Back to Login Link */}
             <View style={styles.backContainer}>
               <ThemedText style={[styles.backText, { color: textSecondaryColor }]}>
-                Remember your password?{' '}
+                {t('auth.rememberYourPassword')}{' '}
               </ThemedText>
               <TouchableOpacity onPress={handleBackToLogin}>
                 <ThemedText style={[styles.backLink, { color: accentColor }]}>
-                  Back to Login
+                  {t('auth.backToLogin')}
                 </ThemedText>
               </TouchableOpacity>
             </View>

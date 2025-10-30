@@ -102,7 +102,8 @@ export default ({ config }) => {
     plugins: [
       ...(config.plugins || []),
       'expo-font',
-      'expo-web-browser'
+      'expo-web-browser',
+      'expo-localization'
     ],
     extra: {
       ...config.extra,
