@@ -20,53 +20,43 @@ import { useSnackbar } from '../contexts/SnackbarContext';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { supportService } from '../services/SupportService';
+import { useTranslation } from '../hooks/useTranslation';
 
 type TicketType = 'technical' | 'billing' | 'feature_request' | 'account_deletion' | 'other';
 
 interface TicketTypeOption {
   value: TicketType;
-  label: string;
-  description: string;
   icon: string;
 }
 
-const TICKET_TYPES: TicketTypeOption[] = [
-  {
-    value: 'technical',
-    label: 'Technical Issue',
-    description: 'Report bugs, errors, or technical problems',
-    icon: 'bug',
-  },
-  {
-    value: 'billing',
-    label: 'Billing Question',
-    description: 'Questions about payments, subscriptions, or refunds',
-    icon: 'card',
-  },
-  {
-    value: 'feature_request',
-    label: 'Feature Request',
-    description: 'Suggest new features or improvements',
-    icon: 'bulb',
-  },
-  {
-    value: 'account_deletion',
-    label: 'Delete My Account',
-    description: 'Request permanent account deletion',
-    icon: 'trash',
-  },
-  {
-    value: 'other',
-    label: 'Other',
-    description: 'General questions or feedback',
-    icon: 'help-circle',
-  },
-];
-
 export default function HelpScreen() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const router = useRouter();
   const { showSnackbar } = useSnackbar();
+
+  const TICKET_TYPES: TicketTypeOption[] = [
+    {
+      value: 'technical',
+      icon: 'bug',
+    },
+    {
+      value: 'billing',
+      icon: 'card',
+    },
+    {
+      value: 'feature_request',
+      icon: 'bulb',
+    },
+    {
+      value: 'account_deletion',
+      icon: 'trash',
+    },
+    {
+      value: 'other',
+      icon: 'help-circle',
+    },
+  ];
 
   // Form state
   const [selectedType, setSelectedType] = useState<TicketType | null>(null);
@@ -133,31 +123,31 @@ export default function HelpScreen() {
   const handleSubmit = async () => {
     // Validation
     if (!selectedType) {
-      const message = 'Please select a ticket type';
+      const message = t('help.pleaseSelectTicketType');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Required', message);
+        Alert.alert(t('help.required'), message);
       }
       return;
     }
 
     if (!subject.trim()) {
-      const message = 'Please enter a subject';
+      const message = t('help.pleaseEnterSubject');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Required', message);
+        Alert.alert(t('help.required'), message);
       }
       return;
     }
 
     if (!description.trim()) {
-      const message = 'Please describe your issue';
+      const message = t('help.pleaseDescribeIssue');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Required', message);
+        Alert.alert(t('help.required'), message);
       }
       return;
     }
@@ -165,11 +155,11 @@ export default function HelpScreen() {
     // Only validate email if user is not signed in
     if (!user?.email) {
       if (!email.trim()) {
-        const message = 'Please enter your email';
+        const message = t('help.pleaseEnterEmail');
         if (Platform.OS === 'web') {
           showSnackbar(message, 'error', 4000);
         } else {
-          Alert.alert('Required', message);
+          Alert.alert(t('help.required'), message);
         }
         return;
       }
@@ -177,11 +167,11 @@ export default function HelpScreen() {
       // Email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        const message = 'Please enter a valid email address';
+        const message = t('help.pleaseEnterValidEmail');
         if (Platform.OS === 'web') {
           showSnackbar(message, 'error', 4000);
         } else {
-          Alert.alert('Invalid Email', message);
+          Alert.alert(t('help.invalidEmail'), message);
         }
         return;
       }
@@ -222,7 +212,7 @@ export default function HelpScreen() {
       }
     } catch (error) {
       console.error('Error submitting ticket:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Failed to submit ticket';
+      const errorMsg = error instanceof Error ? error.message : t('help.failedSubmitTicket');
 
       if (Platform.OS === 'web') {
         showSnackbar(`❌ ${errorMsg}`, 'error', 6000);
@@ -275,29 +265,29 @@ export default function HelpScreen() {
         <View style={styles.successContainer}>
           <View style={[styles.successCard, { backgroundColor: backgroundSecondary, borderColor: accentSuccess }]}>
             <Ionicons name="checkmark-circle" size={64} color={accentSuccess} />
-            <ThemedText style={styles.successTitle}>Ticket Submitted!</ThemedText>
+            <ThemedText style={styles.successTitle}>{t('help.ticketSubmitted')}</ThemedText>
             <ThemedText style={[styles.successMessage, { color: textSecondary }]}>
-              Your support ticket has been created successfully.
+              {t('help.ticketCreatedSuccess')}
             </ThemedText>
             <View style={[styles.ticketIdContainer, { backgroundColor, borderColor }]}>
-              <ThemedText style={[styles.ticketIdLabel, { color: textSecondary }]}>Ticket ID:</ThemedText>
+              <ThemedText style={[styles.ticketIdLabel, { color: textSecondary }]}>{t('help.ticketId')}</ThemedText>
               <ThemedText style={[styles.ticketIdValue, { color: accentPrimary }]}>{ticketId}</ThemedText>
             </View>
             <ThemedText style={[styles.successSubtext, { color: textSecondary }]}>
-              We'll respond to your email address within 24-48 hours.
+              {t('help.weRespondWithin')}
             </ThemedText>
             <View style={styles.successActions}>
               <TouchableOpacity
                 style={[styles.button, styles.primaryButton, { backgroundColor: accentPrimary }]}
                 onPress={handleStartNewTicket}
               >
-                <Text style={styles.buttonText}>Submit Another Ticket</Text>
+                <Text style={styles.buttonText}>{t('help.submitAnotherTicket')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.secondaryButton, { borderColor }]}
                 onPress={() => router.back()}
               >
-                <Text style={[styles.secondaryButtonText, { color: textColor }]}>Back to App</Text>
+                <Text style={[styles.secondaryButtonText, { color: textColor }]}>{t('help.backToApp')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -309,9 +299,9 @@ export default function HelpScreen() {
       <ScrollView style={styles.scrollContent}>
         {/* Header */}
         <View style={styles.headerSection}>
-          <ThemedText type="title" style={styles.headerTitle}>How Can We Help?</ThemedText>
+          <ThemedText type="title" style={styles.headerTitle}>{t('help.howCanWeHelp')}</ThemedText>
           <ThemedText style={[styles.headerSubtitle, { color: textSecondary }]}>
-            Submit a support ticket and we'll get back to you as soon as possible.
+            {t('help.submitTicketDesc')}
           </ThemedText>
         </View>
 
@@ -319,7 +309,7 @@ export default function HelpScreen() {
         {user?.id && (
           <View style={styles.section}>
             <View style={styles.ticketsHeader}>
-              <ThemedText style={styles.sectionLabel}>Your Support Tickets</ThemedText>
+              <ThemedText style={styles.sectionLabel}>{t('help.yourSupportTickets')}</ThemedText>
               {isLoadingTickets && <ActivityIndicator size="small" color={accentPrimary} />}
             </View>
 
@@ -327,7 +317,7 @@ export default function HelpScreen() {
               <View style={[styles.emptyTickets, { backgroundColor: backgroundSecondary, borderColor }]}>
                 <Ionicons name="checkmark-circle" size={48} color={accentSuccess} />
                 <ThemedText style={[styles.emptyTicketsText, { color: textSecondary }]}>
-                  No open tickets. You're all caught up!
+                  {t('help.noOpenTickets')}
                 </ThemedText>
               </View>
             )}
@@ -382,7 +372,10 @@ export default function HelpScreen() {
                             },
                           ]}
                         >
-                          {ticket.status === 'in_progress' ? 'In Progress' : 
+                          {ticket.status === 'in_progress' ? t('help.statusInProgress') : 
+                           ticket.status === 'pending' ? t('help.statusPending') :
+                           ticket.status === 'resolved' ? t('help.statusResolved') :
+                           ticket.status === 'closed' ? t('help.statusClosed') :
                            ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}
                         </ThemedText>
                       </View>
@@ -390,12 +383,12 @@ export default function HelpScreen() {
                     <ThemedText style={[styles.ticketDescription, { color: textSecondary }]} numberOfLines={2}>
                       {ticket.description}
                     </ThemedText>
-                    <View style={styles.ticketFooter}>
-                      <ThemedText style={[styles.ticketMeta, { color: textSecondary }]}>
-                        {ticket.createdAt.toLocaleDateString()} • ID: {ticket.id.split('_')[1]}
-                      </ThemedText>
-                      <Ionicons name="chevron-forward" size={20} color={textSecondary} />
-                    </View>
+                      <View style={styles.ticketFooter}>
+                        <ThemedText style={[styles.ticketMeta, { color: textSecondary }]}>
+                          {ticket.createdAt.toLocaleDateString()} • {t('help.id')} {ticket.id.split('_')[1]}
+                        </ThemedText>
+                        <Ionicons name="chevron-forward" size={20} color={textSecondary} />
+                      </View>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -405,7 +398,7 @@ export default function HelpScreen() {
 
         {/* Ticket Type Selection */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionLabel}>What do you need help with? *</ThemedText>
+          <ThemedText style={styles.sectionLabel}>{t('help.whatDoYouNeed')} *</ThemedText>
           <View style={styles.ticketTypesGrid}>
             {TICKET_TYPES.map((type) => (
               <TouchableOpacity
@@ -426,10 +419,10 @@ export default function HelpScreen() {
                   color={selectedType === type.value ? accentPrimary : textSecondary} 
                 />
                 <ThemedText style={[styles.ticketTypeLabel, selectedType === type.value && { color: accentPrimary }]}>
-                  {type.label}
+                  {t(`help.ticketTypes.${type.value}`)}
                 </ThemedText>
                 <ThemedText style={[styles.ticketTypeDescription, { color: textSecondary }]}>
-                  {type.description}
+                  {t(`help.ticketTypes.${type.value}Desc`)}
                 </ThemedText>
               </TouchableOpacity>
             ))}
@@ -438,30 +431,30 @@ export default function HelpScreen() {
 
         {/* Subject Input */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionLabel}>Subject *</ThemedText>
+          <ThemedText style={styles.sectionLabel}>{t('help.subject')} *</ThemedText>
           <TextInput
             style={[styles.input, { backgroundColor: backgroundSecondary, color: textColor, borderColor }]}
-            placeholder="Brief description of your issue"
+            placeholder={t('help.subjectPlaceholder')}
             placeholderTextColor={textSecondary}
             value={subject}
             onChangeText={setSubject}
             maxLength={200}
           />
           <ThemedText style={[styles.helperText, { color: textSecondary }]}>
-            {subject.length}/200 characters
+            {subject.length}/200 {t('help.charactersLeft')}
           </ThemedText>
         </View>
 
         {/* Description Input */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionLabel}>Description *</ThemedText>
+          <ThemedText style={styles.sectionLabel}>{t('help.description')} *</ThemedText>
           <TextInput
             style={[
               styles.input,
               styles.textArea,
               { backgroundColor: backgroundSecondary, color: textColor, borderColor }
             ]}
-            placeholder="Please provide as much detail as possible about your issue..."
+            placeholder={t('help.descriptionPlaceholder')}
             placeholderTextColor={textSecondary}
             value={description}
             onChangeText={setDescription}
@@ -471,17 +464,17 @@ export default function HelpScreen() {
             maxLength={2000}
           />
           <ThemedText style={[styles.helperText, { color: textSecondary }]}>
-            {description.length}/2000 characters
+            {description.length}/2000 {t('help.charactersLeft')}
           </ThemedText>
         </View>
 
         {/* Email Input - Only show for non-signed in users */}
         {!user?.email && (
           <View style={styles.section}>
-            <ThemedText style={styles.sectionLabel}>Your Email *</ThemedText>
+            <ThemedText style={styles.sectionLabel}>{t('help.yourEmail')} *</ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: backgroundSecondary, color: textColor, borderColor }]}
-              placeholder="email@example.com"
+              placeholder={t('help.emailPlaceholder')}
               placeholderTextColor={textSecondary}
               value={email}
               onChangeText={setEmail}
@@ -490,7 +483,7 @@ export default function HelpScreen() {
               autoCorrect={false}
             />
             <ThemedText style={[styles.helperText, { color: textSecondary }]}>
-              We'll send updates to this email address
+              {t('help.weEmailUpdates')}
             </ThemedText>
           </View>
         )}
@@ -511,7 +504,7 @@ export default function HelpScreen() {
             ) : (
               <>
                 <Ionicons name="send" size={20} color="white" />
-                <Text style={styles.submitButtonText}>Submit Ticket</Text>
+                <Text style={styles.submitButtonText}>{t('help.submitTicket')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -521,7 +514,7 @@ export default function HelpScreen() {
             onPress={() => router.back()}
             disabled={isSubmitting}
           >
-            <Text style={[styles.cancelButtonText, { color: textColor }]}>Cancel</Text>
+            <Text style={[styles.cancelButtonText, { color: textColor }]}>{t('help.cancel')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -529,9 +522,9 @@ export default function HelpScreen() {
         <View style={[styles.helpSection, { backgroundColor: backgroundSecondary, borderColor }]}>
           <Ionicons name="information-circle" size={24} color={accentPrimary} />
           <View style={styles.helpTextContainer}>
-            <ThemedText style={styles.helpTitle}>Response Time</ThemedText>
+            <ThemedText style={styles.helpTitle}>{t('help.responseTime')}</ThemedText>
             <ThemedText style={[styles.helpText, { color: textSecondary }]}>
-              We typically respond within 24-48 hours. For urgent issues, we'll prioritize your ticket.
+              {t('help.responseTimeDesc')}
             </ThemedText>
           </View>
         </View>
@@ -553,9 +546,9 @@ export default function HelpScreen() {
                 style={styles.webBackButton}
               >
                 <Ionicons name="arrow-back" size={24} color={textColor} />
-                <ThemedText style={styles.webBackText}>Back</ThemedText>
+                <ThemedText style={styles.webBackText}>{t('help.back')}</ThemedText>
               </TouchableOpacity>
-              <ThemedText style={styles.webHeaderTitle}>Help & Support</ThemedText>
+              <ThemedText style={styles.webHeaderTitle}>{t('help.helpAndSupport')}</ThemedText>
               <View style={styles.webHeaderSpacer} />
             </View>
           }
@@ -581,7 +574,7 @@ export default function HelpScreen() {
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <Ionicons name="arrow-back" size={24} color={textColor} />
             </TouchableOpacity>
-            <ThemedText type="title">Help & Support</ThemedText>
+            <ThemedText type="title">{t('help.helpAndSupport')}</ThemedText>
           </View>
         )}
         {renderContent()}

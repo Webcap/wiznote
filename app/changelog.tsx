@@ -8,6 +8,7 @@ import { WebLayout } from '../components/web/WebLayout';
 import { UserSidebar } from '../components/web/UserSidebar';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { useAuth } from '../hooks/useAuth';
+import { useTranslation } from '../hooks/useTranslation';
 
 // Import changelog data
 import changelogData from '../data/changelog.json';
@@ -27,6 +28,7 @@ interface ChangelogVersion {
 }
 
 export default function ChangelogScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const backgroundColor = useThemeColor({}, 'background');
@@ -87,7 +89,7 @@ export default function ChangelogScreen() {
       >
         <Ionicons name="arrow-back" size={24} color={textColor} />
       </Pressable>
-      <ThemedText style={styles.headerTitle}>Changelog</ThemedText>
+      <ThemedText style={styles.headerTitle}>{t('changelog.title')}</ThemedText>
       <View style={styles.headerRight} />
     </ThemedView>
   );
@@ -106,7 +108,7 @@ export default function ChangelogScreen() {
               </ThemedText>
               {isLatest && (
                 <View style={[styles.latestBadge, { backgroundColor: accentColor }]}>
-                  <ThemedText style={styles.latestBadgeText}>Latest</ThemedText>
+                  <ThemedText style={styles.latestBadgeText}>{t('changelog.latest')}</ThemedText>
                 </View>
               )}
             </View>
@@ -192,8 +194,8 @@ export default function ChangelogScreen() {
   if (Platform.OS === 'web') {
     return (
       <WebLayout
-        title="Changelog"
-        subtitle="Track all updates and improvements"
+        title={t('changelog.title')}
+        subtitle={t('changelog.subtitle')}
         sidebar={isAuthenticated ? <UserSidebar activePage="changelog" /> : null}
         header={
           <View style={styles.webHeader}>
@@ -206,9 +208,9 @@ export default function ChangelogScreen() {
               </Pressable>
             </View>
             <View style={styles.webHeaderCenter}>
-              <ThemedText style={styles.webHeaderTitle}>Changelog</ThemedText>
+              <ThemedText style={styles.webHeaderTitle}>{t('changelog.title')}</ThemedText>
               <ThemedText style={[styles.webHeaderSubtitle, { color: textSecondary }]}>
-                Track all updates and improvements
+                {t('changelog.subtitle')}
               </ThemedText>
             </View>
             <View style={styles.webHeaderRight} />
@@ -218,10 +220,13 @@ export default function ChangelogScreen() {
         <View style={styles.webContent}>
           <View style={styles.intro}>
             <ThemedText style={styles.introText}>
-              All notable changes to WizNote are documented here. The format follows{' '}
-              <ThemedText style={[styles.link, { color: tintColor }]}>Keep a Changelog</ThemedText>
-              {' '}and this project adheres to{' '}
-              <ThemedText style={[styles.link, { color: tintColor }]}>Semantic Versioning</ThemedText>.
+              {t('changelog.introText')}
+              {' '}
+              <ThemedText style={[styles.link, { color: tintColor }]}>{t('changelog.keepAChangelog')}</ThemedText>
+              {' '}
+              {t('changelog.introTextMiddle')}
+              {' '}
+              <ThemedText style={[styles.link, { color: tintColor }]}>{t('changelog.semanticVersioning')}</ThemedText>.
             </ThemedText>
           </View>
 
@@ -244,10 +249,13 @@ export default function ChangelogScreen() {
 
       <View style={styles.intro}>
         <ThemedText style={styles.introText}>
-          All notable changes to WizNote are documented here. The format follows{' '}
-          <ThemedText style={[styles.link, { color: tintColor }]}>Keep a Changelog</ThemedText>
-          {' '}and this project adheres to{' '}
-          <ThemedText style={[styles.link, { color: tintColor }]}>Semantic Versioning</ThemedText>.
+          {t('changelog.introText')}
+          {' '}
+          <ThemedText style={[styles.link, { color: tintColor }]}>{t('changelog.keepAChangelog')}</ThemedText>
+          {' '}
+          {t('changelog.introTextMiddle')}
+          {' '}
+          <ThemedText style={[styles.link, { color: tintColor }]}>{t('changelog.semanticVersioning')}</ThemedText>.
         </ThemedText>
       </View>
 

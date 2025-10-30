@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useTranslation } from '../hooks/useTranslation';
 import { accountDeletionService } from '../services/AccountDeletionService';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ThemedText } from './ThemedText';
@@ -35,6 +36,7 @@ export const DeleteAccountModal = ({
   onClose, 
   onDeleteSuccess 
 }: DeleteAccountModalProps) => {
+  const { t } = useTranslation();
   const { showSnackbar } = useSnackbar();
   const [password, setPassword] = useState('');
   const [confirmText, setConfirmText] = useState('');
@@ -58,21 +60,21 @@ export const DeleteAccountModal = ({
   const handleDelete = async () => {
     // Validation
     if (!password.trim()) {
-      const message = 'Please enter your password to confirm deletion.';
+      const message = t('deleteAccountModal.pleaseEnterPassword');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 3000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('common.error'), message);
       }
       return;
     }
 
     if (confirmText.trim().toLowerCase() !== 'delete') {
-      const message = 'Please type "DELETE" to confirm account deletion.';
+      const message = t('deleteAccountModal.pleaseTypeDelete');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 3000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('common.error'), message);
       }
       return;
     }
@@ -84,32 +86,32 @@ export const DeleteAccountModal = ({
 
     if (Platform.OS === 'web') {
       const confirmed = window.confirm(
-        '⚠️ FINAL WARNING ⚠️\n\n' +
-        'This action is PERMANENT and CANNOT be undone!\n\n' +
-        'All your data will be permanently deleted:\n' +
-        '• All notes and content\n' +
-        '• All quizzes and flashcards\n' +
-        '• All files (audio, PDFs)\n' +
-        '• Your account and profile\n\n' +
-        'Are you absolutely sure you want to continue?'
+        t('deleteAccountModal.finalWarningTitle') + '\n\n' +
+        t('deleteAccountModal.finalWarningMessage') + '\n\n' +
+        t('deleteAccountModal.allDataWillBeDeleted') + ':\n' +
+        '• ' + t('deleteAccountModal.allNotesAndContent') + '\n' +
+        '• ' + t('deleteAccountModal.allQuizzesAndFlashcards') + '\n' +
+        '• ' + t('deleteAccountModal.allFiles') + '\n' +
+        '• ' + t('deleteAccountModal.accountAndProfile') + '\n\n' +
+        t('deleteAccountModal.areYouAbsolutelySure')
       );
       if (confirmed) {
         confirmDeletion();
       }
     } else {
       Alert.alert(
-        '⚠️ FINAL WARNING',
-        'This action is PERMANENT and CANNOT be undone!\n\n' +
-        'All your data will be permanently deleted:\n' +
-        '• All notes and content\n' +
-        '• All quizzes and flashcards\n' +
-        '• All files (audio, PDFs)\n' +
-        '• Your account and profile\n\n' +
-        'Are you absolutely sure you want to continue?',
+        t('deleteAccountModal.finalWarningTitle'),
+        t('deleteAccountModal.finalWarningMessage') + '\n\n' +
+        t('deleteAccountModal.allDataWillBeDeleted') + ':\n' +
+        '• ' + t('deleteAccountModal.allNotesAndContent') + '\n' +
+        '• ' + t('deleteAccountModal.allQuizzesAndFlashcards') + '\n' +
+        '• ' + t('deleteAccountModal.allFiles') + '\n' +
+        '• ' + t('deleteAccountModal.accountAndProfile') + '\n\n' +
+        t('deleteAccountModal.areYouAbsolutelySure'),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           { 
-            text: 'Delete Everything', 
+            text: t('deleteAccountModal.deleteEverything'), 
             style: 'destructive',
             onPress: confirmDeletion
           }
@@ -120,7 +122,7 @@ export const DeleteAccountModal = ({
 
   const performDeletion = async () => {
     setLoading(true);
-    showSnackbar('Deleting your account...', 'info', 3000);
+    showSnackbar(t('deleteAccountModal.deletingAccount'), 'info', 3000);
 
     try {
       const result = await accountDeletionService.deleteAccountWithVerification(
@@ -130,24 +132,24 @@ export const DeleteAccountModal = ({
       );
 
       if (result.success) {
-        showSnackbar('Your account has been permanently deleted.', 'success', 5000);
+        showSnackbar(t('deleteAccountModal.accountDeleted'), 'success', 5000);
         handleClose();
         onDeleteSuccess();
       } else {
-        const errorMessage = result.error || 'Failed to delete account. Please try again.';
+        const errorMessage = result.error || t('deleteAccountModal.failedToDelete');
         if (Platform.OS === 'web') {
           showSnackbar(errorMessage, 'error', 5000);
         } else {
-          Alert.alert('Error', errorMessage);
+          Alert.alert(t('common.error'), errorMessage);
         }
       }
     } catch (error) {
       console.error('Error deleting account:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+      const errorMessage = error instanceof Error ? error.message : t('deleteAccountModal.unexpectedError');
       if (Platform.OS === 'web') {
         showSnackbar(errorMessage, 'error', 5000);
       } else {
-        Alert.alert('Error', errorMessage);
+        Alert.alert(t('common.error'), errorMessage);
       }
     } finally {
       setLoading(false);
@@ -168,7 +170,7 @@ export const DeleteAccountModal = ({
             <div style={webStyles.headerIcon}>
               <Ionicons name="warning" size={24} color={dangerColor} />
             </div>
-            <h2 style={{...webStyles.headerTitle, color: dangerColor}}>Delete Account</h2>
+            <h2 style={{...webStyles.headerTitle, color: dangerColor}}>{t('deleteAccountModal.title')}</h2>
             <button style={webStyles.closeButton} onClick={handleClose} disabled={loading}>
               <Ionicons name="close" size={24} color={textColor} />
             </button>
@@ -179,35 +181,35 @@ export const DeleteAccountModal = ({
             <div style={{...webStyles.warningBox, backgroundColor: '#FEF2F2', borderColor: '#FCA5A5'}}>
               <Ionicons name="alert-circle" size={20} color={dangerColor} />
               <div style={{...webStyles.warningText, color: '#991B1B'}}>
-                <strong>Warning:</strong> This action is permanent and cannot be undone!
+                <strong>{t('deleteAccountModal.warning')}:</strong> {t('deleteAccountModal.actionPermanent')}
               </div>
             </div>
 
             {/* Info */}
             <div style={webStyles.section}>
               <p style={{...webStyles.infoText, color: textColor}}>
-                Deleting your account will permanently remove:
+                {t('deleteAccountModal.deletingAccountWillRemove')}:
               </p>
               <ul style={{...webStyles.list, color: textMutedColor}}>
-                <li>All your notes and content</li>
-                <li>All quizzes and flashcards</li>
-                <li>All uploaded files (audio, PDFs)</li>
-                <li>All usage data and statistics</li>
-                <li>Your account and profile information</li>
-                <li>Your subscription (if any)</li>
+                <li>{t('deleteAccountModal.allNotesAndContent')}</li>
+                <li>{t('deleteAccountModal.allQuizzesAndFlashcards')}</li>
+                <li>{t('deleteAccountModal.allUploadedFiles')}</li>
+                <li>{t('deleteAccountModal.allUsageDataAndStatistics')}</li>
+                <li>{t('deleteAccountModal.accountAndProfileInfo')}</li>
+                <li>{t('deleteAccountModal.subscriptionIfAny')}</li>
               </ul>
             </div>
 
             {/* Password Input */}
             <div style={webStyles.section}>
               <label style={{...webStyles.label, color: textColor}}>
-                Confirm your password <span style={{ color: dangerColor }}>*</span>
+                {t('deleteAccountModal.confirmPassword')} <span style={{ color: dangerColor }}>*</span>
               </label>
               <div style={{...webStyles.passwordContainer, backgroundColor: backgroundSecondary, borderColor}}>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   style={{...webStyles.input, color: textColor, backgroundColor: 'transparent'}}
-                  placeholder="Enter your password"
+                  placeholder={t('deleteAccountModal.enterPassword')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
@@ -231,7 +233,7 @@ export const DeleteAccountModal = ({
             {/* Confirmation Text Input */}
             <div style={webStyles.section}>
               <label style={{...webStyles.label, color: textColor}}>
-                Type "DELETE" to confirm <span style={{ color: dangerColor }}>*</span>
+                {t('deleteAccountModal.typeDeleteToConfirm')} <span style={{ color: dangerColor }}>*</span>
               </label>
               <input
                 type="text"
@@ -241,7 +243,7 @@ export const DeleteAccountModal = ({
                   borderColor,
                   color: textColor,
                 }}
-                placeholder='Type "DELETE" in capital letters'
+                placeholder={t('deleteAccountModal.placeholderDelete')}
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
                 disabled={loading}
@@ -257,7 +259,7 @@ export const DeleteAccountModal = ({
               onClick={handleClose}
               disabled={loading}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             
             <button
@@ -274,7 +276,7 @@ export const DeleteAccountModal = ({
               ) : (
                 <>
                   <Ionicons name="trash" size={20} color="#FFFFFF" />
-                  Delete My Account
+                  {t('deleteAccountModal.deleteMyAccount')}
                 </>
               )}
             </button>
@@ -305,7 +307,7 @@ export const DeleteAccountModal = ({
                   <Ionicons name="warning" size={24} color={dangerColor} />
                 </View>
                 <ThemedText style={[styles.headerTitle, { color: dangerColor }]}>
-                  Delete Account
+                  {t('deleteAccountModal.title')}
                 </ThemedText>
                 <TouchableOpacity onPress={handleClose} disabled={loading}>
                   <Ionicons name="close" size={24} color={textColor} />
@@ -325,44 +327,44 @@ export const DeleteAccountModal = ({
                   <View style={[styles.warningBox, { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5' }]}>
                     <Ionicons name="alert-circle" size={20} color={dangerColor} />
                     <ThemedText style={[styles.warningText, { color: '#991B1B' }]}>
-                      Warning: This action is permanent and cannot be undone!
+                      <ThemedText style={{ fontWeight: 'bold' }}>{t('deleteAccountModal.warning')}:</ThemedText> {t('deleteAccountModal.actionPermanent')}
                     </ThemedText>
                   </View>
 
                   {/* Info */}
                   <View style={styles.section}>
                     <ThemedText style={styles.infoText}>
-                      Deleting your account will permanently remove:
+                      {t('deleteAccountModal.deletingAccountWillRemove')}:
                     </ThemedText>
                     <ThemedText style={[styles.listItem, { color: textMutedColor }]}>
-                      • All your notes and content
+                      • {t('deleteAccountModal.allNotesAndContent')}
                     </ThemedText>
                     <ThemedText style={[styles.listItem, { color: textMutedColor }]}>
-                      • All quizzes and flashcards
+                      • {t('deleteAccountModal.allQuizzesAndFlashcards')}
                     </ThemedText>
                     <ThemedText style={[styles.listItem, { color: textMutedColor }]}>
-                      • All uploaded files (audio, PDFs)
+                      • {t('deleteAccountModal.allUploadedFiles')}
                     </ThemedText>
                     <ThemedText style={[styles.listItem, { color: textMutedColor }]}>
-                      • All usage data and statistics
+                      • {t('deleteAccountModal.allUsageDataAndStatistics')}
                     </ThemedText>
                     <ThemedText style={[styles.listItem, { color: textMutedColor }]}>
-                      • Your account and profile
+                      • {t('deleteAccountModal.accountAndProfile')}
                     </ThemedText>
                     <ThemedText style={[styles.listItem, { color: textMutedColor }]}>
-                      • Your subscription (if any)
+                      • {t('deleteAccountModal.subscriptionIfAny')}
                     </ThemedText>
                   </View>
 
                   {/* Password Input */}
                   <View style={styles.section}>
                     <ThemedText style={styles.label}>
-                      Confirm your password <ThemedText style={{ color: dangerColor }}>*</ThemedText>
+                      {t('deleteAccountModal.confirmPassword')} <ThemedText style={{ color: dangerColor }}>*</ThemedText>
                     </ThemedText>
                     <View style={[styles.passwordContainer, { backgroundColor: backgroundSecondary, borderColor }]}>
                       <TextInput
                         style={[styles.input, { color: textColor }]}
-                        placeholder="Enter your password"
+                        placeholder={t('deleteAccountModal.enterPassword')}
                         placeholderTextColor={textMutedColor}
                         value={password}
                         onChangeText={setPassword}
@@ -384,14 +386,14 @@ export const DeleteAccountModal = ({
                   {/* Confirmation Text Input */}
                   <View style={styles.section}>
                     <ThemedText style={styles.label}>
-                      Type "DELETE" to confirm <ThemedText style={{ color: dangerColor }}>*</ThemedText>
+                      {t('deleteAccountModal.typeDeleteToConfirm')} <ThemedText style={{ color: dangerColor }}>*</ThemedText>
                     </ThemedText>
                     <TextInput
                       style={[
                         styles.confirmInput,
                         { backgroundColor: backgroundSecondary, borderColor, color: textColor }
                       ]}
-                      placeholder='Type "DELETE" in capital letters'
+                      placeholder={t('deleteAccountModal.placeholderDelete')}
                       placeholderTextColor={textMutedColor}
                       value={confirmText}
                       onChangeText={setConfirmText}
@@ -409,7 +411,7 @@ export const DeleteAccountModal = ({
                     onPress={handleClose}
                     disabled={loading}
                   >
-                    <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+                    <ThemedText style={styles.cancelButtonText}>{t('common.cancel')}</ThemedText>
                   </TouchableOpacity>
                   
                   <TouchableOpacity
@@ -428,7 +430,7 @@ export const DeleteAccountModal = ({
                     ) : (
                       <>
                         <Ionicons name="trash" size={20} color="#FFFFFF" />
-                        <ThemedText style={styles.deleteButtonText}>Delete My Account</ThemedText>
+                        <ThemedText style={styles.deleteButtonText}>{t('deleteAccountModal.deleteMyAccount')}</ThemedText>
                       </>
                     )}
                   </TouchableOpacity>

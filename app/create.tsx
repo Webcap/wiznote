@@ -33,6 +33,7 @@ import { useFeatureFlags } from '../hooks/useFeatureFlags';
 import { useNotes } from '../hooks/useNotes';
 import { useSaveManager } from '../hooks/useSaveManager';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useTranslation } from '../hooks/useTranslation';
 
 // Types
 import { NoteFormData } from '../types/Note';
@@ -53,6 +54,7 @@ const MemoizedTextInput = React.memo(({ style, value, onChangeText, ...props }: 
 });
 
 export default function CreateNoteScreen() {
+  const { t } = useTranslation();
   // Get URL parameters
   const params = useLocalSearchParams<{ noteId?: string; id?: string }>();
   
@@ -87,7 +89,7 @@ export default function CreateNoteScreen() {
   const userId = user?.id || '';
   const isAuthenticated = !!user?.id && !authLoading;
   
-  const { notes } = useNotes(userId);
+  const { notes, loading: notesLoading } = useNotes(userId);
   
   // Feature flags
   const { isFeatureEnabled } = useFeatureFlags();
@@ -120,9 +122,10 @@ export default function CreateNoteScreen() {
     }, [isAuthenticated, noteId]),
     onSaveError: useCallback((errorMessage: string) => {
       if (isAuthenticated) {
-        Alert.alert('Save Error', errorMessage);
+        // Use common.error as fallback, errorMessage should already be translated
+        Alert.alert(t('common.error'), errorMessage);
       }
-    }, [isAuthenticated]),
+    }, [isAuthenticated, t]),
   });
 
   // Theme colors
@@ -156,28 +159,31 @@ export default function CreateNoteScreen() {
   const isEditMode = noteId && !noteId.startsWith('temp_');
   const hasContent = title.trim() || content.trim() || contentHtml.trim();
   const isSaveDisabled = isSaving || authLoading || !isAuthenticated || !hasContent || !performManualSave;
+  
+  // Loading state: show loading while fetching note data in edit mode
+  const isLoadingNote = isEditMode && (notesLoading || (isAuthenticated && notes.length === 0));
 
   // Handler functions
   const handleSave = useCallback(async () => {
     if (!hasContent) {
-      Alert.alert('Error', 'Please enter a title or content');
+      Alert.alert(t('createNote.error'), t('createNote.titleOrContentRequired'));
       return;
     }
     
     if (!isAuthenticated) {
       Alert.alert(
-        'Authentication Required', 
-        'Please sign in to save notes.',
+        t('createNote.authenticationRequired'), 
+        t('createNote.signInToCreateNotes'),
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Sign In', onPress: () => router.push('/login') }
+          { text: t('createNote.cancel'), style: 'cancel' },
+          { text: t('createNote.signIn'), onPress: () => router.push('/login') }
         ]
       );
       return;
     }
 
     if (!performManualSave) {
-      Alert.alert('Error', 'Save function is not available. Please try again.');
+      Alert.alert(t('createNote.error'), t('createNote.errorNoSaveFunction'));
       return;
     }
 
@@ -207,9 +213,9 @@ export default function CreateNoteScreen() {
       }, 100);
     } catch (error) {
       console.error('Manual save failed:', error);
-      Alert.alert('Save Failed', 'There was an error saving your note. Please try again.');
+      Alert.alert(t('createNote.saveFailed'), t('createNote.saveFailedMessage'));
     }
-  }, [hasContent, isAuthenticated, performManualSave, noteId, title, content, contentHtml, contentFormat, tags]);
+  }, [hasContent, isAuthenticated, performManualSave, noteId, title, content, contentHtml, contentFormat, tags, t]);
 
   const handleDiscard = useCallback(() => {
     const goBack = () => {
@@ -239,7 +245,7 @@ export default function CreateNoteScreen() {
     // On web, use confirm dialog instead of Alert.alert
     if (Platform.OS === 'web') {
       if (userMadeChanges) {
-        const shouldDiscard = window.confirm('Are you sure you want to discard your changes?');
+        const shouldDiscard = window.confirm(t('createNote.confirmDiscardChanges'));
         if (shouldDiscard) {
           goBack();
         }
@@ -250,18 +256,18 @@ export default function CreateNoteScreen() {
       // Use native Alert for mobile
       if (userMadeChanges) {
         Alert.alert(
-          'Discard Changes',
-          'Are you sure you want to discard your changes?',
+          t('createNote.discardChanges'),
+          t('createNote.confirmDiscardChanges'),
           [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Discard', style: 'destructive', onPress: goBack }
+            { text: t('createNote.cancel'), style: 'cancel' },
+            { text: t('createNote.discard'), style: 'destructive', onPress: goBack }
           ]
         );
       } else {
         goBack();
       }
     }
-  }, [hasContent]);
+  }, [hasContent, t]);
 
   const addTag = useCallback(() => {
     if (newTag.trim() && !tags.includes(newTag.trim())) {
@@ -539,7 +545,12 @@ export default function CreateNoteScreen() {
           />
 
           <ScrollView style={styles.webContent} showsVerticalScrollIndicator={false}>
-            {isAuthenticated ? (
+            {isLoadingNote ? (
+              <View style={styles.webLoadingContainer}>
+                <LoadingSpinner size={50} />
+                <ThemedText style={styles.webLoadingText}>{t('createNote.loadingNote')}</ThemedText>
+              </View>
+            ) : isAuthenticated ? (
               <>
                 <NoteTitleInput
                   title={title}
@@ -576,15 +587,15 @@ export default function CreateNoteScreen() {
               </>
             ) : (
               <View style={styles.authContainer}>
-                <ThemedText style={styles.authTitle}>Authentication Required</ThemedText>
+                <ThemedText style={styles.authTitle}>{t('createNote.authenticationRequired')}</ThemedText>
                 <ThemedText style={styles.authMessage}>
-                  Please sign in to create and save notes.
+                  {t('createNote.signInToCreateNotes')}
                 </ThemedText>
                 <TouchableOpacity
                   style={styles.authButton}
                   onPress={() => router.push('/login')}
                 >
-                  <ThemedText style={styles.authButtonText}>Sign In</ThemedText>
+                  <ThemedText style={styles.authButtonText}>{t('createNote.signIn')}</ThemedText>
                 </TouchableOpacity>
               </View>
             )}
@@ -620,7 +631,7 @@ export default function CreateNoteScreen() {
               <>
                 <View style={styles.headerCenter}>
                   <ThemedText style={styles.headerTitle}>
-                    {isEditMode ? 'Edit Note' : 'New Note'}
+                    {isEditMode ? t('createNote.editNote') : t('createNote.newNote')}
                   </ThemedText>
                   {renderSaveStatus()}
                 </View>
@@ -631,7 +642,7 @@ export default function CreateNoteScreen() {
                   style={[styles.saveButton, isSaveDisabled && styles.saveButtonDisabled]}
                 >
                   <ThemedText style={[styles.saveButtonText, isSaveDisabled && styles.saveButtonTextDisabled]}>
-                    Save
+                    {t('createNote.save')}
                   </ThemedText>
                 </TouchableOpacity>
               </>
@@ -647,11 +658,16 @@ export default function CreateNoteScreen() {
             removeClippedSubviews={false}
             keyboardDismissMode="none"
           >
-            {isAuthenticated ? (
+            {isLoadingNote ? (
+              <View style={styles.loadingContainer}>
+                <LoadingSpinner size={50} />
+                <ThemedText style={styles.loadingText}>{t('createNote.loadingNote')}</ThemedText>
+              </View>
+            ) : isAuthenticated ? (
               <>
                 <MemoizedTextInput
                   style={titleInputStyle}
-                  placeholder="Note title..."
+                  placeholder={t('createNote.noteTitle')}
                   placeholderTextColor={placeholderColor}
                   value={title}
                   onChangeText={handleTitleChange}
@@ -674,14 +690,14 @@ export default function CreateNoteScreen() {
                           console.log('🔍 State after RichTextEditor onChange - contentHtml:', html?.substring(0, 50), 'contentFormat:', html ? 'html' : 'plain');
                         }, 0);
                       }}
-                      placeholder="Start writing your note..."
+                      placeholder={t('createNote.startWriting')}
                       style={{ minHeight: 400 }}
                     />
                   </View>
                 ) : (
                   <MemoizedTextInput
                     style={contentInputStyle}
-                    placeholder="Start writing your note..."
+                    placeholder={t('createNote.startWriting')}
                     placeholderTextColor={placeholderColor}
                     value={content}
                     onChangeText={handleContentChange}
@@ -693,11 +709,11 @@ export default function CreateNoteScreen() {
 
                 {/* Tags Section */}
                 <View style={styles.tagsSection}>
-                  <ThemedText style={styles.tagsTitle}>Tags</ThemedText>
+                  <ThemedText style={styles.tagsTitle}>{t('createNote.tags')}</ThemedText>
                   <View style={styles.tagInputContainer}>
                     <TextInput
                       style={tagInputStyle}
-                      placeholder="Add a tag..."
+                      placeholder={t('createNote.addTag')}
                       placeholderTextColor={placeholderColor}
                       value={newTag}
                       onChangeText={handleNewTagChange}
@@ -729,15 +745,15 @@ export default function CreateNoteScreen() {
               </>
             ) : (
               <View style={styles.authContainer}>
-                <ThemedText style={styles.authTitle}>Authentication Required</ThemedText>
+                <ThemedText style={styles.authTitle}>{t('createNote.authenticationRequired')}</ThemedText>
                 <ThemedText style={styles.authMessage}>
-                  Please sign in to create and save notes.
+                  {t('createNote.signInToCreateNotes')}
                 </ThemedText>
                 <TouchableOpacity
                   style={styles.authButton}
                   onPress={() => router.push('/login')}
                 >
-                  <ThemedText style={styles.authButtonText}>Sign In</ThemedText>
+                  <ThemedText style={styles.authButtonText}>{t('createNote.signIn')}</ThemedText>
                 </TouchableOpacity>
               </View>
             )}
@@ -997,6 +1013,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  webLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+    minHeight: 400,
+  },
+  webLoadingText: {
+    fontSize: 16,
+    marginTop: 16,
+    opacity: 0.7,
+    textAlign: 'center',
+  },
   webContent: {
     flex: 1,
     padding: 24,
@@ -1183,6 +1212,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 165, 0, 0.3)',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+    minHeight: 400,
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 16,
+    opacity: 0.7,
+    textAlign: 'center',
   },
   mobileRichTextNoteText: {
     fontSize: 12,

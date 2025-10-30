@@ -10,8 +10,10 @@ import { useThemeColor } from '../hooks/useThemeColor';
 import { useAuth } from '../hooks/useAuth';
 import { Logo } from '../components/Logo';
 import { getAppVersion } from '../utils/appVersion';
+import { useTranslation } from '../hooks/useTranslation';
 
 export default function AboutScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const backgroundColor = useThemeColor({}, 'background');
@@ -46,70 +48,70 @@ export default function AboutScreen() {
   const features = [
     {
       icon: 'create',
-      title: 'Smart Note Taking',
-      description: 'Create and organize notes with rich text formatting and media support',
+      title: t('about.featureSmartNoteTaking'),
+      description: t('about.featureSmartNoteTakingDesc'),
     },
     {
       icon: 'mic',
-      title: 'Audio Recording',
-      description: 'Record audio notes and transcribe them with AI-powered speech recognition',
+      title: t('about.featureAudioRecording'),
+      description: t('about.featureAudioRecordingDesc'),
     },
     {
       icon: 'document-text',
-      title: 'PDF Support',
-      description: 'Import and annotate PDF documents directly within your notes',
+      title: t('about.featurePDFSupport'),
+      description: t('about.featurePDFSupportDesc'),
     },
     {
       icon: 'school',
-      title: 'Flashcards & Quizzes',
-      description: 'Generate study materials automatically from your notes using AI',
+      title: t('about.featureFlashcardsQuizzes'),
+      description: t('about.featureFlashcardsQuizzesDesc'),
     },
     {
       icon: 'sparkles',
-      title: 'AI Summaries',
-      description: 'Get instant AI-generated summaries and key insights from your notes',
+      title: t('about.featureAISummaries'),
+      description: t('about.featureAISummariesDesc'),
     },
     {
       icon: 'share-social',
-      title: 'Easy Sharing',
-      description: 'Share notes with secure links and collaborate with others',
+      title: t('about.featureEasySharing'),
+      description: t('about.featureEasySharingDesc'),
     },
     {
       icon: 'cloud-upload',
-      title: 'Cloud Sync',
-      description: 'Access your notes anywhere with automatic cloud synchronization',
+      title: t('about.featureCloudSync'),
+      description: t('about.featureCloudSyncDesc'),
     },
     {
       icon: 'lock-closed',
-      title: 'Secure & Private',
-      description: 'Your data is encrypted and protected with enterprise-grade security',
+      title: t('about.featureSecurePrivate'),
+      description: t('about.featureSecurePrivateDesc'),
     },
   ];
 
   const links = [
     {
       icon: 'globe',
-      title: 'Website',
+      title: t('about.linkWebsite'),
       url: 'https://wiznote.app',
     },
     {
       icon: 'help-circle',
-      title: 'Help & Support',
+      title: t('about.linkHelpSupport'),
       onPress: () => router.push('/help'),
     },
     {
       icon: 'document-text',
-      title: 'Privacy Policy',
+      title: t('about.linkPrivacyPolicy'),
       onPress: () => router.push('/privacy'),
     },
     {
       icon: 'document-text',
-      title: 'Terms of Service',
+      title: t('about.linkTermsOfService'),
       onPress: () => router.push('/terms'),
     },
     {
       icon: 'list',
-      title: 'Changelog',
+      title: t('about.linkChangelog'),
       onPress: () => router.push('/changelog'),
     },
   ];
@@ -123,7 +125,7 @@ export default function AboutScreen() {
       >
         <Ionicons name="arrow-back" size={24} color={textColor} />
       </Pressable>
-      <ThemedText style={styles.headerTitle}>About WizNote</ThemedText>
+      <ThemedText style={styles.headerTitle}>{t('about.title')}</ThemedText>
       <View style={styles.headerRight} />
     </ThemedView>
   );
@@ -135,26 +137,23 @@ export default function AboutScreen() {
         <Logo size={120} />
         <ThemedText style={styles.appName}>WizNote</ThemedText>
         <ThemedText style={[styles.appVersion, { color: textSecondary }]}>
-          Version {appVersion}
+          {t('about.version')} {appVersion}
         </ThemedText>
         <ThemedText style={[styles.tagline, { color: textSecondary }]}>
-          Your intelligent note-taking companion
+          {t('about.tagline')}
         </ThemedText>
       </View>
 
       {/* Description */}
       <View style={[styles.section, { backgroundColor: backgroundSecondary, borderColor }]}>
         <ThemedText style={styles.descriptionText}>
-          WizNote is a modern, AI-powered note-taking application designed to help you capture,
-          organize, and study your notes more effectively. With features like audio transcription,
-          AI summaries, and automatic flashcard generation, WizNote transforms the way you learn
-          and retain information.
+          {t('about.description')}
         </ThemedText>
       </View>
 
       {/* Features Grid */}
       <View style={styles.featuresSection}>
-        <ThemedText style={styles.sectionTitle}>Features</ThemedText>
+        <ThemedText style={styles.sectionTitle}>{t('about.features')}</ThemedText>
         <View style={styles.featuresGrid}>
           {features.map((feature, index) => (
             <View
@@ -175,7 +174,7 @@ export default function AboutScreen() {
 
       {/* Quick Links */}
       <View style={styles.linksSection}>
-        <ThemedText style={styles.sectionTitle}>Quick Links</ThemedText>
+        <ThemedText style={styles.sectionTitle}>{t('about.quickLinks')}</ThemedText>
         <View style={styles.linksList}>
           {links.map((link, index) => (
             <Pressable
@@ -196,10 +195,16 @@ export default function AboutScreen() {
       {/* Footer */}
       <View style={styles.footer}>
         <ThemedText style={[styles.footerText, { color: textSecondary }]}>
-          Made with ❤️ for students and lifelong learners
+          {t('about.footerMadeWith')}
+        </ThemedText>
+        <ThemedText style={[styles.footerMadeIn, { color: accentPrimary }]}>
+          {t('about.madeInNewYork')}
         </ThemedText>
         <ThemedText style={[styles.footerText, { color: textSecondary }]}>
-          © {new Date().getFullYear()} WizNote. All rights reserved.
+          {t('about.webcapMediaCompany')}
+        </ThemedText>
+        <ThemedText style={[styles.footerText, { color: textSecondary }]}>
+          {t('about.footerCopyright', { year: new Date().getFullYear() })}
         </ThemedText>
       </View>
     </View>
@@ -211,8 +216,8 @@ export default function AboutScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <WebLayout
-          title="About WizNote"
-          subtitle="Learn more about your intelligent note-taking companion"
+          title={t('about.title')}
+          subtitle={t('about.subtitle')}
           sidebar={isAuthenticated ? <UserSidebar activePage="about" /> : null}
           header={
             <View style={styles.webHeader}>
@@ -225,9 +230,9 @@ export default function AboutScreen() {
                 </Pressable>
               </View>
               <View style={styles.webHeaderCenter}>
-                <ThemedText style={styles.webHeaderTitle}>About WizNote</ThemedText>
+                <ThemedText style={styles.webHeaderTitle}>{t('about.title')}</ThemedText>
                 <ThemedText style={[styles.webHeaderSubtitle, { color: textSecondary }]}>
-                  Your intelligent note-taking companion
+                  {t('about.tagline')}
                 </ThemedText>
               </View>
               <View style={styles.webHeaderRight} />
@@ -434,6 +439,12 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  footerMadeIn: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginVertical: 4,
   },
 });
 

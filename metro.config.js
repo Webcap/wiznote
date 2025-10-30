@@ -13,8 +13,8 @@ config.resolver = {
   sourceExts: ['tsx', 'ts', 'jsx', 'js', 'json', 'mjs', 'cjs'].filter(ext => ext !== 'css'),
   // Explicitly set platform file extensions
   platforms: ['ios', 'android', 'native', 'web'],
-  // Disable package exports to avoid .mjs resolution issues
-  unstable_enablePackageExports: false,
+  // Enable package exports to support modern packages like react-i18next
+  unstable_enablePackageExports: true,
   // Disable symlinks which can cause resolution issues
   unstable_enableSymlinks: false,
 };

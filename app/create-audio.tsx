@@ -21,6 +21,7 @@ import { useFeatureLimits } from '../hooks/useFeatureLimits';
 import { AudioUtils } from '../services/AudioUtils';
 import { supabaseNoteStorage } from '../services/SupabaseNoteStorage';
 import { useAudioUpload } from '../contexts/AudioUploadContext';
+import { useTranslation } from '../hooks/useTranslation';
 
 // Import web components
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -28,6 +29,7 @@ import { UserSidebar } from '../components/web/UserSidebar';
 import { WebLayout } from '../components/web/WebLayout';
 
 export default function CreateAudioNoteScreen() {
+  const { t } = useTranslation();
   const { user, isLoading: authLoading } = useAuth();
   const { canUseFeature, isPremium: hookIsPremium } = useFeatureLimits();
   const { setUploadingAudio, updateUploadProgress, updateUploadStatus, onUploadComplete } = useAudioUpload();
@@ -58,7 +60,7 @@ export default function CreateAudioNoteScreen() {
 
   // Helper function to format usage display
   const formatUsageDisplay = () => {
-    if (!recordingUsage) return 'Loading usage data...';
+    if (!recordingUsage) return t('audioNote.loadingUsageData');
     
     const currentUsage = recordingUsage.currentUsage ?? 0;
     const limit = recordingUsage.limit;
@@ -70,28 +72,28 @@ export default function CreateAudioNoteScreen() {
     const safeRemaining = (typeof remaining === 'number' && isNaN(remaining)) ? 0 : remaining;
     
     if (safeLimit === 'unlimited') {
-      return `Unlimited recording time (${safeCurrentUsage} min used this month)`;
+      return t('audioNote.unlimitedRecordingTimeUsed', { usage: safeCurrentUsage });
     }
     
     if (safeRemaining === 'unlimited') {
-      return `Unlimited recording time`;
+      return t('audioNote.unlimitedRecordingTime');
     }
     
     const remainingValue = safeRemaining ?? 0;
     const limitValue = safeLimit ?? 0;
     
-    return `${remainingValue} min remaining (${safeCurrentUsage}/${limitValue} min used)`;
+    return t('audioNote.remainingMin', { remaining: remainingValue, current: safeCurrentUsage, limit: limitValue });
   };
 
   // Helper function to format session limit display
   const formatSessionLimitDisplay = () => {
-    if (sessionLimit === null) return 'Loading session limits...';
+    if (sessionLimit === null) return t('audioNote.loadingSessionLimits');
     
     if (sessionLimit === 'unlimited') {
-      return 'No session time limit';
+      return t('audioNote.noSessionTimeLimit');
     }
     
-    return `Max ${sessionLimit} min per recording session`;
+    return t('audioNote.maxRecordingSession', { limit: sessionLimit });
   };
 
   // Theme colors
@@ -350,7 +352,7 @@ export default function CreateAudioNoteScreen() {
         audioUrl: uploadedAudioUrl,
         progress: 10,
         status: 'uploading' as const,
-        statusMessage: 'Audio uploaded, ready to process...',
+        statusMessage: t('audioNote.audioUploaded'),
         title: title.trim(),
         tags: tags,
       };
@@ -372,23 +374,23 @@ export default function CreateAudioNoteScreen() {
       console.error('[CreateAudio] Error processing recording:', error);
       
       // Show more specific error message based on the error type
-      let errorMessage = 'Failed to process recording. Please try again.';
+      let errorMessage = t('audioNote.failedToProcessRecording');
       
       if (error instanceof Error) {
         if (error.message.includes('Network connection issue')) {
-          errorMessage = 'Network connection issue. Please check your internet connection and try again.';
+          errorMessage = t('audioNote.networkConnectionIssue');
         } else if (error.message.includes('Upload timeout')) {
-          errorMessage = 'Upload timeout. Please check your internet connection and try again.';
+          errorMessage = t('audioNote.uploadTimeout');
         } else if (error.message.includes('Audio storage bucket not configured')) {
-          errorMessage = 'Audio storage not configured. Please contact support.';
+          errorMessage = t('audioNote.audioStorageNotConfigured');
         } else if (error.message.includes('Audio storage permissions not configured')) {
-          errorMessage = 'Audio storage permissions not configured. Please contact support.';
+          errorMessage = t('audioNote.audioStoragePermissionsNotConfigured');
         } else if (error.message.includes('Failed to upload audio file')) {
           errorMessage = error.message; // Use the specific error message from AudioStorage
         }
       }
       
-      Alert.alert('Error', errorMessage);
+      Alert.alert(t('audioNote.error'), errorMessage);
     }
   };
 
@@ -410,7 +412,7 @@ export default function CreateAudioNoteScreen() {
       supabaseNoteStorage.setCurrentUser(user.id);
       
       // Create note first
-      updateUploadProgress(30, 'Creating note...');
+      updateUploadProgress(30, t('audioNote.creatingNote'));
       
       const note = await supabaseNoteStorage.createNote({
         title: noteTitle || 'Audio Note',
@@ -421,13 +423,13 @@ export default function CreateAudioNoteScreen() {
         audioDuration: duration,
       });
 
-      updateUploadProgress(50, 'Note created successfully!');
+      updateUploadProgress(50, t('audioNote.noteCreatedSuccessfully'));
       console.log('[CreateAudio] Note created:', note.id);
 
       // Process audio for transcription and summary
       try {
-        updateUploadStatus('processing', 'AI is processing your audio...');
-        updateUploadProgress(60, 'Transcribing audio...');
+        updateUploadStatus('processing', t('audioNote.aiProcessingAudio'));
+        updateUploadProgress(60, t('audioNote.transcribingAudio'));
         
         // Get the stored blob if available (for web recordings)
         const audioBlob = audioBlobRef.current;
@@ -451,7 +453,7 @@ export default function CreateAudioNoteScreen() {
 
         if (processingResult.success) {
           // Update note with processed content
-          updateUploadProgress(95, 'Saving AI-generated content...');
+          updateUploadProgress(95, t('audioNote.savingAiGeneratedContent'));
           await supabaseNoteStorage.updateNote(note.id, {
             title: processingResult.title || noteTitle || 'Audio Note',
             content: processingResult.transcription || '',
@@ -464,8 +466,8 @@ export default function CreateAudioNoteScreen() {
       }
 
       // Mark as complete
-      updateUploadStatus('completed', 'Audio note created successfully!');
-      updateUploadProgress(100, 'Complete!');
+      updateUploadStatus('completed', t('audioNote.audioNoteCreatedSuccessfully'));
+      updateUploadProgress(100, t('audioNote.complete'));
 
       // Call the upload complete callback to refresh notes list
       console.log('[CreateAudio] Calling onUploadComplete to refresh notes list...');
@@ -480,7 +482,7 @@ export default function CreateAudioNoteScreen() {
 
     } catch (error) {
       console.error('[CreateAudio] Error in background processing:', error);
-      updateUploadStatus('error', 'Failed to process audio. Please try again.');
+      updateUploadStatus('error', t('audioNote.failedToProcessAudio'));
     }
   };
 
@@ -532,7 +534,7 @@ export default function CreateAudioNoteScreen() {
       console.error('[CreateAudio] Error saving note:', error);
       setShowProgressBar(false);
       setIsLoading(false);
-      Alert.alert('Error', 'Failed to save note. Please try again.');
+      Alert.alert(t('audioNote.error'), t('audioNote.failedToSaveNote'));
     }
   };
 
@@ -544,7 +546,7 @@ export default function CreateAudioNoteScreen() {
         <View style={styles.loadingContainer}>
           <LoadingSpinner size={50} />
           <ThemedText style={[styles.loadingText, { color: textColor }]}>
-            Loading authentication...
+            {t('audioNote.loadingAuthentication')}
           </ThemedText>
         </View>
       </ThemedView>
@@ -564,12 +566,12 @@ export default function CreateAudioNoteScreen() {
                 onPress={() => router.back()}
               >
                 <Ionicons name="arrow-back" size={20} color={textColor} />
-                <ThemedText style={styles.webBackText}>Back</ThemedText>
+                <ThemedText style={styles.webBackText}>{t('audioNote.back')}</ThemedText>
               </TouchableOpacity>
             </View>
             
             <View style={styles.webHeaderCenter}>
-              <ThemedText style={styles.webHeaderTitle}>Create Audio Note</ThemedText>
+              <ThemedText style={styles.webHeaderTitle}>{t('audioNote.createAudioNote')}</ThemedText>
             </View>
 
             <View style={styles.webHeaderRight}>
@@ -583,7 +585,7 @@ export default function CreateAudioNoteScreen() {
                 disabled={!canSave || isLoading}
               >
                 <ThemedText style={[styles.webSaveButtonText, { color: canSave ? "#FFFFFF" : textSecondaryColor }]}>
-                  {isLoading ? 'Saving...' : 'Save Note'}
+                  {isLoading ? t('audioNote.saving') : t('audioNote.saveNote')}
                 </ThemedText>
               </TouchableOpacity>
             </View>
@@ -610,12 +612,12 @@ export default function CreateAudioNoteScreen() {
           {/* Main Content */}
           <View style={styles.webContent}>
             {/* Audio Recorder Section */}
-            <ThemedView style={styles.webSection}>
+              <ThemedView style={styles.webSection}>
               <View style={styles.webSectionHeader}>
-                <ThemedText style={styles.webSectionTitle}>Record Audio</ThemedText>
+                <ThemedText style={styles.webSectionTitle}>{t('audioNote.recordAudio')}</ThemedText>
                 <View style={styles.webSectionBadge}>
                   <Ionicons name="mic" size={16} color={accentPrimary} />
-                  <ThemedText style={styles.webSectionBadgeText}>Voice</ThemedText>
+                  <ThemedText style={styles.webSectionBadgeText}>{t('audioNote.voice')}</ThemedText>
                 </View>
               </View>
               
@@ -637,7 +639,7 @@ export default function CreateAudioNoteScreen() {
                   <View style={styles.webUpgradeHint}>
                     <Ionicons name="star" size={14} color={accentPrimary} />
                     <ThemedText style={[styles.webUpgradeText, { color: accentPrimary }]}>
-                      Upgrade to Premium for unlimited recording
+                      {t('audioNote.upgradeToPremiumForUnlimited')}
                     </ThemedText>
                   </View>
                 )}
@@ -652,17 +654,17 @@ export default function CreateAudioNoteScreen() {
                     </View>
                     <View style={styles.webUpgradeCardText}>
                       <ThemedText style={[styles.webUpgradeCardTitle, { color: textColor }]}>
-                        Recording Limit Reached
+                        {t('audioNote.recordingLimitReached')}
                       </ThemedText>
                       <ThemedText style={[styles.webUpgradeCardDescription, { color: textSecondaryColor }]}>
-                        You've used all {recordingUsage.limit} minutes this month. Upgrade to Premium for unlimited voice recording and access to all premium features.
+                        {t('audioNote.usedAllMinutesWeb', { limit: recordingUsage.limit })}
                       </ThemedText>
                     </View>
                     <TouchableOpacity 
                       style={[styles.webUpgradeCardButton, { backgroundColor: accentPrimary }]}
                       onPress={() => router.push('/join-premium')}
                     >
-                      <ThemedText style={styles.webUpgradeCardButtonText}>Upgrade Now</ThemedText>
+                      <ThemedText style={styles.webUpgradeCardButtonText}>{t('audioNote.upgradeNow')}</ThemedText>
                       <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
                     </TouchableOpacity>
                   </View>
@@ -683,17 +685,17 @@ export default function CreateAudioNoteScreen() {
             {/* Title Section */}
             <ThemedView style={styles.webSection}>
               <View style={styles.webSectionHeader}>
-                <ThemedText style={styles.webSectionTitle}>Note Title</ThemedText>
+                <ThemedText style={styles.webSectionTitle}>{t('audioNote.noteTitle')}</ThemedText>
                 <View style={styles.webSectionBadge}>
                   <Ionicons name="document-text" size={16} color={accentPrimary} />
-                  <ThemedText style={styles.webSectionBadgeText}>Required</ThemedText>
+                  <ThemedText style={styles.webSectionBadgeText}>{t('audioNote.required')}</ThemedText>
                 </View>
               </View>
               <TextInput
                 style={[styles.webInput, { backgroundColor: backgroundSecondary, color: textColor, borderColor: backgroundTertiary }]}
                 value={title}
                 onChangeText={setTitle}
-                placeholder="Enter a descriptive title for your audio note..."
+                placeholder={t('audioNote.enterDescriptiveTitle')}
                 placeholderTextColor={textSecondaryColor}
               />
             </ThemedView>
@@ -701,10 +703,10 @@ export default function CreateAudioNoteScreen() {
             {/* Tags Section */}
             <ThemedView style={styles.webSection}>
               <View style={styles.webSectionHeader}>
-                <ThemedText style={styles.webSectionTitle}>Tags</ThemedText>
+                <ThemedText style={styles.webSectionTitle}>{t('audioNote.tags')}</ThemedText>
                 <View style={styles.webSectionBadge}>
                   <Ionicons name="pricetag" size={16} color={accentPrimary} />
-                  <ThemedText style={styles.webSectionBadgeText}>Optional</ThemedText>
+                  <ThemedText style={styles.webSectionBadgeText}>{t('audioNote.optional')}</ThemedText>
                 </View>
               </View>
               <View style={styles.webTagInputContainer}>
@@ -712,7 +714,7 @@ export default function CreateAudioNoteScreen() {
                   style={[styles.webTagInput, { backgroundColor: backgroundSecondary, color: textColor, borderColor: backgroundTertiary }]}
                   value={newTag}
                   onChangeText={setNewTag}
-                  placeholder="Add a tag (press Enter to add)..."
+                  placeholder={t('audioNote.addTagEnter')}
                   placeholderTextColor={textSecondaryColor}
                   onSubmitEditing={addTag}
                 />
@@ -760,7 +762,7 @@ export default function CreateAudioNoteScreen() {
           </TouchableOpacity>
           
           <ThemedText style={[styles.headerTitle, { color: textColor }]}>
-            Create Audio Note
+            {t('audioNote.createAudioNote')}
           </ThemedText>
           
           <View style={styles.headerSpacer} />
@@ -795,7 +797,7 @@ export default function CreateAudioNoteScreen() {
         <View style={styles.content}>
           {/* Audio Recorder Section */}
           <View style={styles.section}>
-            <ThemedText style={[styles.sectionTitle, { color: textColor }]}>Record Audio</ThemedText>
+            <ThemedText style={[styles.sectionTitle, { color: textColor }]}>{t('audioNote.recordAudio')}</ThemedText>
             
             {/* Recording Usage Display */}
             <View style={styles.usageContainer}>
@@ -815,7 +817,7 @@ export default function CreateAudioNoteScreen() {
                 <View style={styles.upgradeHint}>
                   <Ionicons name="star" size={14} color={accentPrimary} />
                   <ThemedText style={[styles.upgradeText, { color: accentPrimary }]}>
-                    Upgrade to Premium for unlimited recording
+                    {t('audioNote.upgradeToPremiumForUnlimited')}
                   </ThemedText>
                 </View>
               )}
@@ -830,17 +832,17 @@ export default function CreateAudioNoteScreen() {
                   </View>
                   <View style={styles.upgradeCardText}>
                     <ThemedText style={[styles.upgradeCardTitle, { color: textColor }]}>
-                      Recording Limit Reached
+                      {t('audioNote.recordingLimitReached')}
                     </ThemedText>
                     <ThemedText style={[styles.upgradeCardDescription, { color: textSecondaryColor }]}>
-                      You've used all {recordingUsage.limit} minutes this month. Upgrade to Premium for unlimited voice recording.
+                      {t('audioNote.usedAllMinutes', { limit: recordingUsage.limit })}
                     </ThemedText>
                   </View>
                   <TouchableOpacity 
                     style={[styles.upgradeCardButton, { backgroundColor: accentPrimary }]}
                     onPress={() => router.push('/join-premium')}
                   >
-                    <ThemedText style={styles.upgradeCardButtonText}>Upgrade Now</ThemedText>
+                    <ThemedText style={styles.upgradeCardButtonText}>{t('audioNote.upgradeNow')}</ThemedText>
                     <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
@@ -860,25 +862,25 @@ export default function CreateAudioNoteScreen() {
 
           {/* Title Section */}
           <View style={styles.section}>
-            <ThemedText style={[styles.sectionTitle, { color: textColor }]}>Title</ThemedText>
+            <ThemedText style={[styles.sectionTitle, { color: textColor }]}>{t('audioNote.title')}</ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: backgroundSecondary, color: textColor, borderColor: backgroundTertiary }]}
               value={title}
               onChangeText={setTitle}
-              placeholder="Enter note title..."
+              placeholder={t('audioNote.enterNoteTitle')}
               placeholderTextColor={textSecondaryColor}
             />
           </View>
 
           {/* Tags Section */}
           <View style={styles.section}>
-            <ThemedText style={[styles.sectionTitle, { color: textColor }]}>Tags</ThemedText>
+            <ThemedText style={[styles.sectionTitle, { color: textColor }]}>{t('audioNote.tags')}</ThemedText>
             <View style={styles.tagInputContainer}>
               <TextInput
                 style={[styles.tagInput, { backgroundColor: backgroundSecondary, color: textColor, borderColor: backgroundTertiary }]}
                 value={newTag}
                 onChangeText={setNewTag}
-                placeholder="Add a tag..."
+                placeholder={t('audioNote.addTag')}
                 placeholderTextColor={textSecondaryColor}
                 onSubmitEditing={addTag}
               />
@@ -915,7 +917,7 @@ export default function CreateAudioNoteScreen() {
               disabled={!canSave || isLoading}
             >
               <ThemedText style={[styles.saveButtonText, { color: canSave ? "#FFFFFF" : textSecondaryColor }]}>
-                {isLoading ? 'Saving...' : 'Save Note'}
+                {isLoading ? t('audioNote.saving') : t('audioNote.saveNote')}
               </ThemedText>
             </TouchableOpacity>
           </View>

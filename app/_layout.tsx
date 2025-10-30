@@ -14,12 +14,14 @@ import { WebSnackbar } from '../components/web/WebSnackbar';
 import { SnackbarProvider, useSnackbar } from '../contexts/SnackbarContext';
 import { PDFUploadProvider } from '../contexts/PDFUploadContext';
 import { AudioUploadProvider } from '../contexts/AudioUploadContext';
+import { LanguageProvider } from '../contexts/LanguageContext';
 import { useAuth } from '../hooks/useAuth';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { featureFlagService } from '../services/FeatureFlagService';
 import { ThemeProvider as CustomThemeProvider, ThemeContext } from '../ThemeContext';
+import '../lib/i18n';
 
 function AppContent() {
   const colorScheme = useColorScheme();
@@ -219,7 +221,9 @@ function AppContent() {
     console.log('Layout: Fonts not loaded yet, showing loading screen');
     return (
       <CustomThemeProvider initialTheme={userTheme}>
-        <AuthLoadingScreen message="Loading fonts..." />
+        <LanguageProvider>
+          <AuthLoadingScreen message="Loading fonts..." />
+        </LanguageProvider>
       </CustomThemeProvider>
     );
   }
@@ -228,7 +232,9 @@ function AppContent() {
     console.log('Layout: Auth loading, showing loading screen - isLoading:', isLoading, 'authTimeout:', authTimeout);
     return (
       <CustomThemeProvider initialTheme={userTheme}>
-        <AuthLoadingScreen message="Restoring your session..." />
+        <LanguageProvider>
+          <AuthLoadingScreen message="Restoring your session..." />
+        </LanguageProvider>
       </CustomThemeProvider>
     );
   }
@@ -237,7 +243,9 @@ function AppContent() {
     console.log('Layout: Session restoration not complete, showing loading screen');
     return (
       <CustomThemeProvider initialTheme={userTheme}>
-        <AuthLoadingScreen message="Restoring your session..." />
+        <LanguageProvider>
+          <AuthLoadingScreen message="Restoring your session..." />
+        </LanguageProvider>
       </CustomThemeProvider>
     );
   }
@@ -252,14 +260,15 @@ function AppContent() {
       }}
     >
       <CustomThemeProvider initialTheme={userTheme}>
-        <SnackbarProvider>
-          <PDFUploadProvider>
-            <AudioUploadProvider>
-              <ThemeContext.Consumer>
-            {theme => {
-              const isDark = theme === 'dark' || (theme === 'auto' && colorScheme === 'dark');
-              return (
-                <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+        <LanguageProvider>
+          <SnackbarProvider>
+            <PDFUploadProvider>
+              <AudioUploadProvider>
+                <ThemeContext.Consumer>
+                  {theme => {
+                    const isDark = theme === 'dark' || (theme === 'auto' && colorScheme === 'dark');
+                    return (
+                      <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
                   <ThemedView style={{ 
                     flex: 1, 
                     minHeight: '100%',
@@ -330,12 +339,13 @@ function AppContent() {
                     <SnackbarWrapper />
                   </ThemedView>
                 </ThemeProvider>
-              );
-            }}
-          </ThemeContext.Consumer>
-            </AudioUploadProvider>
-          </PDFUploadProvider>
-        </SnackbarProvider>
+                      );
+                    }}
+                  </ThemeContext.Consumer>
+              </AudioUploadProvider>
+            </PDFUploadProvider>
+          </SnackbarProvider>
+        </LanguageProvider>
       </CustomThemeProvider>
     </ErrorBoundary>
   );

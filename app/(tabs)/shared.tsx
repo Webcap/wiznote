@@ -8,9 +8,11 @@ import { NoteCard } from '../../components/NoteCard';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { useAuth } from '../../hooks/useAuth';
+import { useSnackbar } from '../../contexts/SnackbarContext';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { noteSharingService } from '../../services/NoteSharingService';
 import { NoteShare, SharedNote } from '../../types/Note';
+import { useTranslation } from '../../hooks/useTranslation';
 
 // Import web components
 import { UserSidebar } from '../../components/web/UserSidebar';
@@ -19,6 +21,7 @@ import { WebLayout } from '../../components/web/WebLayout';
 type TabType = 'received' | 'sent';
 
 export default function SharedScreen() {
+  const { t } = useTranslation();
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('received');
@@ -76,24 +79,43 @@ export default function SharedScreen() {
     router.push(`/note/${note.id}` as any);
   };
 
+  const { showSnackbar } = useSnackbar();
+
   const handleRevokeShare = async (shareId: string) => {
     if (!user?.id) return;
 
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(t('shared.confirmRevokeShare'));
+      if (!confirmed) return;
+      try {
+        await noteSharingService.revokeShare(shareId, user.id);
+        // Optimistically remove from local state to avoid stale UI
+        setSentShares(prev => prev.filter(s => s.id !== shareId));
+        await loadSharedNotes();
+        showSnackbar(t('shared.revokeShare'), 'success');
+      } catch (error) {
+        console.error('Error revoking share:', error);
+        showSnackbar(t('shared.failedRevokeShare'), 'error');
+      }
+      return;
+    }
+
     Alert.alert(
-      'Revoke Share',
-      'Are you sure you want to revoke this share? The recipient will no longer have access to this note.',
+      t('shared.revokeShare'),
+      t('shared.confirmRevokeShare'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('shared.cancel'), style: 'cancel' },
         {
-          text: 'Revoke',
+          text: t('shared.revoke'),
           style: 'destructive',
           onPress: async () => {
             try {
               await noteSharingService.revokeShare(shareId, user.id);
-              await loadSharedNotes(); // Reload the data
+              setSentShares(prev => prev.filter(s => s.id !== shareId));
+              await loadSharedNotes();
             } catch (error) {
               console.error('Error revoking share:', error);
-              Alert.alert('Error', 'Failed to revoke share');
+              Alert.alert(t('shared.error'), t('shared.failedRevokeShare'));
             }
           },
         },
@@ -145,7 +167,7 @@ export default function SharedScreen() {
             color={getPermissionColor(item.shareInfo.permission)} 
           />
           <ThemedText style={[styles.shareInfoText, { color: textSecondaryColor }]}>
-            Shared by {item.shareInfo.sharedBy.displayName || item.shareInfo.sharedBy.email}
+            {t('shared.sharedBy')} {item.shareInfo.sharedBy.displayName || item.shareInfo.sharedBy.email}
           </ThemedText>
         </View>
         <ThemedText style={[styles.shareDate, { color: textSecondaryColor }]}>
@@ -160,10 +182,10 @@ export default function SharedScreen() {
       <View style={styles.shareItemHeader}>
         <View style={styles.shareItemInfo}>
           <ThemedText style={[styles.shareItemTitle, { color: textColor }]} numberOfLines={1}>
-            {(item as any).note?.title || 'Unknown Note'}
+            {(item as any).note?.title || t('shared.unknownNote')}
           </ThemedText>
           <ThemedText style={[styles.shareItemRecipient, { color: textSecondaryColor }]}>
-            {item.sharedWithEmail || 'Unknown User'}
+            {item.sharedWithEmail || t('shared.unknownUser')}
           </ThemedText>
         </View>
         <View style={styles.shareItemActions}>
@@ -191,7 +213,7 @@ export default function SharedScreen() {
         </ThemedText>
       )}
       <ThemedText style={[styles.shareDate, { color: textSecondaryColor }]}>
-        Shared {new Date(item.createdAt).toLocaleDateString()}
+        {t('shared.shared')} {new Date(item.createdAt).toLocaleDateString()}
       </ThemedText>
     </View>
   );
@@ -200,15 +222,15 @@ export default function SharedScreen() {
   if (Platform.OS === 'web') {
     return (
       <WebLayout
-        title="Shared Notes"
-        subtitle="Notes shared with you and by you"
+        title={t('shared.sharedNotes')}
+        subtitle={t('shared.sharedNotesSubtitle')}
         sidebar={<UserSidebar activePage="shared" />}
         header={
           <View style={styles.webHeader}>
-            <ThemedText type="title">Shared Notes</ThemedText>
+            <ThemedText type="title">{t('shared.sharedNotes')}</ThemedText>
             <View style={styles.webHeaderActions}>
               <ThemedText style={[styles.webNoteCount, { color: accentPrimary }]}>
-                {activeTab === 'received' ? receivedNotes.length : sentShares.length} {activeTab === 'received' ? 'received' : 'sent'}
+                {activeTab === 'received' ? receivedNotes.length : sentShares.length} {activeTab === 'received' ? t('shared.received') : t('shared.sent')}
               </ThemedText>
             </View>
           </View>
@@ -233,7 +255,7 @@ export default function SharedScreen() {
                 styles.tabButtonText,
                 { color: activeTab === 'received' ? '#FFFFFF' : textSecondaryColor }
               ]}>
-                Received ({receivedNotes.length})
+                {t('shared.received')} ({receivedNotes.length})
               </ThemedText>
             </TouchableOpacity>
             <TouchableOpacity
@@ -252,7 +274,7 @@ export default function SharedScreen() {
                 styles.tabButtonText,
                 { color: activeTab === 'sent' ? '#FFFFFF' : textSecondaryColor }
               ]}>
-                Sent ({sentShares.length})
+                {t('shared.sent')} ({sentShares.length})
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -262,7 +284,7 @@ export default function SharedScreen() {
             <View style={styles.loadingContainer}>
               <LoadingSpinner size={50} />
               <ThemedText style={[styles.loadingText, { color: textSecondaryColor }]}>
-                Loading shared notes...
+                {t('shared.loadingSharedNotes')}
               </ThemedText>
             </View>
           ) : error ? (
@@ -272,7 +294,7 @@ export default function SharedScreen() {
                 {error}
               </ThemedText>
               <TouchableOpacity style={styles.retryButton} onPress={loadSharedNotes}>
-                <ThemedText style={styles.retryButtonText}>Try Again</ThemedText>
+                <ThemedText style={styles.retryButtonText}>{t('shared.tryAgain')}</ThemedText>
               </TouchableOpacity>
             </View>
           ) : (
@@ -282,10 +304,10 @@ export default function SharedScreen() {
                   <View style={styles.emptyContainer}>
                     <Ionicons name="people-outline" size={64} color="#A0A0A0" />
                     <ThemedText style={[styles.emptyTitle, { color: textColor }]}>
-                      No shared notes
+                      {t('shared.noSharedNotes')}
                     </ThemedText>
                     <ThemedText style={[styles.emptySubtitle, { color: textSecondaryColor }]}>
-                      Notes shared with you will appear here
+                      {t('shared.sharedWithYou')}
                     </ThemedText>
                   </View>
                 ) : (
@@ -302,10 +324,10 @@ export default function SharedScreen() {
                   <View style={styles.emptyContainer}>
                     <Ionicons name="share-outline" size={64} color="#A0A0A0" />
                     <ThemedText style={[styles.emptyTitle, { color: textColor }]}>
-                      No sent shares
+                      {t('shared.noSentShares')}
                     </ThemedText>
                     <ThemedText style={[styles.emptySubtitle, { color: textSecondaryColor }]}>
-                      Notes you've shared will appear here
+                      {t('shared.yourShares')}
                     </ThemedText>
                   </View>
                 ) : (
@@ -331,7 +353,7 @@ export default function SharedScreen() {
       {/* Header */}
       <View style={styles.header}>
         <ThemedText style={[styles.headerTitle, { color: textColor }]}>
-          Shared Notes
+          {t('shared.sharedNotes')}
         </ThemedText>
       </View>
 

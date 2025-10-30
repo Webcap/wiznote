@@ -10,9 +10,11 @@ import { UserSidebar } from '../components/web/UserSidebar';
 import { WebLayout } from '../components/web/WebLayout';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useTranslation } from '../hooks/useTranslation';
 import { subscriptionManagementService, type SubscriptionDetails } from '../services/SubscriptionManagementService';
 
 export default function SubscriptionManagementScreen() {
+  const { t } = useTranslation();
   console.log('SubscriptionManagementScreen component rendering');
   const router = useRouter();
   const navigation = useNavigation();
@@ -110,7 +112,7 @@ export default function SubscriptionManagementScreen() {
 
     if (Platform.OS === 'web') {
       // Web confirmation dialog
-      const confirmed = confirm('Are you sure you want to cancel your subscription? You\'ll continue to have access until the end of your current billing period.');
+      const confirmed = confirm(t('subscription.cancelSubscriptionMessage'));
       if (!confirmed) return;
       
       try {
@@ -121,7 +123,7 @@ export default function SubscriptionManagementScreen() {
         console.log('Cancel subscription result:', result);
         
         if (result.success) {
-          alert('Subscription Canceled: ' + result.message);
+          alert(t('subscription.subscriptionCanceled') + ': ' + result.message);
           await loadSubscriptionData(); // Refresh data
         } else {
           console.error('Failed to cancel subscription:', result.error);
@@ -129,28 +131,28 @@ export default function SubscriptionManagementScreen() {
           // Show more specific error messages for Stripe issues
           let errorMessage = result.message;
           if (result.error === 'STRIPE_CANCELLATION_FAILED') {
-            errorMessage = 'Payment system error. Your subscription may still be active. Please contact support.';
+            errorMessage = t('subscription.paymentSystemError');
           } else if (result.error === 'STRIPE_API_ERROR') {
-            errorMessage = 'Unable to reach payment system. Please try again or contact support.';
+            errorMessage = t('subscription.unableToReachPaymentSystem');
           }
           
-          alert('Error: ' + errorMessage);
+          alert(t('common.error') + ': ' + errorMessage);
         }
       } catch (error) {
         console.error('Exception during subscription cancellation:', error);
-        alert('Error: Failed to cancel subscription');
+        alert(t('common.error') + ': ' + t('subscription.failedToCancelSubscription'));
       } finally {
         setActionLoading(false);
       }
     } else {
       // Mobile confirmation dialog
       Alert.alert(
-        'Cancel Subscription',
-        'Are you sure you want to cancel your subscription? You\'ll continue to have access until the end of your current billing period.',
+        t('subscription.cancelSubscriptionTitle'),
+        t('subscription.cancelSubscriptionMessage'),
         [
-          { text: 'Keep Subscription', style: 'cancel' },
+          { text: t('subscription.keepSubscription'), style: 'cancel' },
           {
-            text: 'Cancel Subscription',
+            text: t('subscription.cancelSubscription'),
             style: 'destructive',
             onPress: async () => {
               try {
@@ -161,7 +163,7 @@ export default function SubscriptionManagementScreen() {
                 console.log('Cancel subscription result:', result);
                 
                 if (result.success) {
-                  Alert.alert('Subscription Canceled', result.message);
+                  Alert.alert(t('subscription.subscriptionCanceled'), result.message);
                   await loadSubscriptionData(); // Refresh data
                 } else {
                   console.error('Failed to cancel subscription:', result.error);
@@ -169,16 +171,16 @@ export default function SubscriptionManagementScreen() {
                   // Show more specific error messages for Stripe issues
                   let errorMessage = result.message;
                   if (result.error === 'STRIPE_CANCELLATION_FAILED') {
-                    errorMessage = 'Payment system error. Your subscription may still be active. Please contact support.';
+                    errorMessage = t('subscription.paymentSystemError');
                   } else if (result.error === 'STRIPE_API_ERROR') {
-                    errorMessage = 'Unable to reach payment system. Please try again or contact support.';
+                    errorMessage = t('subscription.unableToReachPaymentSystem');
                   }
                   
-                  Alert.alert('Error', errorMessage);
+                  Alert.alert(t('common.error'), errorMessage);
                 }
               } catch (error) {
                 console.error('Exception during subscription cancellation:', error);
-                Alert.alert('Error', 'Failed to cancel subscription');
+                Alert.alert(t('common.error'), t('subscription.failedToCancelSubscription'));
               } finally {
                 setActionLoading(false);
               }
@@ -198,23 +200,23 @@ export default function SubscriptionManagementScreen() {
       
       if (result.success) {
         if (Platform.OS === 'web') {
-          alert('Subscription Reactivated: ' + result.message);
+          alert(t('subscription.subscriptionReactivated') + ': ' + result.message);
         } else {
-          Alert.alert('Subscription Reactivated', result.message);
+          Alert.alert(t('subscription.subscriptionReactivated'), result.message);
         }
         await loadSubscriptionData(); // Refresh data
       } else {
         if (Platform.OS === 'web') {
-          alert('Error: ' + result.message);
+          alert(t('common.error') + ': ' + result.message);
         } else {
-          Alert.alert('Error', result.message);
+          Alert.alert(t('common.error'), result.message);
         }
       }
     } catch (error) {
       if (Platform.OS === 'web') {
-        alert('Error: Failed to reactivate subscription');
+        alert(t('common.error') + ': ' + t('subscription.failedToReactivateSubscription'));
       } else {
-        Alert.alert('Error', 'Failed to reactivate subscription');
+        Alert.alert(t('common.error'), t('subscription.failedToReactivateSubscription'));
       }
     } finally {
       setActionLoading(false);
@@ -224,7 +226,7 @@ export default function SubscriptionManagementScreen() {
   const handleManageBilling = async () => {
     if (!user?.id) {
       console.log('No user ID available');
-      alert('No user ID available');
+      alert(t('subscription.noUserIDAvailable'));
       return;
     }
 
@@ -261,11 +263,11 @@ export default function SubscriptionManagementScreen() {
         } else {
           // For mobile, you might want to open in a WebView or redirect to web
           Alert.alert(
-            'Manage Billing',
-            'Please visit the web version to manage your billing information.',
+            t('subscription.manageBillingTitle'),
+            t('subscription.manageBillingMessage'),
             [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Open Web', onPress: () => router.push('/web-home') }
+              { text: t('noteDetail.cancel'), style: 'cancel' },
+              { text: t('subscription.openWeb'), onPress: () => router.push('/web-home') }
             ]
           );
         }
@@ -273,18 +275,18 @@ export default function SubscriptionManagementScreen() {
         console.log('No session or URL returned');
         alert('No session or URL returned: ' + JSON.stringify(session));
         if (Platform.OS === 'web') {
-          alert('Error: Unable to create billing portal session');
+          alert(t('common.error') + ': ' + t('subscription.unableToCreateBillingPortalSession'));
         } else {
-          Alert.alert('Error', 'Unable to create billing portal session');
+          Alert.alert(t('common.error'), t('subscription.unableToCreateBillingPortalSession'));
         }
       }
     } catch (error) {
       console.error('Error in handleManageBilling:', error);
-      alert('Error: ' + (error as Error).message);
+      alert(t('common.error') + ': ' + (error as Error).message);
       if (Platform.OS === 'web') {
-        alert('Error: Failed to open billing portal - ' + (error as Error).message);
+        alert(t('common.error') + ': ' + t('subscription.failedToOpenBillingPortal') + ' - ' + (error as Error).message);
       } else {
-        Alert.alert('Error', 'Failed to open billing portal - ' + (error as Error).message);
+        Alert.alert(t('common.error'), t('subscription.failedToOpenBillingPortal') + ' - ' + (error as Error).message);
       }
     } finally {
       setActionLoading(false);
@@ -303,23 +305,23 @@ export default function SubscriptionManagementScreen() {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'active': return 'Active';
-      case 'canceled': return 'Canceled';
-      case 'past_due': return 'Past Due';
-      case 'trialing': return 'Trial';
+      case 'active': return t('subscription.active');
+      case 'canceled': return t('subscription.canceled');
+      case 'past_due': return t('subscription.pastDue');
+      case 'trialing': return t('subscription.trial');
       default: return status;
     }
   };
 
   const formatDate = (date: Date | string | null | undefined, includeTime: boolean = false) => {
-    if (!date) return 'N/A';
+    if (!date) return t('subscription.na');
     
     try {
       const dateObj = typeof date === 'string' ? new Date(date) : date;
       
       // Check if the date is valid
       if (isNaN(dateObj.getTime())) {
-        return 'Invalid Date';
+        return t('subscription.invalidDate');
       }
       
       // Use shorter format for mobile
@@ -348,7 +350,7 @@ export default function SubscriptionManagementScreen() {
       });
     } catch (error) {
       console.error('Error formatting date:', error, date);
-      return 'Invalid Date';
+      return t('subscription.invalidDate');
     }
   };
 
@@ -360,7 +362,7 @@ export default function SubscriptionManagementScreen() {
     return (
       <ThemedView style={[styles.center, { backgroundColor }]}>
         <LoadingSpinner size={48} />
-        <ThemedText style={{ marginTop: 12, color: mutedTextColor }}>Loading subscription...</ThemedText>
+        <ThemedText style={{ marginTop: 12, color: mutedTextColor }}>{t('subscription.loadingSubscription')}</ThemedText>
       </ThemedView>
     );
   }
@@ -373,9 +375,9 @@ export default function SubscriptionManagementScreen() {
           <Ionicons name="arrow-back" size={24} color={textColor} />
         </TouchableOpacity>
         <View style={styles.headerTitle}>
-          <ThemedText type="title" style={{ color: textColor }}>Manage Premium</ThemedText>
+          <ThemedText type="title" style={{ color: textColor }}>{t('subscription.managePremium')}</ThemedText>
           <ThemedText style={{ color: mutedTextColor, fontSize: 14, marginTop: 4 }}>
-            Manage your premium subscription
+            {t('subscription.manageYourPremiumSubscription')}
           </ThemedText>
         </View>
         <View style={styles.headerRight}>
@@ -388,15 +390,15 @@ export default function SubscriptionManagementScreen() {
       {!subscription ? (
         <View style={styles.noSubscription}>
           <Ionicons name="card-outline" size={64} color={mutedTextColor} />
-          <ThemedText type="title" style={{ marginTop: 16, color: textColor }}>No Active Subscription</ThemedText>
+          <ThemedText type="title" style={{ marginTop: 16, color: textColor }}>{t('subscription.noActiveSubscription')}</ThemedText>
           <ThemedText style={{ marginTop: 8, color: mutedTextColor, textAlign: 'center' }}>
-            You don't have an active subscription. Upgrade to premium to unlock advanced features.
+            {t('subscription.noActiveSubscriptionDescription')}
           </ThemedText>
           <TouchableOpacity 
             style={[styles.primaryButton, { backgroundColor: accentColor }]}
             onPress={() => router.push('/join-premium')}
           >
-            <ThemedText style={styles.primaryButtonText}>Upgrade to Premium</ThemedText>
+            <ThemedText style={styles.primaryButtonText}>{t('subscription.upgradeToPremium')}</ThemedText>
           </TouchableOpacity>
         </View>
       ) : (
@@ -404,7 +406,7 @@ export default function SubscriptionManagementScreen() {
           {/* Current Subscription Card */}
           <View style={[styles.card, { backgroundColor: cardBackground, borderColor }]}>
             <View style={styles.cardHeader}>
-              <ThemedText type="title" style={{ color: textColor }}>Current Plan</ThemedText>
+              <ThemedText type="title" style={{ color: textColor }}>{t('subscription.currentPlan')}</ThemedText>
               <View style={[styles.statusBadge, { backgroundColor: getStatusColor(subscription.status) }]}>
                 <ThemedText style={styles.statusText}>{getStatusText(subscription.status)}</ThemedText>
               </View>
@@ -419,25 +421,25 @@ export default function SubscriptionManagementScreen() {
                   ${subscription.planPrice}
                 </ThemedText>
                 <ThemedText style={{ color: mutedTextColor }}>
-                  /{subscription.planInterval === 'weekly' ? 'week' : 
-                     subscription.planInterval === 'monthly' ? 'month' : 
-                     subscription.planInterval === 'yearly' ? 'year' : subscription.planInterval}
+                  /{subscription.planInterval === 'weekly' ? t('premium.week') : 
+                     subscription.planInterval === 'monthly' ? t('premium.month') : 
+                     subscription.planInterval === 'yearly' ? t('premium.year') : subscription.planInterval}
                 </ThemedText>
               </View>
             </View>
 
             <View style={styles.billingInfo}>
               <View style={styles.billingRow}>
-                <ThemedText style={{ color: mutedTextColor }}>Billing Period:</ThemedText>
+                <ThemedText style={{ color: mutedTextColor }}>{t('subscription.billingPeriod')}</ThemedText>
                 <ThemedText style={{ color: textColor, fontSize: 13 }}>
                   {formatDate(subscription.currentPeriodStart, true)}
-                  {'\n'}to {formatDate(subscription.currentPeriodEnd, true)}
+                  {'\n'}{t('subscription.to')} {formatDate(subscription.currentPeriodEnd, true)}
                 </ThemedText>
               </View>
 
               {subscription.nextBillingDate && !subscription.cancelAtPeriodEnd && (
                 <View style={styles.billingRow}>
-                  <ThemedText style={{ color: mutedTextColor }}>Next Billing:</ThemedText>
+                  <ThemedText style={{ color: mutedTextColor }}>{t('subscription.nextBilling')}</ThemedText>
                   <ThemedText style={{ color: textColor }}>
                     {formatDate(subscription.nextBillingDate, true)}
                   </ThemedText>
@@ -445,7 +447,7 @@ export default function SubscriptionManagementScreen() {
               )}
               {subscription.trialEnd && (
                 <View style={styles.billingRow}>
-                  <ThemedText style={{ color: mutedTextColor }}>Trial Ends:</ThemedText>
+                  <ThemedText style={{ color: mutedTextColor }}>{t('subscription.trialEnds')}</ThemedText>
                   <ThemedText style={{ color: textColor }}>
                     {formatDate(subscription.trialEnd)}
                   </ThemedText>
@@ -462,7 +464,7 @@ export default function SubscriptionManagementScreen() {
               >
                 <Ionicons name="card-outline" size={20} color={textColor} />
                 <ThemedText style={{ marginLeft: 8, color: textColor }}>
-                  {actionLoading ? 'Loading...' : 'Manage Billing'}
+                  {actionLoading ? t('subscription.loading') : t('subscription.manageBilling')}
                 </ThemedText>
               </TouchableOpacity>
 
@@ -475,7 +477,7 @@ export default function SubscriptionManagementScreen() {
                 >
                   <Ionicons name="refresh-outline" size={20} color={successColor} />
                   <ThemedText style={{ marginLeft: 8, color: successColor }}>
-                    {actionLoading ? 'Reactivating...' : 'Reactivate Subscription'}
+                    {actionLoading ? t('subscription.reactivating') : t('subscription.reactivateSubscription')}
                   </ThemedText>
                 </TouchableOpacity>
               ) : subscription.status === 'active' ? (
@@ -490,7 +492,7 @@ export default function SubscriptionManagementScreen() {
                 >
                   <Ionicons name="close-circle-outline" size={20} color={errorColor} />
                   <ThemedText style={{ marginLeft: 8, color: errorColor }}>
-                    {actionLoading ? 'Canceling...' : 'Cancel Subscription'}
+                    {actionLoading ? t('subscription.canceling') : t('subscription.cancelSubscription')}
                   </ThemedText>
                 </TouchableOpacity>
               ) : null}
@@ -500,11 +502,11 @@ export default function SubscriptionManagementScreen() {
               <View style={[styles.cancelNotice, { backgroundColor: warningColor + '20' }]}>
                 <Ionicons name="warning-outline" size={20} color={warningColor} />
                 <ThemedText style={{ marginLeft: 8, color: warningColor, flex: 1 }}>
-                  Your subscription will be canceled on{' '}
+                  {t('subscription.subscriptionWillBeCanceled')}{' '}
                   <ThemedText style={{ fontWeight: '600', color: warningColor }}>
                     {formatDate(subscription.currentPeriodEnd, true)}
                   </ThemedText>
-                  . You'll keep access until then.
+                  . {t('subscription.keepAccessUntil')}
                 </ThemedText>
               </View>
             )}
@@ -514,7 +516,7 @@ export default function SubscriptionManagementScreen() {
           {/* Billing History */}
           {billingHistory.length > 0 && (
             <View style={[styles.card, { backgroundColor: cardBackground, borderColor }]}>
-              <ThemedText type="title" style={{ color: textColor, marginBottom: 16 }}>Billing History</ThemedText>
+              <ThemedText type="title" style={{ color: textColor, marginBottom: 16 }}>{t('subscription.billingHistory')}</ThemedText>
               {billingHistory.map((invoice) => (
                 <View key={invoice.id} style={styles.billingRow}>
                   <View style={styles.billingInfo}>

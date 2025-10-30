@@ -320,19 +320,36 @@ export class FeatureLimitService {
   // Get user feature usage
   async getUserFeatureUsage(userId: string, featureId: string, isPremium: boolean = false): Promise<UserFeatureUsage | null> {
     try {
+      // Try to get the current session to ensure authentication
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (!session) {
+        console.warn(`FeatureLimitService: No active session for user ${userId}`, sessionError);
+        return null;
+      }
+
+      console.log(`🔍 FeatureLimitService: Querying usage for user ${userId}, feature ${featureId}`);
+
       const { data, error } = await supabase
         .from('user_feature_usage')
         .select('*')
         .eq('user_id', userId)
         .eq('feature_id', featureId)
-        .limit(1);
+        .maybeSingle();
 
       if (error) {
-        console.warn(`FeatureLimitService: Error fetching usage for ${featureId}:`, error);
+        // Handle 406 errors specifically - this might be due to RLS policies
+        if (error.code === 'PGRST116' || error.message?.includes('406')) {
+          console.warn(`⚠️ FeatureLimitService: Usage record not found or not accessible for ${featureId} (likely RLS policy):`, error.message);
+          console.warn(`  - Error code: ${error.code}`);
+          console.warn(`  - Error details: ${JSON.stringify(error)}`);
+          console.warn(`  - This might be due to Row Level Security (RLS) policies on user_feature_usage table`);
+        } else {
+          console.warn(`⚠️ FeatureLimitService: Error fetching usage for ${featureId}:`, error);
+        }
         return null;
       }
 
-      if (!data || data.length === 0) {
+      if (!data) {
         // Create new usage record
         const limit = this.limits[featureId];
         if (!limit) return null;
@@ -358,7 +375,7 @@ export class FeatureLimitService {
         };
       }
 
-      const usageRecord = data[0]; // Get the first (and only) record
+      const usageRecord = data; // maybeSingle returns a single object, not an array
       const limit = this.limits[featureId];
       if (!limit) return null;
 
@@ -626,12 +643,27 @@ export class FeatureLimitService {
   // Get user feature usage summary
   async getUserFeatureUsageSummary(userId: string, isPremium: boolean = false): Promise<UserFeatureUsage[]> {
     try {
+      // Try to get the current session to ensure authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.warn(`FeatureLimitService: No active session for user ${userId}`);
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('user_feature_usage')
         .select('*')
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (error) {
+        // Handle 406 errors specifically - this might be due to RLS policies
+        if (error.message?.includes('406')) {
+          console.warn(`FeatureLimitService: Cannot access usage data for user ${userId} (likely RLS policy):`, error.message);
+        } else {
+          console.error(`FeatureLimitService: Error getting usage summary:`, error);
+        }
+        return [];
+      }
 
       const usageSummary: UserFeatureUsage[] = [];
 

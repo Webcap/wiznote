@@ -4,6 +4,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
 import { EnhancedSaveStatus } from '@/components/EnhancedSaveStatus';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface CreateNoteHeaderProps {
   isEditMode: boolean;
@@ -29,6 +30,7 @@ export const CreateNoteHeader: React.FC<CreateNoteHeaderProps> = ({
   renderSaveStatus,
   inputText,
 }) => {
+  const { t } = useTranslation();
   return (
     <ThemedView style={styles.webHeader}>
       <View style={styles.webHeaderLeft}>
@@ -39,7 +41,7 @@ export const CreateNoteHeader: React.FC<CreateNoteHeaderProps> = ({
         >
           <Ionicons name="arrow-back" size={20} color={isSaving ? '#999' : inputText} />
           <ThemedText style={[styles.webBackText, isSaving && styles.webBackTextDisabled]}>
-            Back
+            {t('createNote.back')}
           </ThemedText>
         </TouchableOpacity>
       </View>
@@ -47,12 +49,12 @@ export const CreateNoteHeader: React.FC<CreateNoteHeaderProps> = ({
       <View style={styles.webHeaderCenter}>
         <View style={styles.webHeaderTitleContainer}>
           <ThemedText style={styles.webHeaderTitle}>
-            {isEditMode ? 'Edit Note' : 'Create a Note'}
+            {isEditMode ? t('createNote.editNote') : t('createNote.createNote')}
           </ThemedText>
           {isRichTextEnabled && (
             <View style={styles.webRichTextBadge}>
               <Ionicons name="text" size={12} color="#4CAF50" />
-              <ThemedText style={styles.webRichTextBadgeText}>Rich Text</ThemedText>
+              <ThemedText style={styles.webRichTextBadgeText}>{t('createNote.richText')}</ThemedText>
             </View>
           )}
         </View>
@@ -72,7 +74,7 @@ export const CreateNoteHeader: React.FC<CreateNoteHeaderProps> = ({
           disabled={isSaveDisabled}
         >
           <ThemedText style={[styles.webSaveButtonText, { color: '#FFFFFF' }]}>
-            {isSaving ? 'Saving...' : 'Save Note'}
+            {isSaving ? t('createNote.saving') : t('createNote.saveNote')}
           </ThemedText>
         </TouchableOpacity>
       </View>

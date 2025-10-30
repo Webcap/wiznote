@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
-import { View, StyleSheet, Platform, TextInput as RNTextInput } from 'react-native';
+import { View, StyleSheet, Platform, TextInput as RNTextInput, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { ThemedText } from '@/components/ThemedText';
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -215,17 +215,34 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   // For mobile, use WebView with Quill
   return (
     <View style={[styles.container, style, { backgroundColor }]}>
+      {!isReady && (
+        <View style={[styles.loadingContainer, { backgroundColor }]}>
+          <ActivityIndicator size="large" color={textColor} />
+          <ThemedText style={[styles.loadingText, { color: textColor }]}>Loading editor...</ThemedText>
+        </View>
+      )}
       <WebView
         ref={webViewRef}
         source={{ html: getQuillHTML(placeholder, backgroundColor, textColor, borderColor) }}
-        style={[styles.webview, style, { backgroundColor }]}
+        style={[
+          styles.webview, 
+          style, 
+          { backgroundColor },
+          !isReady && styles.webviewHidden
+        ]}
         onMessage={handleMessage}
         javaScriptEnabled={true}
         domStorageEnabled={true}
-        startInLoadingState={true}
+        startInLoadingState={false}
         scrollEnabled={true}
         nestedScrollEnabled={true}
         showsVerticalScrollIndicator={true}
+        renderLoading={() => (
+          <View style={[styles.loadingContainer, { backgroundColor }]}>
+            <ActivityIndicator size="large" color={textColor} />
+            <ThemedText style={[styles.loadingText, { color: textColor }]}>Loading editor...</ThemedText>
+          </View>
+        )}
       />
     </View>
   );
@@ -236,6 +253,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 400,
     maxHeight: '100%',
+    position: 'relative',
   },
   toolbar: {
     paddingHorizontal: 20,
@@ -245,5 +263,27 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
     height: '100%',
+  },
+  webviewHidden: {
+    opacity: 0,
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  loadingContainer: {
+    flex: 1,
+    minHeight: 400,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    zIndex: 1,
+  },
+  loadingText: {
+    fontSize: 16,
+    opacity: 0.7,
+    marginTop: 12,
+    textAlign: 'center',
   },
 });

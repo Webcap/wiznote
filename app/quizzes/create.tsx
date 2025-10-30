@@ -18,16 +18,21 @@ import { UserSidebar } from '../../components/web/UserSidebar';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { useTranslation } from '../../hooks/useTranslation';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import { quizGenerationService } from '../../services/QuizGenerationService';
 import { ContentSourceType, QuestionType, QuizDifficulty } from '../../types/Quizzes';
 
 export default function QuizCreationScreen() {
-  const { noteId } = useLocalSearchParams<{ noteId: string }>();
+  const { t } = useTranslation();
+  const { language } = useLanguage();
+  const { noteId, allowNew } = useLocalSearchParams<{ noteId: string; allowNew?: string }>();
   const router = useRouter();
   const { user } = useAuth();
   const { isFeatureEnabled } = useFeatureFlags();
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingExisting, setIsCheckingExisting] = useState(true);
   const [noteContent, setNoteContent] = useState('');
   const [noteTitle, setNoteTitle] = useState('');
 
@@ -50,32 +55,41 @@ export default function QuizCreationScreen() {
 
   useEffect(() => {
     if (!noteId) {
-      Alert.alert('Error', 'No note ID provided');
+      Alert.alert(t('quizzes.error'), t('quizzes.noNoteIdProvided'));
       router.back();
       return;
     }
 
     if (!isFeatureEnabled('ai_quiz')) {
-      Alert.alert('Feature Disabled', 'AI Quiz feature is currently disabled');
+      Alert.alert(t('quizzes.featureDisabled'), t('quizzes.aiQuizFeatureDisabled'));
       router.back();
       return;
     }
 
-    // Only load note content when user is available
+    // Check for existing quizzes first, then load note content
     if (user?.id) {
-      loadNoteContent();
+      checkExistingQuizzes();
     }
-  }, [noteId, user?.id]);
+  }, [noteId, user?.id, allowNew]);
 
-  const loadNoteContent = async () => {
+  const checkExistingQuizzes = async () => {
     try {
+      setIsCheckingExisting(true);
+
       if (!user?.id || !noteId) {
         throw new Error('User or note ID not available');
       }
 
-      console.log('Loading note content for noteId:', noteId);
+      // If allowNew=true, skip the check and proceed to load note content
+      if (allowNew) {
+        console.log('allowNew=true, skipping existing quiz check - allowing new quiz creation');
+        setIsCheckingExisting(false);
+        loadNoteContent();
+        return;
+      }
 
-      // First, check if quizzes already exist for this note
+      // Check if quizzes already exist for this note
+      console.log('Checking for existing quizzes for noteId:', noteId);
       const { data: existingQuizzes, error: quizzesError } = await supabase
         .from('quizzes')
         .select('id')
@@ -85,14 +99,36 @@ export default function QuizCreationScreen() {
       if (quizzesError) {
         console.error('Error checking for existing quizzes:', quizzesError);
         // Continue to load note even if quiz check fails
-      } else if (existingQuizzes && existingQuizzes.length > 0) {
-        // Quizzes already exist, redirect to quiz list page
+        setIsCheckingExisting(false);
+        loadNoteContent();
+        return;
+      }
+
+      if (existingQuizzes && existingQuizzes.length > 0) {
+        // Quizzes already exist, redirect to quiz list page immediately
         console.log(`Found ${existingQuizzes.length} existing quizzes, redirecting to quiz list`);
         router.replace(`/notes/${noteId}/quizzes`);
         return;
       }
 
       // No existing quizzes, proceed to load note content
+      console.log('No existing quizzes found, proceeding to create form');
+      setIsCheckingExisting(false);
+      loadNoteContent();
+    } catch (error) {
+      console.error('Error checking existing quizzes:', error);
+      setIsCheckingExisting(false);
+      loadNoteContent(); // Try to load note content anyway
+    }
+  };
+
+  const loadNoteContent = async () => {
+    try {
+      if (!user?.id || !noteId) {
+        throw new Error('User or note ID not available');
+      }
+
+      console.log('Loading note content for noteId:', noteId);
       const { data: note, error } = await supabase
         .from('notes')
         .select('*')
@@ -115,41 +151,41 @@ export default function QuizCreationScreen() {
 
       if (!content || content.trim().length === 0) {
         Alert.alert(
-          'Empty Note',
-          'This note appears to be empty. Please add some content to the note before generating a quiz.',
-          [{ text: 'OK', onPress: () => router.back() }]
+          t('quizzes.emptyNote'),
+          t('quizzes.noteAppearsEmpty'),
+          [{ text: t('quizzes.ok'), onPress: () => router.back() }]
         );
         return;
       }
 
       setNoteContent(content);
       setNoteTitle(title);
-      setQuizTitle(`Quiz: ${title}`);
+      setQuizTitle(`${t('quizzes.createQuiz')}: ${title}`);
 
       console.log('Note loaded successfully:', { title, contentLength: content.length });
     } catch (error) {
       console.error('Error loading note content:', error);
       Alert.alert(
-        'Error',
-        'Failed to load note content. Please try again.',
-        [{ text: 'OK', onPress: () => router.back() }]
+        t('quizzes.error'),
+        t('quizzes.failedToLoadNote'),
+        [{ text: t('quizzes.ok'), onPress: () => router.back() }]
       );
     }
   };
 
   const handleGenerateQuiz = async () => {
     if (!user?.id) {
-      Alert.alert('Error', 'User not authenticated');
+      Alert.alert(t('quizzes.error'), t('quizzes.userNotAuthenticated'));
       return;
     }
 
     if (!quizTitle.trim()) {
-      Alert.alert('Error', 'Please enter a quiz title');
+      Alert.alert(t('quizzes.error'), t('quizzes.pleaseEnterQuizTitle'));
       return;
     }
 
     if (questionCount < 1 || questionCount > 50) {
-      Alert.alert('Error', 'Question count must be between 1 and 50');
+      Alert.alert(t('quizzes.error'), t('quizzes.questionCountBetween'));
       return;
     }
 
@@ -158,7 +194,7 @@ export default function QuizCreationScreen() {
     try {
       console.log('🚀 Starting quiz generation...');
 
-      // Generate quiz using AI
+      // Generate quiz using AI with user's language
       const result = await quizGenerationService.generateFromNoteContent(
         noteContent,
         {
@@ -166,6 +202,7 @@ export default function QuizCreationScreen() {
           difficulty,
           questionTypes,
           includeExplanations,
+          language, // Pass user's language
         },
         user.id
       );
@@ -189,7 +226,7 @@ export default function QuizCreationScreen() {
       router.push(`/notes/${noteId}/quizzes`);
     } catch (error) {
       console.error('❌ Error generating quiz:', error);
-      Alert.alert('Error', `Failed to generate quiz: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      Alert.alert(t('quizzes.error'), t('quizzes.failedToGenerateQuiz') + ': ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsLoading(false);
     }
@@ -203,7 +240,7 @@ export default function QuizCreationScreen() {
     );
   };
 
-  const renderQuestionTypeToggle = (type: QuestionType, label: string) => {
+  const renderQuestionTypeToggle = (type: QuestionType, labelKey: string) => {
     const isSelected = questionTypes.includes(type);
     return (
       <TouchableOpacity
@@ -227,24 +264,24 @@ export default function QuizCreationScreen() {
             },
           ]}
         >
-          {label}
+          {t(labelKey)}
         </ThemedText>
       </TouchableOpacity>
     );
   };
 
-  if (!isFeatureEnabled('ai_quiz')) {
-    const errorContent = (
+  // Show loading state while checking for existing quizzes
+  if (isCheckingExisting) {
+    const loadingContent = (
       <>
         <Stack.Screen options={{ headerShown: false }} />
-        <ThemedView style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={48} color={primaryColor} />
-          <ThemedText style={styles.errorText}>
-            AI Quiz feature is currently disabled
-          </ThemedText>
-          <ThemedText style={[styles.errorSubtext, { color: textSecondary }]}>
-            Please contact your administrator to enable this feature
-          </ThemedText>
+        <ThemedView style={styles.container}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={primaryColor} />
+            <ThemedText style={[styles.loadingText, { color: textSecondary }]}>
+              {t('quizzes.loading')}
+            </ThemedText>
+          </View>
         </ThemedView>
       </>
     );
@@ -253,9 +290,39 @@ export default function QuizCreationScreen() {
       return (
         <WebLayout
           sidebar={<UserSidebar />}
-          title="Create Quiz - Error"
+          title={t('quizzes.createQuiz')}
           scrollable={false}
         >
+          {loadingContent}
+        </WebLayout>
+      );
+    }
+    return loadingContent;
+  }
+
+  if (!isFeatureEnabled('ai_quiz')) {
+    const errorContent = (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ThemedView style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={48} color={primaryColor} />
+          <ThemedText style={styles.errorText}>
+            {t('quizzes.aiQuizFeatureDisabled')}
+          </ThemedText>
+          <ThemedText style={[styles.errorSubtext, { color: textSecondary }]}>
+            {t('quizzes.contactAdministrator')}
+          </ThemedText>
+        </ThemedView>
+      </>
+    );
+
+    if (Platform.OS === 'web') {
+      return (
+      <WebLayout
+        sidebar={<UserSidebar />}
+        title={t('quizzes.createQuizError')}
+        scrollable={false}
+      >
           {errorContent}
         </WebLayout>
       );
@@ -272,14 +339,14 @@ export default function QuizCreationScreen() {
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={primaryColor} />
-            <ThemedText style={[styles.backButtonText, { color: primaryColor }]}>Back</ThemedText>
+            <ThemedText style={[styles.backButtonText, { color: primaryColor }]}>{t('quizzes.back')}</ThemedText>
           </TouchableOpacity>
         </View>
         <View style={styles.headerCenter}>
-          <ThemedText style={styles.title}>Create AI Quiz</ThemedText>
+          <ThemedText style={styles.title}>{t('quizzes.createQuiz')}</ThemedText>
           {noteTitle ? (
             <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
-              From: {noteTitle}
+              {t('quizzes.from')}: {noteTitle}
             </ThemedText>
           ) : null}
         </View>
@@ -289,24 +356,24 @@ export default function QuizCreationScreen() {
       <ThemedView style={styles.content}>
         {/* Quiz Title */}
         <ThemedView style={[styles.section, styles.card, { backgroundColor: cardBg }]}>
-          <ThemedText style={styles.sectionTitle}>Quiz Title</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('quizzes.quizTitle')}</ThemedText>
           <ThemedText style={[styles.sectionHint, { color: textSecondary }]}>
-            Give your quiz a descriptive title
+            {t('quizzes.giveQuizDescriptiveTitle')}
           </ThemedText>
           <TextInput
             style={[styles.input, { borderColor, color: textColor, backgroundColor }]}
             value={quizTitle}
             onChangeText={setQuizTitle}
-            placeholder="Enter quiz title..."
+            placeholder={t('quizzes.enterQuizTitle')}
             placeholderTextColor={textSecondary}
           />
         </ThemedView>
 
         {/* Question Count */}
         <ThemedView style={[styles.section, styles.card, { backgroundColor: cardBg }]}>
-          <ThemedText style={styles.sectionTitle}>Number of Questions</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('quizzes.numberOfQuestions')}</ThemedText>
           <ThemedText style={[styles.sectionHint, { color: textSecondary }]}>
-            Select how many questions to generate
+            {t('quizzes.selectHowManyQuestions')}
           </ThemedText>
           <View style={styles.countSelector}>
             {[5, 10, 15, 20].map(count => (
@@ -338,9 +405,9 @@ export default function QuizCreationScreen() {
 
         {/* Difficulty */}
         <ThemedView style={[styles.section, styles.card, { backgroundColor: cardBg }]}>
-          <ThemedText style={styles.sectionTitle}>Difficulty Level</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('quizzes.difficultyLevel')}</ThemedText>
           <ThemedText style={[styles.sectionHint, { color: textSecondary }]}>
-            Choose the complexity of the questions
+            {t('quizzes.chooseComplexityOfQuestions')}
           </ThemedText>
           <View style={styles.difficultySelector}>
             {(['easy', 'medium', 'hard'] as QuizDifficulty[]).map(level => (
@@ -363,7 +430,7 @@ export default function QuizCreationScreen() {
                     },
                   ]}
                 >
-                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                  {t(`quizzes.${level}`)}
                 </ThemedText>
               </TouchableOpacity>
             ))}
@@ -372,21 +439,21 @@ export default function QuizCreationScreen() {
 
         {/* Question Types */}
         <ThemedView style={[styles.section, styles.card, { backgroundColor: cardBg }]}>
-          <ThemedText style={styles.sectionTitle}>Question Types</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('quizzes.questionTypes')}</ThemedText>
           <ThemedText style={[styles.sectionHint, { color: textSecondary }]}>
-            Select one or more question formats
+            {t('quizzes.selectOneOrMoreFormats')}
           </ThemedText>
           <View style={styles.typeSelector}>
-            {renderQuestionTypeToggle('multiple_choice', 'Multiple Choice')}
-            {renderQuestionTypeToggle('true_false', 'True/False')}
-            {renderQuestionTypeToggle('short_answer', 'Short Answer')}
-            {renderQuestionTypeToggle('fill_blank', 'Fill in Blank')}
+            {renderQuestionTypeToggle('multiple_choice', 'quizzes.multipleChoice')}
+            {renderQuestionTypeToggle('true_false', 'quizzes.trueFalse')}
+            {renderQuestionTypeToggle('short_answer', 'quizzes.shortAnswer')}
+            {renderQuestionTypeToggle('fill_blank', 'quizzes.fillInBlank')}
           </View>
         </ThemedView>
 
         {/* Additional Options */}
         <ThemedView style={[styles.section, styles.card, { backgroundColor: cardBg }]}>
-          <ThemedText style={styles.sectionTitle}>Additional Options</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('quizzes.additionalOptions')}</ThemedText>
           <TouchableOpacity
             style={styles.checkboxRow}
             onPress={() => setIncludeExplanations(!includeExplanations)}
@@ -405,11 +472,11 @@ export default function QuizCreationScreen() {
               )}
             </View>
             <ThemedText style={styles.checkboxLabel}>
-              Include explanations for correct answers
+              {t('quizzes.includeExplanations')}
             </ThemedText>
           </TouchableOpacity>
           <ThemedText style={[styles.checkboxHint, { color: textSecondary }]}>
-            Helps users learn from their mistakes
+            {t('quizzes.helpsUsersLearn')}
           </ThemedText>
         </ThemedView>
 
@@ -417,20 +484,20 @@ export default function QuizCreationScreen() {
         <ThemedView style={[styles.section, styles.card, { backgroundColor: cardBg }]}>
           <View style={styles.contentPreviewHeader}>
             <View>
-              <ThemedText style={styles.sectionTitle}>Source Content</ThemedText>
+              <ThemedText style={styles.sectionTitle}>{t('quizzes.sourceContent')}</ThemedText>
               <ThemedText style={[styles.sectionHint, { color: textSecondary }]}>
-                Quiz will be generated from this content
+                {t('quizzes.quizWillBeGenerated')}
               </ThemedText>
             </View>
             {noteContent ? (
               <ThemedText style={[styles.contentStats, { color: textSecondary }]}>
-                {noteContent.length} characters
+                {noteContent.length} {t('quizzes.characters')}
               </ThemedText>
             ) : null}
           </View>
           <ThemedView style={[styles.contentPreview, { borderColor, backgroundColor }]}>
             <ThemedText style={styles.contentPreviewText} numberOfLines={5}>
-              {noteContent || 'Loading note content...'}
+              {noteContent || t('quizzes.loadingNoteContent')}
             </ThemedText>
           </ThemedView>
         </ThemedView>
@@ -450,14 +517,14 @@ export default function QuizCreationScreen() {
             <View style={styles.generateButtonContent}>
               <ActivityIndicator color="white" size="small" />
               <ThemedText style={[styles.generateButtonText, { marginLeft: 12 }]}>
-                Generating...
+                {t('quizzes.generating')}
               </ThemedText>
             </View>
           ) : (
             <View style={styles.generateButtonContent}>
               <Ionicons name="sparkles" size={20} color="#FFFFFF" />
               <ThemedText style={[styles.generateButtonText, { marginLeft: 8 }]}>
-                Generate Quiz with AI
+                {t('quizzes.generateQuizWithAI')}
               </ThemedText>
             </View>
           )}
@@ -472,8 +539,8 @@ export default function QuizCreationScreen() {
     return (
       <WebLayout
         sidebar={<UserSidebar />}
-        title="Create Quiz"
-        subtitle={noteTitle || 'Generate AI Quiz'}
+        title={t('quizzes.createQuiz')}
+        subtitle={noteTitle || t('quizzes.generateAIQuiz')}
         scrollable={false}
       >
         {mainContent}
@@ -499,6 +566,18 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     marginTop: 20,
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: 16,
     textAlign: 'center',
   },
   errorSubtext: {

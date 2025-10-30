@@ -13,11 +13,13 @@ import { getProductId } from '../constants/InAppPurchaseConfig';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { usePromotions } from '../hooks/usePromotions';
+import { useTranslation } from '../hooks/useTranslation';
 import { planManagementService } from '../services/PlanManagementService';
 import type { EnhancedPlan } from '../types/EnhancedPlans';
 import type { Promotion } from '../types/Promotion';
 
 export default function JoinPremiumScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { user } = useAuth();
   const searchParams = useLocalSearchParams();
@@ -76,13 +78,13 @@ export default function JoinPremiumScreen() {
   const formatInterval = (interval: string) => {
     switch (interval) {
       case 'monthly':
-        return 'month';
+        return t('premium.month');
       case 'weekly':
-        return 'week';
+        return t('premium.week');
       case 'yearly':
-        return 'year';
+        return t('premium.year');
       case 'one-time':
-        return 'one-time';
+        return t('premium.oneTime');
       default:
         return interval;
     }
@@ -117,7 +119,7 @@ export default function JoinPremiumScreen() {
         }
       } catch (e) {
         if (!mounted) return;
-        setError(e instanceof Error ? e.message : 'Failed to load plans');
+        setError(e instanceof Error ? e.message : t('premium.failedToLoadPlans'));
       } finally {
         if (!mounted) return;
         setLoading(false);
@@ -137,7 +139,7 @@ export default function JoinPremiumScreen() {
   };
 
   const handleError = (message: string) => {
-    Alert.alert('Payment Error', message);
+    Alert.alert(t('premium.paymentError'), message);
   };
 
   if (loading) {
@@ -145,7 +147,7 @@ export default function JoinPremiumScreen() {
       <ThemedView style={[styles.loadingContainer, { backgroundColor }]}>
         <LoadingSpinner size={50} />
         <ThemedText style={[styles.loadingText, { color: textSecondaryColor }]}>
-          Loading premium plans...
+          {t('premium.loadingPremiumPlans')}
         </ThemedText>
       </ThemedView>
     );
@@ -156,7 +158,7 @@ export default function JoinPremiumScreen() {
       <ThemedView style={[styles.errorContainer, { backgroundColor }]}>
         <Ionicons name="alert-circle" size={64} color={accentDanger} />
         <ThemedText style={[styles.errorTitle, { color: textColor }]}>
-          Could not load plans
+          {t('premium.couldNotLoadPlans')}
         </ThemedText>
         <ThemedText style={[styles.errorMessage, { color: textSecondaryColor }]}>
           {error}
@@ -166,7 +168,7 @@ export default function JoinPremiumScreen() {
           onPress={() => router.replace('/join-premium')}
         >
           <Ionicons name="refresh" size={20} color="#FFFFFF" />
-          <ThemedText style={[styles.retryButtonText, { color: '#FFFFFF' }]}>Try Again</ThemedText>
+          <ThemedText style={[styles.retryButtonText, { color: '#FFFFFF' }]}>{t('premium.tryAgain')}</ThemedText>
         </TouchableOpacity>
       </ThemedView>
     );
@@ -179,7 +181,7 @@ export default function JoinPremiumScreen() {
         <ThemedView style={[styles.premiumStatusCard, { backgroundColor: backgroundSecondary }]}>
           <Ionicons name="checkmark-circle" size={24} color={accentSuccess} />
           <ThemedText style={[styles.premiumStatusText, { color: textColor }]}>
-            You already have an active premium subscription
+            {t('premium.alreadyHaveActiveSubscription')}
           </ThemedText>
         </ThemedView>
       )}
@@ -191,19 +193,19 @@ export default function JoinPremiumScreen() {
             <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
             <View style={styles.promoBannerText}>
               <ThemedText style={[styles.promoBannerTitle, { color: '#FFFFFF' }]}>
-                🎉 Promotion Applied!
+                {t('premium.promotionApplied')}
               </ThemedText>
               <ThemedText style={[styles.promoBannerSubtitle, { color: '#FFFFFF' }]}>
                 {appliedPromotion.discountType === 'percentage'
-                  ? `You're saving ${appliedPromotion.discountValue}% on your subscription`
-                  : `You're saving $${appliedPromotion.discountValue} on your subscription`}
+                  ? t('premium.savingPercentage', { percentage: appliedPromotion.discountValue })
+                  : t('premium.savingAmount', { amount: appliedPromotion.discountValue })}
               </ThemedText>
             </View>
             <TouchableOpacity
               style={styles.removePromoButton}
               onPress={() => setAppliedPromotion(null)}
             >
-              <ThemedText style={[styles.removePromoText, { color: '#FFFFFF' }]}>Remove</ThemedText>
+              <ThemedText style={[styles.removePromoText, { color: '#FFFFFF' }]}>{t('premium.remove')}</ThemedText>
             </TouchableOpacity>
           </View>
         </ThemedView>
@@ -228,7 +230,7 @@ export default function JoinPremiumScreen() {
       {/* Plans Section */}
       <ThemedView style={styles.plansSection}>
         <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-          Choose Your Plan
+          {t('premium.chooseYourPlan')}
         </ThemedText>
         <View style={styles.planGrid}>
           {plans.map(plan => (
@@ -251,7 +253,7 @@ export default function JoinPremiumScreen() {
                 </ThemedText>
                 {plan.isPopular && (
                   <View style={[styles.popularBadge, { backgroundColor: accentSuccess }]}>
-                    <ThemedText style={[styles.popularBadgeText, { color: '#FFFFFF' }]}>Popular</ThemedText>
+                    <ThemedText style={[styles.popularBadgeText, { color: '#FFFFFF' }]}>{t('premium.popular')}</ThemedText>
                   </View>
                 )}
               </View>
@@ -294,7 +296,7 @@ export default function JoinPremiumScreen() {
       {selectedPlan && (
         <ThemedView style={[styles.paymentSection, { backgroundColor: backgroundSecondary }]}>
           <ThemedText style={[styles.paymentSectionTitle, { color: textColor }]}>
-            Complete Your Subscription
+            {t('premium.completeYourSubscription')}
           </ThemedText>
           
           {/* Discount Summary */}
@@ -302,7 +304,7 @@ export default function JoinPremiumScreen() {
             <ThemedView style={[styles.discountSummary, { backgroundColor: backgroundTertiary }]}>
               <View style={styles.discountRow}>
                 <ThemedText style={[styles.discountLabel, { color: textSecondaryColor }]}>
-                  Original Price:
+                  {t('premium.originalPrice')}
                 </ThemedText>
                 <ThemedText style={[styles.discountOriginal, { color: textMutedColor }]}>
                   ${selectedPlan.price}
@@ -310,7 +312,7 @@ export default function JoinPremiumScreen() {
               </View>
               <View style={styles.discountRow}>
                 <ThemedText style={[styles.discountLabel, { color: textSecondaryColor }]}>
-                  Discount ({appliedPromotion.name}):
+                  {t('premium.discount', { name: appliedPromotion.name })}
                 </ThemedText>
                 <ThemedText style={[styles.discountAmount, { color: accentSuccess }]}>
                   {appliedPromotion.discountType === 'percentage'
@@ -320,7 +322,7 @@ export default function JoinPremiumScreen() {
               </View>
               <View style={[styles.discountRow, styles.discountTotal]}>
                 <ThemedText style={[styles.discountLabel, styles.totalLabel, { color: textColor }]}>
-                  Your Price:
+                  {t('premium.yourPrice')}
                 </ThemedText>
                 <ThemedText style={[styles.totalPrice, { color: accentSuccess }]}>
                   ${calculateDiscountedPrice(selectedPlan.price, appliedPromotion).toFixed(2)}/{formatInterval(selectedPlan.interval)}

@@ -28,3 +28,15 @@ alwaysApply: true
   - Review content for consistency between the two files.
   - If relevant, reference actual line changes in commit or PR descriptions.
   - This keeps public and internal changelogs aligned for accurate communication of updates.
+
+- For web pages, always remember that the web has its own Layout file (e.g., `app/_layout.tsx`) separate from mobile (`app/_layout.native.tsx`).
+  - If you are adding or configuring page navigation, headers, or screen options, ensure you update both mobile and web layout files as appropriate.
+  - Web layout might require different structure or options than native. Check for duplication, centralize shared logic where possible.
+  - Always verify both web and mobile user experiences when making layout changes.
+
+- All text shown to users (including button labels, headings, error messages, and any descriptive content) should be wrapped in translation functions/objects so it can be localized.  
+  - Do not hardcode user-facing strings directly in UI or logic – reference `t('...')`, translation objects, or similar localization utilities.
+  - If a string is not yet in translations, add it to the relevant translation file (e.g., [translations.json](mdc:locales/en/translations.json)), and reference it in code.
+  - Search for existing strings and re-use them across screens or components to avoid duplication in translation files.
+  - This applies to both web and mobile components, as well as error states, alerts, tooltips, notifications, and any text visible in the application UI.
+  - Keep translation keys consistent and organized by context (e.g., `landing.getStartedFree`, `signup.alreadyHaveAccount`, etc.).

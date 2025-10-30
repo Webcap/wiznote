@@ -17,6 +17,7 @@ import { WebLayout } from '../../../components/web/WebLayout';
 import { UserSidebar } from '../../../components/web/UserSidebar';
 import { useAuth } from '../../../hooks/useAuth';
 import { useThemeColor } from '../../../hooks/useThemeColor';
+import { useTranslation } from '../../../hooks/useTranslation';
 import { supabase } from '../../../lib/supabase';
 import { Quiz, QuizQuestion } from '../../../types/Quizzes';
 
@@ -27,6 +28,7 @@ interface UserAnswer {
 }
 
 export default function TakeQuizScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -52,13 +54,13 @@ export default function TakeQuizScreen() {
 
   useEffect(() => {
     if (!id) {
-      Alert.alert('Error', 'No quiz ID provided');
+      Alert.alert(t('quizzes.error'), t('quizzes.noQuizIdProvided'));
       router.back();
       return;
     }
 
     loadQuiz();
-  }, [id]);
+  }, [id, t]);
 
   const loadQuiz = async () => {
     try {
@@ -121,7 +123,7 @@ export default function TakeQuizScreen() {
       setQuestions(mappedQuestions);
     } catch (error) {
       console.error('Error loading quiz:', error);
-      Alert.alert('Error', 'Failed to load quiz');
+      Alert.alert(t('quizzes.error'), t('quizzes.failedToLoadQuiz'));
       router.back();
     } finally {
       setIsLoading(false);
@@ -150,12 +152,15 @@ export default function TakeQuizScreen() {
     // Check if all questions are answered
     const unansweredCount = questions.length - userAnswers.size;
     if (unansweredCount > 0) {
+      const message = unansweredCount === 1 
+        ? t('quizzes.unansweredQuestions', { count: unansweredCount })
+        : t('quizzes.unansweredQuestionsPlural', { count: unansweredCount });
       Alert.alert(
-        'Incomplete Quiz',
-        `You have ${unansweredCount} unanswered question${unansweredCount > 1 ? 's' : ''}. Do you want to submit anyway?`,
+        t('quizzes.incompleteQuiz'),
+        message,
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Submit', onPress: () => submitQuiz() },
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('quizzes.submit'), onPress: () => submitQuiz() },
         ]
       );
     } else {
@@ -209,7 +214,7 @@ export default function TakeQuizScreen() {
       setShowResults(true);
     } catch (error) {
       console.error('Error submitting quiz:', error);
-      Alert.alert('Error', 'Failed to submit quiz');
+      Alert.alert(t('quizzes.error'), t('quizzes.failedToSubmitQuiz'));
     } finally {
       setIsSubmitting(false);
     }
@@ -307,7 +312,7 @@ export default function TakeQuizScreen() {
                   style={[styles.secondaryButton, { borderColor }]}
                   onPress={() => router.push(`/quizzes/${id}`)}
                 >
-                  <ThemedText style={styles.secondaryButtonText}>View Details</ThemedText>
+                  <ThemedText style={styles.secondaryButtonText}>{t('quizzes.viewDetails')}</ThemedText>
                 </TouchableOpacity>
               </View>
             </ThemedView>
@@ -484,7 +489,7 @@ export default function TakeQuizScreen() {
                 style={[styles.textInput, { borderColor, color: textColor, backgroundColor: cardBg }]}
                 value={currentAnswer}
                 onChangeText={(text) => handleAnswerChange(currentQuestion.id, text)}
-                placeholder="Type your answer here..."
+                placeholder={t('quizzes.typeAnswerHere')}
                 placeholderTextColor={textSecondary}
                 multiline
               />

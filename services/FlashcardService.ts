@@ -125,7 +125,8 @@ export class FlashcardService {
     noteId: string,
     userId: string,
     options: FlashcardGenerationOptions,
-    noteContent?: string
+    noteContent?: string,
+    language: string = 'en'
   ): Promise<FlashcardGenerationResult> {
     try {
       console.log('🚀 FlashcardService: Starting flashcard generation');
@@ -232,6 +233,7 @@ export class FlashcardService {
         difficulty: options.difficulty,
         focusAreas: options.focusAreas,
         includeExplanations: options.includeExplanations,
+        language: language,
       });
 
       console.log('🚀 FlashcardService: AI generation result:', aiResult);

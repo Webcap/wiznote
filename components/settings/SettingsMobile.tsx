@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { Alert, Platform, ScrollView, Switch, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Modal, Platform, ScrollView, Switch, TouchableOpacity, View } from 'react-native';
 import { styles } from '../../styles/SettingsStyles';
 import { RoleBadge } from '../RoleBadge';
 import { ThemedText } from '../ThemedText';
@@ -11,6 +13,8 @@ import { Logo } from '../Logo';
 import { featureFlagService } from '../../services/FeatureFlagService';
 import { featureCacheService } from '../../services/FeatureCacheService';
 import { useSnackbar } from '../../contexts/SnackbarContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { DeleteAccountModal } from '../DeleteAccountModal';
 import { AudioAPIExplorer } from '../AudioAPIExplorer';
 import { AudioImportTest } from '../AudioImportTest';
@@ -27,10 +31,6 @@ interface SettingsMobileProps {
   updatePreferences: (preferences: any) => Promise<void>;
   theme: ThemePreference;
   setTheme: (theme: ThemePreference) => void;
-  notifications: boolean;
-  setNotifications: (value: boolean) => void;
-  autoSync: boolean;
-  setAutoSync: (value: boolean) => void;
   autoKeyDetails: boolean;
   setAutoKeyDetails: (value: boolean) => void;
   autoAISummaries: boolean;
@@ -56,10 +56,6 @@ export function SettingsMobile({
   updatePreferences,
   theme,
   setTheme,
-  notifications,
-  setNotifications,
-  autoSync,
-  setAutoSync,
   autoKeyDetails,
   setAutoKeyDetails,
   autoAISummaries,
@@ -73,24 +69,49 @@ export function SettingsMobile({
 }: SettingsMobileProps) {
   const router = useRouter();
   const { showSnackbar } = useSnackbar();
+  const { language, changeLanguage } = useLanguage();
+  const { t, i18n: i18nInstance } = useTranslation();
   const iconColor = useThemeColor({}, 'text');
   const cardBg = useThemeColor({}, 'backgroundSecondary');
   const cardText = useThemeColor({}, 'text');
   const borderColor = useThemeColor({}, 'border');
   const accentColor = useThemeColor({}, 'accentPrimary');
   const textSecondary = useThemeColor({}, 'textSecondary');
+  
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
+  
+  // Language configuration with flags - using PNG for better mobile compatibility
+  const languages = [
+    { code: 'en', name: t('settings.english'), flagUrl: 'https://flagcdn.com/w40/us.png' },
+    { code: 'es', name: t('settings.spanish'), flagUrl: 'https://flagcdn.com/w40/es.png' },
+  ];
+  const currentLanguage = languages.find(lang => lang.code === language) || languages[0];
+  
+  // Re-render when language changes
+  const [, setForceUpdate] = useState(0);
+  useEffect(() => {
+    // This will trigger a re-render when language changes
+    const listener = () => {
+      setForceUpdate(prev => prev + 1);
+    };
+    i18nInstance.on('languageChanged', listener);
+    return () => {
+      i18nInstance.off('languageChanged', listener);
+    };
+  }, [i18nInstance]);
 
   const currentUser = user;
   const appVersion = getAppVersion();
 
   const handleSignOut = async () => {
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+      t('settings.signOut'),
+      t('settings.signOutConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         { 
-          text: 'Sign Out', 
+          text: t('settings.signOut'), 
           style: 'destructive', 
           onPress: async () => {
             try {
@@ -102,7 +123,7 @@ export function SettingsMobile({
                 router.replace('/(auth)/login');
                 return;
               }
-              Alert.alert('Error', 'Failed to sign out. Please try again.');
+              Alert.alert(t('common.error'), t('settings.signOutError'));
             }
           }
         },
@@ -137,14 +158,26 @@ export function SettingsMobile({
     }
   };
 
+  const handleLanguageChange = async (newLanguage: string) => {
+    try {
+      console.log('Settings: Changing language to', newLanguage);
+      await changeLanguage(newLanguage);
+      console.log('Settings: Language changed successfully');
+      await updatePreferences({ language: newLanguage });
+      console.log('Settings: Preferences updated');
+    } catch (error) {
+      console.error('Error changing language:', error);
+    }
+  };
+
   if (isLoading) {
     return (
       <ThemedView style={styles.container}>
         <View style={styles.header}>
-          <ThemedText style={styles.headerTitle}>Settings</ThemedText>
+          <ThemedText style={styles.headerTitle}>{t('settings.settings')}</ThemedText>
         </View>
         <View style={styles.loadingContainer}>
-          <ThemedText style={styles.loadingText}>Loading settings...</ThemedText>
+          <ThemedText style={styles.loadingText}>{t('common.loading')} {t('settings.settings')}...</ThemedText>
         </View>
       </ThemedView>
     );
@@ -159,12 +192,12 @@ export function SettingsMobile({
       >
         {/* Header */}
         <View style={styles.header}>
-          <ThemedText style={styles.headerTitle}>Settings</ThemedText>
+          <ThemedText style={styles.headerTitle}>{t('settings.settings')}</ThemedText>
         </View>
 
         {/* User Profile */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Profile</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.profile')}</ThemedText>
           <View style={[styles.profileCard, { backgroundColor: cardBg }]}>
             <View style={styles.profileInfo}>
               <View style={styles.avatar}>
@@ -184,23 +217,35 @@ export function SettingsMobile({
               style={[styles.editProfileButton, { backgroundColor: accentColor }]}
               onPress={() => router.push('/edit-profile')}
             >
-              <ThemedText style={[styles.editProfileText, { color: '#FFFFFF' }]}>Edit</ThemedText>
+              <ThemedText style={[styles.editProfileText, { color: '#FFFFFF' }]}>{t('settings.edit')}</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Premium Section */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Premium</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.premium')}</ThemedText>
           <View style={[styles.profileCard, { backgroundColor: cardBg }]}>
             <View>
               <ThemedText style={{ fontWeight: 'bold', fontSize: 16 }}>
-                Status: {subscriptionDetails ? 'Active' : 'Inactive'}
+                {t('settings.status')}: {
+                  isLoading || subscriptionLoading 
+                    ? t('common.loading') 
+                    : (user?.premium?.isActive && user?.premium?.status !== 'canceled') 
+                      ? t('settings.active') 
+                      : t('settings.inactive')
+                }
               </ThemedText>
               <ThemedText style={{ color: '#A0A0A0', fontSize: 14 }}>
-                {subscriptionDetails ? (
-                  subscriptionLoading ? 'Loading...' : `${subscriptionDetails.planName} (${subscriptionDetails.planInterval})`
-                ) : 'Upgrade to unlock all features!'}
+                {isLoading || subscriptionLoading ? (
+                  t('common.loading')
+                ) : (user?.premium?.isActive && user?.premium?.status !== 'canceled') ? (
+                  subscriptionDetails 
+                    ? `${subscriptionDetails.planName}${subscriptionDetails.planInterval ? ` (${subscriptionDetails.planInterval})` : ''}` 
+                    : `${user?.premium?.type || 'Premium'}`
+                ) : (
+                  t('settings.upgradeToUnlock')
+                )}
               </ThemedText>
             </View>
           </View>
@@ -208,83 +253,234 @@ export function SettingsMobile({
 
         {/* Statistics */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Statistics</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.statistics')}</ThemedText>
           <View style={styles.statsGrid}>
             <View style={[styles.statCard, { backgroundColor: cardBg }]}>
               <ThemedText style={styles.statNumber}>{stats.totalNotes}</ThemedText>
-              <ThemedText style={styles.statLabel}>Total Notes</ThemedText>
+              <ThemedText style={styles.statLabel}>{t('settings.totalNotes')}</ThemedText>
             </View>
             <View style={[styles.statCard, { backgroundColor: cardBg }]}>
               <ThemedText style={styles.statNumber}>{stats.pinnedNotes}</ThemedText>
-              <ThemedText style={styles.statLabel}>Pinned</ThemedText>
+              <ThemedText style={styles.statLabel}>{t('settings.pinned')}</ThemedText>
             </View>
             <View style={[styles.statCard, { backgroundColor: cardBg }]}>
               <ThemedText style={styles.statNumber}>{stats.archivedNotes}</ThemedText>
-              <ThemedText style={styles.statLabel}>Archived</ThemedText>
+              <ThemedText style={styles.statLabel}>{t('settings.archived')}</ThemedText>
             </View>
             <View style={[styles.statCard, { backgroundColor: cardBg }]}>
               <ThemedText style={styles.statNumber}>{stats.totalTags}</ThemedText>
-              <ThemedText style={styles.statLabel}>Tags</ThemedText>
+              <ThemedText style={styles.statLabel}>{t('settings.tags')}</ThemedText>
             </View>
           </View>
         </View>
 
         {/* Preferences */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Preferences</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.preferences')}</ThemedText>
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
               <Ionicons name="color-palette" size={20} color="#6A5ACD" />
-              <ThemedText style={styles.preferenceLabel}>Theme</ThemedText>
+              <ThemedText style={styles.preferenceLabel}>{t('settings.theme')}</ThemedText>
             </View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {['light', 'dark', 'auto'].map(option => (
-                <TouchableOpacity
-                  key={option}
-                  style={{
-                    backgroundColor: theme === option ? accentColor : cardBg,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 16,
-                    marginHorizontal: 2,
-                  }}
-                  onPress={() => handleThemeChange(option as ThemePreference)}
-                >
-                  <ThemedText style={{ color: theme === option ? '#fff' : cardText, fontWeight: 'bold', fontSize: 14 }}>
-                    {option === 'light' ? 'Light' : option === 'dark' ? 'Dark' : 'System'}
-                  </ThemedText>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <TouchableOpacity
+              onPress={() => setShowThemePicker(true)}
+              style={{
+                backgroundColor: cardBg,
+                borderWidth: 1,
+                borderColor: borderColor,
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                minWidth: 120,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <ThemedText style={{ color: cardText, fontWeight: '500', fontSize: 14 }}>
+                {theme === 'light' ? t('settings.lightTheme') : theme === 'dark' ? t('settings.darkTheme') : t('settings.systemTheme')}
+              </ThemedText>
+              <Ionicons name="chevron-down" size={20} color={borderColor} />
+            </TouchableOpacity>
           </View>
+          
+          {/* Theme Picker Modal */}
+          <Modal
+            visible={showThemePicker}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowThemePicker(false)}
+          >
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              activeOpacity={1}
+              onPress={() => setShowThemePicker(false)}
+            >
+              <View
+                style={{
+                  backgroundColor: cardBg,
+                  borderRadius: 16,
+                  padding: 20,
+                  minWidth: 280,
+                  maxWidth: '90%',
+                }}
+                onStartShouldSetResponder={() => true}
+              >
+                <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
+                  {t('settings.theme')}
+                </ThemedText>
+                {['light', 'dark', 'auto'].map(option => (
+                  <TouchableOpacity
+                    key={option}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      backgroundColor: theme === option ? accentColor : 'transparent',
+                      marginBottom: 8,
+                      gap: 12,
+                    }}
+                    onPress={() => {
+                      handleThemeChange(option as ThemePreference);
+                      setShowThemePicker(false);
+                    }}
+                  >
+                    <ThemedText
+                      style={{
+                        flex: 1,
+                        color: theme === option ? '#fff' : cardText,
+                        fontWeight: '500',
+                        fontSize: 16,
+                      }}
+                    >
+                      {option === 'light' ? t('settings.lightTheme') : option === 'dark' ? t('settings.darkTheme') : t('settings.systemTheme')}
+                    </ThemedText>
+                    {theme === option && (
+                      <Ionicons name="checkmark" size={20} color={theme === option ? '#fff' : cardText} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableOpacity>
+          </Modal>
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
-              <Ionicons name="notifications" size={20} color="#6A5ACD" />
-              <ThemedText style={styles.preferenceLabel}>Notifications</ThemedText>
+              <Ionicons name="language" size={20} color="#6A5ACD" />
+              <ThemedText style={styles.preferenceLabel}>{t('settings.language')}</ThemedText>
             </View>
-            <Switch
-              value={notifications}
-              onValueChange={setNotifications}
-              trackColor={{ false: borderColor, true: '#6A5ACD' }}
-              thumbColor="#FFFFFF"
-            />
+            <TouchableOpacity
+              onPress={() => setShowLanguagePicker(true)}
+              style={{
+                backgroundColor: cardBg,
+                borderWidth: 1,
+                borderColor: borderColor,
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                minWidth: 120,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Image 
+                  source={{ uri: currentLanguage.flagUrl }} 
+                  style={{ width: 20, height: 15, borderRadius: 2 }}
+                  contentFit="cover"
+                  transition={200}
+                />
+                <ThemedText style={{ color: cardText, fontWeight: '500', fontSize: 14 }}>
+                  {currentLanguage.name}
+                </ThemedText>
+              </View>
+              <Ionicons name="chevron-down" size={20} color={borderColor} />
+            </TouchableOpacity>
           </View>
-          <View style={styles.preferenceItem}>
-            <View style={styles.preferenceInfo}>
-              <Ionicons name="cloud-upload" size={20} color="#6A5ACD" />
-              <ThemedText style={styles.preferenceLabel}>Auto Sync</ThemedText>
-            </View>
-            <Switch
-              value={autoSync}
-              onValueChange={setAutoSync}
-              trackColor={{ false: borderColor, true: '#6A5ACD' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
+          
+          {/* Language Picker Modal */}
+          <Modal
+            visible={showLanguagePicker}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowLanguagePicker(false)}
+          >
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              activeOpacity={1}
+              onPress={() => setShowLanguagePicker(false)}
+            >
+              <View
+                style={{
+                  backgroundColor: cardBg,
+                  borderRadius: 16,
+                  padding: 20,
+                  minWidth: 280,
+                  maxWidth: '90%',
+                }}
+                onStartShouldSetResponder={() => true}
+              >
+                <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
+                  {t('settings.language')}
+                </ThemedText>
+                {languages.map(lang => (
+                  <TouchableOpacity
+                    key={lang.code}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      backgroundColor: language === lang.code ? accentColor : 'transparent',
+                      marginBottom: 8,
+                      gap: 12,
+                    }}
+                    onPress={() => {
+                      handleLanguageChange(lang.code);
+                      setShowLanguagePicker(false);
+                    }}
+                  >
+                    <Image 
+                      source={{ uri: lang.flagUrl }} 
+                      style={{ width: 24, height: 18, borderRadius: 2 }}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                    <ThemedText
+                      style={{
+                        flex: 1,
+                        color: language === lang.code ? '#fff' : cardText,
+                        fontWeight: '500',
+                        fontSize: 16,
+                      }}
+                    >
+                      {lang.name}
+                    </ThemedText>
+                    {language === lang.code && (
+                      <Ionicons name="checkmark" size={20} color={language === lang.code ? '#fff' : cardText} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableOpacity>
+          </Modal>
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
               <Ionicons name="key" size={20} color="#6A5ACD" />
-              <ThemedText style={styles.preferenceLabel}>Auto Key Details</ThemedText>
+              <ThemedText style={styles.preferenceLabel}>{t('settings.autoKeyDetails')}</ThemedText>
             </View>
             <Switch
               value={autoKeyDetails}
@@ -296,7 +492,7 @@ export function SettingsMobile({
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
               <Ionicons name="sparkles" size={20} color="#6A5ACD" />
-              <ThemedText style={styles.preferenceLabel}>Auto AI Summaries</ThemedText>
+              <ThemedText style={styles.preferenceLabel}>{t('settings.autoAISummaries')}</ThemedText>
             </View>
             <Switch
               value={autoAISummaries}
@@ -310,13 +506,13 @@ export function SettingsMobile({
         {/* Admin Settings */}
         {isAdmin() && (
           <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Admin Settings</ThemedText>
+            <ThemedText style={styles.sectionTitle}>{t('settings.adminSettings')}</ThemedText>
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => router.push('/admin-dashboard')}
             >
               <Ionicons name="shield" size={20} color={iconColor} />
-              <ThemedText style={styles.actionButtonText}>Admin Dashboard</ThemedText>
+              <ThemedText style={styles.actionButtonText}>{t('settings.adminDashboard')}</ThemedText>
               <Ionicons name="chevron-forward" size={20} color={borderColor} />
             </TouchableOpacity>
             <TouchableOpacity 
@@ -324,7 +520,7 @@ export function SettingsMobile({
               onPress={() => router.push('/admin/feature-management')}
             >
               <Ionicons name="settings" size={20} color={iconColor} />
-              <ThemedText style={styles.actionButtonText}>Feature Management</ThemedText>
+              <ThemedText style={styles.actionButtonText}>{t('settings.featureManagement')}</ThemedText>
               <Ionicons name="chevron-forward" size={20} color={borderColor} />
             </TouchableOpacity>
           </View>
@@ -332,13 +528,13 @@ export function SettingsMobile({
 
         {/* Actions */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Actions</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.actions')}</ThemedText>
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => router.push('/subscription-management')}
           >
             <Ionicons name="card" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>Manage Subscription</ThemedText>
+            <ThemedText style={styles.actionButtonText}>{t('settings.manageSubscription')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           <TouchableOpacity 
@@ -346,7 +542,7 @@ export function SettingsMobile({
             onPress={() => router.push('/simple-usage')}
           >
             <Ionicons name="analytics" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>Usage Statistics</ThemedText>
+            <ThemedText style={styles.actionButtonText}>{t('settings.usageStatistics')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           <TouchableOpacity 
@@ -354,7 +550,7 @@ export function SettingsMobile({
             onPress={() => router.push('/archived')}
           >
             <Ionicons name="archive" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>Archived Notes ({stats.archivedNotes})</ThemedText>
+            <ThemedText style={styles.actionButtonText}>{t('settings.archivedNotes')} ({stats.archivedNotes})</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           
@@ -371,7 +567,7 @@ export function SettingsMobile({
             onPress={() => router.push('/help')}
           >
             <Ionicons name="help-circle" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>Help & Support</ThemedText>
+            <ThemedText style={styles.actionButtonText}>{t('settings.helpSupport')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           
@@ -380,7 +576,7 @@ export function SettingsMobile({
             onPress={() => router.push('/changelog')}
           >
             <Ionicons name="list" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>Changelog</ThemedText>
+            <ThemedText style={styles.actionButtonText}>{t('settings.changelog')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           
@@ -389,7 +585,7 @@ export function SettingsMobile({
             onPress={() => router.push('/about')}
           >
             <Ionicons name="information-circle" size={20} color={iconColor} />
-            <ThemedText style={styles.actionButtonText}>About WizNote</ThemedText>
+            <ThemedText style={styles.actionButtonText}>{t('settings.aboutWizNote')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
         </View>
@@ -444,10 +640,10 @@ export function SettingsMobile({
 
         {/* Danger Zone */}
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Danger Zone</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.dangerZone')}</ThemedText>
           <TouchableOpacity style={[styles.actionButton, styles.dangerButton]} onPress={handleSignOut}>
             <Ionicons name="log-out" size={20} color="#FF6B6B" />
-            <ThemedText style={[styles.actionButtonText, styles.dangerText]}>Sign Out</ThemedText>
+            <ThemedText style={[styles.actionButtonText, styles.dangerText]}>{t('settings.signOut')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
           <TouchableOpacity 
@@ -455,7 +651,7 @@ export function SettingsMobile({
             onPress={() => setShowDeleteAccountModal(true)}
           >
             <Ionicons name="trash" size={20} color="#FF6B6B" />
-            <ThemedText style={[styles.actionButtonText, styles.dangerText]}>Delete Account</ThemedText>
+            <ThemedText style={[styles.actionButtonText, styles.dangerText]}>{t('settings.deleteAccount')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
         </View>

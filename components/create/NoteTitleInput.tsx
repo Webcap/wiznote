@@ -3,6 +3,7 @@ import { View, TextInput, StyleSheet, Platform } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface NoteTitleInputProps {
   title: string;
@@ -21,20 +22,21 @@ export const NoteTitleInput: React.FC<NoteTitleInputProps> = ({
   borderColor,
   placeholderColor,
 }) => {
+  const { t } = useTranslation();
   return (
     <ThemedView style={styles.webSection}>
       <View style={styles.webSectionHeader}>
-        <ThemedText style={styles.webSectionTitle}>Title</ThemedText>
+        <ThemedText style={styles.webSectionTitle}>{t('createNote.title')}</ThemedText>
         <View style={styles.webSectionBadge}>
           <Ionicons name="document-text" size={16} color="#6A5ACD" />
-          <ThemedText style={styles.webSectionBadgeText}>Required</ThemedText>
+          <ThemedText style={styles.webSectionBadgeText}>{t('createNote.required')}</ThemedText>
         </View>
       </View>
       <TextInput
         style={[styles.webInput, { backgroundColor: inputBg, color: inputText, borderColor }]}
         value={title}
         onChangeText={setTitle}
-        placeholder="Enter a descriptive title for your note..."
+        placeholder={t('createNote.enterDescriptiveTitle')}
         placeholderTextColor={placeholderColor}
         multiline
         maxLength={200}

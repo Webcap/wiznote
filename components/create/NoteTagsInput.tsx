@@ -3,6 +3,7 @@ import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface NoteTagsInputProps {
   tags: string[];
@@ -27,13 +28,14 @@ export const NoteTagsInput: React.FC<NoteTagsInputProps> = ({
   borderColor,
   placeholderColor,
 }) => {
+  const { t } = useTranslation();
   return (
     <ThemedView style={styles.webSection}>
       <View style={styles.webSectionHeader}>
-        <ThemedText style={styles.webSectionTitle}>Tags</ThemedText>
+        <ThemedText style={styles.webSectionTitle}>{t('createNote.tags')}</ThemedText>
         <View style={styles.webSectionBadge}>
           <Ionicons name="pricetag" size={16} color="#6A5ACD" />
-          <ThemedText style={styles.webSectionBadgeText}>Optional</ThemedText>
+          <ThemedText style={styles.webSectionBadgeText}>{t('createNote.optional')}</ThemedText>
         </View>
       </View>
       <View style={styles.webTagInputContainer}>
@@ -41,7 +43,7 @@ export const NoteTagsInput: React.FC<NoteTagsInputProps> = ({
           style={[styles.webTagInput, { backgroundColor: inputBg, color: inputText, borderColor }]}
           value={newTag}
           onChangeText={setNewTag}
-          placeholder="Add a tag (press Enter to add)..."
+          placeholder={t('createNote.addTagEnter')}
           placeholderTextColor={placeholderColor}
           onSubmitEditing={addTag}
         />

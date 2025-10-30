@@ -6,6 +6,7 @@ import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { User } from '../../types/User';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface EditProfileMobileProps {
   user: User;
@@ -20,6 +21,7 @@ export function EditProfileMobile({
   onUpdatePassword,
   showMessage 
 }: EditProfileMobileProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   
   // Theme colors
@@ -71,18 +73,18 @@ export function EditProfileMobile({
       
       // Validate inputs
       if (!displayName.trim()) {
-        showMessage('Display name cannot be empty', 'error');
+        showMessage(t('editProfile.displayNameEmpty'), 'error');
         return;
       }
       
       if (!email.trim()) {
-        showMessage('Email cannot be empty', 'error');
+        showMessage(t('editProfile.emailEmpty'), 'error');
         return;
       }
       
       // Check if anything changed
       if (displayName === user.displayName && email === user.email) {
-        showMessage('No changes to save', 'info');
+        showMessage(t('editProfile.noChangesToSave'), 'info');
         return;
       }
       
@@ -99,18 +101,18 @@ export function EditProfileMobile({
       
       await onUpdateProfile(updates);
       
-      showMessage('Profile updated successfully', 'success');
+      showMessage(t('editProfile.profileUpdatedSuccessfully'), 'success');
       
       // If email was changed, show additional info
       if (updates.email) {
         setTimeout(() => {
-          showMessage('Please check your email to verify the new address', 'info');
+          showMessage(t('editProfile.checkEmailVerification'), 'info');
         }, 2000);
       }
     } catch (error) {
       console.error('Error updating profile:', error);
       showMessage(
-        error instanceof Error ? error.message : 'Failed to update profile',
+        error instanceof Error ? error.message : t('editProfile.failedToUpdateProfile'),
         'error'
       );
     } finally {
@@ -124,22 +126,22 @@ export function EditProfileMobile({
       
       // Validate inputs
       if (!currentPassword || !newPassword || !confirmPassword) {
-        showMessage('Please fill in all password fields', 'error');
+        showMessage(t('editProfile.pleaseFillAllPasswordFields'), 'error');
         return;
       }
       
       if (newPassword !== confirmPassword) {
-        showMessage('New passwords do not match', 'error');
+        showMessage(t('editProfile.passwordsDoNotMatch'), 'error');
         return;
       }
       
       if (newPassword.length < 8) {
-        showMessage('Password must be at least 8 characters long', 'error');
+        showMessage(t('editProfile.passwordMinLength'), 'error');
         return;
       }
       
       if (currentPassword === newPassword) {
-        showMessage('New password must be different from current password', 'error');
+        showMessage(t('editProfile.passwordMustBeDifferent'), 'error');
         return;
       }
       
@@ -150,11 +152,11 @@ export function EditProfileMobile({
       setNewPassword('');
       setConfirmPassword('');
       
-      showMessage('Password updated successfully', 'success');
+      showMessage(t('editProfile.passwordUpdatedSuccessfully'), 'success');
     } catch (error) {
       console.error('Error updating password:', error);
       showMessage(
-        error instanceof Error ? error.message : 'Failed to update password',
+        error instanceof Error ? error.message : t('editProfile.failedToUpdatePassword'),
         'error'
       );
     } finally {
@@ -175,7 +177,7 @@ export function EditProfileMobile({
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color={iconColor} />
           </TouchableOpacity>
-          <ThemedText type="title">Edit Profile</ThemedText>
+          <ThemedText type="title">{t('editProfile.editProfile')}</ThemedText>
         </View>
       </ThemedView>
 
@@ -210,7 +212,7 @@ export function EditProfileMobile({
             }}
           >
             <ThemedText style={{ color: accentColor, fontWeight: '600' }}>
-              Change Photo
+              {t('editProfile.changePhoto')}
             </ThemedText>
           </TouchableOpacity>
         </ThemedView>
@@ -218,7 +220,7 @@ export function EditProfileMobile({
         {/* Profile Information Section */}
         <ThemedView style={{ marginBottom: 32 }}>
           <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
-            Profile Information
+            {t('editProfile.profileInformation')}
           </ThemedText>
           
           <ThemedView style={{ 
@@ -235,12 +237,12 @@ export function EditProfileMobile({
                 marginBottom: 8,
                 color: textSecondary 
               }}>
-                Display Name
+                {t('editProfile.displayName')}
               </ThemedText>
               <TextInput
                 value={displayName}
                 onChangeText={setDisplayName}
-                placeholder="Enter your display name"
+                placeholder={t('editProfile.enterDisplayName')}
                 placeholderTextColor={textSecondary}
                 style={{
                   backgroundColor: backgroundColor,
@@ -262,12 +264,12 @@ export function EditProfileMobile({
                 marginBottom: 8,
                 color: textSecondary 
               }}>
-                Email Address
+                {t('editProfile.emailAddress')}
               </ThemedText>
               <TextInput
                 value={email}
                 onChangeText={setEmail}
-                placeholder="Enter your email"
+                placeholder={t('editProfile.enterEmail')}
                 placeholderTextColor={textSecondary}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -286,7 +288,7 @@ export function EditProfileMobile({
                 marginTop: 4,
                 color: textSecondary 
               }}>
-                Changing your email will require verification
+                {t('editProfile.emailVerificationNotice')}
               </ThemedText>
             </View>
 
@@ -317,7 +319,7 @@ export function EditProfileMobile({
                 fontSize: 16, 
                 fontWeight: '600' 
               }}>
-                {isUpdatingProfile ? 'Saving...' : 'Save Profile'}
+                {isUpdatingProfile ? t('editProfile.saving') : t('editProfile.saveProfile')}
               </ThemedText>
             </TouchableOpacity>
           </ThemedView>
@@ -326,7 +328,7 @@ export function EditProfileMobile({
         {/* Password Section */}
         <ThemedView style={{ marginBottom: 32 }}>
           <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
-            Change Password
+            {t('editProfile.changePassword')}
           </ThemedText>
           
           <ThemedView style={{ 
@@ -343,12 +345,12 @@ export function EditProfileMobile({
                 marginBottom: 8,
                 color: textSecondary 
               }}>
-                Current Password
+                {t('editProfile.currentPassword')}
               </ThemedText>
               <TextInput
                 value={currentPassword}
                 onChangeText={setCurrentPassword}
-                placeholder="Enter current password"
+                placeholder={t('editProfile.enterCurrentPassword')}
                 placeholderTextColor={textSecondary}
                 secureTextEntry
                 autoCapitalize="none"
@@ -372,12 +374,12 @@ export function EditProfileMobile({
                 marginBottom: 8,
                 color: textSecondary 
               }}>
-                New Password
+                {t('editProfile.newPassword')}
               </ThemedText>
               <TextInput
                 value={newPassword}
                 onChangeText={setNewPassword}
-                placeholder="Enter new password"
+                placeholder={t('editProfile.enterNewPassword')}
                 placeholderTextColor={textSecondary}
                 secureTextEntry
                 autoCapitalize="none"
@@ -401,12 +403,12 @@ export function EditProfileMobile({
                 marginBottom: 8,
                 color: textSecondary 
               }}>
-                Confirm New Password
+                {t('editProfile.confirmNewPassword')}
               </ThemedText>
               <TextInput
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
-                placeholder="Confirm new password"
+                placeholder={t('editProfile.confirmPasswordPlaceholder')}
                 placeholderTextColor={textSecondary}
                 secureTextEntry
                 autoCapitalize="none"
@@ -425,7 +427,7 @@ export function EditProfileMobile({
                 marginTop: 4,
                 color: textSecondary 
               }}>
-                Password must be at least 8 characters long
+                {t('editProfile.passwordRequirement')}
               </ThemedText>
             </View>
 
@@ -456,7 +458,7 @@ export function EditProfileMobile({
                 fontSize: 16, 
                 fontWeight: '600' 
               }}>
-                {isUpdatingPassword ? 'Updating...' : 'Update Password'}
+                {isUpdatingPassword ? t('editProfile.updating') : t('editProfile.updatePassword')}
               </ThemedText>
             </TouchableOpacity>
           </ThemedView>
@@ -465,7 +467,7 @@ export function EditProfileMobile({
         {/* Account Info */}
         <ThemedView style={{ marginBottom: 32 }}>
           <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
-            Account Information
+            {t('editProfile.accountInformation')}
           </ThemedText>
           
           <ThemedView style={{ 
@@ -475,19 +477,19 @@ export function EditProfileMobile({
             gap: 12 
           }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <ThemedText style={{ color: textSecondary, fontSize: 14 }}>Account ID</ThemedText>
+              <ThemedText style={{ color: textSecondary, fontSize: 14 }}>{t('editProfile.accountId')}</ThemedText>
               <ThemedText style={{ fontWeight: '600', fontSize: 14 }}>{user.id.slice(0, 8)}...</ThemedText>
             </View>
             
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <ThemedText style={{ color: textSecondary, fontSize: 14 }}>Member Since</ThemedText>
+              <ThemedText style={{ color: textSecondary, fontSize: 14 }}>{t('editProfile.memberSince')}</ThemedText>
               <ThemedText style={{ fontWeight: '600', fontSize: 14 }}>
                 {formatDate(user.createdAt)}
               </ThemedText>
             </View>
             
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <ThemedText style={{ color: textSecondary, fontSize: 14 }}>Last Login</ThemedText>
+              <ThemedText style={{ color: textSecondary, fontSize: 14 }}>{t('editProfile.lastLogin')}</ThemedText>
               <ThemedText style={{ fontWeight: '600', fontSize: 14 }}>
                 {formatDate(user.lastLoginAt)}
               </ThemedText>

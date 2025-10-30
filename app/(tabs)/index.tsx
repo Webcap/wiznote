@@ -19,6 +19,7 @@ import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useLazyData } from '../../hooks/useLazyData';
 import { useNotes } from '../../hooks/useNotes';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { useTranslation } from '../../hooks/useTranslation';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { usePDFUpload } from '../../contexts/PDFUploadContext';
 import { useAudioUpload } from '../../contexts/AudioUploadContext';
@@ -38,6 +39,7 @@ import { WebNoteCard } from '../../components/web/WebNoteCard';
 
 export default function HomeScreen() {
   console.log('HomeScreen: Component rendering...');
+  const { t } = useTranslation();
   const { user, isAuthenticated, isAdmin, isLoading: authLoading } = useAuth();
   const { isFeatureEnabled } = useFeatureFlags();
   const { showSnackbar } = useSnackbar();
@@ -198,8 +200,8 @@ export default function HomeScreen() {
       setIsMultiSelectMode(true);
       showSnackbar(
         Platform.OS === 'web' 
-          ? 'Multi-select mode activated. Click notes to select more.'
-          : 'Hold and release to select. Tap other notes to select more.',
+          ? t('home.multiSelectActivated')
+          : t('home.holdReleaseSelect'),
         'info',
         2000
       );
@@ -240,8 +242,9 @@ export default function HomeScreen() {
     console.log('Bulk delete initiated for notes:', Array.from(selectedNotes));
 
     // Use browser confirm for web, Alert.alert for mobile
+    const countText = selectedNotes.size === 1 ? t('home.note') : t('home.notes');
     const confirmed = Platform.OS === 'web' 
-      ? window.confirm(`Are you sure you want to delete ${selectedNotes.size} note${selectedNotes.size > 1 ? 's' : ''}? This action cannot be undone.`)
+      ? window.confirm(t('home.confirmDeleteNotes').replace('{{count}}', selectedNotes.size.toString()).replace('{{s}}', selectedNotes.size > 1 ? 's' : ''))
       : true; // For mobile, we'll use Alert.alert
 
     if (Platform.OS === 'web' && !confirmed) {
@@ -250,12 +253,12 @@ export default function HomeScreen() {
 
     if (Platform.OS !== 'web') {
       Alert.alert(
-        'Delete Selected Notes',
-        `Are you sure you want to delete ${selectedNotes.size} note${selectedNotes.size > 1 ? 's' : ''}? This action cannot be undone.`,
+        t('home.deleteSelectedNotes'),
+        t('home.confirmDeleteNotes').replace('{{count}}', selectedNotes.size.toString()).replace('{{s}}', selectedNotes.size > 1 ? 's' : ''),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('home.cancel'), style: 'cancel' },
           {
-            text: 'Delete',
+            text: t('home.delete'),
             style: 'destructive',
             onPress: async () => {
               await performBulkDelete();
@@ -280,31 +283,32 @@ export default function HomeScreen() {
         setIsMultiSelectMode(false);
         
         // Show success message using snackbar
+        const countText = selectedNotes.size === 1 ? t('home.note') : t('home.notes');
         showSnackbar(
-          `Successfully deleted ${selectedNotes.size} note${selectedNotes.size > 1 ? 's' : ''}!`,
+          t('home.successfullyDeleted').replace('{{count}}', selectedNotes.size.toString()).replace('{{s}}', selectedNotes.size > 1 ? 's' : ''),
           'success',
           3000
         );
       } catch (error) {
         console.error('Error deleting notes:', error);
         showSnackbar(
-          'Failed to delete some notes. Please try again.',
+          t('home.failedDeleteNotes'),
           'error',
           5000
         );
       }
     }
-  }, [selectedNotes, deleteNote, showSnackbar]);
+  }, [selectedNotes, deleteNote, showSnackbar, t]);
 
   const exitMultiSelectMode = useCallback(() => {
     setIsMultiSelectMode(false);
     setSelectedNotes(new Set());
     showSnackbar(
-      'Multi-select mode cancelled.',
+      t('home.multiSelectCancelled'),
       'info',
       1500
     );
-  }, [showSnackbar]);
+  }, [showSnackbar, t]);
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -361,15 +365,15 @@ export default function HomeScreen() {
         } else {
           // Permission denied
           Alert.alert(
-            'Microphone Permission Required',
-            'Audio recording requires microphone access. Please grant permission in your device settings to create audio notes.',
+            t('home.microphonePermissionRequired'),
+            t('home.microphonePermissionDesc'),
             [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Open Settings', onPress: () => {
+              { text: t('home.cancel'), style: 'cancel' },
+              { text: t('home.openSettings'), onPress: () => {
                 // On web, we can't open settings, so just show instructions
                 Alert.alert(
-                  'How to Grant Permission',
-                  '1. Go to your browser settings\n2. Find microphone permissions\n3. Allow microphone access for this site\n4. Try creating an audio note again'
+                  t('home.howToGrantPermission'),
+                  t('home.permissionInstructions')
                 );
               }}
             ]
@@ -378,15 +382,15 @@ export default function HomeScreen() {
       } else {
         // Permission denied, show alert
         Alert.alert(
-          'Microphone Permission Denied',
-          'Audio recording requires microphone access. Please grant permission in your device settings to create audio notes.',
+          t('home.microphonePermissionDenied'),
+          t('home.microphonePermissionDesc'),
           [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => {
+            { text: t('home.cancel'), style: 'cancel' },
+            { text: t('home.openSettings'), onPress: () => {
               // On web, we can't open settings, so just show instructions
               Alert.alert(
-                'How to Grant Permission',
-                '1. Go to your browser settings\n2. Find microphone permissions\n3. Allow microphone access for this site\n4. Try creating an audio note again'
+                t('home.howToGrantPermission'),
+                t('home.permissionInstructions')
               );
             }}
           ]
@@ -395,15 +399,15 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('Error checking microphone permission:', error);
       Alert.alert(
-        'Permission Error',
-        'Unable to check microphone permissions. Please try again.',
+        t('home.permissionError'),
+        t('home.unableToCheckPermissions'),
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Try Again', onPress: () => handleCreateAudioNote() }
+          { text: t('home.cancel'), style: 'cancel' },
+          { text: t('home.tryAgain'), onPress: () => handleCreateAudioNote() }
         ]
       );
     }
-  }, [router]);
+  }, [router, t]);
 
   const handleCloseCreateOptions = useCallback(() => {
     setShowCreateOptions(false);
@@ -414,7 +418,7 @@ export default function HomeScreen() {
     
     // Check if PDF upload feature is enabled
     if (!isFeatureEnabled('pdf_upload')) {
-      showSnackbar('PDF upload feature is not available', 'error');
+      showSnackbar(t('home.pdfUploadNotAvailable'), 'error');
       setShowCreateOptions(false);
       return;
     }
@@ -444,7 +448,7 @@ export default function HomeScreen() {
         
         // Validate file
         if (!asset) {
-          showSnackbar('No file selected', 'error');
+          showSnackbar(t('home.noFileSelected'), 'error');
           return;
         }
 
@@ -456,7 +460,7 @@ export default function HomeScreen() {
         }
 
         if (!user?.id) {
-          showSnackbar('Please sign in to upload PDFs', 'error');
+          showSnackbar(t('home.pleaseSignIn'), 'error');
           return;
         }
 
@@ -465,10 +469,10 @@ export default function HomeScreen() {
         
       } catch (error) {
         console.error('Error picking PDF:', error);
-        showSnackbar('Failed to select PDF file', 'error');
+        showSnackbar(t('home.failedToSelectPDF'), 'error');
       }
     }
-  }, [isFeatureEnabled, showSnackbar, user]);
+  }, [isFeatureEnabled, showSnackbar, user, t]);
 
   const handleMobilePDFUpload = useCallback(async (fileUri: string, fileName: string, fileSize: number) => {
     if (!user?.id) {
@@ -486,7 +490,7 @@ export default function HomeScreen() {
         fileSize: `${(fileSize / (1024 * 1024)).toFixed(2)} MB`,
         progress: 10,
         status: 'uploading',
-        statusMessage: 'Preparing PDF...',
+        statusMessage: t('home.preparingPDF'),
       });
 
       // Create placeholder note
@@ -501,7 +505,7 @@ export default function HomeScreen() {
       console.log('✅ Placeholder note created:', placeholderNote.id);
 
       // Update progress
-      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: 'Uploading to cloud...' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: t('home.uploadingToCloud') } : null);
 
       // Upload PDF
       console.log('☁️ Uploading PDF to storage...');
@@ -514,7 +518,7 @@ export default function HomeScreen() {
       console.log('✅ PDF uploaded:', uploadedPDFUrl);
 
       // Update progress
-      setUploadingPDF(prev => prev ? { ...prev, progress: 50, statusMessage: 'Processing with AI...' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 50, statusMessage: t('home.processingWithAI') } : null);
 
       // Process PDF with AI (extract text, generate title, summary, key details)
       console.log('🤖 Processing PDF with AI...');
@@ -530,7 +534,7 @@ export default function HomeScreen() {
       });
 
       // Update progress
-      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: 'Saving...' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: t('home.saving') } : null);
 
       const extractedText = aiResult.extractedText || '';
       const aiTitle = aiResult.title || fileName.replace('.pdf', '');
@@ -562,7 +566,7 @@ export default function HomeScreen() {
       console.log('✅ Metadata saved');
 
       // Show completion
-      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: 'Upload complete!' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: t('home.uploadComplete') } : null);
 
       // Refresh notes immediately to show the new upload
       console.log('🔄 Refreshing notes list...');
@@ -584,13 +588,13 @@ export default function HomeScreen() {
       });
       
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      showSnackbar(`PDF upload failed: ${errorMessage}`, 'error');
+      showSnackbar(t('home.pdfUploadFailed').replace('{{error}}', errorMessage), 'error');
       
       setUploadingPDF(prev => prev ? { 
         ...prev, 
         progress: 100, 
         status: 'error', 
-        statusMessage: 'Upload failed. Please try again.' 
+        statusMessage: t('home.uploadFailed')
       } : null);
       
       setTimeout(() => {
@@ -608,7 +612,7 @@ export default function HomeScreen() {
 
     // Validate file type
     if (file.type !== 'application/pdf') {
-      showSnackbar('Please select a PDF file', 'error');
+      showSnackbar(t('home.pleaseSelectPDF'), 'error');
       return;
     }
 
@@ -620,7 +624,7 @@ export default function HomeScreen() {
     }
 
     if (!user?.id) {
-      showSnackbar('Please sign in to upload PDFs', 'error');
+      showSnackbar(t('home.pleaseSignIn'), 'error');
       return;
     }
 
@@ -631,7 +635,7 @@ export default function HomeScreen() {
         fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
         progress: 10,
         status: 'uploading',
-        statusMessage: 'Preparing PDF...',
+        statusMessage: t('home.preparingPDF'),
       });
 
       // Create placeholder note
@@ -644,7 +648,7 @@ export default function HomeScreen() {
       });
 
       // Update progress
-      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: 'Uploading to cloud...' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: t('home.uploadingToCloud') } : null);
 
       // Upload PDF
       const uploadedPDFUrl = await pdfStorage.uploadPDFFile(
@@ -664,7 +668,7 @@ export default function HomeScreen() {
       });
 
       // Update progress
-      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: 'Saving...' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: t('home.saving') } : null);
 
       const extractedText = aiResult.extractedText || '';
       const aiTitle = aiResult.title || file.name.replace('.pdf', '');
@@ -692,7 +696,7 @@ export default function HomeScreen() {
       });
 
       // Show completion
-      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: 'Upload complete!' } : null);
+      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'completed', statusMessage: t('home.uploadComplete') } : null);
 
       // Refresh notes immediately to show the new upload
       await refreshNotes?.();
@@ -704,11 +708,11 @@ export default function HomeScreen() {
 
     } catch (error) {
       console.error('Error uploading PDF:', error);
-      setUploadingPDF(prev => prev ? { 
+        setUploadingPDF(prev => prev ? { 
         ...prev, 
         progress: 100, 
         status: 'error', 
-        statusMessage: 'Upload failed. Please try again.' 
+        statusMessage: t('home.uploadFailed')
       } : null);
       
       setTimeout(() => {
@@ -761,7 +765,7 @@ export default function HomeScreen() {
   };
 
   const handleWebDeleteNote = async (note: Note) => {
-    if (confirm('Are you sure you want to delete this note?')) {
+    if (confirm(t('home.confirmDeleteNote'))) {
       await deleteNote(note.id);
     }
   };
@@ -784,14 +788,14 @@ export default function HomeScreen() {
           }
           header={
             <View style={styles.webHeader}>
-              <ThemedText type="title">My Notes</ThemedText>
-              <ThemedText style={styles.webLoadingText}>Loading...</ThemedText>
+              <ThemedText type="title">{t('home.myNotes')}</ThemedText>
+              <ThemedText style={styles.webLoadingText}>{t('home.loading')}</ThemedText>
             </View>
           }
         >
           <View style={styles.webLoadingContainer}>
             <LoadingSpinner size={50} />
-            <ThemedText style={styles.webLoadingText}>Loading your notes...</ThemedText>
+            <ThemedText style={styles.webLoadingText}>{t('home.loadingYourNotes')}</ThemedText>
           </View>
         </WebLayout>
       );
@@ -807,7 +811,7 @@ export default function HomeScreen() {
           }
           header={
             <View style={styles.webHeader}>
-              <ThemedText type="title">My Notes</ThemedText>
+              <ThemedText type="title">{t('home.myNotes')}</ThemedText>
             </View>
           }
         >
@@ -815,7 +819,7 @@ export default function HomeScreen() {
             <Ionicons name="warning-outline" size={64} color="#FF6B6B" />
             <ThemedText style={styles.webErrorText}>{error}</ThemedText>
             <TouchableOpacity style={styles.webRetryButton} onPress={() => window.location.reload()}>
-              <ThemedText style={styles.webRetryButtonText}>Retry</ThemedText>
+              <ThemedText style={styles.webRetryButtonText}>{t('home.retry')}</ThemedText>
             </TouchableOpacity>
           </View>
         </WebLayout>
@@ -833,7 +837,7 @@ export default function HomeScreen() {
         header={
           <View style={styles.webHeader}>
             <View style={styles.webHeaderLeft}>
-              <ThemedText type="title">My Notes</ThemedText>
+              <ThemedText type="title">{t('home.myNotes')}</ThemedText>
             </View>
             <View style={styles.webHeaderActions}>
               {/* Sync Status Indicator */}
@@ -843,12 +847,12 @@ export default function HomeScreen() {
               {!user?.premium?.isActive && (
                 <TouchableOpacity style={styles.webPremiumButton} onPress={handlePremiumPress}>
                   <MaterialCommunityIcons name="crown" size={16} color="#FF8C00" />
-                  <ThemedText style={styles.webPremiumButtonText}>Join Premium</ThemedText>
+                  <ThemedText style={styles.webPremiumButtonText}>{t('home.joinPremium')}</ThemedText>
                 </TouchableOpacity>
               )}
 
               <ThemedText style={styles.webNoteCount}>
-                {filteredNotes.length} {filteredNotes.length === 1 ? 'note' : 'notes'}
+                {filteredNotes.length} {filteredNotes.length === 1 ? t('home.note') : t('home.notes')}
               </ThemedText>
             </View>
           </View>
@@ -859,14 +863,14 @@ export default function HomeScreen() {
             <View style={styles.webEmptyContainer}>
               <Ionicons name="document-outline" size={64} color="#666666" />
               <ThemedText type="subtitle" style={styles.webEmptyTitle}>
-                No notes yet
+                {t('home.noNotesYet')}
               </ThemedText>
               <ThemedText style={styles.webEmptySubtitle}>
-                Create your first note to get started
+                {t('home.createFirstNote')}
               </ThemedText>
               <TouchableOpacity style={styles.webCreateButton} onPress={handleWebCreateNote}>
                 <Ionicons name="add" size={20} color="#FFFFFF" />
-                <ThemedText style={styles.webCreateButtonText}>Create Note</ThemedText>
+                <ThemedText style={styles.webCreateButtonText}>{t('home.createNote')}</ThemedText>
               </TouchableOpacity>
             </View>
           ) : (
@@ -876,7 +880,7 @@ export default function HomeScreen() {
                 <View style={styles.webSelectionToolbar}>
                   <View style={styles.webSelectionInfo}>
                     <ThemedText style={styles.webSelectionText}>
-                      {selectedNotes.size} note{selectedNotes.size !== 1 ? 's' : ''} selected
+                      {selectedNotes.size} {selectedNotes.size === 1 ? t('home.noteSelected') : t('home.notesSelected')}
                     </ThemedText>
                   </View>
                   <View style={styles.webSelectionActions}>
@@ -888,14 +892,14 @@ export default function HomeScreen() {
                       }}
                     >
                       <Ionicons name="trash" size={16} color="#FFFFFF" />
-                      <ThemedText style={styles.webSelectionButtonText}>Delete</ThemedText>
+                      <ThemedText style={styles.webSelectionButtonText}>{t('home.delete')}</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity 
                       style={styles.webSelectionButton}
                       onPress={exitMultiSelectMode}
                     >
                       <Ionicons name="close" size={16} color="#666666" />
-                      <ThemedText style={[styles.webSelectionButtonText, { color: '#666666' }]}>Cancel</ThemedText>
+                      <ThemedText style={[styles.webSelectionButtonText, { color: '#666666' }]}>{t('home.cancel')}</ThemedText>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -961,10 +965,10 @@ export default function HomeScreen() {
         </View>
         
         <View style={styles.notesSection}>
-          <ThemedText style={styles.sectionTitle}>Recent Notes</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('home.recentNotes')}</ThemedText>
           <View style={styles.loadingContainer}>
             <LoadingSpinner size={50} />
-            <ThemedText style={styles.loadingText}>Loading your notes...</ThemedText>
+            <ThemedText style={styles.loadingText}>{t('home.loadingYourNotes')}</ThemedText>
           </View>
         </View>
       </ThemedView>
@@ -985,12 +989,12 @@ export default function HomeScreen() {
         </View>
         
         <View style={styles.notesSection}>
-          <ThemedText style={styles.sectionTitle}>Recent Notes</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('home.recentNotes')}</ThemedText>
           <View style={styles.errorContainer}>
             <Ionicons name="warning-outline" size={64} color="#FF6B6B" />
             <ThemedText style={styles.errorText}>{error}</ThemedText>
             <TouchableOpacity style={styles.retryButton} onPress={() => window.location.reload()}>
-              <ThemedText style={styles.retryButtonText}>Retry</ThemedText>
+              <ThemedText style={styles.retryButtonText}>{t('home.retry')}</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
@@ -1032,7 +1036,7 @@ export default function HomeScreen() {
       {/* Notes Section */}
       <View style={styles.notesSection}>
         <View style={styles.notesSectionHeader}>
-          <ThemedText style={styles.sectionTitle}>Recent Notes</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('home.recentNotes')}</ThemedText>
           <View style={styles.sortOrderContainer}>
             <TouchableOpacity
               style={[styles.sortOrderButton, { backgroundColor: showFavorites ? '#FFD700' : sortOrderButtonBg }]}
@@ -1040,24 +1044,27 @@ export default function HomeScreen() {
             >
               <Ionicons
                 name={showFavorites ? 'star' : 'star-outline'}
-                size={18}
+                size={16}
                 color={showFavorites ? '#000' : iconColor}
               />
-              <ThemedText style={[styles.sortOrderText, { color: showFavorites ? '#000' : iconColor }]}>
-                {showFavorites ? 'Favorites' : 'All'}
+              <ThemedText 
+                style={[styles.sortOrderText, { color: showFavorites ? '#000' : iconColor }]}
+                numberOfLines={1}
+              >
+                {showFavorites ? t('home.favorites') : t('home.all')}
               </ThemedText>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.sortOrderButton, { backgroundColor: sortOrderButtonBg, marginLeft: 8 }]}
+              style={[styles.sortOrderButton, { backgroundColor: sortOrderButtonBg }]}
               onPress={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
             >
               <Ionicons
                 name={sortOrder === 'desc' ? 'arrow-down' : 'arrow-up'}
-                size={18}
+                size={16}
                 color={iconColor}
               />
-              <ThemedText style={styles.sortOrderText}>
-                {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
+              <ThemedText style={styles.sortOrderText} numberOfLines={1}>
+                {sortOrder === 'desc' ? t('home.newest') : t('home.oldest')}
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -1066,9 +1073,9 @@ export default function HomeScreen() {
         {pinnedNotes.length === 0 && unpinnedNotes.length === 0 && !uploadingPDF && !uploadingAudio ? (
           <View style={styles.emptyState}>
             <Ionicons name="document-outline" size={64} color="#A0A0A0" />
-            <ThemedText style={styles.emptyText}>No notes yet</ThemedText>
+            <ThemedText style={styles.emptyText}>{t('home.noNotesYet')}</ThemedText>
             <ThemedText style={styles.emptySubtext}>
-              Tap the + button to create your first note
+              {t('home.tapPlusButton')}
             </ThemedText>
 
           </View>
@@ -1076,7 +1083,7 @@ export default function HomeScreen() {
           <>
             {pinnedNotes.length > 0 && (
               <>
-                <ThemedText style={styles.pinnedLabel}>Pinned</ThemedText>
+                <ThemedText style={styles.pinnedLabel}>{t('home.pinned')}</ThemedText>
                 <FlatList
                   data={pinnedNotes}
                   keyExtractor={(item) => item.id}
@@ -1106,7 +1113,7 @@ export default function HomeScreen() {
             {(unpinnedNotes.length > 0 || uploadingPDF || uploadingAudio) && (
               <>
                 {(unpinnedNotes.length > 0 || pinnedNotes.length > 0) && (
-                  <ThemedText style={styles.othersLabel}>Others</ThemedText>
+                  <ThemedText style={styles.othersLabel}>{t('home.others')}</ThemedText>
                 )}
                 <FlatList
                   data={displayNotes}
@@ -1175,7 +1182,7 @@ export default function HomeScreen() {
         <View style={[styles.mobileSelectionToolbar, { backgroundColor: cardBg }]}>
           <View style={styles.mobileSelectionInfo}>
             <ThemedText style={styles.mobileSelectionText}>
-              {selectedNotes.size} note{selectedNotes.size !== 1 ? 's' : ''} selected
+              {selectedNotes.size} {selectedNotes.size === 1 ? t('home.noteSelected') : t('home.notesSelected')}
             </ThemedText>
           </View>
           <View style={styles.mobileSelectionActions}>
@@ -1185,14 +1192,14 @@ export default function HomeScreen() {
               disabled={selectedNotes.size === 0}
             >
               <Ionicons name="trash" size={20} color="#FFFFFF" />
-              <ThemedText style={styles.mobileSelectionButtonText}>Delete</ThemedText>
+              <ThemedText style={styles.mobileSelectionButtonText}>{t('home.delete')}</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.mobileSelectionButton, styles.mobileSelectionButtonCancel]}
               onPress={exitMultiSelectMode}
             >
               <Ionicons name="close" size={20} color="#666666" />
-              <ThemedText style={[styles.mobileSelectionButtonText, { color: '#666666' }]}>Cancel</ThemedText>
+              <ThemedText style={[styles.mobileSelectionButtonText, { color: '#666666' }]}>{t('home.cancel')}</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
@@ -1246,6 +1253,7 @@ const CreateOptionsSheet = ({
   isPDFUploadEnabled: boolean;
   testID?: string;
 }) => {
+  const { t } = useTranslation();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const slideCardBg = useThemeColor({ light: '#fff', dark: '#2A2A2A' }, 'background');
   const optionBg = useThemeColor({ light: '#F5F6FA', dark: '#282828' }, 'background');
@@ -1311,8 +1319,8 @@ const CreateOptionsSheet = ({
           handleIndicatorStyle={{ backgroundColor: textSecondary }}
         >
           <BottomSheetView style={styles.bottomSheetContent}>
-            <ThemedText style={styles.bottomSheetTitle}>Create Note</ThemedText>
-            <ThemedText style={styles.bottomSheetSubtitle}>Choose the type of note you want to create</ThemedText>
+            <ThemedText style={styles.bottomSheetTitle}>{t('home.createNote')}</ThemedText>
+            <ThemedText style={styles.bottomSheetSubtitle}>{t('home.chooseNoteType')}</ThemedText>
             
             <View style={styles.createOptions}>
               <TouchableOpacity 
@@ -1326,8 +1334,8 @@ const CreateOptionsSheet = ({
                   <Ionicons name="document-text" size={24} color="#6A5ACD" />
                 </View>
                 <View style={styles.createOptionContent}>
-                  <ThemedText style={styles.createOptionTitle}>Text Note</ThemedText>
-                  <ThemedText style={styles.createOptionDescription}>Write notes with text and formatting</ThemedText>
+                  <ThemedText style={styles.createOptionTitle}>{t('home.textNote')}</ThemedText>
+                  <ThemedText style={styles.createOptionDescription}>{t('home.textNoteDesc')}</ThemedText>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={chevronColor} />
               </TouchableOpacity>
@@ -1344,8 +1352,8 @@ const CreateOptionsSheet = ({
                     <Ionicons name="mic" size={24} color="#6A5ACD" />
                   </View>
                   <View style={styles.createOptionContent}>
-                    <ThemedText style={styles.createOptionTitle}>Audio Note</ThemedText>
-                    <ThemedText style={styles.createOptionDescription}>Record voice notes with AI transcription</ThemedText>
+                    <ThemedText style={styles.createOptionTitle}>{t('home.audioNote')}</ThemedText>
+                    <ThemedText style={styles.createOptionDescription}>{t('home.audioNoteDesc')}</ThemedText>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={chevronColor} />
                 </TouchableOpacity>
@@ -1363,9 +1371,9 @@ const CreateOptionsSheet = ({
                     <Ionicons name="document" size={24} color="#E74C3C" />
                   </View>
                   <View style={styles.createOptionContent}>
-                    <ThemedText style={styles.createOptionTitle}>Upload PDF</ThemedText>
+                    <ThemedText style={styles.createOptionTitle}>{t('home.uploadPDF')}</ThemedText>
                     <ThemedText style={styles.createOptionDescription}>
-                      Extract text from PDF documents
+                      {t('home.uploadPDFDesc')}
                     </ThemedText>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={chevronColor} />
@@ -1374,7 +1382,7 @@ const CreateOptionsSheet = ({
             </View>
 
             <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+              <ThemedText style={styles.cancelButtonText}>{t('home.cancel')}</ThemedText>
             </TouchableOpacity>
           </BottomSheetView>
         </BottomSheet>
@@ -1392,7 +1400,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: Platform.OS === 'web' ? 40 : 20,
     paddingTop: 60,
     paddingBottom: 20,
   },
@@ -1424,17 +1432,20 @@ const styles = StyleSheet.create({
   },
   notesSection: {
     flex: 1,
-    paddingHorizontal: 40,
+    paddingHorizontal: Platform.OS === 'web' ? 40 : 20,
   },
   notesSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    flexShrink: 0,
   },
   listContainer: {
     paddingBottom: 20,
@@ -1443,7 +1454,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: Platform.OS === 'web' ? 40 : 20,
   },
   emptyText: {
     fontSize: 20,
@@ -1489,13 +1500,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: Platform.OS === 'web' ? 40 : 20,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: Platform.OS === 'web' ? 40 : 20,
   },
   retryButton: {
     backgroundColor: '#6A5ACD',
@@ -1572,19 +1583,26 @@ const styles = StyleSheet.create({
   sortOrderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   sortOrderButton: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: '100%',
   },
   sortOrderText: {
     color: '#6A5ACD',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    marginLeft: 6,
+    marginLeft: 4,
+    flexShrink: 1,
   },
   pinnedLabel: {
     fontSize: 16,

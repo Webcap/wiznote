@@ -19,8 +19,10 @@ import { betterAuthService } from '../services/BetterAuthService';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useTranslation } from '../hooks/useTranslation';
 
 export default function ForgotPasswordScreen() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -28,25 +30,25 @@ export default function ForgotPasswordScreen() {
   const { showSnackbar } = useSnackbar();
 
   // Set page title for web
-  usePageTitle({ title: 'Forgot Password - WizNote' });
+  usePageTitle({ title: `${t('auth.forgotPassword')} - WizNote` });
 
   const validateForm = () => {
     if (!email.trim()) {
-      const message = 'Please enter your email address';
+      const message = t('auth.pleaseEnterEmail');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('common.error'), message);
       }
       return false;
     }
 
     if (!email.includes('@')) {
-      const message = 'Please enter a valid email address';
+      const message = t('auth.pleaseEnterValidEmail');
       if (Platform.OS === 'web') {
         showSnackbar(message, 'error', 4000);
       } else {
-        Alert.alert('Error', message);
+        Alert.alert(t('common.error'), message);
       }
       return false;
     }
@@ -65,14 +67,14 @@ export default function ForgotPasswordScreen() {
       
       // Show success message
       if (Platform.OS === 'web') {
-        showSnackbar('Password reset email sent! Check your inbox.', 'success', 5000);
+        showSnackbar(t('auth.passwordResetEmailSentAlert'), 'success', 5000);
       } else {
-        Alert.alert('Email Sent', 'Password reset email sent! Check your inbox.');
+        Alert.alert(t('auth.emailSent'), t('auth.passwordResetEmailSentAlert'));
       }
       
     } catch (error) {
       // Parse error message and provide user-friendly feedback
-      let errorMessage = 'Failed to send password reset email. Please try again.';
+      let errorMessage = t('auth.failedToSendPasswordResetEmail');
       let errorDuration = 6000;
       
       if (error instanceof Error) {
@@ -80,17 +82,17 @@ export default function ForgotPasswordScreen() {
         
         // Rate limiting
         if (message.includes('rate limit') || message.includes('too many requests')) {
-          errorMessage = 'Too many password reset attempts. Please wait before trying again.';
+          errorMessage = t('auth.tooManyPasswordResetAttempts');
           errorDuration = 8000;
         }
         // Network errors
         else if (message.includes('network') || message.includes('fetch')) {
-          errorMessage = 'Network error. Please check your internet connection and try again.';
+          errorMessage = t('auth.networkErrorPasswordReset');
           errorDuration = 6000;
         }
         // User not found
         else if (message.includes('user not found') || message.includes('no user found')) {
-          errorMessage = 'No account found with this email address.';
+          errorMessage = t('auth.noAccountFoundWithEmail');
           errorDuration = 6000;
         }
         // Generic error with message
@@ -103,7 +105,7 @@ export default function ForgotPasswordScreen() {
       if (Platform.OS === 'web') {
         showSnackbar(errorMessage, 'error', errorDuration);
       } else {
-        Alert.alert('Password Reset Error', errorMessage);
+        Alert.alert(t('auth.forgotPasswordError'), errorMessage);
       }
     } finally {
       setIsLoading(false);
@@ -119,12 +121,12 @@ export default function ForgotPasswordScreen() {
     {
       key: 'Enter',
       action: handleResetPassword,
-      description: 'Send reset email',
+      description: t('auth.sendResetEmailShortcut'),
     },
     {
       key: 'Escape',
       action: handleBackToLogin,
-      description: 'Go back',
+      description: t('auth.goBack'),
     },
   ]);
 
@@ -152,7 +154,7 @@ export default function ForgotPasswordScreen() {
               </View>
               <ThemedText style={[styles.webBrandTitle, { color: textColor }]}>WizNote</ThemedText>
               <ThemedText style={[styles.webBrandSubtitle, { color: textSecondaryColor }]}>
-                Reset your password
+                {t('auth.resetYourPassword')}
               </ThemedText>
             </View>
             
@@ -160,19 +162,19 @@ export default function ForgotPasswordScreen() {
               <View style={styles.webFeatureItem}>
                 <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
                 <ThemedText style={[styles.webFeatureText, { color: textColor }]}>
-                  Secure password reset
+                  {t('auth.securePasswordReset')}
                 </ThemedText>
               </View>
               <View style={styles.webFeatureItem}>
                 <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
                 <ThemedText style={[styles.webFeatureText, { color: textColor }]}>
-                  Email verification required
+                  {t('auth.emailVerificationRequired')}
                 </ThemedText>
               </View>
               <View style={styles.webFeatureItem}>
                 <Ionicons name="checkmark-circle" size={20} color="#3CB371" />
                 <ThemedText style={[styles.webFeatureText, { color: textColor }]}>
-                  Quick and easy process
+                  {t('auth.quickAndEasyProcess')}
                 </ThemedText>
               </View>
             </View>
@@ -183,12 +185,12 @@ export default function ForgotPasswordScreen() {
             <View style={styles.webFormContainer}>
               <View style={styles.webFormHeader}>
                 <ThemedText style={[styles.webFormTitle, { color: textColor }]}>
-                  {emailSent ? 'Check Your Email' : 'Forgot Password?'}
+                  {emailSent ? t('auth.checkYourEmail') : t('auth.forgotPassword')}
                 </ThemedText>
                 <ThemedText style={[styles.webFormSubtitle, { color: textSecondaryColor }]}>
                   {emailSent 
-                    ? 'We\'ve sent a password reset link to your email address'
-                    : 'Enter your email address and we\'ll send you a reset link'
+                    ? t('auth.passwordResetEmailSent')
+                    : t('auth.enterEmailForResetLink')
                   }
                 </ThemedText>
               </View>
@@ -197,10 +199,10 @@ export default function ForgotPasswordScreen() {
                 <View style={styles.webForm}>
                   {/* Email Input */}
                   <View style={styles.webInputContainer}>
-                    <ThemedText style={[styles.webLabel, { color: textColor }]}>Email Address</ThemedText>
+                    <ThemedText style={[styles.webLabel, { color: textColor }]}>{t('auth.emailAddress')}</ThemedText>
                     <TextInput
                       style={[styles.webInput, { color: inputText, backgroundColor: inputBg, borderColor }]}
-                      placeholder="Enter your email"
+                      placeholder={t('auth.enterYourEmail')}
                       placeholderTextColor={borderColor}
                       value={email}
                       onChangeText={setEmail}
@@ -218,18 +220,18 @@ export default function ForgotPasswordScreen() {
                     disabled={isLoading}
                   >
                     <ThemedText style={styles.webResetButtonText}>
-                      {isLoading ? 'Sending...' : 'Send Reset Email'}
+                      {isLoading ? t('auth.sending') : t('auth.sendResetEmail')}
                     </ThemedText>
                   </TouchableOpacity>
 
                   {/* Back to Login Link */}
                   <View style={styles.webBackContainer}>
                     <ThemedText style={[styles.webBackText, { color: textSecondaryColor }]}>
-                      Remember your password?{' '}
+                      {t('auth.rememberYourPassword')}{' '}
                     </ThemedText>
                     <TouchableOpacity onPress={handleBackToLogin}>
                       <ThemedText style={[styles.webBackLink, { color: accentColor }]}>
-                        Back to Login
+                        {t('auth.backToLogin')}
                       </ThemedText>
                     </TouchableOpacity>
                   </View>
@@ -240,10 +242,10 @@ export default function ForgotPasswordScreen() {
                     <Ionicons name="mail" size={48} color={accentColor} />
                   </View>
                   <ThemedText style={[styles.webSuccessTitle, { color: textColor }]}>
-                    Email Sent Successfully
+                    {t('auth.emailSentSuccessfully')}
                   </ThemedText>
                   <ThemedText style={[styles.webSuccessSubtitle, { color: textSecondaryColor }]}>
-                    We've sent a password reset link to:
+                    {t('auth.passwordResetLinkSentTo')}
                   </ThemedText>
                   <ThemedText style={[styles.webSuccessEmail, { color: accentColor }]}>
                     {email}
@@ -257,7 +259,7 @@ export default function ForgotPasswordScreen() {
                     }}
                   >
                     <ThemedText style={styles.webResendButtonText}>
-                      Resend Email
+                      {t('auth.resendEmail')}
                     </ThemedText>
                   </TouchableOpacity>
 
@@ -266,7 +268,7 @@ export default function ForgotPasswordScreen() {
                     onPress={handleBackToLogin}
                   >
                     <ThemedText style={[styles.webBackToLoginText, { color: accentColor }]}>
-                      Back to Login
+                      {t('auth.backToLogin')}
                     </ThemedText>
                   </TouchableOpacity>
                 </View>
@@ -274,15 +276,15 @@ export default function ForgotPasswordScreen() {
 
               {/* Keyboard Shortcuts */}
               <View style={[styles.webShortcutsContainer, { borderTopColor: borderColor }]}>
-                <ThemedText style={[styles.webShortcutsTitle, { color: textSecondaryColor }]}>Keyboard Shortcuts</ThemedText>
+                <ThemedText style={[styles.webShortcutsTitle, { color: textSecondaryColor }]}>{t('auth.keyboardShortcuts')}</ThemedText>
                 <View style={styles.webShortcutsList}>
                   <View style={styles.webShortcutItem}>
-                    <ThemedText style={[styles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>Enter</ThemedText>
-                    <ThemedText style={[styles.webShortcutText, { color: textSecondaryColor }]}>Send reset email</ThemedText>
+                    <ThemedText style={[styles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>{t('auth.enter')}</ThemedText>
+                    <ThemedText style={[styles.webShortcutText, { color: textSecondaryColor }]}>{t('auth.sendResetEmailShortcut')}</ThemedText>
                   </View>
                   <View style={styles.webShortcutItem}>
-                    <ThemedText style={[styles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>Esc</ThemedText>
-                    <ThemedText style={[styles.webShortcutText, { color: textSecondaryColor }]}>Go back</ThemedText>
+                    <ThemedText style={[styles.webShortcutKey, { backgroundColor: cardBg, color: textColor }]}>{t('auth.esc')}</ThemedText>
+                    <ThemedText style={[styles.webShortcutText, { color: textSecondaryColor }]}>{t('auth.goBack')}</ThemedText>
                   </View>
                 </View>
               </View>
@@ -313,12 +315,12 @@ export default function ForgotPasswordScreen() {
               <Logo size={100} />
             </View>
             <ThemedText style={[styles.title, { color: textColor }]}>
-              {emailSent ? 'Check Your Email' : 'Forgot Password?'}
+              {emailSent ? t('auth.checkYourEmail') : t('auth.forgotPassword')}
             </ThemedText>
             <ThemedText style={[styles.subtitle, { color: textSecondaryColor }]}>
               {emailSent 
-                ? 'We\'ve sent a password reset link to your email'
-                : 'Enter your email to receive a reset link'
+                ? t('auth.passwordResetEmailSentShort')
+                : t('auth.enterEmailToReceiveResetLink')
               }
             </ThemedText>
           </View>
@@ -331,11 +333,11 @@ export default function ForgotPasswordScreen() {
                 <View style={styles.inputContainer}>
                   <View style={styles.inputLabelContainer}>
                     <Ionicons name="mail" size={18} color={accentColor} />
-                    <ThemedText style={[styles.label, { color: textColor }]}>Email Address</ThemedText>
+                    <ThemedText style={[styles.label, { color: textColor }]}>{t('auth.emailAddress')}</ThemedText>
                   </View>
                   <TextInput
                     style={[styles.input, { color: inputText, backgroundColor: inputBg, borderColor }]}
-                    placeholder="Enter your email"
+                    placeholder={t('auth.enterYourEmail')}
                     placeholderTextColor={textSecondaryColor}
                     value={email}
                     onChangeText={setEmail}
@@ -352,7 +354,7 @@ export default function ForgotPasswordScreen() {
                   disabled={isLoading}
                 >
                   <ThemedText style={styles.resetButtonText}>
-                    {isLoading ? 'Sending...' : 'Send Reset Email'}
+                    {isLoading ? t('auth.sending') : t('auth.sendResetEmail')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -365,10 +367,10 @@ export default function ForgotPasswordScreen() {
                   <Ionicons name="mail" size={48} color={accentColor} />
                 </View>
                 <ThemedText style={[styles.successTitle, { color: textColor }]}>
-                  Email Sent Successfully
+                  {t('auth.emailSentSuccessfully')}
                 </ThemedText>
                 <ThemedText style={[styles.successSubtitle, { color: textSecondaryColor }]}>
-                  We've sent a password reset link to:
+                  {t('auth.passwordResetLinkSentTo')}
                 </ThemedText>
                 <ThemedText style={[styles.successEmail, { color: accentColor }]}>
                   {email}
@@ -382,7 +384,7 @@ export default function ForgotPasswordScreen() {
                   }}
                 >
                   <ThemedText style={styles.resendButtonText}>
-                    Resend Email
+                    {t('auth.resendEmail')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -392,11 +394,11 @@ export default function ForgotPasswordScreen() {
           {/* Back to Login Link */}
           <View style={styles.backContainer}>
             <ThemedText style={[styles.backText, { color: textSecondaryColor }]}>
-              Remember your password?{' '}
+              {t('auth.rememberYourPassword')}{' '}
             </ThemedText>
             <TouchableOpacity onPress={handleBackToLogin}>
               <ThemedText style={[styles.backLink, { color: accentColor }]}>
-                Back to Login
+                {t('auth.backToLogin')}
               </ThemedText>
             </TouchableOpacity>
           </View>

@@ -12,6 +12,7 @@ import {
     View
 } from 'react-native';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useTranslation } from '../hooks/useTranslation';
 import { FlashcardService } from '../services/FlashcardService';
 import { FlashcardGenerationOptions } from '../types/Flashcards';
 import { ThemedText } from './ThemedText';
@@ -42,6 +43,7 @@ interface FlashcardGeneratorProps {
   noteContent?: string;
   note?: any; // Full note object including audioFiles
   userId: string;
+  language?: string; // User's language preference ('en' or 'es')
   onSuccess?: () => void; // Callback when flashcards are successfully generated
 }
 
@@ -52,8 +54,10 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
   noteContent,
   note,
   userId,
+  language = 'en',
   onSuccess,
 }) => {
+  const { t } = useTranslation();
   console.log('=== FlashcardGenerator Component Start ===');
   console.log('Platform:', Platform.OS);
   console.log('Props received:', { visible, noteId, userId, noteContentLength: noteContent?.length || 0 });
@@ -126,10 +130,10 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
             minWidth: 300
           }}>
             <ThemedText style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>
-              Flashcard Generator
+              {t('flashcardGenerator.title')}
             </ThemedText>
             <ThemedText style={{ marginBottom: 20 }}>
-              Service temporarily unavailable. Please try again later.
+              {t('flashcardGenerator.serviceUnavailable')}
             </ThemedText>
             <TouchableOpacity 
               style={{ 
@@ -140,7 +144,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
               }}
               onPress={onClose}
             >
-              <ThemedText style={{ color: '#FFFFFF' }}>Close</ThemedText>
+              <ThemedText style={{ color: '#FFFFFF' }}>{t('common.close')}</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
@@ -149,9 +153,9 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
   }
 
   const difficultyOptions: Array<{ value: 'easy' | 'medium' | 'hard'; label: string; color: string }> = [
-    { value: 'easy', label: 'Easy', color: '#4CAF50' },
-    { value: 'medium', label: 'Medium', color: '#FF9800' },
-    { value: 'hard', label: 'Hard', color: '#F44336' },
+    { value: 'easy', label: t('flashcardGenerator.easy'), color: '#4CAF50' },
+    { value: 'medium', label: t('flashcardGenerator.medium'), color: '#FF9800' },
+    { value: 'hard', label: t('flashcardGenerator.hard'), color: '#F44336' },
   ];
 
   const handleGenerate = async () => {
@@ -167,7 +171,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
       // Check if FlashcardService is available
       if (!isFlashcardServiceAvailable) {
         console.error('FlashcardService is not available');
-        Alert.alert('Service Unavailable', 'Flashcard generation service is not available. Please try again later.');
+        Alert.alert(t('flashcardGenerator.serviceUnavailableTitle'), t('flashcardGenerator.serviceUnavailableMessage'));
         return;
       }
       
@@ -213,9 +217,9 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
           console.log('Sufficient content found in individual sources, proceeding with generation');
         } else {
           Alert.alert(
-            'Insufficient Content',
-            'Please provide at least 50 characters of content (text or audio transcription) to generate meaningful flashcards.',
-            [{ text: 'OK', style: 'cancel' }]
+            t('flashcardGenerator.insufficientContent'),
+            t('flashcardGenerator.insufficientContentMessage'),
+            [{ text: t('common.ok'), style: 'cancel' }]
           );
           return;
         }
@@ -238,7 +242,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
       console.log('Generation options:', options);
       console.log('Calling generateFlashcards...');
       
-      const result = await flashcardService.generateFlashcards(noteId || 'custom', userId, options, contentToUse);
+      const result = await flashcardService.generateFlashcards(noteId || 'custom', userId, options, contentToUse, language);
       
       console.log('generateFlashcards result:', result);
       
@@ -255,13 +259,16 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
         const flashcardSet = result.flashcardSet;
         setTimeout(() => {
           Alert.alert(
-            'Success!',
-            `Generated ${flashcardSet?.totalCards || 0} flashcards in ${Math.round((result.generationTime || 0) / 1000)}s. You can now view and study them below.`,
-            [{ text: 'Great!', style: 'default' }]
+            t('flashcardGenerator.success'),
+            t('flashcardGenerator.successMessage', { 
+              count: flashcardSet?.totalCards || 0,
+              time: Math.round((result.generationTime || 0) / 1000)
+            }),
+            [{ text: t('flashcardGenerator.great'), style: 'default' }]
           );
         }, 300);
       } else {
-        Alert.alert('Generation Failed', result.error || 'Unknown error occurred');
+        Alert.alert(t('flashcardGenerator.generationFailed'), result.error || t('flashcardGenerator.unknownError'));
       }
     } catch (error) {
       console.error('Flashcard generation error:', error);
@@ -270,7 +277,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
         stack: error instanceof Error ? error.stack : 'No stack trace',
         name: error instanceof Error ? error.name : 'Unknown error type'
       });
-      Alert.alert('Error', 'Failed to generate flashcards. Please try again.');
+      Alert.alert(t('common.error'), t('flashcardGenerator.generateFailed'));
     } finally {
       console.log('Setting isGenerating to false');
       setIsGenerating(false);
@@ -281,9 +288,9 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
   const handleClose = () => {
     if (isGenerating) {
       Alert.alert(
-        'Generation in Progress',
-        'Please wait for the current generation to complete.',
-        [{ text: 'OK' }]
+        t('flashcardGenerator.generationInProgress'),
+        t('flashcardGenerator.waitForGeneration'),
+        [{ text: t('common.ok') }]
       );
       return;
     }
@@ -307,7 +314,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
               {/* Web Header */}
               <View style={[styles.webHeader, { backgroundColor: cardBackground }]}>
                 <ThemedText style={[styles.webTitle, { color: textColor }]}>
-                  Generate Flashcards
+                  {t('flashcardGenerator.generateFlashcards')}
                 </ThemedText>
                 <TouchableOpacity onPress={handleClose} style={styles.webCloseButton}>
                   <Ionicons name="close" size={24} color={textColor} />
@@ -320,33 +327,33 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
                 {noteContent ? (
                   <View style={[styles.webSection, { backgroundColor: cardBackground }]}>
                     <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>
-                      Note Content Preview
+                      {t('flashcardGenerator.noteContentPreview')}
                     </ThemedText>
                     <View style={[styles.webContentPreview, { borderColor: mutedTextColor }]}>
                       <ThemedText style={[styles.webContentText, { color: mutedTextColor }]} numberOfLines={3}>
                         {noteContent}
                       </ThemedText>
                       <ThemedText style={[styles.webContentLength, { color: mutedTextColor }]}>
-                        {noteContent.length} characters
+                        {t('flashcardGenerator.characters', { count: noteContent.length })}
                       </ThemedText>
                     </View>
                   </View>
                 ) : (
                   <View style={[styles.webSection, { backgroundColor: cardBackground }]}>
                     <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>
-                      Custom Content
+                      {t('flashcardGenerator.customContent')}
                     </ThemedText>
                     <TextInput
                       style={[styles.webTextInput, { color: textColor, borderColor: mutedTextColor, minHeight: 80 }]}
                       value={customContent}
                       onChangeText={setCustomContent}
-                      placeholder="Enter the content you want to create flashcards from (minimum 50 characters)..."
+                      placeholder={t('flashcardGenerator.enterContentPlaceholder')}
                       placeholderTextColor={mutedTextColor}
                       multiline
                       numberOfLines={3}
                     />
                     <ThemedText style={[styles.webHelperText, { color: mutedTextColor }]}>
-                      {customContent.length}/50 characters minimum
+                      {t('flashcardGenerator.charactersMinimum', { current: customContent.length, minimum: 50 })}
                     </ThemedText>
                   </View>
                 )}
@@ -354,7 +361,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
                 {/* Number of Cards */}
                 <View style={[styles.webSection, { backgroundColor: cardBackground }]}>
                   <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>
-                    Number of Cards
+                    {t('flashcardGenerator.numberOfCards')}
                   </ThemedText>
                   <View style={styles.webNumberInputContainer}>
                     <TouchableOpacity
@@ -385,14 +392,14 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
                     </TouchableOpacity>
                   </View>
                   <ThemedText style={[styles.webHelperText, { color: mutedTextColor }]}>
-                    Choose between 5-20 cards
+                    {t('flashcardGenerator.chooseBetweenCards')}
                   </ThemedText>
                 </View>
 
                 {/* Difficulty Level */}
                 <View style={[styles.webSection, { backgroundColor: cardBackground }]}>
                   <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>
-                    Difficulty Level
+                    {t('flashcardGenerator.difficultyLevel')}
                   </ThemedText>
                   <View style={styles.webDifficultyContainer}>
                     {difficultyOptions.map((option) => (
@@ -425,19 +432,19 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
                 {/* Focus Areas */}
                 <View style={[styles.webSection, { backgroundColor: cardBackground }]}>
                   <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>
-                    Focus Areas (Optional)
+                    {t('flashcardGenerator.focusAreas')}
                   </ThemedText>
                   <TextInput
                     style={[styles.webTextInput, { color: textColor, borderColor: mutedTextColor }]}
                     value={focusAreas}
                     onChangeText={setFocusAreas}
-                    placeholder="e.g., key concepts, definitions, examples"
+                    placeholder={t('flashcardGenerator.focusAreasPlaceholder')}
                     placeholderTextColor={mutedTextColor}
                     multiline
                     numberOfLines={2}
                   />
                   <ThemedText style={[styles.webHelperText, { color: mutedTextColor }]}>
-                    Separate multiple areas with commas
+                    {t('flashcardGenerator.separateWithCommas')}
                   </ThemedText>
                 </View>
 
@@ -461,7 +468,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
                       )}
                     </View>
                     <ThemedText style={[styles.webCheckboxLabel, { color: textColor }]}>
-                      Include explanations for each flashcard
+                      {t('flashcardGenerator.includeExplanations')}
                     </ThemedText>
                   </TouchableOpacity>
                 </View>
@@ -485,7 +492,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
                    <Ionicons name="flash" size={20} color="#FFFFFF" />
                  )}
                  <ThemedText style={styles.webGenerateButtonText}>
-                   {isGenerating ? 'Generating...' : (isFlashcardServiceAvailable ? `Generate ${numCards} Flashcards` : 'Service Unavailable')}
+                   {isGenerating ? t('flashcardGenerator.generating') : (isFlashcardServiceAvailable ? t('flashcardGenerator.generateCount', { count: numCards }) : t('flashcardGenerator.serviceUnavailableTitle'))}
                  </ThemedText>
                </TouchableOpacity>
               </View>
@@ -500,7 +507,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
                 <Ionicons name="close" size={24} color={textColor} />
               </TouchableOpacity>
               <ThemedText style={[styles.title, { color: textColor }]}>
-                Generate Flashcards
+                {t('flashcardGenerator.generateFlashcards')}
               </ThemedText>
               <View style={styles.placeholder} />
             </View>
@@ -510,33 +517,33 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
               {noteContent ? (
                 <View style={[styles.section, { backgroundColor: cardBackground }]}>
                   <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-                    Note Content Preview
+                    {t('flashcardGenerator.noteContentPreview')}
                   </ThemedText>
                   <View style={[styles.contentPreview, { borderColor: mutedTextColor }]}>
                     <ThemedText style={[styles.contentText, { color: mutedTextColor }]} numberOfLines={3}>
                       {noteContent}
                     </ThemedText>
                     <ThemedText style={[styles.contentLength, { color: mutedTextColor }]}>
-                      {noteContent.length} characters
+                      {t('flashcardGenerator.characters', { count: noteContent.length })}
                     </ThemedText>
                   </View>
                 </View>
               ) : (
                 <View style={[styles.section, { backgroundColor: cardBackground }]}>
                   <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-                    Custom Content
+                    {t('flashcardGenerator.customContent')}
                   </ThemedText>
                   <TextInput
                     style={[styles.textInput, { color: textColor, borderColor: mutedTextColor, minHeight: 80 }]}
                     value={customContent}
                     onChangeText={setCustomContent}
-                    placeholder="Enter the content you want to create flashcards from (minimum 50 characters)..."
+                    placeholder={t('flashcardGenerator.enterContentPlaceholder')}
                     placeholderTextColor={mutedTextColor}
                     multiline
                     numberOfLines={3}
                   />
                   <ThemedText style={[styles.helperText, { color: mutedTextColor }]}>
-                    {customContent.length}/50 characters minimum
+                    {t('flashcardGenerator.charactersMinimum', { current: customContent.length, minimum: 50 })}
                   </ThemedText>
                 </View>
               )}
@@ -544,7 +551,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
               {/* Number of Cards */}
               <View style={[styles.section, { backgroundColor: cardBackground }]}>
                 <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-                  Number of Cards
+                  {t('flashcardGenerator.numberOfCards')}
                 </ThemedText>
                 <View style={styles.numberInputContainer}>
                   <TouchableOpacity
@@ -575,14 +582,14 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
                   </TouchableOpacity>
                 </View>
                 <ThemedText style={[styles.helperText, { color: mutedTextColor }]}>
-                  Choose between 5-20 cards
+                  {t('flashcardGenerator.chooseBetweenCards')}
                 </ThemedText>
               </View>
 
               {/* Difficulty Level */}
               <View style={[styles.section, { backgroundColor: cardBackground }]}>
                 <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-                  Difficulty Level
+                  {t('flashcardGenerator.difficultyLevel')}
                 </ThemedText>
                 <View style={styles.difficultyContainer}>
                   {difficultyOptions.map((option) => (
@@ -615,19 +622,19 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
               {/* Focus Areas */}
               <View style={[styles.section, { backgroundColor: cardBackground }]}>
                 <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-                  Focus Areas (Optional)
+                  {t('flashcardGenerator.focusAreas')}
                 </ThemedText>
                 <TextInput
                   style={[styles.textInput, { color: textColor, borderColor: mutedTextColor }]}
                   value={focusAreas}
                   onChangeText={setFocusAreas}
-                  placeholder="e.g., key concepts, definitions, examples"
+                  placeholder={t('flashcardGenerator.focusAreasPlaceholder')}
                   placeholderTextColor={mutedTextColor}
                   multiline
                   numberOfLines={2}
                 />
                 <ThemedText style={[styles.helperText, { color: mutedTextColor }]}>
-                  Separate multiple areas with commas
+                  {t('flashcardGenerator.separateWithCommas')}
                 </ThemedText>
               </View>
 
@@ -651,7 +658,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
                     )}
                   </View>
                   <ThemedText style={[styles.checkboxLabel, { color: textColor }]}>
-                    Include explanations for each flashcard
+                    {t('flashcardGenerator.includeExplanations')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -675,7 +682,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
                   <Ionicons name="flash" size={20} color="#FFFFFF" />
                 )}
                 <ThemedText style={styles.generateButtonText}>
-                  {isGenerating ? 'Generating...' : (isFlashcardServiceAvailable ? `Generate ${numCards} Flashcards` : 'Service Unavailable')}
+                  {isGenerating ? t('flashcardGenerator.generating') : (isFlashcardServiceAvailable ? t('flashcardGenerator.generateCount', { count: numCards }) : t('flashcardGenerator.serviceUnavailableTitle'))}
                 </ThemedText>
               </TouchableOpacity>
             </View>
@@ -728,7 +735,7 @@ export const FlashcardGenerator: React.FC<FlashcardGeneratorProps> = ({
               }}
               onPress={onClose}
             >
-              <ThemedText style={{ color: '#FFFFFF' }}>Close</ThemedText>
+              <ThemedText style={{ color: '#FFFFFF' }}>{t('common.close')}</ThemedText>
             </TouchableOpacity>
           </View>
         </View>

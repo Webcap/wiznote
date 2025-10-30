@@ -102,7 +102,9 @@ export default ({ config }) => {
     plugins: [
       ...(config.plugins || []),
       'expo-font',
-      'expo-web-browser'
+      'expo-web-browser',
+      'expo-localization',
+      '@react-native-google-signin/google-signin'
     ],
     extra: {
       ...config.extra,

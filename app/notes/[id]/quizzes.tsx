@@ -16,10 +16,12 @@ import { WebLayout } from '../../../components/web/WebLayout';
 import { UserSidebar } from '../../../components/web/UserSidebar';
 import { useAuth } from '../../../hooks/useAuth';
 import { useThemeColor } from '../../../hooks/useThemeColor';
+import { useTranslation } from '../../../hooks/useTranslation';
 import { supabase } from '../../../lib/supabase';
 import { Quiz } from '../../../types/Quizzes';
 
 export default function NoteQuizzesScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -38,7 +40,7 @@ export default function NoteQuizzesScreen() {
 
   useEffect(() => {
     if (!id) {
-      Alert.alert('Error', 'No note ID provided');
+      Alert.alert(t('quizzes.error'), t('quizzes.noNoteIdProvided'));
       router.back();
       return;
     }
@@ -85,14 +87,15 @@ export default function NoteQuizzesScreen() {
       setNoteTitle('Note');
     } catch (error) {
       console.error('Error loading quizzes:', error);
-      Alert.alert('Error', 'Failed to load quizzes');
+      Alert.alert(t('quizzes.error'), t('quizzes.failedToLoadQuizzes'));
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCreateQuiz = () => {
-    router.push(`/quizzes/create?noteId=${id}`);
+    // Pass allowNew=true to bypass the redirect check when user explicitly wants to create a new quiz
+    router.push(`/quizzes/create?noteId=${id}&allowNew=true`);
   };
 
   const handleQuizPress = (quizId: string) => {
@@ -105,12 +108,12 @@ export default function NoteQuizzesScreen() {
 
   const handleDeleteQuiz = (quizId: string, quizTitle: string) => {
     Alert.alert(
-      'Delete Quiz',
-      `Are you sure you want to delete "${quizTitle}"? This action cannot be undone.`,
+      t('quizzes.deleteQuiz'),
+      t('quizzes.confirmDeleteQuiz', { title: quizTitle }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('quizzes.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('quizzes.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -123,10 +126,10 @@ export default function NoteQuizzesScreen() {
 
               // Reload quizzes
               loadQuizzes();
-              Alert.alert('Success', 'Quiz deleted successfully');
+              Alert.alert(t('quizzes.success'), t('quizzes.quizDeletedSuccessfully'));
             } catch (error) {
               console.error('Error deleting quiz:', error);
-              Alert.alert('Error', 'Failed to delete quiz');
+              Alert.alert(t('quizzes.error'), t('quizzes.failedToDeleteQuiz'));
             }
           },
         },
@@ -164,7 +167,7 @@ export default function NoteQuizzesScreen() {
         <ThemedView style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={primaryColor} />
           <ThemedText style={[styles.loadingText, { color: textSecondary }]}>
-            Loading quizzes...
+            {t('quizzes.loadingQuizzes')}
           </ThemedText>
         </ThemedView>
       </>
@@ -174,7 +177,7 @@ export default function NoteQuizzesScreen() {
       return (
         <WebLayout
           sidebar={<UserSidebar />}
-          title="Loading..."
+          title={t('quizzes.loading')}
           scrollable={false}
         >
           {loadingContent}
@@ -193,13 +196,16 @@ export default function NoteQuizzesScreen() {
           <View style={styles.headerLeft}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <Ionicons name="arrow-back" size={24} color={primaryColor} />
-              <ThemedText style={[styles.backButtonText, { color: primaryColor }]}>Back</ThemedText>
+              <ThemedText style={[styles.backButtonText, { color: primaryColor }]}>{t('quizzes.back')}</ThemedText>
             </TouchableOpacity>
           </View>
           <View style={styles.headerCenter}>
-            <ThemedText style={styles.title}>Quizzes</ThemedText>
+            <ThemedText style={styles.title}>{t('quizzes.quizzes')}</ThemedText>
             <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
-              {quizzes.length} {quizzes.length === 1 ? 'quiz' : 'quizzes'} for this note
+              {t('quizzes.quizCount', { 
+                count: quizzes.length, 
+                plural: quizzes.length === 1 ? t('quizzes.quiz') : t('quizzes.quizPlural') 
+              })}
             </ThemedText>
           </View>
           <View style={styles.headerRight} />
@@ -212,16 +218,16 @@ export default function NoteQuizzesScreen() {
             onPress={handleCreateQuiz}
           >
             <Ionicons name="add-circle" size={24} color="#FFFFFF" />
-            <ThemedText style={styles.createButtonText}>Create New Quiz</ThemedText>
+            <ThemedText style={styles.createButtonText}>{t('quizzes.createNewQuiz')}</ThemedText>
           </TouchableOpacity>
 
           {/* Quizzes List */}
           {quizzes.length === 0 ? (
             <ThemedView style={styles.emptyState}>
               <Ionicons name="document-text-outline" size={64} color={textSecondary} />
-              <ThemedText style={styles.emptyTitle}>No Quizzes Yet</ThemedText>
+              <ThemedText style={styles.emptyTitle}>{t('quizzes.noQuizzesYet')}</ThemedText>
               <ThemedText style={[styles.emptyText, { color: textSecondary }]}>
-                Create your first AI-generated quiz from this note
+                {t('quizzes.createFirstQuiz')}
               </ThemedText>
             </ThemedView>
           ) : (
@@ -256,7 +262,7 @@ export default function NoteQuizzesScreen() {
                             { color: getDifficultyColor(quiz.difficulty) },
                           ]}
                         >
-                          {quiz.difficulty.charAt(0).toUpperCase() + quiz.difficulty.slice(1)}
+                          {t(`quizzes.${quiz.difficulty}`)}
                         </ThemedText>
                       </View>
                     </View>
@@ -265,7 +271,7 @@ export default function NoteQuizzesScreen() {
                       <View style={styles.metaItem}>
                         <Ionicons name="help-circle-outline" size={16} color={textSecondary} />
                         <ThemedText style={[styles.metaText, { color: textSecondary }]}>
-                          {quiz.questionCount} questions
+                          {quiz.questionCount} {t('quizzes.questions')}
                         </ThemedText>
                       </View>
                       <View style={styles.metaItem}>
@@ -283,14 +289,14 @@ export default function NoteQuizzesScreen() {
                       onPress={() => handleTakeQuiz(quiz.id)}
                     >
                       <Ionicons name="play" size={18} color="#FFFFFF" />
-                      <ThemedText style={styles.actionButtonText}>Take Quiz</ThemedText>
+                      <ThemedText style={styles.actionButtonText}>{t('quizzes.takeQuiz')}</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.actionButton, styles.viewButton, { borderColor }]}
                       onPress={() => handleQuizPress(quiz.id)}
                     >
                       <Ionicons name="eye-outline" size={18} color={textColor} />
-                      <ThemedText style={[styles.viewButtonText, { color: textColor }]}>View</ThemedText>
+                      <ThemedText style={[styles.viewButtonText, { color: textColor }]}>{t('quizzes.view')}</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.iconButton, { borderColor }]}
@@ -312,7 +318,7 @@ export default function NoteQuizzesScreen() {
     return (
       <WebLayout
         sidebar={<UserSidebar />}
-        title="Quizzes"
+        title={t('quizzes.quizzes')}
         subtitle={noteTitle}
         scrollable={false}
       >

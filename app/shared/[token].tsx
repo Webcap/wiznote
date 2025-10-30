@@ -14,6 +14,7 @@ import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { useTranslation } from '../../hooks/useTranslation';
 import { noteSharingService } from '../../services/NoteSharingService';
 import { Note } from '../../types/Note';
 
@@ -22,6 +23,7 @@ const isWeb = Platform.OS === 'web';
 const isMobile = SCREEN_WIDTH < 768;
 
 export default function PublicShareScreen() {
+  const { t } = useTranslation();
   const { token } = useLocalSearchParams<{ token: string }>();
   const navigation = useNavigation();
 
@@ -219,7 +221,7 @@ export default function PublicShareScreen() {
               <View style={styles.keyDetailsHeader}>
                 <Ionicons name="key" size={16} color={accentColor} />
                 <ThemedText style={[styles.keyDetailsTitle, { color: textColor }]}>
-                  Key Details
+                  {t('noteDetail.keyDetails')}
                 </ThemedText>
               </View>
               {note.keyDetails.map((detail, index) => (

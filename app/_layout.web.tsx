@@ -14,13 +14,17 @@ import { SmartAppBanner } from '../components/web/SmartAppBanner';
 import { SnackbarProvider, useSnackbar } from '../contexts/SnackbarContext';
 import { PDFUploadProvider } from '../contexts/PDFUploadContext';
 import { AudioUploadProvider } from '../contexts/AudioUploadContext';
+import { LanguageProvider } from '../contexts/LanguageContext';
 import { useAuth } from '../hooks/useAuth';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useTranslation } from '../hooks/useTranslation';
 import { featureFlagService } from '../services/FeatureFlagService';
 import { ThemeProvider as CustomThemeProvider, ThemeContext } from '../ThemeContext';
+import '../lib/i18n';
 
 function AppContent() {
+  const { t } = useTranslation();
   const colorScheme = useColorScheme();
   const { isAuthenticated, isLoading, user, error, isOnline } = useAuth();
   // Ensure isOnline is always defined
@@ -174,20 +178,35 @@ function AppContent() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Show loading screen while auth is being determined or fonts are loading
-  if (!loaded || isLoading) {
+  // Check if user profile with preferences is fully loaded
+  const isProfileLoaded = user ? (
+    user.preferences !== undefined && 
+    user.preferences !== null
+  ) : !isAuthenticated; // If not authenticated, profile is "loaded" (no profile needed)
+
+  // Show loading screen while auth is being determined, fonts are loading, or profile isn't fully loaded
+  if (!loaded || isLoading || (isAuthenticated && !isProfileLoaded)) {
+    const loadingMessage = !loaded 
+      ? t('auth.loadingFonts') 
+      : isLoading 
+        ? t('auth.restoringSession') 
+        : t('auth.loadingProfile');
+    
     return (
       <CustomThemeProvider initialTheme={userTheme}>
-        <AuthLoadingScreen message="Initializing..." />
+        <LanguageProvider>
+          <AuthLoadingScreen message={loadingMessage} />
+        </LanguageProvider>
       </CustomThemeProvider>
     );
   }
 
   return (
     <CustomThemeProvider initialTheme={userTheme}>
-      <SnackbarProvider>
-        <PDFUploadProvider>
-          <AudioUploadProvider>
+      <LanguageProvider>
+        <SnackbarProvider>
+          <PDFUploadProvider>
+            <AudioUploadProvider>
             <ThemeContext.Consumer>
             {theme => {
               const isDark = theme === 'dark' || (theme === 'auto' && colorScheme === 'dark');
@@ -265,9 +284,10 @@ function AppContent() {
             );
           }}
         </ThemeContext.Consumer>
-          </AudioUploadProvider>
-        </PDFUploadProvider>
-      </SnackbarProvider>
+            </AudioUploadProvider>
+          </PDFUploadProvider>
+        </SnackbarProvider>
+      </LanguageProvider>
     </CustomThemeProvider>
   );
 }
