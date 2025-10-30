@@ -26,6 +26,8 @@ import { useThemeColor } from '../../hooks/useThemeColor';
 import { useTranslation } from '../../hooks/useTranslation';
 import { extractKeyDetailsWithGemini, generateSummaryWithGemini, testGeminiConnection } from '../../services/GeminiAI';
 import { featureLimitService } from '../../services/FeatureLimitService';
+import { supabase } from '../../lib/supabase';
+import { FlashcardService } from '../../services/FlashcardService';
 import { supabaseNoteStorage } from '../../services/SupabaseNoteStorage';
 import { NoteDetailStyles as styles } from '../../styles/NoteDetailStyles';
 import { AudioFile, Note } from '../../types/Note';
@@ -575,12 +577,43 @@ export default function NoteDetailScreen() {
     }
   };
 
+  // Shared note AI assets availability
+  const [hasSharedQuizzes, setHasSharedQuizzes] = useState<boolean>(true);
+  const [hasSharedFlashcards, setHasSharedFlashcards] = useState<boolean>(true);
+
+  useEffect(() => {
+    const checkSharedAssets = async () => {
+      if (!note?.id) return;
+      try {
+        const { count: quizCount, error: quizCountError } = await supabase
+          .from('quizzes')
+          .select('id', { count: 'exact', head: true })
+          .eq('note_id', note.id);
+        if (!quizCountError) {
+          setHasSharedQuizzes((quizCount || 0) > 0);
+        }
+
+        try {
+          const sets = await FlashcardService.getInstance().getFlashcardSetsForNote(note.id, user?.id || '');
+          setHasSharedFlashcards(Array.isArray(sets) && sets.some(s => (s.flashcards?.length || 0) > 0));
+        } catch (e) {
+          // Keep enabled on error; only grey out if confirmed absent
+        }
+      } catch (e) {}
+    };
+    checkSharedAssets();
+  }, [note?.id, user?.id]);
+
   const isButtonDisabled = (buttonId: string): boolean => {
     switch (buttonId) {
       case 'quiz':
-        return !isFeatureEnabled('ai_quiz');
+        if (!isFeatureEnabled('ai_quiz')) return true;
+        if (note?.isSharedNote) return !hasSharedQuizzes;
+        return false;
       case 'flashcards':
-        return !isFeatureEnabled('ai_flashcards');
+        if (!isFeatureEnabled('ai_flashcards')) return true;
+        if (note?.isSharedNote) return !hasSharedFlashcards;
+        return false;
       case 'aiChat':
         return !isFeatureEnabled('ai_chat');
       case 'writeEssay':
@@ -597,10 +630,64 @@ export default function NoteDetailScreen() {
     }
   };
 
+  const isButtonHidden = (buttonId: string): boolean => {
+    switch (buttonId) {
+      case 'quiz':
+        return !isFeatureEnabled('ai_quiz');
+      case 'flashcards':
+        return !isFeatureEnabled('ai_flashcards');
+      case 'aiChat':
+        return !isFeatureEnabled('ai_chat');
+      case 'writeEssay':
+        return !isFeatureEnabled('ai_write_essay');
+      case 'transcription':
+        return !note || !isAudioNote(note);
+      case 'viewPDF':
+      case 'downloadPDF':
+        return !note || !isPDFNote(note);
+      default:
+        return false;
+    }
+  };
+
   const handleActionButton = (buttonId: string) => {
     console.log('🔘 Button pressed:', buttonId, 'Disabled:', isButtonDisabled(buttonId));
     
     if (isButtonDisabled(buttonId)) {
+      if (note?.isSharedNote && (buttonId === 'quiz' || buttonId === 'flashcards')) {
+        const title = t('noteDetail.notAvailable');
+        const message = buttonId === 'quiz' ? t('noteDetail.sharedNoQuizGenerated') : t('noteDetail.sharedNoFlashcardsGenerated');
+        const actions: any[] = [];
+        if (user?.id) {
+          actions.push({
+            text: t('noteDetail.saveNoteToAccount'),
+            onPress: async () => {
+              try {
+                const created = await supabaseNoteStorage.createNote({
+                  title: note?.title || '',
+                  content: note?.content || '',
+                  contentHtml: note?.contentHtml || null,
+                  contentFormat: note?.contentFormat || 'plain',
+                  type: note?.type || 'text',
+                  tags: note?.tags || [],
+                  audioFiles: note?.audioFiles || [],
+                  pdfFiles: note?.pdfFiles || [],
+                  keyDetails: note?.keyDetails || [],
+                  summary: note?.summary || null,
+                });
+                if (created?.id) {
+                  router.push(`/create?noteId=${created.id}` as any);
+                }
+              } catch (e) {}
+            }
+          });
+        } else {
+          actions.push({ text: t('noteDetail.signIn'), onPress: () => router.push('/(auth)/login') });
+        }
+        actions.push({ text: t('noteDetail.cancel'), style: 'cancel' });
+        Alert.alert(title, message, actions);
+        return;
+      }
       console.log('❌ Button is disabled, not handling');
       return;
     }
@@ -839,72 +926,16 @@ export default function NoteDetailScreen() {
           <View style={styles.actionButtonsWrapper}>
             <View style={styles.actionButtonsContainer}>
               <View style={styles.buttonRow}>
-                {BUTTONS.slice(0, 2).filter(button => !isButtonDisabled(button.id)).map((button) => (
-                  <TouchableOpacity
-                    key={button.id}
-                    style={[
-                      styles.actionButton, 
-                      { 
-                        backgroundColor: button.color,
-                        opacity: 1
-                      }
-                    ]}
-                    onPress={() => handleActionButton(button.id)}
-                  >
-                    <Ionicons 
-                      name={getButtonIcon(button.id)} 
-                      size={16} 
-                      color={iconColor} 
-                    />
-                    <ThemedText style={[
-                      styles.actionButtonText,
-                      { color: iconColor }
-                    ]}>
-                      {button.label}
-                    </ThemedText>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <View style={styles.buttonRow}>
-                {BUTTONS.slice(2, 4).filter(button => !isButtonDisabled(button.id)).map((button) => (
-                  <TouchableOpacity
-                    key={button.id}
-                    style={[
-                      styles.actionButton, 
-                      { 
-                        backgroundColor: button.color,
-                        opacity: 1
-                      }
-                    ]}
-                    onPress={() => handleActionButton(button.id)}
-                  >
-                    <Ionicons 
-                      name={getButtonIcon(button.id)} 
-                      size={16} 
-                      color={iconColor} 
-                    />
-                    <ThemedText style={[
-                      styles.actionButtonText,
-                      { color: iconColor }
-                    ]}>
-                      {button.label}
-                    </ThemedText>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <View style={styles.buttonRow}>
-                {BUTTONS.slice(4, 6).filter(button => {
+                {BUTTONS.slice(0, 2).filter((b) => !isButtonHidden(b.id)).map((button) => {
                   const disabled = isButtonDisabled(button.id);
-                  console.log('🔍 Button:', button.id, 'Disabled:', disabled);
-                  return !disabled;
-                }).map((button) => (
+                  return (
                   <TouchableOpacity
                     key={button.id}
                     style={[
                       styles.actionButton, 
                       { 
                         backgroundColor: button.color,
-                        opacity: 1
+                        opacity: disabled ? 0.5 : 1
                       }
                     ]}
                     onPress={() => handleActionButton(button.id)}
@@ -921,21 +952,19 @@ export default function NoteDetailScreen() {
                       {button.label}
                     </ThemedText>
                   </TouchableOpacity>
-                ))}
+                );})}
               </View>
               <View style={styles.buttonRow}>
-                {BUTTONS.slice(6, 8).filter(button => {
+                {BUTTONS.slice(2, 4).filter((b) => !isButtonHidden(b.id)).map((button) => {
                   const disabled = isButtonDisabled(button.id);
-                  console.log('🔍 PDF Button:', button.id, 'Disabled:', disabled);
-                  return !disabled;
-                }).map((button) => (
+                  return (
                   <TouchableOpacity
                     key={button.id}
                     style={[
                       styles.actionButton, 
                       { 
                         backgroundColor: button.color,
-                        opacity: 1
+                        opacity: disabled ? 0.5 : 1
                       }
                     ]}
                     onPress={() => handleActionButton(button.id)}
@@ -952,7 +981,65 @@ export default function NoteDetailScreen() {
                       {button.label}
                     </ThemedText>
                   </TouchableOpacity>
-                ))}
+                );})}
+              </View>
+              <View style={styles.buttonRow}>
+                {BUTTONS.slice(4, 6).filter((b) => !isButtonHidden(b.id)).map((button) => {
+                  const disabled = isButtonDisabled(button.id);
+                  return (
+                  <TouchableOpacity
+                    key={button.id}
+                    style={[
+                      styles.actionButton, 
+                      { 
+                        backgroundColor: button.color,
+                        opacity: disabled ? 0.5 : 1
+                      }
+                    ]}
+                    onPress={() => handleActionButton(button.id)}
+                  >
+                    <Ionicons 
+                      name={getButtonIcon(button.id)} 
+                      size={16} 
+                      color={iconColor} 
+                    />
+                    <ThemedText style={[
+                      styles.actionButtonText,
+                      { color: iconColor }
+                    ]}>
+                      {button.label}
+                    </ThemedText>
+                  </TouchableOpacity>
+                );})}
+              </View>
+              <View style={styles.buttonRow}>
+                {BUTTONS.slice(6, 8).filter((b) => !isButtonHidden(b.id)).map((button) => {
+                  const disabled = isButtonDisabled(button.id);
+                  return (
+                  <TouchableOpacity
+                    key={button.id}
+                    style={[
+                      styles.actionButton, 
+                      { 
+                        backgroundColor: button.color,
+                        opacity: disabled ? 0.5 : 1
+                      }
+                    ]}
+                    onPress={() => handleActionButton(button.id)}
+                  >
+                    <Ionicons 
+                      name={getButtonIcon(button.id)} 
+                      size={16} 
+                      color={iconColor} 
+                    />
+                    <ThemedText style={[
+                      styles.actionButtonText,
+                      { color: iconColor }
+                    ]}>
+                      {button.label}
+                    </ThemedText>
+                  </TouchableOpacity>
+                );})}
               </View>
             </View>
           </View>

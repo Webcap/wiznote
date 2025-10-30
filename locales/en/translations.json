@@ -387,7 +387,10 @@
     "shortcuts": "Shortcuts",
     "goHome": "Go home",
     "debugTools": "Debug Tools",
-    "testAPI": "Test API"
+    "testAPI": "Test API",
+    "sharedNoQuizGenerated": "The owner hasn't generated a quiz for this shared note.",
+    "sharedNoFlashcardsGenerated": "The owner hasn't generated flashcards for this shared note.",
+    "saveNoteToAccount": "Save to My Notes"
   },
   "flashcards": {
     "loadingFlashcards": "Loading flashcards...",

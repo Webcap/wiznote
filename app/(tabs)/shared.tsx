@@ -8,6 +8,7 @@ import { NoteCard } from '../../components/NoteCard';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { useAuth } from '../../hooks/useAuth';
+import { useSnackbar } from '../../contexts/SnackbarContext';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { noteSharingService } from '../../services/NoteSharingService';
 import { NoteShare, SharedNote } from '../../types/Note';
@@ -78,8 +79,26 @@ export default function SharedScreen() {
     router.push(`/note/${note.id}` as any);
   };
 
+  const { showSnackbar } = useSnackbar();
+
   const handleRevokeShare = async (shareId: string) => {
     if (!user?.id) return;
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(t('shared.confirmRevokeShare'));
+      if (!confirmed) return;
+      try {
+        await noteSharingService.revokeShare(shareId, user.id);
+        // Optimistically remove from local state to avoid stale UI
+        setSentShares(prev => prev.filter(s => s.id !== shareId));
+        await loadSharedNotes();
+        showSnackbar(t('shared.revokeShare'), 'success');
+      } catch (error) {
+        console.error('Error revoking share:', error);
+        showSnackbar(t('shared.failedRevokeShare'), 'error');
+      }
+      return;
+    }
 
     Alert.alert(
       t('shared.revokeShare'),
@@ -92,7 +111,8 @@ export default function SharedScreen() {
           onPress: async () => {
             try {
               await noteSharingService.revokeShare(shareId, user.id);
-              await loadSharedNotes(); // Reload the data
+              setSentShares(prev => prev.filter(s => s.id !== shareId));
+              await loadSharedNotes();
             } catch (error) {
               console.error('Error revoking share:', error);
               Alert.alert(t('shared.error'), t('shared.failedRevokeShare'));

@@ -387,7 +387,10 @@
     "shortcuts": "Atajos",
     "goHome": "Ir al inicio",
     "debugTools": "Herramientas de Depuración",
-    "testAPI": "Probar API"
+    "testAPI": "Probar API",
+    "sharedNoQuizGenerated": "El propietario no ha generado un quiz para esta nota compartida.",
+    "sharedNoFlashcardsGenerated": "El propietario no ha generado tarjetas de estudio para esta nota compartida.",
+    "saveNoteToAccount": "Guardar en Mis Notas"
   },
   "flashcards": {
     "loadingFlashcards": "Cargando tarjetas de estudio...",

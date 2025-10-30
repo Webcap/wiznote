@@ -17,6 +17,7 @@ import { ShareModal } from '../../components/ShareModal';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { useAuth } from '../../hooks/useAuth';
+import { useSnackbar } from '../../contexts/SnackbarContext';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useNotes } from '../../hooks/useNotes';
@@ -24,6 +25,8 @@ import { useThemeColor } from '../../hooks/useThemeColor';
 import { useTranslation } from '../../hooks/useTranslation';
 import { extractKeyDetailsWithGemini, generateSummaryWithGemini, testGeminiConnection } from '../../services/GeminiAI';
 import { featureLimitService } from '../../services/FeatureLimitService';
+import { supabase } from '../../lib/supabase';
+import { FlashcardService } from '../../services/FlashcardService';
 import { supabaseNoteStorage } from '../../services/SupabaseNoteStorage';
 import { NoteDetailStyles as styles } from '../../styles/NoteDetailStyles';
 import { AudioFile, Note } from '../../types/Note';
@@ -35,6 +38,7 @@ import { WebLayout } from '../../components/web/WebLayout';
 export default function NoteDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { showSnackbar } = useSnackbar();
   
   const BUTTONS = [
     { id: 'transcription', label: t('noteDetail.transcription'), color: '#3CB371' },
@@ -774,13 +778,50 @@ export default function NoteDetailScreen() {
     }
   };
 
-  // Check if a button should be disabled based on feature flags and note type
+  // Track whether shared note already has AI assets
+  const [hasSharedQuizzes, setHasSharedQuizzes] = useState<boolean>(true); // default true; only grey out if confirmed absent
+  const [hasSharedFlashcards, setHasSharedFlashcards] = useState<boolean>(true);
+
+  useEffect(() => {
+    const checkSharedAssets = async () => {
+      if (!note?.id) return;
+      try {
+        // Check quizzes for this note id
+        const { count: quizCount, error: quizCountError } = await supabase
+          .from('quizzes')
+          .select('id', { count: 'exact', head: true })
+          .eq('note_id', note.id);
+        if (!quizCountError) {
+          setHasSharedQuizzes((quizCount || 0) > 0);
+        }
+
+        // Check flashcards for this note id (use service access rules)
+        try {
+          const sets = await FlashcardService.getInstance().getFlashcardSetsForNote(note.id, user?.id || '');
+          setHasSharedFlashcards(Array.isArray(sets) && sets.some(s => (s.flashcards?.length || 0) > 0));
+        } catch (e) {
+          // If access fails, keep enabled; we only grey out on confirmed absence
+        }
+      } catch (e) {
+        // Silent failure; don't block UI
+      }
+    };
+    checkSharedAssets();
+  }, [note?.id, user?.id]);
+
+  // Determine if a button should be disabled and optionally why
   const isButtonDisabled = (buttonId: string): boolean => {
     switch (buttonId) {
       case 'quiz':
-        return !isFeatureEnabled('ai_quiz');
+        if (!isFeatureEnabled('ai_quiz')) return true;
+        // For shared notes, disable if owner hasn't generated yet
+        if (note?.isSharedNote) return !hasSharedQuizzes;
+        return false;
       case 'flashcards':
-        return !isFeatureEnabled('ai_flashcards');
+        if (!isFeatureEnabled('ai_flashcards')) return true;
+        // For shared notes, disable if owner hasn't generated yet
+        if (note?.isSharedNote) return !hasSharedFlashcards;
+        return false;
       case 'aiChat':
         return !isFeatureEnabled('ai_chat');
       case 'writeEssay':
@@ -799,12 +840,77 @@ export default function NoteDetailScreen() {
     }
   };
 
+  // Determine if a button should be hidden entirely (not applicable)
+  const isButtonHidden = (buttonId: string): boolean => {
+    switch (buttonId) {
+      case 'quiz':
+        return !isFeatureEnabled('ai_quiz');
+      case 'flashcards':
+        return !isFeatureEnabled('ai_flashcards');
+      case 'aiChat':
+        return !isFeatureEnabled('ai_chat');
+      case 'writeEssay':
+        return !isFeatureEnabled('ai_write_essay');
+      case 'transcription':
+        return !note || !isAudioNote(note);
+      case 'viewPDF':
+      case 'downloadPDF':
+        return !note || !isPDFNote(note);
+      default:
+        return false;
+    }
+  };
+
+  const showSharedMissingAssetsPrompt = (asset: 'quiz' | 'flashcards') => {
+    const message = asset === 'quiz'
+      ? t('noteDetail.sharedNoQuizGenerated')
+      : t('noteDetail.sharedNoFlashcardsGenerated');
+
+    if (user?.id) {
+      showSnackbar(message, 'info', 4000, {
+        label: t('noteDetail.saveNoteToAccount'),
+        onPress: async () => {
+          try {
+            const created = await supabaseNoteStorage.createNote({
+              title: note?.title || '',
+              content: note?.content || '',
+              contentHtml: note?.contentHtml || null,
+              contentFormat: note?.contentFormat || 'plain',
+              type: note?.type || 'text',
+              tags: note?.tags || [],
+              audioFiles: note?.audioFiles || [],
+              pdfFiles: note?.pdfFiles || [],
+              keyDetails: note?.keyDetails || [],
+              summary: note?.summary || null,
+            });
+            if (created?.id) {
+              router.push(`/create?noteId=${created.id}` as any);
+            }
+          } catch (e) {}
+        }
+      });
+    } else {
+      showSnackbar(message, 'info', 4000, {
+        label: t('noteDetail.signIn'),
+        onPress: () => router.push('/(auth)/login'),
+      });
+    }
+  };
+
   // Handle action button presses
   const handleActionButton = (buttonId: string) => {
     console.log('🔘 Button pressed:', buttonId, 'Disabled:', isButtonDisabled(buttonId));
     
-    // Don't handle disabled buttons
+    // If disabled because shared note lacks generated assets, show prompt
     if (isButtonDisabled(buttonId)) {
+      if (note?.isSharedNote && (buttonId === 'quiz' || buttonId === 'flashcards')) {
+        if (buttonId === 'quiz' && !hasSharedQuizzes) {
+          return showSharedMissingAssetsPrompt('quiz');
+        }
+        if (buttonId === 'flashcards' && !hasSharedFlashcards) {
+          return showSharedMissingAssetsPrompt('flashcards');
+        }
+      }
       console.log('❌ Button is disabled, not handling');
       return;
     }
@@ -1302,18 +1408,16 @@ export default function NoteDetailScreen() {
           <View style={styles.webActionSection}>
             <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>{t('noteDetail.actions')}</ThemedText>
             <View style={styles.webActionGrid}>
-              {BUTTONS.filter(button => {
+              {BUTTONS.filter((b) => !isButtonHidden(b.id)).map((button) => {
                 const disabled = isButtonDisabled(button.id);
-                console.log('🌐 Web Button:', button.id, 'Disabled:', disabled);
-                return !disabled;
-              }).map((button) => (
+                return (
                 <TouchableOpacity
                   key={button.id}
                   style={[
                     styles.webActionButton, 
                     { 
                       backgroundColor: button.color,
-                      opacity: 1
+                      opacity: disabled ? 0.5 : 1
                     }
                   ]}
                   onPress={() => handleActionButton(button.id)}
@@ -1330,7 +1434,7 @@ export default function NoteDetailScreen() {
                     {button.label}
                   </ThemedText>
                 </TouchableOpacity>
-              ))}
+              );})}
             </View>
           </View>
 
