@@ -185,6 +185,7 @@ export const signupStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 60,
+    paddingTop: 80,
   },
   webFormContainer: {
     width: '100%',

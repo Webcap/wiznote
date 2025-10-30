@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../lib/supabase';
 import { LoginCredentials, SignupCredentials, User, UserPreferences, UserRole } from '../types/User';
 import {
@@ -1026,6 +1027,48 @@ export class BetterAuthService {
     try {
       console.log('Signing in with Google...');
       
+      // Prefer and enforce native Google Sign-In on mobile for account selector UX
+      if (Platform.OS !== 'web') {
+        try {
+          const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+          const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+          const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+          if (!webClientId) {
+            throw new Error('Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID');
+          }
+          GoogleSignin.configure({
+            webClientId,
+            ...(iosClientId ? { iosClientId } : {}),
+            offlineAccess: false,
+            forceCodeForRefreshToken: false,
+          });
+
+          try {
+            await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+          } catch (playServicesError) {
+            console.warn('Google Play Services not available or outdated:', playServicesError);
+          }
+
+          const account = await GoogleSignin.signIn();
+          const idToken = account?.idToken;
+          if (!idToken) {
+            throw new Error('Native Google Sign-In did not return an idToken');
+          }
+
+          const { error: signInError } = await supabase.auth.signInWithIdToken({
+            provider: 'google',
+            token: idToken,
+          });
+          if (signInError) throw signInError;
+          // Auth state listener will populate currentUser
+          return this.currentUser!;
+        } catch (nativeError) {
+          // Do not fall back to browser on native; surface clear error
+          console.error('Native Google Sign-In failed:', nativeError);
+          throw this.handleError(nativeError, 'Google Sign In (native)');
+        }
+      }
+
       // Determine redirect URL based on platform
       const getRedirectUrl = () => {
         if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -1050,11 +1093,12 @@ export class BetterAuthService {
 
       // For OAuth, we need to wait for the redirect
       if (data.url) {
-        // On web, redirect to OAuth provider
-        if (typeof window !== 'undefined') {
-          window.location.href = data.url;
+        if (Platform.OS === 'web') {
+          // On web, redirect to OAuth provider
+          if (typeof window !== 'undefined') {
+            window.location.href = data.url;
+          }
         }
-        // On mobile, the OAuth flow will handle the redirect
       }
 
       // The auth state change listener will handle the rest

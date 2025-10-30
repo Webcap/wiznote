@@ -617,6 +617,7 @@
     "all": "All",
     "text": "Text",
     "audio": "Audio",
+    "pdf": "PDF",
     "tags": "Tags",
     "sortBy": "Sort By",
     "lastModified": "Last Modified",

@@ -8,7 +8,8 @@ import {
     ScrollView,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    Image
 } from 'react-native';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ThemedText } from '../components/ThemedText';
@@ -31,7 +32,7 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
   const { showSnackbar } = useSnackbar();
 
   // Set page title for web
@@ -160,6 +161,22 @@ export default function SignupScreen() {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    try {
+      await signInWithGoogle();
+      if (Platform.OS === 'web') {
+        showSnackbar(t('signup.accountCreatedSuccessfully'), 'success', 3000);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('signup.failedToCreateAccount');
+      if (Platform.OS === 'web') {
+        showSnackbar(message, 'error', 6000);
+      } else {
+        Alert.alert(t('signup.error'), message);
+      }
     }
   };
 
@@ -364,6 +381,31 @@ export default function SignupScreen() {
                   )}
                 </TouchableOpacity>
 
+                {/* Or Divider */}
+                <View style={{ height: 12 }} />
+
+                {/* Google Sign Up (Brand-compliant) */}
+                <TouchableOpacity
+                  style={[
+                    styles.webSignupButton,
+                    { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775', paddingLeft: 12, paddingRight: 12 },
+                    isLoading && styles.webSignupButtonDisabled
+                  ]}
+                  onPress={handleGoogleSignUp}
+                  disabled={isLoading}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                    <Image
+                      source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                      style={{ width: 18, height: 18, marginRight: 10 }}
+                      resizeMode="contain"
+                    />
+                    <ThemedText style={[styles.webSignupButtonText, { color: '#1F1F1F', fontWeight: '500' }]}>
+                      {t('auth.signUpWithGoogle')}
+                    </ThemedText>
+                  </View>
+                </TouchableOpacity>
+
                 {/* Sign In Link */}
                 <View style={styles.webSigninContainer}>
                   <ThemedText style={[styles.webSigninText, { color: textSecondaryColor }]}>
@@ -521,6 +563,28 @@ export default function SignupScreen() {
               ) : (
                 <ThemedText style={styles.signupButtonText}>{t('signup.createAccount')}</ThemedText>
               )}
+            </TouchableOpacity>
+
+            {/* Google Sign Up (Brand-compliant) */}
+            <TouchableOpacity
+              style={[
+                styles.signupButton,
+                { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775', paddingLeft: 12, paddingRight: 12 },
+                isLoading && styles.signupButtonDisabled
+              ]}
+              onPress={handleGoogleSignUp}
+              disabled={isLoading}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <Image
+                  source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                  style={{ width: 18, height: 18, marginRight: 10 }}
+                  resizeMode="contain"
+                />
+                <ThemedText style={[styles.signupButtonText, { color: '#1F1F1F', fontWeight: '500' }]}>
+                  {t('auth.signUpWithGoogle')}
+                </ThemedText>
+              </View>
             </TouchableOpacity>
             {/* Sign In Link */}
             <View style={styles.signinContainer}>

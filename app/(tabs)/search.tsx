@@ -31,7 +31,7 @@ export default function SearchScreen() {
   const [sortBy, setSortBy] = useState<'updatedAt' | 'createdAt' | 'title'>('updatedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [isSearching, setIsSearching] = useState(false);
-  const [noteType, setNoteType] = useState<'all' | 'text' | 'audio'>('all');
+  const [noteType, setNoteType] = useState<'all' | 'text' | 'audio' | 'pdf'>('all');
 
   const { user, isAdmin } = useAuth();
   const { notes, getFilteredNotes, loading } = useNotes(user?.id || '');
@@ -43,6 +43,10 @@ export default function SearchScreen() {
     ) || note.audioUri;
   };
 
+  const isPDFNote = (note: Note) => {
+    return (note.pdfFiles && note.pdfFiles.length > 0) || !!note.pdfUrl || note.type === 'pdf';
+  };
+
   const filteredNotes = getFilteredNotes({
     searchQuery,
     tags: selectedTags,
@@ -52,7 +56,8 @@ export default function SearchScreen() {
   }).filter(note => {
     if (noteType === 'all') return true;
     if (noteType === 'audio') return isAudioNote(note);
-    if (noteType === 'text') return !isAudioNote(note);
+    if (noteType === 'pdf') return isPDFNote(note);
+    if (noteType === 'text') return !isAudioNote(note) && !isPDFNote(note);
     return true;
   });
 
@@ -146,14 +151,14 @@ export default function SearchScreen() {
             <View style={styles.filterSection}>
               <ThemedText style={styles.filterLabel}>{t('search.noteType')}</ThemedText>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                {['all', 'text', 'audio'].map(type => (
+                {['all', 'text', 'audio', 'pdf'].map(type => (
                   <TouchableOpacity
                     key={type}
                     style={[styles.sortButton, noteType === type && styles.activeSortButton]}
                     onPress={() => setNoteType(type as any)}
                   >
                     <ThemedText style={[styles.sortButtonText, noteType === type && styles.activeSortButtonText]}>
-                      {type === 'all' ? t('search.all') : type === 'text' ? t('search.text') : t('search.audio')}
+                      {type === 'all' ? t('search.all') : type === 'text' ? t('search.text') : type === 'audio' ? t('search.audio') : t('search.pdf')}
                     </ThemedText>
                   </TouchableOpacity>
                 ))}
@@ -311,14 +316,14 @@ export default function SearchScreen() {
         <View style={styles.filterSection}>
           <ThemedText style={styles.filterLabel}>{t('search.noteType')}</ThemedText>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            {['all', 'text', 'audio'].map(type => (
+            {['all', 'text', 'audio', 'pdf'].map(type => (
               <TouchableOpacity
                 key={type}
                 style={[styles.sortButton, noteType === type && styles.activeSortButton]}
                 onPress={() => setNoteType(type as any)}
               >
                 <ThemedText style={[styles.sortButtonText, noteType === type && styles.activeSortButtonText]}>
-                  {type === 'all' ? t('search.all') : type === 'text' ? t('search.text') : t('search.audio')}
+                  {type === 'all' ? t('search.all') : type === 'text' ? t('search.text') : type === 'audio' ? t('search.audio') : t('search.pdf')}
                 </ThemedText>
               </TouchableOpacity>
             ))}
@@ -393,7 +398,7 @@ export default function SearchScreen() {
               color={showArchived ? '#6A5ACD' : tagText}
             />
             <ThemedText style={[styles.archivedText, showArchived && styles.archivedTextActive]}>
-              {t('notes.showArchivedNotes')}
+              {t('search.showArchivedNotes')}
             </ThemedText>
           </TouchableOpacity>
         </View>
