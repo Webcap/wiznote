@@ -51,6 +51,7 @@ export default function SearchScreen() {
     searchQuery,
     tags: selectedTags,
     showArchived,
+    showFavorites: false,
     sortBy,
     sortOrder,
   }).filter(note => {
@@ -427,11 +428,12 @@ export default function SearchScreen() {
             data={filteredNotes}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <NoteCard
+                  <NoteCard
                 note={item}
                 onPress={handleNotePress}
                 onTogglePin={() => {}}
                 onToggleArchive={() => {}}
+                    onToggleFavorite={() => {}}
                 onDelete={() => {}}
               />
             )}
