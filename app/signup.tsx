@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Alert,
     KeyboardAvoidingView,
@@ -21,6 +21,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { useTranslation } from '../hooks/useTranslation';
 import { signupStyles as styles } from '../styles/SignupStyles';
+import { systemSettingsService } from '../services/SystemSettingsService';
 
 export default function SignupScreen() {
   const { t } = useTranslation();
@@ -31,12 +32,28 @@ export default function SignupScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [googleSignInEnabled, setGoogleSignInEnabled] = useState(true); // Default to true for better UX
 
   const { signUp, signInWithGoogle } = useAuth();
   const { showSnackbar } = useSnackbar();
 
   // Set page title for web
   usePageTitle();
+
+  // Load Google Sign-In setting
+  useEffect(() => {
+    const loadGoogleSignInSetting = async () => {
+      try {
+        const enabled = await systemSettingsService.isGoogleSignInEnabled();
+        setGoogleSignInEnabled(enabled);
+      } catch (error) {
+        console.error('Error loading Google Sign-In setting:', error);
+        // Default to true if there's an error
+        setGoogleSignInEnabled(true);
+      }
+    };
+    loadGoogleSignInSetting();
+  }, []);
 
   const validateForm = () => {
     if (!email.trim()) {
@@ -382,30 +399,34 @@ export default function SignupScreen() {
                   )}
                 </TouchableOpacity>
 
-                {/* Or Divider */}
-                <View style={{ height: 12 }} />
+                {googleSignInEnabled && (
+                  <>
+                    {/* Or Divider */}
+                    <View style={{ height: 12 }} />
 
-                {/* Google Sign Up (Brand-compliant) */}
-                <TouchableOpacity
-                  style={[
-                    styles.webSignupButton,
-                    { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775', paddingLeft: 12, paddingRight: 12 },
-                    isLoading && styles.webSignupButtonDisabled
-                  ]}
-                  onPress={handleGoogleSignUp}
-                  disabled={isLoading}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                    <Image
-                      source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
-                      style={{ width: 18, height: 18, marginRight: 10 }}
-                      resizeMode="contain"
-                    />
-                    <ThemedText style={[styles.webSignupButtonText, { color: '#1F1F1F', fontWeight: '500' }]}>
-                      {t('auth.signUpWithGoogle')}
-                    </ThemedText>
-                  </View>
-                </TouchableOpacity>
+                    {/* Google Sign Up (Brand-compliant) */}
+                    <TouchableOpacity
+                      style={[
+                        styles.webSignupButton,
+                        { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775', paddingLeft: 12, paddingRight: 12 },
+                        isLoading && styles.webSignupButtonDisabled
+                      ]}
+                      onPress={handleGoogleSignUp}
+                      disabled={isLoading}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                        <Image
+                          source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                          style={{ width: 18, height: 18, marginRight: 10 }}
+                          resizeMode="contain"
+                        />
+                        <ThemedText style={[styles.webSignupButtonText, { color: '#1F1F1F', fontWeight: '500' }]}>
+                          {t('auth.signUpWithGoogle')}
+                        </ThemedText>
+                      </View>
+                    </TouchableOpacity>
+                  </>
+                )}
 
                 {/* Sign In Link */}
                 <View style={styles.webSigninContainer}>
@@ -567,27 +588,34 @@ export default function SignupScreen() {
               )}
             </TouchableOpacity>
 
-            {/* Google Sign Up (Brand-compliant) */}
-            <TouchableOpacity
-              style={[
-                styles.signupButton,
-                { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775', paddingLeft: 12, paddingRight: 12 },
-                isLoading && styles.signupButtonDisabled
-              ]}
-              onPress={handleGoogleSignUp}
-              disabled={isLoading}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                <Image
-                  source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
-                  style={{ width: 18, height: 18, marginRight: 10 }}
-                  resizeMode="contain"
-                />
-                <ThemedText style={[styles.signupButtonText, { color: '#1F1F1F', fontWeight: '500' }]}>
-                  {t('auth.signUpWithGoogle')}
-                </ThemedText>
-              </View>
-            </TouchableOpacity>
+            {googleSignInEnabled && (
+              <>
+                {/* Or Divider */}
+                <View style={{ height: 12 }} />
+
+                {/* Google Sign Up (Brand-compliant) */}
+                <TouchableOpacity
+                  style={[
+                    styles.signupButton,
+                    { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775', paddingLeft: 12, paddingRight: 12 },
+                    isLoading && styles.signupButtonDisabled
+                  ]}
+                  onPress={handleGoogleSignUp}
+                  disabled={isLoading}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                    <Image
+                      source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                      style={{ width: 18, height: 18, marginRight: 10 }}
+                      resizeMode="contain"
+                    />
+                    <ThemedText style={[styles.signupButtonText, { color: '#1F1F1F', fontWeight: '500' }]}>
+                      {t('auth.signUpWithGoogle')}
+                    </ThemedText>
+                  </View>
+                </TouchableOpacity>
+              </>
+            )}
             {/* Sign In Link */}
             <View style={styles.signinContainer}>
               <ThemedText style={[styles.signinText, { color: textSecondaryColor }]}>

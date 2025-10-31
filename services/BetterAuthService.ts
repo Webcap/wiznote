@@ -1029,13 +1029,29 @@ export class BetterAuthService {
       
       // Prefer and enforce native Google Sign-In on mobile for account selector UX
       if (Platform.OS !== 'web') {
+        let googleSignInInitiated = false;
+        let GoogleSignin: any = null;
+        let useOAuthFallback = false;
+        
         try {
-          const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+          // Try to require the module
+          const googleSignInModule = require('@react-native-google-signin/google-signin');
+          
+          // Check if the module is properly loaded
+          if (!googleSignInModule || !googleSignInModule.GoogleSignin) {
+            console.warn('Native Google Sign-In module not available, falling back to OAuth flow');
+            useOAuthFallback = true;
+            throw new Error('MODULE_NOT_AVAILABLE'); // Special error to trigger fallback
+          }
+          
+          GoogleSignin = googleSignInModule.GoogleSignin;
           const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
           const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+          
           if (!webClientId) {
             throw new Error('Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID');
           }
+          
           GoogleSignin.configure({
             webClientId,
             ...(iosClientId ? { iosClientId } : {}),
@@ -1050,22 +1066,97 @@ export class BetterAuthService {
           }
 
           const account = await GoogleSignin.signIn();
+          googleSignInInitiated = true; // Mark that Google sign-in was attempted
           const idToken = account?.idToken;
           if (!idToken) {
+            // Sign out from Google if we got an account but no token
+            if (GoogleSignin) {
+              try {
+                await GoogleSignin.signOut();
+              } catch (signOutError) {
+                console.warn('Failed to sign out from Google after missing token:', signOutError);
+              }
+            }
             throw new Error('Native Google Sign-In did not return an idToken');
           }
 
-          const { error: signInError } = await supabase.auth.signInWithIdToken({
+          const { error: signInError, data } = await supabase.auth.signInWithIdToken({
             provider: 'google',
             token: idToken,
           });
-          if (signInError) throw signInError;
+          if (signInError) {
+            // Sign out from Google if Supabase sign-in failed
+            if (GoogleSignin) {
+              try {
+                await GoogleSignin.signOut();
+              } catch (signOutError) {
+                console.warn('Failed to sign out from Google after Supabase error:', signOutError);
+              }
+            }
+            throw signInError;
+          }
           // Auth state listener will populate currentUser
           return this.currentUser!;
         } catch (nativeError) {
-          // Do not fall back to browser on native; surface clear error
-          console.error('Native Google Sign-In failed:', nativeError);
-          throw this.handleError(nativeError, 'Google Sign In (native)');
+          // If module is not available, fall back to OAuth flow
+          if (nativeError instanceof Error && nativeError.message === 'MODULE_NOT_AVAILABLE') {
+            console.log('Falling back to OAuth flow for Google Sign-In');
+            useOAuthFallback = true;
+            // Don't throw, continue to OAuth flow below
+          } else {
+            // Clean up any partial Google sign-in state
+            if (googleSignInInitiated && GoogleSignin) {
+              try {
+                await GoogleSignin.signOut();
+              } catch (cleanupError) {
+                console.warn('Failed to clean up Google sign-in state:', cleanupError);
+              }
+            }
+            
+            // Clear any Supabase session that might have been created
+            // Check if it's a DEVELOPER_ERROR or module not found error
+            const isDeveloperError = nativeError instanceof Error && 
+              (nativeError.message.includes('DEVELOPER_ERROR') || 
+               nativeError.message.includes('10'));
+            
+            const isModuleError = nativeError instanceof Error && 
+              (nativeError.message.includes('not properly installed') ||
+               nativeError.message.includes('Cannot read property'));
+            
+            if (isDeveloperError || isModuleError) {
+              console.log(`${isDeveloperError ? 'DEVELOPER_ERROR' : 'Module error'} detected - clearing any partial session`);
+              try {
+                // Clear current user state if error occurred
+                this.currentUser = null;
+                if (this.onAuthStateChange) {
+                  this.onAuthStateChange(null);
+                }
+                // Clear Supabase session
+                await supabase.auth.signOut();
+              } catch (cleanupError) {
+                console.warn('Failed to clear session on error:', cleanupError);
+              }
+              
+              // For module errors, fall back to OAuth instead of throwing
+              if (isModuleError) {
+                console.log('Module error detected - falling back to OAuth flow');
+                useOAuthFallback = true;
+              } else {
+                // For DEVELOPER_ERROR, throw the error (configuration issue)
+                console.error('Native Google Sign-In failed:', nativeError);
+                throw this.handleError(nativeError, 'Google Sign In (native)');
+              }
+            } else {
+              // Other errors - throw them
+              console.error('Native Google Sign-In failed:', nativeError);
+              throw this.handleError(nativeError, 'Google Sign In (native)');
+            }
+          }
+        }
+        
+        // If we're using OAuth fallback, continue to the OAuth flow below
+        if (!useOAuthFallback) {
+          return this.currentUser!;
         }
       }
 
@@ -1097,6 +1188,36 @@ export class BetterAuthService {
           // On web, redirect to OAuth provider
           if (typeof window !== 'undefined') {
             window.location.href = data.url;
+          }
+        } else {
+          // On mobile, use WebBrowser to open OAuth URL
+          try {
+            const result = await WebBrowser.openAuthSessionAsync(
+              data.url,
+              getRedirectUrl()
+            );
+
+            if (result.type === 'cancel') {
+              throw new Error('Google Sign-In was cancelled');
+            }
+
+            // Supabase will handle the callback automatically via deep link
+            // The auth state change listener will detect the sign-in
+            // Wait a moment for the auth state to update
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Check if we have a user now
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+              await this.handleSignInOrSignUp(session.user);
+              return this.currentUser!;
+            }
+            
+            // If no session after callback, it might still be processing
+            throw new Error('Google Sign-In callback received but no session found. Please try again.');
+          } catch (browserError) {
+            console.error('Error opening browser for Google Sign-In:', browserError);
+            throw browserError;
           }
         }
       }

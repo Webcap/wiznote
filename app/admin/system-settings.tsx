@@ -128,6 +128,7 @@ export default function SystemSettingsScreen() {
           rateLimitApiWindowMinutes: settings.rateLimitApiWindowMinutes,
           maintenanceMode: settings.maintenanceMode,
           newUserRegistrationEnabled: settings.newUserRegistrationEnabled,
+          googleSignInEnabled: settings.googleSignInEnabled,
         },
         user.id
       );
@@ -378,6 +379,15 @@ export default function SystemSettingsScreen() {
           value={settings.newUserRegistrationEnabled}
           onChange={(value) =>
             updateSetting('newUserRegistrationEnabled', value)
+          }
+        />
+
+        <SettingToggle
+          label="Google Sign-In"
+          description="Enable Google Sign-In and Sign-Up for all users"
+          value={settings.googleSignInEnabled}
+          onChange={(value) =>
+            updateSetting('googleSignInEnabled', value)
           }
         />
         </ThemedView>

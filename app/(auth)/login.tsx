@@ -22,6 +22,7 @@ import { usePageTitle } from '../../hooks/usePageTitle';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { useTranslation } from '../../hooks/useTranslation';
 import { loginStyles } from '../../styles/LoginStyles';
+import { systemSettingsService } from '../../services/SystemSettingsService';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -30,12 +31,28 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isMobileWeb, setIsMobileWeb] = useState(false);
+  const [googleSignInEnabled, setGoogleSignInEnabled] = useState(true); // Default to true for better UX
 
   const { signIn, signInWithGoogle } = useAuth();
   const { showSnackbar } = useSnackbar();
 
   // Set page title for web
   usePageTitle();
+
+  // Load Google Sign-In setting
+  useEffect(() => {
+    const loadGoogleSignInSetting = async () => {
+      try {
+        const enabled = await systemSettingsService.isGoogleSignInEnabled();
+        setGoogleSignInEnabled(enabled);
+      } catch (error) {
+        console.error('Error loading Google Sign-In setting:', error);
+        // Default to true if there's an error
+        setGoogleSignInEnabled(true);
+      }
+    };
+    loadGoogleSignInSetting();
+  }, []);
 
   // Detect mobile web browsers
   useEffect(() => {
@@ -292,30 +309,34 @@ export default function LoginScreen() {
                       </ThemedText>
                     </TouchableOpacity>
 
-                  {/* Or Divider */}
-                  <View style={{ height: 12 }} />
-                  
-                  {/* Google Sign-In (Brand-compliant) */}
-                  <TouchableOpacity
-                    style={[
-                      loginStyles.webMobileLoginButton,
-                      { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775', paddingLeft: 12, paddingRight: 12 },
-                      isLoading && loginStyles.webMobileLoginButtonDisabled
-                    ]}
-                    onPress={handleGoogleSignIn}
-                    disabled={isLoading}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                      <Image
-                        source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
-                        style={{ width: 18, height: 18, marginRight: 10 }}
-                        resizeMode="contain"
-                      />
-                      <ThemedText style={[loginStyles.webMobileLoginButtonText, { color: '#1F1F1F', fontWeight: '500' }]}>
-                        {t('auth.signInWithGoogle')}
-                      </ThemedText>
-                    </View>
-                  </TouchableOpacity>
+                  {googleSignInEnabled && (
+                    <>
+                      {/* Or Divider */}
+                      <View style={{ height: 12 }} />
+                      
+                      {/* Google Sign-In (Brand-compliant) */}
+                      <TouchableOpacity
+                        style={[
+                          loginStyles.webMobileLoginButton,
+                          { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775', paddingLeft: 12, paddingRight: 12 },
+                          isLoading && loginStyles.webMobileLoginButtonDisabled
+                        ]}
+                        onPress={handleGoogleSignIn}
+                        disabled={isLoading}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                          <Image
+                            source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                            style={{ width: 18, height: 18, marginRight: 10 }}
+                            resizeMode="contain"
+                          />
+                          <ThemedText style={[loginStyles.webMobileLoginButtonText, { color: '#1F1F1F', fontWeight: '500' }]}>
+                            {t('auth.signInWithGoogle')}
+                          </ThemedText>
+                        </View>
+                      </TouchableOpacity>
+                    </>
+                  )}
 
                     {/* Sign Up Link */}
                     <View style={loginStyles.webMobileSignupContainer}>
@@ -554,30 +575,34 @@ export default function LoginScreen() {
                         </ThemedText>
                       </TouchableOpacity>
 
-                      {/* Or Divider */}
-                      <View style={{ height: 12 }} />
+                      {googleSignInEnabled && (
+                        <>
+                          {/* Or Divider */}
+                          <View style={{ height: 12 }} />
 
-                      {/* Google Sign-In (Brand-compliant) */}
-                      <TouchableOpacity
-                        style={[
-                          loginStyles.webLoginButton,
-                          { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775', paddingLeft: 12, paddingRight: 12 },
-                          isLoading && loginStyles.webLoginButtonDisabled
-                        ]}
-                        onPress={handleGoogleSignIn}
-                        disabled={isLoading}
-                      >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                          <Image
-                            source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
-                            style={{ width: 18, height: 18, marginRight: 10 }}
-                            resizeMode="contain"
-                          />
-                          <ThemedText style={[loginStyles.webLoginButtonText, { color: '#1F1F1F', fontWeight: '500' }]}>
-                            {t('auth.signInWithGoogle')}
-                          </ThemedText>
-                        </View>
-                      </TouchableOpacity>
+                          {/* Google Sign-In (Brand-compliant) */}
+                          <TouchableOpacity
+                            style={[
+                              loginStyles.webLoginButton,
+                              { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775', paddingLeft: 12, paddingRight: 12 },
+                              isLoading && loginStyles.webLoginButtonDisabled
+                            ]}
+                            onPress={handleGoogleSignIn}
+                            disabled={isLoading}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                              <Image
+                                source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                                style={{ width: 18, height: 18, marginRight: 10 }}
+                                resizeMode="contain"
+                              />
+                              <ThemedText style={[loginStyles.webLoginButtonText, { color: '#1F1F1F', fontWeight: '500' }]}>
+                                {t('auth.signInWithGoogle')}
+                              </ThemedText>
+                            </View>
+                          </TouchableOpacity>
+                        </>
+                      )}
 
                       {/* Sign Up Link */}
                       <View style={loginStyles.webSignupContainer}>
@@ -727,27 +752,34 @@ export default function LoginScreen() {
                 </ThemedText>
               </TouchableOpacity>
 
-          {/* Google Sign-In (Brand-compliant) */}
-          <TouchableOpacity
-            style={[
-              loginStyles.loginButton,
-              { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775', paddingLeft: 12, paddingRight: 12 },
-              isLoading && loginStyles.loginButtonDisabled
-            ]}
-            onPress={handleGoogleSignIn}
-            disabled={isLoading}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-              <Image
-                source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
-                style={{ width: 18, height: 18, marginRight: 10 }}
-                resizeMode="contain"
-              />
-              <ThemedText style={[loginStyles.loginButtonText, { color: '#1F1F1F', fontWeight: '500' }]}>
-                {t('auth.signInWithGoogle')}
-              </ThemedText>
-            </View>
-          </TouchableOpacity>
+          {googleSignInEnabled && (
+            <>
+              {/* Or Divider */}
+              <View style={{ height: 12 }} />
+              
+              {/* Google Sign-In (Brand-compliant) */}
+              <TouchableOpacity
+                style={[
+                  loginStyles.loginButton,
+                  { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#747775', paddingLeft: 12, paddingRight: 12 },
+                  isLoading && loginStyles.loginButtonDisabled
+                ]}
+                onPress={handleGoogleSignIn}
+                disabled={isLoading}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                  <Image
+                    source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                    style={{ width: 18, height: 18, marginRight: 10 }}
+                    resizeMode="contain"
+                  />
+                  <ThemedText style={[loginStyles.loginButtonText, { color: '#1F1F1F', fontWeight: '500' }]}>
+                    {t('auth.signInWithGoogle')}
+                  </ThemedText>
+                </View>
+              </TouchableOpacity>
+            </>
+          )}
             </View>
           </View>
 

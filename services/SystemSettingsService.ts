@@ -25,6 +25,7 @@ export interface SystemSettings {
   // Feature Flags
   maintenanceMode: boolean;
   newUserRegistrationEnabled: boolean;
+  googleSignInEnabled: boolean;
   // Audit
   updatedBy: string | null;
   updatedAt: Date;
@@ -64,6 +65,7 @@ export interface UpdateSystemSettingsParams {
   csrfTokenExpiryMinutes?: number;
   maintenanceMode?: boolean;
   newUserRegistrationEnabled?: boolean;
+  googleSignInEnabled?: boolean;
 }
 
 class SystemSettingsService {
@@ -134,6 +136,7 @@ class SystemSettingsService {
         csrfTokenExpiryMinutes: data.csrf_token_expiry_minutes ?? 60,
         maintenanceMode: data.maintenance_mode,
         newUserRegistrationEnabled: data.new_user_registration_enabled,
+        googleSignInEnabled: data.google_sign_in_enabled ?? true,
         updatedBy: data.updated_by,
         updatedAt: new Date(data.updated_at),
         createdAt: new Date(data.created_at),
@@ -175,6 +178,7 @@ class SystemSettingsService {
       csrfTokenExpiryMinutes: 60, // 1 hour default
       maintenanceMode: false,
       newUserRegistrationEnabled: true,
+      googleSignInEnabled: true,
       updatedBy: null,
       updatedAt: new Date(),
       createdAt: new Date(),
@@ -282,6 +286,9 @@ class SystemSettingsService {
       }
       if (updates.newUserRegistrationEnabled !== undefined) {
         dbUpdates.new_user_registration_enabled = updates.newUserRegistrationEnabled;
+      }
+      if (updates.googleSignInEnabled !== undefined) {
+        dbUpdates.google_sign_in_enabled = updates.googleSignInEnabled;
       }
 
       const { error: updateError } = await supabase
@@ -464,6 +471,14 @@ class SystemSettingsService {
       originCheckEnabled: settings.csrfOriginCheckEnabled,
       tokenExpiryMinutes: settings.csrfTokenExpiryMinutes,
     };
+  }
+
+  /**
+   * Helper: Check if Google Sign-In is enabled
+   */
+  async isGoogleSignInEnabled(): Promise<boolean> {
+    const settings = await this.getSettings();
+    return settings.googleSignInEnabled;
   }
 }
 
