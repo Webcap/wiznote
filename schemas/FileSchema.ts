@@ -175,7 +175,7 @@ export const FilePathSchema = z
  * Storage Bucket Schema
  */
 export const StorageBucketSchema = z.enum(['notes', 'pdfs', 'audio', 'avatars', 'public'], {
-  errorMap: () => ({ message: 'Invalid storage bucket' }),
+  message: 'Invalid storage bucket',
 });
 
 /**
@@ -250,8 +250,8 @@ export function safeValidateFile(
   if (result.success) {
     return { success: true, data: result.data };
   } else {
-    const errorMessage = result.error.errors
-      .map((err) => `${err.path.join('.')}: ${err.message}`)
+    const errorMessage = result.error.issues
+      .map((err: z.ZodIssue) => `${err.path.join('.')}: ${err.message}`)
       .join(', ');
     return { success: false, error: errorMessage };
   }

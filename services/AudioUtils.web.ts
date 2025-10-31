@@ -125,7 +125,7 @@ export class AudioUtils {
         audio.preload = 'auto';
         
         let hasResolved = false;
-        let timeoutId: NodeJS.Timeout | null = null;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
         
         const cleanup = () => {
           if (timeoutId) {

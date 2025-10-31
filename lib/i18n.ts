@@ -16,7 +16,7 @@ let isInitialized = false;
 
 // Initialize i18next with default config
 i18n.use(initReactI18next).init({
-  compatibilityJSON: 'v3',
+  compatibilityJSON: 'v4' as const,
   resources: {
     en: { translation: enTranslations },
     es: { translation: esTranslations },

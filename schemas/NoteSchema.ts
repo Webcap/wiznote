@@ -37,7 +37,7 @@ export const NoteContentSchema = z
  * - Must be either 'plain' or 'html'
  */
 export const NoteContentFormatSchema = z.enum(['plain', 'html'], {
-  errorMap: () => ({ message: 'Content format must be plain or html' }),
+  message: 'Content format must be plain or html',
 });
 
 /**
@@ -56,7 +56,7 @@ export const NoteHtmlContentSchema = z
  * - Must be one of the allowed types
  */
 export const NoteTypeSchema = z.enum(['text', 'pdf', 'audio'], {
-  errorMap: () => ({ message: 'Invalid note type' }),
+  message: 'Invalid note type',
 });
 
 /**
@@ -163,7 +163,7 @@ export const ShareNoteSchema = z.object({
     .email('Invalid email address')
     .max(255, 'Email too long'),
   permission: z.enum(['view', 'edit'], {
-    errorMap: () => ({ message: 'Permission must be view or edit' }),
+    message: 'Permission must be view or edit',
   }),
   message: z.string().max(500, 'Message too long').optional(),
 });
@@ -323,8 +323,8 @@ export function safeValidateNote(data: unknown): {
   if (result.success) {
     return { success: true, data: result.data };
   } else {
-    const errorMessage = result.error.errors
-      .map((err) => `${err.path.join('.')}: ${err.message}`)
+    const errorMessage = result.error.issues
+      .map((err: z.ZodIssue) => `${err.path.join('.')}: ${err.message}`)
       .join(', ');
     return { success: false, error: errorMessage };
   }

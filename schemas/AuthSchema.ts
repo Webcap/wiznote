@@ -61,7 +61,7 @@ export const DisplayNameSchema = z
  * - Must be one of the defined roles
  */
 export const UserRoleSchema = z.enum(['user', 'support', 'admin'], {
-  errorMap: () => ({ message: 'Invalid user role' }),
+  message: 'Invalid user role',
 });
 
 /**
@@ -72,7 +72,7 @@ export const SignUpSchema = z.object({
   password: PasswordSchema,
   displayName: DisplayNameSchema,
   acceptTerms: z.literal(true, {
-    errorMap: () => ({ message: 'You must accept the terms and conditions' }),
+    message: 'You must accept the terms and conditions',
   }),
 });
 
@@ -222,8 +222,8 @@ export function safeValidateSignUp(data: unknown): {
   if (result.success) {
     return { success: true, data: result.data };
   } else {
-    const errorMessage = result.error.errors
-      .map((err) => `${err.path.join('.')}: ${err.message}`)
+    const errorMessage = result.error.issues
+      .map((err: z.ZodIssue) => `${err.path.join('.')}: ${err.message}`)
       .join(', ');
     return { success: false, error: errorMessage };
   }

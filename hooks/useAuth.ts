@@ -173,12 +173,16 @@ export const useAuth = () => {
             
             try {
               // Try to get current user with timeout
-              const userPromise = betterAuthService?.getCurrentUser();
-              const timeoutPromise = new Promise((_, reject) => 
+              if (!betterAuthService) {
+                throw new Error('BetterAuthService not available');
+              }
+              
+              const userPromise = betterAuthService.getCurrentUser();
+              const timeoutPromise = new Promise<never>((_, reject) => 
                 setTimeout(() => reject(new Error('User loading timeout')), 10000)
               );
               
-              const user = await Promise.race([userPromise, timeoutPromise]);
+              const user = await Promise.race([userPromise, timeoutPromise]) as User | null;
               
               if (user) {
                 console.log('useAuth: Crash recovery successful, user found');
