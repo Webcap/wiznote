@@ -271,6 +271,7 @@ export default function SignupScreen() {
 
           {/* Right Panel - Sign Up Form */}
           <View style={styles.webRightPanel}>
+            <ScrollView contentContainerStyle={styles.webRightPanelContent} showsVerticalScrollIndicator={false}>
             <View style={styles.webFormContainer}>
               <View style={styles.webFormHeader}>
                 <ThemedText style={[styles.webFormTitle, { color: textColor }]}>{t('signup.createAccount')}</ThemedText>
@@ -418,7 +419,8 @@ export default function SignupScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
-
+              </View>
+          
               {/* Terms and Privacy */}
               <View style={styles.webTermsContainer}>
                 <ThemedText style={[styles.webTermsText, { color: textSecondaryColor }]}>
@@ -447,9 +449,9 @@ export default function SignupScreen() {
                   </View>
                 </View>
               </View>
+            </ScrollView>
             </View>
           </View>
-        </View>
       </ThemedView>
     );
   }
@@ -808,6 +810,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 60,
     paddingTop: 80,
+  },
+  webRightPanelContent: {
+    alignItems: 'center',
+    paddingBottom: 40,
   },
   webFormContainer: {
     width: '100%',

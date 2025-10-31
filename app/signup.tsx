@@ -271,6 +271,7 @@ export default function SignupScreen() {
 
           {/* Right Panel - Sign Up Form */}
           <View style={styles.webRightPanel}>
+            <View style={styles.webRightPanelContent}>
             <View style={styles.webFormContainer}>
               <View style={styles.webFormHeader}>
                 <ThemedText style={[styles.webFormTitle, { color: textColor }]}>{t('signup.createAccount')}</ThemedText>
@@ -418,7 +419,7 @@ export default function SignupScreen() {
                   </TouchableOpacity>
                 </View>
               </View>
-
+          
               {/* Terms and Privacy */}
               <View style={styles.webTermsContainer}>
                 <ThemedText style={[styles.webTermsText, { color: textSecondaryColor }]}>
@@ -447,6 +448,7 @@ export default function SignupScreen() {
                   </View>
                 </View>
               </View>
+            </View>
             </View>
           </View>
         </View>
