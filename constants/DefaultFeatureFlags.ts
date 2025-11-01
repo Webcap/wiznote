@@ -192,5 +192,19 @@ export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlag> = {
     createdAt: new Date(),
     updatedAt: new Date(),
     createdBy: 'system',
+  },
+
+  google_sign_in: {
+    id: 'google_sign_in',
+    name: 'Google Sign-In',
+    description: 'Enable Google OAuth sign-in and sign-up functionality',
+    enabled: true,
+    premiumOnly: false,
+    trackingEnabled: false, // Don't track authentication methods
+    rolloutPercentage: 100,
+    targetEnvironments: ['development', 'staging', 'production'],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    createdBy: 'system',
   }
 };

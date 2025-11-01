@@ -237,6 +237,18 @@ export class FeatureFlagService {
       return false;
     }
 
+    // Special handling for authentication features (like google_sign_in)
+    // These need to be checkable before user is authenticated
+    const isAuthFeature = flagKey === 'google_sign_in';
+    
+    // If this is an auth feature and no user is provided, skip user-specific targeting
+    // This allows checking the flag before sign-in
+    if (isAuthFeature && !user) {
+      log(`FeatureFlagService: ${flagKey} - Authentication feature checked without user, skipping user-specific targeting`);
+      // Only check global enabled state and environment - skip role/user/premium/rollout checks
+      return true;
+    }
+
     // Check user targeting
     if (user) {
       // Check specific user targeting - only if targetUsers is specified and not empty
@@ -246,7 +258,7 @@ export class FeatureFlagService {
       }
 
       // Check role targeting
-      if (flag.targetRoles && !flag.targetRoles.includes(user.role)) {
+      if (flag.targetRoles && flag.targetRoles.length > 0 && !flag.targetRoles.includes(user.role)) {
         log(`FeatureFlagService: ${flagKey} - Role mismatch. User role: ${user.role}, Allowed roles: ${flag.targetRoles}`);
         return false;
       }
@@ -266,6 +278,20 @@ export class FeatureFlagService {
           log(`FeatureFlagService: ${flagKey} - User not in rollout percentage. User %: ${userPercentage}, Rollout %: ${flag.rolloutPercentage}`);
           return false;
         }
+      }
+    } else if (!isAuthFeature) {
+      // For non-auth features, if no user is provided but flag requires user targeting, return false
+      if (flag.targetUsers && flag.targetUsers.length > 0) {
+        log(`FeatureFlagService: ${flagKey} - Feature requires specific users but no user provided`);
+        return false;
+      }
+      if (flag.targetRoles && flag.targetRoles.length > 0) {
+        log(`FeatureFlagService: ${flagKey} - Feature requires specific roles but no user provided`);
+        return false;
+      }
+      if (flag.premiumOnly) {
+        log(`FeatureFlagService: ${flagKey} - Feature is premium-only but no user provided`);
+        return false;
       }
     }
 

@@ -59,19 +59,27 @@ function AppContent() {
 
   // Wait for session restoration AND initialization to complete before allowing navigation
   useEffect(() => {
-    if (!isLoading && !authTimeout && !isInitializing) {
-      // Add a small delay to ensure everything is ready
-      const navigationTimer = setTimeout(() => {
-        console.log('Layout: Session restoration and initialization complete, allowing navigation');
-        setSessionRestorationComplete(true);
-      }, 500); // Reduced delay since initialization is tracked
+    if (!isLoading && !authTimeout && !isInitializing && user) {
+      // Verify user has full data (premium and role info) before allowing navigation
+      const hasFullUserData = user.premium !== undefined && user.role !== undefined;
       
-      return () => clearTimeout(navigationTimer);
-    } else if (isInitializing) {
-      // Reset completion flag while initializing
+      if (hasFullUserData) {
+        // Add a small delay to ensure everything is ready
+        const navigationTimer = setTimeout(() => {
+          console.log('Layout: Session restoration and initialization complete with full user data, allowing navigation');
+          setSessionRestorationComplete(true);
+        }, 200); // Small delay to ensure state is stable
+        
+        return () => clearTimeout(navigationTimer);
+      } else {
+        console.log('Layout: User data incomplete (missing premium/role), waiting for initialization...');
+        setSessionRestorationComplete(false);
+      }
+    } else if (isInitializing || (user && (user.premium === undefined || user.role === undefined))) {
+      // Reset completion flag while initializing or if user data is incomplete
       setSessionRestorationComplete(false);
     }
-  }, [isLoading, authTimeout, isInitializing]);
+  }, [isLoading, authTimeout, isInitializing, user]);
 
   // Initialize feature flag service only after auth is determined
   useEffect(() => {

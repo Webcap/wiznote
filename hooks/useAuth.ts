@@ -106,6 +106,16 @@ export const useAuth = () => {
         // Check if user is now initialized
         if (betterAuthService.isUserInitialized()) {
           setIsInitializing(false);
+          
+          // Force refresh of user data when initialization completes
+          // This ensures UI components get the updated user with premium/admin info
+          if (betterAuthService.currentUser) {
+            // Trigger auth state change with updated user to force UI re-render
+            const currentUser = betterAuthService.currentUser;
+            if (authStateChangeHandlerRef.current) {
+              authStateChangeHandlerRef.current(currentUser);
+            }
+          }
         }
       }
     });
@@ -563,10 +573,18 @@ export const useAuth = () => {
     return (authState.user.permissions as any)[permission] === true;
   }, [authState.user]);
 
-  // Check if user has specific role
+  // Check if user has specific role (only if user data is fully loaded)
   const hasRole = useCallback((role: UserRole): boolean => {
-    return authState.user?.role === role;
-  }, [authState.user]);
+    // Don't return true if user data is incomplete or still initializing
+    if (isInitializing || !authState.user) {
+      return false;
+    }
+    // Ensure we have full user data (role should be loaded)
+    if (authState.user.role === undefined) {
+      return false;
+    }
+    return authState.user.role === role;
+  }, [authState.user, isInitializing]);
 
   // Check if user is admin
   const isAdmin = useCallback((): boolean => {
@@ -578,10 +596,18 @@ export const useAuth = () => {
     return hasRole('support');
   }, [hasRole]);
 
-  // Check if user is premium
+  // Check if user is premium (only if user data is fully loaded)
   const isPremium = useCallback((): boolean => {
-    return authState.user?.premium?.isActive === true;
-  }, [authState.user]);
+    // Don't return true if user data is incomplete or still initializing
+    if (isInitializing || !authState.user) {
+      return false;
+    }
+    // Ensure we have full user data (premium info should be loaded)
+    if (authState.user.premium === undefined) {
+      return false;
+    }
+    return authState.user.premium?.isActive === true;
+  }, [authState.user, isInitializing]);
 
   // Get all users (admin only)
   const getAllUsers = useCallback(async (): Promise<User[]> => {

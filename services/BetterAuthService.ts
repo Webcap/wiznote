@@ -161,18 +161,23 @@ export class BetterAuthService {
       if (Platform.OS === 'web' && isLocalStorageAvailable()) {
         const cachedUser = getCachedSession();
         if (cachedUser && cachedUser.id === supabaseUser.id) {
-          // Check if cache is less than 5 minutes old
+          // Check if cache is less than 5 minutes old AND has full data (premium, role, etc.)
           const cacheAge = Date.now() - (cachedUser.cacheTimestamp || 0);
-          if (cacheAge < 5 * 60 * 1000) {
-            console.log('Using cached user data for faster loading');
+          const hasFullData = cachedUser.premium !== undefined && cachedUser.role !== undefined;
+          
+          if (cacheAge < 5 * 60 * 1000 && hasFullData) {
+            console.log('Using cached user data with full profile for faster loading');
             this.currentUser = cachedUser;
             this.isInitialized = true; // Cached user is considered initialized
             if (this.onAuthStateChange) {
               this.onAuthStateChange(cachedUser);
             }
-            // Still trigger initialization in background to refresh data
+            // Still trigger initialization in background to refresh data (non-blocking)
             this.initializeUser(supabaseUser, cachedUser).catch(console.error);
             return;
+          } else if (cacheAge < 5 * 60 * 1000 && !hasFullData) {
+            console.log('Cached user data is incomplete, reloading full profile...');
+            // Cache is recent but incomplete - don't use it, fall through to full initialization
           }
         }
       }
@@ -184,18 +189,23 @@ export class BetterAuthService {
           const cachedUserStr = await AsyncStorage.getItem(`cached_user_${supabaseUser.id}`);
           if (cachedUserStr) {
             const cachedUser = JSON.parse(cachedUserStr);
-            // Check if cache is less than 5 minutes old
+            // Check if cache is less than 5 minutes old AND has full data (premium, role, etc.)
             const cacheAge = Date.now() - (cachedUser.cacheTimestamp || 0);
-            if (cacheAge < 5 * 60 * 1000) {
-              console.log('Using cached user data for faster loading on mobile');
+            const hasFullData = cachedUser.premium !== undefined && cachedUser.role !== undefined;
+            
+            if (cacheAge < 5 * 60 * 1000 && hasFullData) {
+              console.log('Using cached user data with full profile for faster loading on mobile');
               this.currentUser = cachedUser;
               this.isInitialized = true; // Cached user is considered initialized
               if (this.onAuthStateChange) {
                 this.onAuthStateChange(cachedUser);
               }
-              // Still trigger initialization in background to refresh data
+              // Still trigger initialization in background to refresh data (non-blocking)
               this.initializeUser(supabaseUser, cachedUser).catch(console.error);
               return;
+            } else if (cacheAge < 5 * 60 * 1000 && !hasFullData) {
+              console.log('Cached user data is incomplete on mobile, reloading full profile...');
+              // Cache is recent but incomplete - don't use it, fall through to full initialization
             }
           }
         } catch (cacheError) {
@@ -219,14 +229,15 @@ export class BetterAuthService {
       };
       
       this.currentUser = minimalUser;
-      if (this.onAuthStateChange) {
-        this.onAuthStateChange(minimalUser);
-      }
+      // Don't notify listeners yet with minimal user - wait for full initialization
+      // This prevents UI from showing incorrect premium/admin status
       console.log('BetterAuthService: Minimal user set, starting initialization...');
       
       // Start initialization with progress tracking
       this.initializationPromise = this.initializeUser(supabaseUser, minimalUser);
       await this.initializationPromise;
+      
+      // Only notify listeners after initialization is complete (in initializeUser method)
       
       console.log('User handled successfully:', minimalUser.id);
       
@@ -272,8 +283,10 @@ export class BetterAuthService {
           }
         }
 
-        // Notify listeners
+        // Notify listeners with the full user data
+        // This is critical - it updates the UI with premium/admin info
         if (this.onAuthStateChange) {
+          console.log('BetterAuthService: Notifying listeners with full user data (premium:', result.user.premium?.isActive, ', role:', result.user.role, ')');
           this.onAuthStateChange(result.user);
         }
 
@@ -945,16 +958,34 @@ export class BetterAuthService {
     try {
       console.log('Signing in with Google...');
       
-      // Check if Google Sign-In is enabled via system settings
+      // Check if Google Sign-In is enabled via both feature flag AND system settings
       try {
+        // Check feature flag (pass undefined for user since this is before/during authentication)
+        // The feature flag service handles auth features specially when no user is provided
+        const { featureFlagService } = require('./FeatureFlagService');
+        const featureFlagEnabled = featureFlagService.isFeatureEnabled('google_sign_in', undefined);
+        
+        if (!featureFlagEnabled) {
+          throw new Error('Google Sign-In is disabled by feature flag');
+        }
+        
+        // Check system setting (system setting can override feature flag)
         const { systemSettingsService } = require('./SystemSettingsService');
-        const isEnabled = await systemSettingsService.isGoogleSignInEnabled();
-        if (!isEnabled) {
+        const systemSettingEnabled = await systemSettingsService.isGoogleSignInEnabled();
+        
+        if (!systemSettingEnabled) {
           throw new Error('Google Sign-In is disabled by system settings');
         }
-      } catch (settingsError) {
+      } catch (checkError) {
+        // If it's a disable message, throw it
+        if (checkError instanceof Error && (
+          checkError.message.includes('disabled by feature flag') || 
+          checkError.message.includes('disabled by system settings')
+        )) {
+          throw checkError;
+        }
         // If we can't check settings, log but continue (fail open for better UX)
-        console.warn('BetterAuthService: Could not verify Google Sign-In setting, proceeding:', settingsError);
+        console.warn('BetterAuthService: Could not verify Google Sign-In settings, proceeding:', checkError);
       }
       
       // Prefer and enforce native Google Sign-In on mobile for account selector UX
