@@ -168,6 +168,17 @@ export default function LoginScreen() {
   };
 
   const handleGoogleSignIn = async () => {
+    // Double-check the setting before proceeding
+    if (!googleSignInEnabled) {
+      const message = t('auth.googleSignInDisabled');
+      if (Platform.OS === 'web') {
+        showSnackbar(message, 'error', 6000);
+      } else {
+        Alert.alert(t('common.error'), message);
+      }
+      return;
+    }
+
     setIsLoading(true);
     try {
       await signInWithGoogle();

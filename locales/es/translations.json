@@ -83,6 +83,7 @@
     "noAccountFound": "No se encontró una cuenta con este correo electrónico. Por favor regístrate o verifica tu correo electrónico.",
     "networkError": "Error de red. Por favor verifica tu conexión a internet e intenta de nuevo.",
     "tooManyLoginAttempts": "Demasiados intentos de inicio de sesión. Por favor espera un momento antes de intentar de nuevo.",
+    "googleSignInDisabled": "El inicio de sesión con Google está actualmente deshabilitado. Por favor usa correo y contraseña para iniciar sesión.",
     "loginError": "Error de Inicio de Sesión",
     "verifyingResetLink": "Verificando enlace de restablecimiento...",
     "invalidResetLink": "Enlace de Restablecimiento Inválido",

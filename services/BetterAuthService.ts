@@ -14,6 +14,7 @@ import {
 import { roleService } from './RoleService';
 import { validateSignIn, validateSignUp, validateEmail } from '../schemas/AuthSchema';
 import { sanitizeEmail } from '../utils/sanitization';
+import { authInitializationService, ProgressCallback } from './AuthInitializationService';
 // Pre-import auth functions to avoid dynamic import issues on mobile
 import { 
   shouldRequireEmailVerification,
@@ -33,12 +34,15 @@ export class BetterAuthService {
   private currentUser: User | null = null;
   private onError?: (error: string, type: 'error' | 'warning' | 'info') => void;
   private onAuthStateChange?: (user: User | null) => void;
+  private onProgress?: ProgressCallback;
   private isRecoveringSession = false;
   private recoveryAttempts = 0;
   private maxRecoveryAttempts = 3;
   private authStateListenerInitialized = false;
   private sessionRestorationPromise: Promise<void> | null = null;
   private isSigningOut = false; // Flag to prevent session recovery during sign out
+  private isInitialized = false; // Flag indicating all critical data is loaded
+  private initializationPromise: Promise<User | null> | null = null;
 
   constructor() {
     // Initialize auth state listener first - this will handle INITIAL_SESSION events
@@ -150,18 +154,26 @@ export class BetterAuthService {
     try {
       console.log('Handling sign in/sign up for user:', supabaseUser.id);
       
+      // Reset initialization state
+      this.isInitialized = false;
+      
       // Check cache first on web
       if (Platform.OS === 'web' && isLocalStorageAvailable()) {
         const cachedUser = getCachedSession();
         if (cachedUser && cachedUser.id === supabaseUser.id) {
-          console.log('Using cached user data for faster loading');
-          this.currentUser = cachedUser;
-          if (this.onAuthStateChange) {
-            this.onAuthStateChange(cachedUser);
+          // Check if cache is less than 5 minutes old
+          const cacheAge = Date.now() - (cachedUser.cacheTimestamp || 0);
+          if (cacheAge < 5 * 60 * 1000) {
+            console.log('Using cached user data for faster loading');
+            this.currentUser = cachedUser;
+            this.isInitialized = true; // Cached user is considered initialized
+            if (this.onAuthStateChange) {
+              this.onAuthStateChange(cachedUser);
+            }
+            // Still trigger initialization in background to refresh data
+            this.initializeUser(supabaseUser, cachedUser).catch(console.error);
+            return;
           }
-          // Update last login in background
-          this.updateLastLogin(supabaseUser.id).catch(console.error);
-          return;
         }
       }
       
@@ -177,11 +189,12 @@ export class BetterAuthService {
             if (cacheAge < 5 * 60 * 1000) {
               console.log('Using cached user data for faster loading on mobile');
               this.currentUser = cachedUser;
+              this.isInitialized = true; // Cached user is considered initialized
               if (this.onAuthStateChange) {
                 this.onAuthStateChange(cachedUser);
               }
-              // Update last login in background
-              this.updateLastLogin(supabaseUser.id).catch(console.error);
+              // Still trigger initialization in background to refresh data
+              this.initializeUser(supabaseUser, cachedUser).catch(console.error);
               return;
             }
           }
@@ -209,53 +222,11 @@ export class BetterAuthService {
       if (this.onAuthStateChange) {
         this.onAuthStateChange(minimalUser);
       }
-      console.log('BetterAuthService: Minimal user set, loading full profile in background...');
+      console.log('BetterAuthService: Minimal user set, starting initialization...');
       
-      // Load full profile in background without blocking
-      this.loadUserProfile(supabaseUser.id).then(async userProfile => {
-        if (!userProfile) {
-          console.warn('BetterAuthService: Could not load full profile, using minimal user data');
-          return;
-        }
-        
-        console.log('BetterAuthService: Full profile loaded for handleSignInOrSignUp, updating...');
-        const fullUser: User = {
-          id: supabaseUser.id,
-          email: supabaseUser.email,
-          displayName: userProfile.display_name || supabaseUser.email?.split('@')[0],
-          photoURL: supabaseUser.user_metadata?.avatar_url,
-          role: userProfile.role,
-          createdAt: userProfile.created_at ? new Date(userProfile.created_at) : new Date(),
-          lastLoginAt: userProfile.last_login_at ? new Date(userProfile.last_login_at) : new Date(),
-          preferences: userProfile.preferences,
-          premium: userProfile.premium,
-          permissions: userProfile.permissions,
-          supportInfo: userProfile.support_info,
-        };
-        
-        this.currentUser = fullUser;
-        if (this.onAuthStateChange) {
-          this.onAuthStateChange(fullUser);
-        }
-        
-        if (Platform.OS === 'web' && isLocalStorageAvailable()) {
-          cacheSession(fullUser);
-        } else if (Platform.OS !== 'web') {
-          // Cache on mobile using AsyncStorage
-          try {
-            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-            const userWithTimestamp = { ...fullUser, cacheTimestamp: Date.now() };
-            await AsyncStorage.setItem(`cached_user_${supabaseUser.id}`, JSON.stringify(userWithTimestamp));
-            console.log('Cached user data on mobile');
-          } catch (cacheError) {
-            console.warn('Could not cache user on mobile:', cacheError);
-          }
-        }
-        
-        this.updateLastLogin(supabaseUser.id).catch(console.error);
-      }).catch(error => {
-        console.error('BetterAuthService: Error loading full profile in background:', error);
-      });
+      // Start initialization with progress tracking
+      this.initializationPromise = this.initializeUser(supabaseUser, minimalUser);
+      await this.initializationPromise;
       
       console.log('User handled successfully:', minimalUser.id);
       
@@ -265,128 +236,75 @@ export class BetterAuthService {
     }
   }
 
-  private async handleSignIn(supabaseUser: any) {
+  /**
+   * Initialize user with profile, feature flags, and limits
+   */
+  private async initializeUser(supabaseUser: any, minimalUser: User): Promise<User | null> {
     try {
-      console.log('Handling sign in for user:', supabaseUser.id);
-      
-      // Check cache first on web
-      if (Platform.OS === 'web' && isLocalStorageAvailable()) {
-        const cachedUser = getCachedSession();
-        if (cachedUser && cachedUser.id === supabaseUser.id) {
-          console.log('Using cached user data for faster loading');
-          this.currentUser = cachedUser;
-          if (this.onAuthStateChange) {
-            this.onAuthStateChange(cachedUser);
-          }
-          // Update last login in background
-          this.updateLastLogin(supabaseUser.id).catch(console.error);
-          return;
+      // Set up progress callback
+      const progressUnsubscribe = authInitializationService.onProgress((progress) => {
+        if (this.onProgress) {
+          this.onProgress(progress);
         }
-      }
-      
-      // Check AsyncStorage cache on mobile
-      if (Platform.OS !== 'web') {
-        try {
-          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-          const cachedUserStr = await AsyncStorage.getItem(`cached_user_${supabaseUser.id}`);
-          if (cachedUserStr) {
-            const cachedUser = JSON.parse(cachedUserStr);
-            // Check if cache is less than 5 minutes old
-            const cacheAge = Date.now() - (cachedUser.cacheTimestamp || 0);
-            if (cacheAge < 5 * 60 * 1000) {
-              console.log('Using cached user data for faster loading on mobile');
-              this.currentUser = cachedUser;
-              if (this.onAuthStateChange) {
-                this.onAuthStateChange(cachedUser);
-              }
-              // Update last login in background
-              this.updateLastLogin(supabaseUser.id).catch(console.error);
-              return;
-            }
-          }
-        } catch (cacheError) {
-          console.warn('Could not load cached user on mobile:', cacheError);
-        }
-      }
-      
-      // Set minimal user immediately so app doesn't redirect to login
-      const minimalUser: User = {
-        id: supabaseUser.id,
-        email: supabaseUser.email,
-        displayName: supabaseUser.email?.split('@')[0] || 'User',
-        photoURL: supabaseUser.user_metadata?.avatar_url,
-        role: 'user' as UserRole,
-        createdAt: new Date(),
-        lastLoginAt: new Date(),
-        preferences: { theme: 'auto', language: 'en', autoSync: true, notifications: true },
-        premium: null,
-        permissions: { canCreateNotes: true, canExportNotes: true, canShareNotes: true },
-        supportInfo: null,
-      };
-      
-      this.currentUser = minimalUser;
-      if (this.onAuthStateChange) {
-        this.onAuthStateChange(minimalUser);
-      }
-      console.log('BetterAuthService: Minimal user set, loading full profile in background...');
-      
-      // Load full profile in background
-      this.loadUserProfile(supabaseUser.id).then(async userProfile => {
-        if (!userProfile) {
-          console.warn('BetterAuthService: Could not load full profile, using minimal user data');
-          return;
-        }
-        
-        console.log('BetterAuthService: Full profile loaded, updating user...');
-        const fullUser: User = {
-          id: supabaseUser.id,
-          email: supabaseUser.email,
-          displayName: userProfile.display_name || supabaseUser.email?.split('@')[0],
-          photoURL: supabaseUser.user_metadata?.avatar_url,
-          role: userProfile.role,
-          createdAt: userProfile.created_at ? new Date(userProfile.created_at) : new Date(),
-          lastLoginAt: userProfile.last_login_at ? new Date(userProfile.last_login_at) : new Date(),
-          preferences: userProfile.preferences,
-          premium: userProfile.premium,
-          permissions: userProfile.permissions,
-          supportInfo: userProfile.support_info,
-        };
-        
-        this.currentUser = fullUser;
-        if (this.onAuthStateChange) {
-          this.onAuthStateChange(fullUser);
-        }
-        
+      });
+
+      // Start initialization
+      const result = await authInitializationService.initialize(supabaseUser, minimalUser);
+
+      progressUnsubscribe();
+
+      if (result.success && result.user) {
+        // Update current user with full data
+        this.currentUser = result.user;
+        this.isInitialized = true;
+
+        // Cache the user data
         if (Platform.OS === 'web' && isLocalStorageAvailable()) {
-          cacheSession(fullUser);
+          cacheSession(result.user);
         } else if (Platform.OS !== 'web') {
-          // Cache on mobile using AsyncStorage
           try {
             const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-            const userWithTimestamp = { ...fullUser, cacheTimestamp: Date.now() };
+            const userWithTimestamp = { ...result.user, cacheTimestamp: Date.now() };
             await AsyncStorage.setItem(`cached_user_${supabaseUser.id}`, JSON.stringify(userWithTimestamp));
             console.log('Cached user data on mobile');
           } catch (cacheError) {
             console.warn('Could not cache user on mobile:', cacheError);
           }
         }
-        
-        this.updateLastLogin(supabaseUser.id).catch(console.error);
-      }).catch(error => {
-        console.error('BetterAuthService: Error loading full profile:', error);
-      });
-      
-      console.log('User signed in successfully:', minimalUser.id);
-      
+
+        // Notify listeners
+        if (this.onAuthStateChange) {
+          this.onAuthStateChange(result.user);
+        }
+
+        console.log('BetterAuthService: User initialization complete');
+        return result.user;
+      } else {
+        console.error('BetterAuthService: Initialization failed:', result.error);
+        // Keep minimal user but mark as not initialized
+        this.isInitialized = false;
+        return minimalUser;
+      }
     } catch (error) {
-      console.error('Error handling sign in:', error);
-      this.handleError(error, 'Sign In');
+      console.error('BetterAuthService: Error during initialization:', error);
+      this.isInitialized = false;
+      return minimalUser;
     }
+  }
+
+  private async handleSignIn(supabaseUser: any) {
+    // Use the same initialization flow as handleSignInOrSignUp
+    await this.handleSignInOrSignUp(supabaseUser);
   }
 
   private async handleSignOut() {
     try {
       console.log('🔄 BetterAuthService: Handling sign out...');
+      
+      // Reset initialization state
+      this.isInitialized = false;
+      this.initializationPromise = null;
+      authInitializationService.reset();
       
       // Clear current user
       this.currentUser = null;
@@ -1027,6 +945,18 @@ export class BetterAuthService {
     try {
       console.log('Signing in with Google...');
       
+      // Check if Google Sign-In is enabled via system settings
+      try {
+        const { systemSettingsService } = require('./SystemSettingsService');
+        const isEnabled = await systemSettingsService.isGoogleSignInEnabled();
+        if (!isEnabled) {
+          throw new Error('Google Sign-In is disabled by system settings');
+        }
+      } catch (settingsError) {
+        // If we can't check settings, log but continue (fail open for better UX)
+        console.warn('BetterAuthService: Could not verify Google Sign-In setting, proceeding:', settingsError);
+      }
+      
       // Prefer and enforce native Google Sign-In on mobile for account selector UX
       if (Platform.OS !== 'web') {
         let googleSignInInitiated = false;
@@ -1095,8 +1025,16 @@ export class BetterAuthService {
             }
             throw signInError;
           }
-          // Auth state listener will populate currentUser
-          return this.currentUser!;
+          
+          // Wait for initialization to complete
+          if (data.user) {
+            await this.handleSignInOrSignUp(data.user);
+            // Wait for initialization
+            await this.waitForInitialization();
+            return this.currentUser!;
+          }
+          
+          throw new Error('Google Sign-In did not return a user');
         } catch (nativeError) {
           // If module is not available, fall back to OAuth flow
           if (nativeError instanceof Error && nativeError.message === 'MODULE_NOT_AVAILABLE') {
@@ -1124,7 +1062,7 @@ export class BetterAuthService {
                nativeError.message.includes('Cannot read property'));
             
             if (isDeveloperError || isModuleError) {
-              console.log(`${isDeveloperError ? 'DEVELOPER_ERROR' : 'Module error'} detected - clearing any partial session`);
+              console.log(`${isDeveloperError ? 'DEVELOPER_ERROR' : 'Module error'} detected - clearing any partial session and falling back to OAuth`);
               try {
                 // Clear current user state if error occurred
                 this.currentUser = null;
@@ -1137,25 +1075,31 @@ export class BetterAuthService {
                 console.warn('Failed to clear session on error:', cleanupError);
               }
               
-              // For module errors, fall back to OAuth instead of throwing
-              if (isModuleError) {
-                console.log('Module error detected - falling back to OAuth flow');
-                useOAuthFallback = true;
-              } else {
-                // For DEVELOPER_ERROR, throw the error (configuration issue)
-                console.error('Native Google Sign-In failed:', nativeError);
-                throw this.handleError(nativeError, 'Google Sign In (native)');
-              }
+              // For both DEVELOPER_ERROR and module errors, fall back to OAuth
+              // This provides better UX - users can still sign in with Google via OAuth
+              console.log(`${isDeveloperError ? 'DEVELOPER_ERROR' : 'Module error'} detected - falling back to OAuth flow for better UX`);
+              useOAuthFallback = true;
             } else {
-              // Other errors - throw them
-              console.error('Native Google Sign-In failed:', nativeError);
-              throw this.handleError(nativeError, 'Google Sign In (native)');
+              // Other errors - try OAuth fallback first, then throw if that doesn't work
+              console.warn('Native Google Sign-In failed with unexpected error, attempting OAuth fallback:', nativeError.message);
+              useOAuthFallback = true;
             }
           }
         }
         
         // If we're using OAuth fallback, continue to the OAuth flow below
         if (!useOAuthFallback) {
+          // User is already initialized from native sign-in
+          if (this.isInitialized && this.currentUser) {
+            return this.currentUser;
+          }
+          // Wait for initialization if it's in progress
+          if (this.initializationPromise) {
+            await this.initializationPromise;
+            if (this.currentUser) {
+              return this.currentUser;
+            }
+          }
           return this.currentUser!;
         }
       }
@@ -1210,6 +1154,8 @@ export class BetterAuthService {
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user) {
               await this.handleSignInOrSignUp(session.user);
+              // Wait for initialization to complete
+              await this.waitForInitialization();
               return this.currentUser!;
             }
             
@@ -1916,6 +1862,32 @@ export class BetterAuthService {
 
   setAuthStateChangeHandler(callback: (user: User | null) => void) {
     this.onAuthStateChange = callback;
+  }
+
+  setProgressHandler(callback: ProgressCallback) {
+    this.onProgress = callback;
+  }
+
+  /**
+   * Check if user initialization is complete
+   */
+  isUserInitialized(): boolean {
+    return this.isInitialized;
+  }
+
+  /**
+   * Wait for initialization to complete
+   */
+  async waitForInitialization(): Promise<User | null> {
+    if (this.isInitialized && this.currentUser) {
+      return this.currentUser;
+    }
+    
+    if (this.initializationPromise) {
+      return await this.initializationPromise;
+    }
+    
+    return this.currentUser;
   }
 
   // Check if the service is ready for use
