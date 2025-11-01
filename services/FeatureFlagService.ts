@@ -484,49 +484,6 @@ export class FeatureFlagService {
     }
   }
 
-  // Sync with default feature flags
-  async syncWithDefaults(): Promise<void> {
-    try {
-      log('FeatureFlagService: Syncing with default feature flags...');
-      
-      // Get all default flags
-      const defaultFlags = { ...DEFAULT_FEATURE_FLAGS };
-      
-      // Update local flags with defaults
-      for (const [flagKey, defaultFlag] of Object.entries(defaultFlags)) {
-        const existingFlag = this.flags[flagKey];
-        
-        if (existingFlag) {
-          // Merge with existing flag, preserving customizations
-          this.flags[flagKey] = {
-            ...defaultFlag,
-            enabled: existingFlag.enabled,
-            rolloutPercentage: existingFlag.rolloutPercentage,
-            targetUsers: existingFlag.targetUsers,
-            targetRoles: existingFlag.targetRoles,
-            targetEnvironments: existingFlag.targetEnvironments,
-            premiumOnly: existingFlag.premiumOnly,
-            updatedAt: new Date(),
-          };
-        } else {
-          // Add new flag
-          this.flags[flagKey] = {
-            ...defaultFlag,
-            updatedAt: new Date(),
-          };
-        }
-      }
-
-      // Save to cache and Supabase
-      await this.saveToCache();
-      await this.saveFlagsToSupabase();
-
-      log('FeatureFlagService: Sync with defaults completed');
-    } catch (error) {
-      this.handleError(error, 'Sync with Defaults');
-    }
-  }
-
   // Reset a feature flag to defaults
   async resetFeatureToDefaults(flagKey: FeatureFlagKey): Promise<void> {
     try {

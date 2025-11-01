@@ -314,26 +314,6 @@ export const useFeatureLimits = () => {
     }
   }, [refreshLimits, showSnackbar]);
 
-  // Initialize default limits
-  const initializeDefaults = useCallback(async () => {
-    try {
-      setError(null);
-      await featureLimitService.initializeDefaultLimits();
-      await refreshLimits();
-      
-      if (Platform.OS === 'web') {
-        showSnackbar('Feature limits initialized successfully', 'success', 3000);
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to initialize defaults';
-      setError(errorMessage);
-      
-      if (Platform.OS === 'web') {
-        showSnackbar(errorMessage, 'error', 6000);
-      }
-      throw err;
-    }
-  }, [refreshLimits, showSnackbar]);
 
   // Clear cache
   const clearCache = useCallback(async () => {
@@ -415,7 +395,6 @@ export const useFeatureLimits = () => {
     // Management functions
     saveFeatureLimit,
     deleteFeatureLimit,
-    initializeDefaults,
 
     // Utility functions
     refreshLimits,
