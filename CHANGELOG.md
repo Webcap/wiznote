@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.5.0] - Unreleased
 
+### 🐛 Fixed
+
+#### Netlify Functions - Supabase API Keys
+- **Fixed "Legacy API keys are disabled" error** in Netlify functions
+  - Removed fallback to deprecated `SUPABASE_SECRET_KEY` in all usage reset functions
+  - Updated `manual-reset.js`, `monthly-usage-reset.js`, `cron-reset.js`, and `monthly-reset.js`
+  - Functions now require `SUPABASE_SERVICE_ROLE_KEY` environment variable only
+  - Added better error logging to identify missing environment variables
+  - Improved error messages to guide proper Netlify configuration
+  - Monthly usage reset in admin dashboard now works correctly
+  - All Netlify functions use the new Supabase API key format
+
 ### ✨ Added
 
 #### Internationalization (i18n) Support
