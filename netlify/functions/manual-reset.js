@@ -67,18 +67,28 @@ exports.handler = async (event, context) => {
     
     // Initialize Supabase client with service role key for admin operations
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
+    
+    // Support both new sb_secret_ keys and legacy JWT-based keys
+    const secretKey = process.env.SUPABASE_SECRET_KEY;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    let supabaseKey;
+    if (secretKey && secretKey.startsWith('sb_secret_')) {
+      console.log('✅ Using NEW Supabase Secret Key (sb_secret_...)');
+      supabaseKey = secretKey;
+    } else if (serviceRoleKey) {
+      console.log('⚠️  Using legacy Service Role Key (JWT-based)');
+      supabaseKey = serviceRoleKey;
+    } else {
       console.error('❌ Missing Supabase environment variables');
       console.error('Required: EXPO_PUBLIC_SUPABASE_URL');
-      console.error('Required: SUPABASE_SERVICE_ROLE_KEY');
-      throw new Error('Missing Supabase environment variables (need service role key)');
+      console.error('Required: SUPABASE_SECRET_KEY (sb_secret_...) OR SUPABASE_SERVICE_ROLE_KEY');
+      throw new Error('Missing Supabase environment variables (need secret key or service role key)');
     }
 
     // Log key presence (but not the actual key for security)
     console.log(`📝 Supabase URL: ${supabaseUrl}`);
-    console.log(`📝 Service role key: ${supabaseKey ? 'PRESENT' : 'MISSING'}`);
+    console.log(`📝 Key type: ${secretKey && secretKey.startsWith('sb_secret_') ? 'NEW (sb_secret_)' : 'LEGACY (JWT)'}`);
     
     const supabase = createClient(supabaseUrl, supabaseKey);
     const currentDate = new Date();
