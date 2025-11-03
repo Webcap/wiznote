@@ -199,6 +199,7 @@ function AppContent() {
       const isDeleteAccountRequestPage = currentPath.startsWith('/delete-account-request');
       const isHelpPage = currentPath.startsWith('/help');
       const isChangelogPage = currentPath.startsWith('/changelog');
+      const isFaqPage = currentPath.startsWith('/faq');
       const isTabsPage = currentPath.startsWith('/(tabs)');
       const isIndexPage = currentPath === '/' || currentPath === '' || currentPath === '/index';
       const isForgotPasswordPage = currentPath.startsWith('/forgot-password') || currentPath === 'forgot-password' || currentPath.includes('/forgot-password');
@@ -212,7 +213,7 @@ function AppContent() {
           isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage || isHelpPage;
       
       // Check if current path is a public route (accessible without authentication)
-      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage || isChangelogPage || isSignupPage;
+      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage || isChangelogPage || isFaqPage || isSignupPage;
       
       console.log('Layout: Current path:', currentPath);
       console.log('Layout: Is payment page:', isPaymentPage);
@@ -354,6 +355,16 @@ function AppContent() {
                       <Stack.Screen name="privacy" options={{ headerShown: false }} />
                       <Stack.Screen name="terms" options={{ headerShown: false }} />
                       <Stack.Screen name="changelog" options={{ 
+                        headerShown: false,
+                        presentation: 'card',
+                        header: () => null,
+                        headerTitle: '',
+                        headerBackTitle: '',
+                        headerBackVisible: false,
+                        headerLeft: () => null,
+                        headerRight: () => null,
+                      }} />
+                      <Stack.Screen name="faq" options={{ 
                         headerShown: false,
                         presentation: 'card',
                         header: () => null,

@@ -255,9 +255,10 @@
     "manageSubscription": "Gestionar Suscripción",
     "usageStatistics": "Estadísticas de Uso",
     "archivedNotes": "Notas Archivadas",
-    "helpSupport": "Ayuda y Soporte",
-    "changelog": "Registro de Cambios",
-    "about": "Acerca de",
+          "helpSupport": "Ayuda y Soporte",
+      "changelog": "Registro de Cambios",
+      "faq": "FAQ",
+      "about": "Acerca de",
     "aboutWizNote": "Acerca de WizNote",
     "dangerZone": "Zona de Peligro",
     "manageYourAccount": "Gestiona tu cuenta",
@@ -1135,6 +1136,14 @@
     "keepAChangelog": "Keep a Changelog",
     "introTextMiddle": "y este proyecto se adhiere a",
     "semanticVersioning": "Versionado Semántico"
+  },
+  "faq": {
+    "title": "Preguntas Frecuentes",
+    "subtitle": "Encuentra respuestas a preguntas comunes sobre WizNote",
+    "searchPlaceholder": "Buscar en FAQ...",
+    "allCategories": "Todas las Categorías",
+    "noResults": "No se encontraron elementos de FAQ. Prueba con un término de búsqueda diferente.",
+    "faq": "FAQ"
   },
   "deleteAccountModal": {
     "title": "Eliminar Cuenta",

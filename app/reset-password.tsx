@@ -22,6 +22,7 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { useTranslation } from '../hooks/useTranslation';
+import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 
 export default function ResetPasswordScreen() {
@@ -41,6 +42,7 @@ export default function ResetPasswordScreen() {
   });
 
   const { showSnackbar } = useSnackbar();
+  const { isAuthenticated } = useAuth();
 
   // Set page title for web
   usePageTitle(`${t('auth.resetPassword')} - WizNote`);
@@ -252,21 +254,33 @@ export default function ResetPasswordScreen() {
 
     setIsLoading(true);
     try {
-      await betterAuthService.updatePassword(newPassword);
+      // Use updatePasswordFromReset which doesn't require current password
+      // This is for password reset from email link, not regular password change
+      await betterAuthService.updatePasswordFromReset(newPassword);
       
       // Show success message
       if (Platform.OS === 'web') {
         showSnackbar(t('auth.passwordUpdatedSuccessfully'), 'success', 3000);
       } else {
-        Alert.alert(t('noteDetail.success'), t('auth.passwordUpdatedSuccess'), [
-          { text: t('noteDetail.ok'), onPress: () => router.replace('/(auth)/login') }
-        ]);
+        Alert.alert(t('noteDetail.success'), t('auth.passwordUpdatedSuccess'));
       }
       
-      // Redirect to login after a short delay
-      setTimeout(() => {
-        router.replace('/(auth)/login');
-      }, 2000);
+      // Check if user is still authenticated after password reset
+      // If authenticated, go to home. If not, go to login.
+      const user = await betterAuthService.getCurrentUser();
+      if (user) {
+        console.log('✅ User authenticated after password reset, redirecting to home');
+        // Redirect to home after a short delay
+        setTimeout(() => {
+          router.replace('/(tabs)');
+        }, 2000);
+      } else {
+        console.log('⚠️ User not authenticated after password reset, redirecting to login');
+        // Redirect to login after a short delay
+        setTimeout(() => {
+          router.replace('/(auth)/login');
+        }, 2000);
+      }
       
     } catch (error) {
       // Parse error message and provide user-friendly feedback
