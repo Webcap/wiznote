@@ -10,20 +10,26 @@
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
-  // Only allow scheduled events
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Method not allowed' })
-    };
-  }
-
-  // Verify this is a scheduled event
-  if (!event.headers['x-netlify-scheduled-event']) {
-    return {
-      statusCode: 401,
-      body: JSON.stringify({ error: 'Unauthorized - not a scheduled event' })
-    };
+  // Allow both scheduled events (POST) and manual testing (GET with API key)
+  const isScheduledEvent = event.headers['x-netlify-scheduled-event'];
+  
+  // If not a scheduled event, require API key for manual triggering
+  if (!isScheduledEvent) {
+    if (process.env.USAGE_RESET_API_KEY) {
+      const apiKey = event.queryStringParameters?.key || (event.body ? JSON.parse(event.body || '{}').api_key : null);
+      if (apiKey !== process.env.USAGE_RESET_API_KEY) {
+        return {
+          statusCode: 401,
+          body: JSON.stringify({ error: 'Unauthorized - API key required for manual trigger' })
+        };
+      }
+    } else {
+      // If no API key is configured but this isn't a scheduled event, reject
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ error: 'Unauthorized - not a scheduled event' })
+      };
+    }
   }
 
   try {

@@ -30,12 +30,12 @@ exports.handler = async (event, context) => {
 
     console.log('🔄 Manual Usage Reset: Starting...');
     
-    // Initialize Supabase client
+    // Initialize Supabase client with service role key for admin operations
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing Supabase environment variables');
+      throw new Error('Missing Supabase environment variables (need service role key)');
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);

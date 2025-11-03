@@ -27,9 +27,13 @@ In your Netlify dashboard, add these environment variables:
 
 ```
 EXPO_PUBLIC_SUPABASE_URL=your-supabase-url
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key (required for reset functions)
+# OR use the legacy name if you prefer:
+SUPABASE_SECRET_KEY=your-service-role-key (alternative name)
 USAGE_RESET_API_KEY=your-secret-api-key (optional, for manual resets)
 ```
+
+**Important**: The reset functions require the **service role key**, not the anon key, because they need to bypass Row Level Security (RLS) policies to update usage records.
 
 ### 3. Enable Scheduled Functions
 

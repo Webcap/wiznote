@@ -36,6 +36,7 @@ export default function SecurityDashboardScreen() {
   const [failedLogins, setFailedLogins] = useState<any[]>([]);
   const [activeLockouts, setActiveLockouts] = useState<any[]>([]);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
+  const [suspiciousActivities, setSuspiciousActivities] = useState<any[]>([]);
 
   // Theme colors
   const backgroundColor = useThemeColor({}, 'background');
@@ -137,6 +138,23 @@ export default function SecurityDashboardScreen() {
         setMetrics(prev => ({
           ...prev,
           replayAttempts: parseInt(signingStats[0].replay_attempts) || 0,
+        }));
+      }
+
+      // Load suspicious activities
+      const { data: suspiciousEvents, error: suspiciousError } = await supabase
+        .from('security_audit_log')
+        .select('*')
+        .like('event_type', 'security.suspicious.%')
+        .gte('created_at', new Date(Date.now() - timeWindow * 60 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!suspiciousError && suspiciousEvents) {
+        setSuspiciousActivities(suspiciousEvents);
+        setMetrics(prev => ({
+          ...prev,
+          suspiciousActivities: suspiciousEvents.length,
         }));
       }
 
@@ -300,6 +318,59 @@ export default function SecurityDashboardScreen() {
                 <ThemedText style={[styles.eventDetail, { color: textSecondaryColor }]}>
                   Failed Attempts: {lockout.failed_attempt_count}
                 </ThemedText>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Suspicious Activities */}
+        {suspiciousActivities.length > 0 && (
+          <View style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>
+              🚨 Recent Suspicious Activities
+            </ThemedText>
+            {suspiciousActivities.slice(0, 5).map((event) => (
+              <View
+                key={event.id}
+                style={[styles.eventCard, { backgroundColor: backgroundSecondary, borderLeftWidth: 4, borderLeftColor: '#EF4444' }]}
+              >
+                <View style={styles.eventHeader}>
+                  <View style={styles.eventTitleRow}>
+                    <Ionicons
+                      name="warning" as any
+                      size={16}
+                      color="#EF4444"
+                    />
+                    <ThemedText style={[styles.eventTitle, { color: textColor }]}>
+                      {event.event_type.replace(/_/g, ' ').replace(/\./g, ' › ')}
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={[styles.eventTime, { color: textSecondaryColor }]}>
+                    {formatTimeAgo(event.created_at)}
+                  </ThemedText>
+                </View>
+                {event.user_email && (
+                  <ThemedText style={[styles.eventDetail, { color: textSecondaryColor }]}>
+                    User: {event.user_email}
+                  </ThemedText>
+                )}
+                {event.ip_address && (
+                  <ThemedText style={[styles.eventDetail, { color: textSecondaryColor }]}>
+                    IP: {event.ip_address}
+                  </ThemedText>
+                )}
+                {event.error_message && (
+                  <ThemedText style={[styles.eventDetail, { color: textSecondaryColor }]}>
+                    Details: {event.error_message}
+                  </ThemedText>
+                )}
+                <View style={styles.eventFooter}>
+                  <View style={[styles.severityBadge, { backgroundColor: '#EF4444' }]}>
+                    <ThemedText style={styles.severityText}>
+                      CRITICAL
+                    </ThemedText>
+                  </View>
+                </View>
               </View>
             ))}
           </View>
