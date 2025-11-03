@@ -144,12 +144,24 @@ export class AudioStorage {
       } else {
         // For native platforms, use FileSystem
         fileExtension = audioUri.split('.').pop() || 'm4a';
+        console.log('AudioStorage: Reading file from URI for native platform:', audioUri);
+        
+        // Check if file exists
+        const fileInfo = await FileSystem.getInfoAsync(audioUri);
+        if (!fileInfo.exists) {
+          throw new Error(`Audio file not found at: ${audioUri}`);
+        }
+        console.log('AudioStorage: File exists, size:', fileInfo.size, 'bytes');
+        
         const base64Audio = await FileSystem.readAsStringAsync(audioUri, {
           encoding: 'base64' as any,
         });
+        console.log('AudioStorage: File read as base64, length:', base64Audio.length);
+        
         const audioData = this.base64ToUint8Array(base64Audio);
         fileBody = audioData;
         contentType = `audio/${fileExtension}`;
+        console.log('AudioStorage: Converted to Uint8Array, length:', audioData.length);
       }
 
       const fileName = `${userId}/${noteId}/audio_${timestamp}.${fileExtension}`;
@@ -319,101 +331,170 @@ export class AudioStorage {
         }
         
         // Try manual authenticated upload first (since we know authentication works)
-        try {
-          console.log('AudioStorage: Attempting manual authenticated upload...');
-          const { data: { session } } = await supabase.auth.getSession();
-          
-          if (session?.access_token) {
-            const uploadUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/${this.bucketName}/${fileName}`;
+        // Only on web platform where Blobs work properly
+        if (Platform.OS === 'web') {
+          try {
+            console.log('AudioStorage: Attempting manual authenticated upload...');
+            const { data: { session } } = await supabase.auth.getSession();
             
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for upload
-            
-            const uploadResponse = await fetch(uploadUrl, {
-              method: 'POST',
-              headers: {
-                'apikey': process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
-                'Authorization': `Bearer ${session.access_token}`,
-                'Content-Type': normalizedContentType,
-                'Content-Length': fileBody instanceof Uint8Array ? fileBody.length.toString() : (fileBody instanceof Blob ? fileBody.size.toString() : 'unknown'),
-              },
-              body: fileBody instanceof Blob 
-                ? fileBody 
-                : new Blob([new Uint8Array(fileBody).buffer]),
-              signal: controller.signal,
-            });
-            
-            clearTimeout(timeoutId);
-            
-            if (uploadResponse.ok) {
-              console.log('AudioStorage: Manual authenticated upload succeeded!');
-              data = { path: fileName };
-              error = null;
-              uploadSuccess = true;
+            if (session?.access_token && fileBody instanceof Blob) {
+              const uploadUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/${this.bucketName}/${fileName}`;
+              
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for upload
+              
+              const uploadResponse = await fetch(uploadUrl, {
+                method: 'POST',
+                headers: {
+                  'apikey': process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
+                  'Authorization': `Bearer ${session.access_token}`,
+                  'Content-Type': normalizedContentType,
+                  'Content-Length': fileBody.size.toString(),
+                },
+                body: fileBody,
+                signal: controller.signal,
+              });
+              
+              clearTimeout(timeoutId);
+              
+              if (uploadResponse.ok) {
+                console.log('AudioStorage: Manual authenticated upload succeeded!');
+                data = { path: fileName };
+                error = null;
+                uploadSuccess = true;
+              } else {
+                const errorText = await uploadResponse.text();
+                console.warn('AudioStorage: Manual upload failed:', uploadResponse.status, errorText);
+                error = new Error(`Manual upload failed: ${uploadResponse.status} ${errorText}`);
+              }
             } else {
-              const errorText = await uploadResponse.text();
-              console.warn('AudioStorage: Manual upload failed:', uploadResponse.status, errorText);
-              error = new Error(`Manual upload failed: ${uploadResponse.status} ${errorText}`);
+              console.log('AudioStorage: Skipping manual upload (not web or no blob)');
             }
-          } else {
-            console.log('AudioStorage: No access token available for manual upload');
+          } catch (manualError) {
+            console.warn('AudioStorage: Manual upload error:', manualError);
+            error = manualError;
           }
-        } catch (manualError) {
-          console.warn('AudioStorage: Manual upload error:', manualError);
-          error = manualError;
+        } else {
+          console.log('AudioStorage: Skipping manual upload on native platform, using Supabase client');
         }
         
         // Fallback to Supabase client upload if manual upload failed
         if (!uploadSuccess) {
           console.log('AudioStorage: Manual upload failed, trying Supabase client...');
           
-          while (retryCount < maxRetries) {
+          // For native platforms, try manual fetch upload first (more reliable than Supabase client)
+          // Note: Supabase Storage API expects raw binary data in the body, not FormData
+          if (Platform.OS !== 'web' && fileBody instanceof Uint8Array) {
             try {
-              console.log(`AudioStorage: Upload attempt ${retryCount + 1}/${maxRetries}`);
-              const uploadResult = await supabase.storage
-                .from(this.bucketName)
-                .upload(fileName, fileBody as any, uploadOptions);
+              console.log('AudioStorage: Attempting manual fetch upload for native platform...');
+              const { data: { session } } = await supabase.auth.getSession();
               
-              if (!uploadResult.error) {
-                console.log(`AudioStorage: Upload succeeded on attempt ${retryCount + 1}`);
-                data = uploadResult.data;
-                error = null;
-                break;
+              if (session?.access_token) {
+                const uploadUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/${this.bucketName}/${fileName}`;
+                
+                console.log('AudioStorage: Uploading via fetch to:', uploadUrl);
+                console.log('AudioStorage: File size:', fileBody.length, 'bytes');
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for upload
+                
+                // Send Uint8Array directly in the body (React Native fetch supports this)
+                const uploadResponse = await fetch(uploadUrl, {
+                  method: 'POST',
+                  headers: {
+                    'apikey': process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': normalizedContentType,
+                    'Content-Length': fileBody.length.toString(),
+                  },
+                  body: fileBody, // React Native fetch can handle Uint8Array directly
+                  signal: controller.signal,
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (uploadResponse.ok) {
+                  console.log('AudioStorage: Manual fetch upload succeeded!');
+                  data = { path: fileName };
+                  error = null;
+                  uploadSuccess = true;
+                } else {
+                  const errorText = await uploadResponse.text();
+                  console.warn('AudioStorage: Manual fetch upload failed:', uploadResponse.status, errorText);
+                  error = new Error(`Manual fetch upload failed: ${uploadResponse.status} ${errorText}`);
+                }
               } else {
-                console.warn(`AudioStorage: Upload attempt ${retryCount + 1} failed:`, uploadResult.error);
-                error = uploadResult.error;
+                console.log('AudioStorage: No access token for manual fetch upload');
+              }
+            } catch (manualFetchError) {
+              console.warn('AudioStorage: Manual fetch upload error:', manualFetchError);
+              error = manualFetchError;
+            }
+          }
+          
+          // Fallback to Supabase client if manual fetch didn't work
+          if (!uploadSuccess) {
+            console.log('AudioStorage: Trying Supabase client upload...');
+            
+            while (retryCount < maxRetries) {
+              try {
+                console.log(`AudioStorage: Upload attempt ${retryCount + 1}/${maxRetries}`);
+                console.log(`AudioStorage: Uploading to bucket: ${this.bucketName}, file: ${fileName}`);
+                console.log(`AudioStorage: File body type: ${fileBody instanceof Uint8Array ? 'Uint8Array' : fileBody instanceof Blob ? 'Blob' : typeof fileBody}, size: ${fileBody instanceof Uint8Array ? fileBody.length : fileBody instanceof Blob ? fileBody.size : 'unknown'}`);
+                
+                // Pass fileBody directly - Supabase storage accepts Uint8Array on native (same as PDFStorage)
+                const uploadResult = await supabase.storage
+                  .from(this.bucketName)
+                  .upload(fileName, fileBody as any, uploadOptions);
+                
+                if (!uploadResult.error) {
+                  console.log(`AudioStorage: Upload succeeded on attempt ${retryCount + 1}`);
+                  data = uploadResult.data;
+                  error = null;
+                  break;
+                } else {
+                  console.warn(`AudioStorage: Upload attempt ${retryCount + 1} failed:`, uploadResult.error);
+                  console.warn(`AudioStorage: Error message: ${uploadResult.error.message}`);
+                  console.warn(`AudioStorage: Error status code: ${uploadResult.error.statusCode || 'none'}`);
+                  error = uploadResult.error;
+                  
+                  // If it's a network error, retry
+                  if (uploadResult.error.message?.includes('Network request failed') || 
+                      uploadResult.error.message?.includes('network') ||
+                      uploadResult.error.message?.includes('timeout') ||
+                      uploadResult.error.message?.includes('NetworkError')) {
+                    retryCount++;
+                    if (retryCount < maxRetries) {
+                      console.log(`AudioStorage: Network error detected, retrying upload in ${retryCount * 1000}ms...`);
+                      await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
+                      continue;
+                    }
+                  }
+                  break;
+                }
+              } catch (uploadError) {
+                console.warn(`AudioStorage: Upload attempt ${retryCount + 1} threw error:`, uploadError);
+                console.warn(`AudioStorage: Error type: ${uploadError instanceof Error ? uploadError.name : typeof uploadError}`);
+                console.warn(`AudioStorage: Error message: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`);
+                error = uploadError;
                 
                 // If it's a network error, retry
-                if (uploadResult.error.message?.includes('Network request failed') || 
-                    uploadResult.error.message?.includes('network') ||
-                    uploadResult.error.message?.includes('timeout')) {
+                if (uploadError instanceof Error && (
+                  uploadError.message?.includes('Network request failed') || 
+                  uploadError.message?.includes('network') ||
+                  uploadError.message?.includes('timeout') ||
+                  uploadError.message?.includes('NetworkError') ||
+                  uploadError.name === 'NetworkError'
+                )) {
                   retryCount++;
                   if (retryCount < maxRetries) {
-                    console.log(`AudioStorage: Retrying upload in ${retryCount * 1000}ms...`);
+                    console.log(`AudioStorage: Network error detected, retrying upload in ${retryCount * 1000}ms...`);
                     await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
                     continue;
                   }
                 }
                 break;
               }
-            } catch (uploadError) {
-              console.warn(`AudioStorage: Upload attempt ${retryCount + 1} threw error:`, uploadError);
-              error = uploadError;
-              
-              // If it's a network error, retry
-              if (uploadError instanceof Error && (
-                uploadError.message?.includes('Network request failed') || 
-                uploadError.message?.includes('network') ||
-                uploadError.message?.includes('timeout')
-              )) {
-                retryCount++;
-                if (retryCount < maxRetries) {
-                  console.log(`AudioStorage: Retrying upload in ${retryCount * 1000}ms...`);
-                  await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
-                  continue;
-                }
-              }
-              break;
             }
           }
         }
@@ -488,6 +569,16 @@ export class AudioStorage {
       byteNumbers[i] = byteCharacters.charCodeAt(i);
     }
     return new Uint8Array(byteNumbers);
+  }
+
+  // Convert Uint8Array to base64 for React Native fetch uploads
+  private uint8ArrayToBase64(uint8Array: Uint8Array): string {
+    let binary = '';
+    const len = uint8Array.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    return btoa(binary);
   }
 
   // Delete audio file from Supabase Storage

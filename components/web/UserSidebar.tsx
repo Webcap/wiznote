@@ -7,16 +7,29 @@ import { Alert, Animated, Platform, StyleSheet, TouchableOpacity, View } from 'r
 import * as DocumentPicker from 'expo-document-picker';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { usePDFUpload } from '../../contexts/PDFUploadContext';
+import { useAudioUpload } from '../../contexts/AudioUploadContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { pdfStorage } from '../../services/PDFStorage';
+import { audioStorage } from '../../services/AudioStorage';
+import { AudioUtils } from '../../services/AudioUtils';
 import { supabaseNoteStorage } from '../../services/SupabaseNoteStorage';
 import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
 import { PDFSizeLimitWarning } from '../PDFSizeLimitWarning';
 import { PDF_CONFIG } from '../../constants/PDFConfig';
 import { useTranslation } from '../../hooks/useTranslation';
+
+// Audio upload configuration
+const AUDIO_CONFIG = {
+  MAX_FILE_SIZE_MB: 200,
+  get MAX_FILE_SIZE_BYTES() {
+    return this.MAX_FILE_SIZE_MB * 1024 * 1024;
+  },
+  ALLOWED_EXTENSIONS: ['mp3', 'm4a', 'wav', 'ogg', 'webm'],
+  ALLOWED_MIME_TYPES: ['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/wav', 'audio/wave', 'audio/ogg', 'audio/webm'],
+};
 
 interface UserSidebarProps {
   activePage?: string;
@@ -38,6 +51,7 @@ export function UserSidebar({
   const { isAdmin, isSupport, user } = useAuth();
   const { showSnackbar } = useSnackbar();
   const { setUploadingPDF, onUploadComplete } = usePDFUpload();
+  const { setUploadingAudio } = useAudioUpload();
   const { isFeatureEnabled } = useFeatureFlags();
   const [showCreateDropdown, setShowCreateDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
@@ -47,6 +61,7 @@ export function UserSidebar({
   const buttonRef = useRef<typeof TouchableOpacity>(null);
   const dropdownAnim = useRef(new Animated.Value(0)).current;
   const pdfFileInputRef = useRef<HTMLInputElement>(null);
+  const audioFileInputRef = useRef<HTMLInputElement>(null);
 
   if (Platform.OS !== 'web') {
     return null;
@@ -264,6 +279,201 @@ export function UserSidebar({
   const handleWebCreateAudioNote = useCallback(() => router.push('/create-audio'), []);
   const handleWebSearch = useCallback(() => router.push('/(tabs)/search'), []);
   const handleWebSettings = useCallback(() => router.push('/(tabs)/settings'), []);
+
+  // Helper function to validate audio file format
+  const isValidAudioFormat = useCallback((fileName: string, mimeType?: string): boolean => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    if (extension && AUDIO_CONFIG.ALLOWED_EXTENSIONS.includes(extension)) {
+      return true;
+    }
+    if (mimeType && AUDIO_CONFIG.ALLOWED_MIME_TYPES.some(allowed => mimeType.includes(allowed.split('/')[1]))) {
+      return true;
+    }
+    return false;
+  }, []);
+
+  // Helper function to extract audio duration on web using Web Audio API
+  const extractAudioDuration = useCallback(async (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const audio = new Audio();
+      const url = URL.createObjectURL(file);
+      audio.src = url;
+      audio.addEventListener('loadedmetadata', () => {
+        const duration = audio.duration;
+        URL.revokeObjectURL(url);
+        resolve(duration);
+      });
+      audio.addEventListener('error', () => {
+        URL.revokeObjectURL(url);
+        resolve(0);
+      });
+    });
+  }, []);
+
+  const handleAudioUploadClick = useCallback(async () => {
+    setShowCreateDropdown(false);
+    
+    if (Platform.OS === 'web') {
+      // Web: Use file input
+      if (audioFileInputRef.current) {
+        audioFileInputRef.current.click();
+      }
+    }
+    // Mobile handling is done in the index.native.tsx file
+  }, []);
+
+  const handleAudioFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    event.target.value = '';
+    
+    // Validate file format
+    if (!isValidAudioFormat(file.name, file.type)) {
+      showSnackbar(t('home.unsupportedAudioFormat'), 'error');
+      return;
+    }
+    
+    // Validate file size
+    if (file.size > AUDIO_CONFIG.MAX_FILE_SIZE_BYTES) {
+      setOversizedFile({ name: file.name, size: file.size });
+      setShowSizeLimitWarning(true);
+      return;
+    }
+    
+    if (!user?.id) {
+      showSnackbar(t('home.pleaseSignIn'), 'error');
+      return;
+    }
+
+    try {
+      // Extract audio duration
+      let duration = 0;
+      try {
+        duration = await extractAudioDuration(file);
+        if (duration === 0) {
+          showSnackbar(t('home.failedToExtractDuration'), 'error');
+        }
+      } catch (durationError) {
+        console.error('[UserSidebar] Error extracting audio duration:', durationError);
+      }
+
+      setUploadingAudio({
+        fileName: file.name.replace(/\.(mp3|m4a|wav|ogg|webm)$/i, ''),
+        fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+        duration: Math.round(duration),
+        audioUrl: '',
+        progress: 10,
+        status: 'uploading',
+        statusMessage: t('home.preparingAudio'),
+      });
+
+      const placeholderNote = await supabaseNoteStorage.createNote({
+        title: `🎤 ${file.name.replace(/\.(mp3|m4a|wav|ogg|webm)$/i, '')}`,
+        content: '⏳ Uploading audio... Please wait while we process your file.',
+        type: 'audio',
+        tags: ['audio', 'uploading'],
+        summary: `Uploading ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
+        audioUrl: '',
+        audioDuration: Math.round(duration),
+      });
+
+      setUploadingAudio(prev => prev ? {
+        ...prev,
+        progress: 30,
+        statusMessage: t('home.uploadingAudioToCloud'),
+      } : null);
+
+      // Create blob URL for upload
+      const blobUrl = URL.createObjectURL(file);
+      const uploadedAudioUrl = await audioStorage.uploadAudioFile(
+        blobUrl,
+        user.id,
+        placeholderNote.id,
+        file // Pass the file blob for web
+      );
+      URL.revokeObjectURL(blobUrl);
+
+      setUploadingAudio(prev => prev ? {
+        ...prev,
+        progress: 50,
+        status: 'processing',
+        statusMessage: t('home.processingAudioWithAI'),
+        audioUrl: uploadedAudioUrl,
+      } : null);
+
+      // Process audio for transcription
+      const processingResult = await AudioUtils.processAudioForTranscription(
+        uploadedAudioUrl,
+        user.id,
+        placeholderNote.id,
+        (message, progress) => {
+          const mappedProgress = 50 + (progress * 0.4);
+          setUploadingAudio(prev => prev ? {
+            ...prev,
+            progress: mappedProgress,
+            statusMessage: message,
+          } : null);
+        },
+        file // Pass the file blob for transcription
+      );
+
+      setUploadingAudio(prev => prev ? {
+        ...prev,
+        progress: 85,
+        statusMessage: t('home.saving'),
+      } : null);
+
+      // Update note with transcription and AI content
+      await supabaseNoteStorage.updateNote(placeholderNote.id, {
+        title: processingResult.title || file.name.replace(/\.(mp3|m4a|wav|ogg|webm)$/i, ''),
+        content: processingResult.transcription || '',
+        summary: processingResult.summary || `Audio: ${file.name}`,
+        keyDetails: processingResult.keyDetails || [],
+        tags: ['audio'],
+        audioUrl: uploadedAudioUrl,
+        audioDuration: Math.round(duration),
+      });
+
+      // Track usage (count duration in minutes)
+      try {
+        const { featureLimitService } = await import('../../services/FeatureLimitService');
+        await featureLimitService.initialize();
+        const durationInMinutes = Math.round(duration / 60);
+        const isPremium = Boolean(user?.premium?.isActive && user?.premium?.status !== 'canceled');
+        await featureLimitService.recordFeatureUsage(
+          user.id,
+          'voice_recording',
+          durationInMinutes,
+          isPremium,
+          'duration'
+        );
+      } catch (usageError) {
+        console.error('[UserSidebar] Error recording audio usage:', usageError);
+      }
+
+      setUploadingAudio(prev => prev ? {
+        ...prev,
+        progress: 100,
+        status: 'completed',
+        statusMessage: t('home.uploadComplete'),
+      } : null);
+
+      if (onUploadComplete) {
+        await onUploadComplete();
+      }
+      setTimeout(() => { setUploadingAudio(null); }, 2000);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showSnackbar(t('home.audioUploadFailed').replace('{{error}}', errorMessage), 'error');
+      setUploadingAudio(prev => prev ? {
+        ...prev,
+        progress: 100,
+        status: 'error',
+        statusMessage: t('home.uploadFailed'),
+      } : null);
+      setTimeout(() => { setUploadingAudio(null); }, 3000);
+    }
+  }, [user, showSnackbar, setUploadingAudio, isValidAudioFormat, extractAudioDuration, onUploadComplete, t]);
 
   const handlePDFUploadClick = useCallback(async () => {
     // Check if PDF upload feature is enabled
@@ -576,6 +786,15 @@ export function UserSidebar({
         onChange={handlePDFFileChange}
       />
 
+      {/* Hidden Audio file input */}
+      <input
+        ref={audioFileInputRef}
+        type="file"
+        accept="audio/*"
+        style={{ display: 'none' }}
+        onChange={handleAudioFileChange}
+      />
+
       {/* Logo/Brand */}
       <View style={styles.brand}>
         <ThemedText type="title" style={styles.logo}>
@@ -685,6 +904,36 @@ export function UserSidebar({
                     <div style={{ fontSize: '12px', color: '#666666', fontWeight: '400' }}>{t('sidebar.createAudioNoteDesc')}</div>
                   </div>
                 </div>
+                
+                {/* Upload Audio Option */}
+                {isFeatureEnabled('voice_recording') && (
+                  <div 
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '12px 16px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(106, 90, 205, 0.1)';
+                      e.currentTarget.style.transform = 'translateX(4px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.transform = 'translateX(0)';
+                    }}
+                    onClick={handleAudioUploadClick}
+                  >
+                    <div style={{ width: '24px', height: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginRight: '12px' }}>
+                      <Ionicons name="cloud-upload" size={18} color="#6A5ACD" />
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#333333', marginBottom: '2px' }}>{t('sidebar.uploadAudio')}</div>
+                      <div style={{ fontSize: '12px', color: '#666666', fontWeight: '400' }}>{t('sidebar.uploadAudioDesc')}</div>
+                    </div>
+                  </div>
+                )}
                 
                 {/* PDF Upload Option - Feature Flag Protected */}
                 {isFeatureEnabled('pdf_upload') && (

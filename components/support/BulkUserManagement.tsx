@@ -12,6 +12,11 @@ import {
     View,
 } from 'react-native';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { betterAuthService } from '../../services/BetterAuthService';
+import { premiumManagementService } from '../../services/PremiumManagementService';
+import { accountDeletionService } from '../../services/AccountDeletionService';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
 
 interface BulkUserManagementProps {
   onUserSelect?: (userId: string) => void;
@@ -36,6 +41,9 @@ export default function BulkUserManagement({ onUserSelect }: BulkUserManagementP
   const [bulkAction, setBulkAction] = useState<'none' | 'upgrade' | 'downgrade' | 'suspend' | 'delete'>('none');
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
 
+  // Auth
+  const { user: currentUser } = useAuth();
+
   // Theme colors
   const backgroundColor = useThemeColor({}, 'background');
   const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
@@ -52,61 +60,59 @@ export default function BulkUserManagement({ onUserSelect }: BulkUserManagementP
     try {
       setLoading(true);
       
-      // In a real implementation, you'd fetch users from the database
-      // For now, we'll create mock data
-      const mockUsers: UserListItem[] = [
-        {
-          id: 'user1',
-          email: 'john.doe@example.com',
-          displayName: 'John Doe',
-          isSelected: false,
-          plan: 'Premium',
-          lastActive: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-          featureCount: 15,
-        },
-        {
-          id: 'user2',
-          email: 'jane.smith@example.com',
-          displayName: 'Jane Smith',
-          isSelected: false,
-          plan: 'Free',
-          lastActive: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-          featureCount: 8,
-        },
-        {
-          id: 'user3',
-          email: 'bob.wilson@example.com',
-          displayName: 'Bob Wilson',
-          isSelected: false,
-          plan: 'Premium',
-          lastActive: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
-          featureCount: 22,
-        },
-        {
-          id: 'user4',
-          email: 'alice.brown@example.com',
-          displayName: 'Alice Brown',
-          isSelected: false,
-          plan: 'Free',
-          lastActive: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 1 week ago
-          featureCount: 3,
-        },
-        {
-          id: 'user5',
-          email: 'charlie.davis@example.com',
-          displayName: 'Charlie Davis',
-          isSelected: false,
-          plan: 'Premium',
-          lastActive: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-          featureCount: 18,
-        },
-      ];
-
-      setUsers(mockUsers);
-      setFilteredUsers(mockUsers);
+      console.log('BulkUserManagement: Loading users from database...');
+      
+      // Fetch all users from database
+      const allUsers = await betterAuthService.getAllUsers();
+      console.log(`BulkUserManagement: Found ${allUsers.length} users`);
+      
+      // Fetch additional data for each user in parallel
+      const userListItems: UserListItem[] = await Promise.all(
+        allUsers.map(async (user) => {
+          // Get premium status to determine plan
+          let plan = 'Free';
+          try {
+            const premiumStatus = await premiumManagementService.getPremiumStatus(user.id);
+            if (premiumStatus?.isActive) {
+              plan = premiumStatus.planName || premiumStatus.planId || 'Premium';
+            }
+          } catch (error) {
+            console.error(`BulkUserManagement: Error fetching premium for user ${user.id}:`, error);
+          }
+          
+          // Get notes count
+          let featureCount = 0;
+          try {
+            const { count, error: notesError } = await supabase
+              .from('notes')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', user.id);
+            
+            if (!notesError && count !== null) {
+              featureCount = count;
+            }
+          } catch (error) {
+            console.error(`BulkUserManagement: Error counting notes for user ${user.id}:`, error);
+          }
+          
+          return {
+            id: user.id,
+            email: user.email,
+            displayName: user.displayName || undefined,
+            isSelected: false,
+            plan,
+            lastActive: user.lastLoginAt || user.createdAt,
+            featureCount,
+          };
+        })
+      );
+      
+      console.log(`BulkUserManagement: Successfully loaded ${userListItems.length} users`);
+      setUsers(userListItems);
+      setFilteredUsers(userListItems);
     } catch (error) {
       console.error('BulkUserManagement: Error loading users:', error);
-      Alert.alert('Error', 'Failed to load users');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to load users');
     } finally {
       setLoading(false);
     }
@@ -209,16 +215,106 @@ export default function BulkUserManagement({ onUserSelect }: BulkUserManagementP
           style: bulkAction === 'delete' ? 'destructive' : 'default',
           onPress: async () => {
             try {
-              // In a real implementation, you'd perform the bulk action
-              console.log(`Executing bulk action: ${bulkAction} for ${selectedUsers.length} users`);
+              if (!currentUser) {
+                Alert.alert('Error', 'You must be logged in to perform bulk actions');
+                return;
+              }
+
+              console.log(`BulkUserManagement: Executing bulk action: ${bulkAction} for ${selectedUsers.length} users`);
+              setLoading(true);
               
-              // Simulate API call
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              
+              const supportAgentId = currentUser.id;
+              const supportAgentEmail = currentUser.email || 'support@wiznote.com';
+              let successCount = 0;
+              let errorCount = 0;
+              const errors: string[] = [];
+
+              // Process each user
+              for (const user of selectedUsers) {
+                try {
+                  switch (bulkAction) {
+                    case 'upgrade':
+                      const upgradeResult = await premiumManagementService.grantFreePremium({
+                        userId: user.id,
+                        userEmail: user.email,
+                        duration: 30, // 30 days default
+                        reason: `Bulk upgrade by ${supportAgentEmail}`,
+                        grantedBy: supportAgentId,
+                      });
+                      if (upgradeResult.success) {
+                        successCount++;
+                      } else {
+                        errorCount++;
+                        errors.push(`${user.email}: ${upgradeResult.error}`);
+                      }
+                      break;
+                    
+                    case 'downgrade':
+                      const downgradeResult = await premiumManagementService.revokePremium(
+                        user.id,
+                        user.email,
+                        `Bulk downgrade by ${supportAgentEmail}`,
+                        supportAgentId
+                      );
+                      if (downgradeResult.success) {
+                        successCount++;
+                      } else {
+                        errorCount++;
+                        errors.push(`${user.email}: ${downgradeResult.error}`);
+                      }
+                      break;
+                    
+                    case 'suspend':
+                      // Suspend by setting role to 'suspended' or locking account
+                      // For now, we'll update the role - you may want to use AccountLockoutService
+                      const { error: suspendError } = await supabase
+                        .from('user_profiles')
+                        .update({ 
+                          role: 'suspended',
+                          updated_at: new Date().toISOString(),
+                        })
+                        .eq('id', user.id);
+                      
+                      if (!suspendError) {
+                        successCount++;
+                      } else {
+                        errorCount++;
+                        errors.push(`${user.email}: ${suspendError.message}`);
+                      }
+                      break;
+                    
+                    case 'delete':
+                      // Delete user account
+                      await accountDeletionService.deleteUserAccount(user.id);
+                      successCount++;
+                      break;
+                  }
+                } catch (error) {
+                  errorCount++;
+                  const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+                  errors.push(`${user.email}: ${errorMsg}`);
+                  console.error(`BulkUserManagement: Error processing user ${user.id}:`, error);
+                }
+              }
+
+              // Show results
+              let resultMessage = `Processed ${selectedUsers.length} users: ${successCount} successful`;
+              if (errorCount > 0) {
+                resultMessage += `, ${errorCount} failed`;
+                if (errors.length > 0 && errors.length <= 5) {
+                  resultMessage += `\n\nErrors:\n${errors.join('\n')}`;
+                } else if (errors.length > 5) {
+                  resultMessage += `\n\nFirst 5 errors:\n${errors.slice(0, 5).join('\n')}`;
+                }
+              }
+
               Alert.alert(
-                'Success',
-                `Successfully processed ${selectedUsers.length} users`,
-                [{ text: 'OK' }]
+                errorCount === 0 ? 'Success' : 'Partial Success',
+                resultMessage,
+                [{ text: 'OK', onPress: () => {
+                  // Reload users after bulk action
+                  loadUsers();
+                }}]
               );
               
               // Reset selection
@@ -226,7 +322,9 @@ export default function BulkUserManagement({ onUserSelect }: BulkUserManagementP
               setBulkAction('none');
             } catch (error) {
               console.error('BulkUserManagement: Error executing bulk action:', error);
-              Alert.alert('Error', 'Failed to execute bulk action');
+              Alert.alert('Error', error instanceof Error ? error.message : 'Failed to execute bulk action');
+            } finally {
+              setLoading(false);
             }
           },
         },

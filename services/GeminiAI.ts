@@ -1,8 +1,47 @@
 
 import { featureFlagService } from './FeatureFlagService';
+import { Platform } from 'react-native';
 
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+// SECURITY: API key is now stored server-side only
+// Use server-side proxy endpoint instead of direct API calls
+const getGeminiApiUrl = () => {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://wiznote.app';
+  return `${apiUrl}/.netlify/functions/gemini-api`;
+};
+
+// Helper function to call Gemini API via server-side proxy
+async function callGeminiAPI(endpoint: string, payload: any): Promise<any> {
+  const apiUrl = getGeminiApiUrl();
+  
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        endpoint,
+        payload,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `API request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(data.error.message || data.error || 'Unknown API error');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Gemini API proxy error:', error);
+    throw error;
+  }
+}
 
 export async function transcribeAudioWithGemini(base64Audio: string, user?: any): Promise<string> {
   // Check if AI transcription is enabled
@@ -40,40 +79,17 @@ export async function transcribeAudioWithGemini(base64Audio: string, user?: any)
     throw new Error('AI transcription is currently disabled');
   }
   
-  // Check if API key is available
-  if (!GEMINI_API_KEY) {
-    console.error('GeminiAI: API key not found');
-    throw new Error('Gemini API key not configured');
-  }
-  
   try {
-    const response = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { inline_data: { mime_type: 'audio/m4a', data: base64Audio } }
-            ]
-          }
-        ]
-      })
+    // Use server-side API proxy instead of direct API call
+    const data = await callGeminiAPI('gemini-2.5-flash:generateContent', {
+      contents: [
+        {
+          parts: [
+            { inline_data: { mime_type: 'audio/m4a', data: base64Audio } }
+          ]
+        }
+      ]
     });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GeminiAI: API request failed:', response.status, errorText);
-      throw new Error(`Gemini API request failed: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    // Check for API errors in response
-    if (data.error) {
-      console.error('GeminiAI: API error:', data.error);
-      throw new Error(`Gemini API error: ${data.error.message || 'Unknown error'}`);
-    }
     
     return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   } catch (error) {
@@ -121,44 +137,19 @@ export async function generateTitleWithGemini(transcript: string, user?: any): P
     throw new Error('AI name generating is currently disabled');
   }
   
-  // Check if API key is available
-  console.log('GeminiAI: API key available:', !!GEMINI_API_KEY);
-  if (!GEMINI_API_KEY) {
-    console.error('GeminiAI: API key not found');
-    throw new Error('Gemini API key not configured');
-  }
-  
   try {
     const prompt = `Create a short, descriptive title (3-8 words) for this audio note. Return ONLY the title, nothing else: ${transcript}`;
-    console.log('GeminiAI: Making API request to:', GEMINI_API_URL);
+    console.log('GeminiAI: Making API request via server proxy');
     console.log('GeminiAI: Request payload:', { prompt: prompt.substring(0, 100) + '...' });
     
-    const response = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          { parts: [{ text: prompt }] }
-        ]
-      })
+    // Use server-side API proxy instead of direct API call
+    const data = await callGeminiAPI('gemini-2.5-flash:generateContent', {
+      contents: [
+        { parts: [{ text: prompt }] }
+      ]
     });
     
-    console.log('GeminiAI: API response status:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GeminiAI: API request failed:', response.status, errorText);
-      throw new Error(`Gemini API request failed: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('GeminiAI: API response data:', JSON.stringify(data, null, 2));
-    
-    // Check for API errors in response
-    if (data.error) {
-      console.error('GeminiAI: API error:', data.error);
-      throw new Error(`Gemini API error: ${data.error.message || 'Unknown error'}`);
-    }
+    console.log('GeminiAI: API response received');
     
     const generatedTitle = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Audio Note';
     console.log('GeminiAI: Generated title:', generatedTitle);
@@ -213,37 +204,15 @@ export async function extractKeyDetailsWithGemini(noteText: string, user?: any):
     throw new Error('AI key details are currently disabled');
   }
   
-  // Check if API key is available
-  if (!GEMINI_API_KEY) {
-    console.error('GeminiAI: API key not found');
-    throw new Error('Gemini API key not configured');
-  }
-  
   try {
     const prompt = `Extract the 3-5 most important key details or facts from the following note. Return ONLY the bullet points, with no introduction or explanation.\n\nNote:\n${noteText}`;
-    const response = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          { parts: [{ text: prompt }] }
-        ]
-      })
+    
+    // Use server-side API proxy instead of direct API call
+    const data = await callGeminiAPI('gemini-2.5-flash:generateContent', {
+      contents: [
+        { parts: [{ text: prompt }] }
+      ]
     });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GeminiAI: API request failed:', response.status, errorText);
-      throw new Error(`Gemini API request failed: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    // Check for API errors in response
-    if (data.error) {
-      console.error('GeminiAI: API error:', data.error);
-      throw new Error(`Gemini API error: ${data.error.message || 'Unknown error'}`);
-    }
     
     // Split by line and filter out empty lines and bullets
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -291,37 +260,15 @@ export async function generateSummaryWithGemini(noteText: string, user?: any): P
     throw new Error('AI summaries are currently disabled');
   }
   
-  // Check if API key is available
-  if (!GEMINI_API_KEY) {
-    console.error('GeminiAI: API key not found');
-    throw new Error('Gemini API key not configured');
-  }
-  
   try {
     const prompt = `Create a concise, well-written summary of the following note content. The summary should be 2-4 sentences that capture the main points and essence of the note. Return ONLY the summary text, no introduction or formatting.\n\nNote:\n${noteText}`;
-    const response = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          { parts: [{ text: prompt }] }
-        ]
-      })
+    
+    // Use server-side API proxy instead of direct API call
+    const data = await callGeminiAPI('gemini-2.5-flash:generateContent', {
+      contents: [
+        { parts: [{ text: prompt }] }
+      ]
     });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GeminiAI: API request failed:', response.status, errorText);
-      throw new Error(`Gemini API request failed: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    // Check for API errors in response
-    if (data.error) {
-      console.error('GeminiAI: API error:', data.error);
-      throw new Error(`Gemini API error: ${data.error.message || 'Unknown error'}`);
-    }
     
     const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
@@ -434,13 +381,6 @@ export async function generateFlashcardsWithGemini(
     throw new Error('AI flashcards is currently disabled');
   }
   
-  // Check if API key is available
-  console.log('GeminiAI: API key available:', !!GEMINI_API_KEY);
-  if (!GEMINI_API_KEY) {
-    console.error('GeminiAI: API key not found');
-    throw new Error('Gemini API key not configured');
-  }
-  
   try {
     const focusAreasText = options.focusAreas && options.focusAreas.length > 0 
       ? `Focus on these areas: ${options.focusAreas.join(', ')}. `
@@ -480,36 +420,17 @@ Return ONLY a valid JSON array with objects containing:
 Content to analyze:
 ${content}`;
 
-    console.log('🔮 GeminiAI: Making API request for flashcard generation');
-    console.log('🔮 GeminiAI: API URL:', GEMINI_API_URL);
+    console.log('🔮 GeminiAI: Making API request for flashcard generation via server proxy');
     console.log('🔮 GeminiAI: Prompt length:', prompt.length);
     
-    const response = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          { parts: [{ text: prompt }] }
-        ]
-      })
+    // Use server-side API proxy instead of direct API call
+    const data = await callGeminiAPI('gemini-2.5-flash:generateContent', {
+      contents: [
+        { parts: [{ text: prompt }] }
+      ]
     });
     
-    console.log('🔮 GeminiAI: API response status:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GeminiAI: API request failed:', response.status, errorText);
-      throw new Error(`Gemini API request failed: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('GeminiAI: API response data:', JSON.stringify(data, null, 2));
-    
-    // Check for API errors in response
-    if (data.error) {
-      console.error('GeminiAI: API error:', data.error);
-      throw new Error(`Gemini API error: ${data.error.message || 'Unknown error'}`);
-    }
+    console.log('🔮 GeminiAI: API response received');
     
     const responseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     console.log('GeminiAI: Raw response text:', responseText);
@@ -602,15 +523,6 @@ export async function processPDFWithGemini(
     };
   }
   
-  // Check if API key is available
-  if (!GEMINI_API_KEY) {
-    console.error('GeminiAI: API key not found');
-    return {
-      success: false,
-      error: 'Gemini API key not configured'
-    };
-  }
-  
   try {
     const result: any = { success: true };
     
@@ -618,31 +530,15 @@ export async function processPDFWithGemini(
     if (options.extractText !== false) {
       console.log('GeminiAI: Extracting text from PDF...');
       
-      const extractResponse = await fetch(GEMINI_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: 'application/pdf', data: base64PDF } },
-              { text: 'Extract all text from this PDF document. Preserve the structure, formatting, headings, and paragraph breaks as much as possible. Return only the extracted text content.' }
-            ]
-          }]
-        })
+      // Use server-side API proxy instead of direct API call
+      const extractData = await callGeminiAPI('gemini-2.5-flash:generateContent', {
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: 'application/pdf', data: base64PDF } },
+            { text: 'Extract all text from this PDF document. Preserve the structure, formatting, headings, and paragraph breaks as much as possible. Return only the extracted text content.' }
+          ]
+        }]
       });
-      
-      if (!extractResponse.ok) {
-        const errorText = await extractResponse.text();
-        console.error('GeminiAI: PDF text extraction failed:', extractResponse.status, errorText);
-        throw new Error(`PDF text extraction failed: ${extractResponse.status}`);
-      }
-      
-      const extractData = await extractResponse.json();
-      
-      if (extractData.error) {
-        console.error('GeminiAI: API error during text extraction:', extractData.error);
-        throw new Error(`Gemini API error: ${extractData.error.message || 'Unknown error'}`);
-      }
       
       result.extractedText = extractData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       console.log('GeminiAI: Extracted text length:', result.extractedText.length);
@@ -704,48 +600,16 @@ export async function extractTextFromPDFWithGemini(base64PDF: string): Promise<{
 }> {
   console.log('GeminiAI: Extracting text from PDF with Gemini');
   
-  if (!GEMINI_API_KEY) {
-    return {
-      success: false,
-      text: '',
-      error: 'Gemini API key not configured'
-    };
-  }
-  
   try {
-    const response = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { inline_data: { mime_type: 'application/pdf', data: base64PDF } },
-            { text: 'Extract all text from this PDF document. Preserve the structure, formatting, headings, lists, and paragraph breaks. Return only the text content without any additional commentary.' }
-          ]
-        }]
-      })
+    // Use server-side API proxy instead of direct API call
+    const data = await callGeminiAPI('gemini-2.5-flash:generateContent', {
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: 'application/pdf', data: base64PDF } },
+          { text: 'Extract all text from this PDF document. Preserve the structure, formatting, headings, lists, and paragraph breaks. Return only the text content without any additional commentary.' }
+        ]
+      }]
     });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GeminiAI: Text extraction failed:', response.status, errorText);
-      return {
-        success: false,
-        text: '',
-        error: `Text extraction failed: ${response.status}`
-      };
-    }
-    
-    const data = await response.json();
-    
-    if (data.error) {
-      console.error('GeminiAI: API error:', data.error);
-      return {
-        success: false,
-        text: '',
-        error: data.error.message || 'Unknown error'
-      };
-    }
     
     const extractedText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     console.log('GeminiAI: Successfully extracted', extractedText.length, 'characters');
@@ -767,34 +631,19 @@ export async function extractTextFromPDFWithGemini(base64PDF: string): Promise<{
 
 // Debug function to test API key and connection
 export async function testGeminiConnection(): Promise<{ success: boolean; error?: string }> {
-  if (!GEMINI_API_KEY) {
-    return { success: false, error: 'API key not configured' };
-  }
-  
   try {
-    const response = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          { parts: [{ text: 'Hello, this is a test message. Please respond with "OK" if you can read this.' }] }
-        ]
-      })
+    // Use server-side API proxy instead of direct API call
+    await callGeminiAPI('gemini-2.5-flash:generateContent', {
+      contents: [
+        { parts: [{ text: 'Hello, this is a test message. Please respond with "OK" if you can read this.' }] }
+      ]
     });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      return { success: false, error: `HTTP ${response.status}: ${errorText}` };
-    }
-    
-    const data = await response.json();
-    
-    if (data.error) {
-      return { success: false, error: `API Error: ${data.error.message || 'Unknown error'}` };
-    }
     
     return { success: true };
   } catch (error) {
-    return { success: false, error: `Network error: ${error}` };
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : `Network error: ${error}` 
+    };
   }
 } 

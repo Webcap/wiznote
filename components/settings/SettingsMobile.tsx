@@ -582,6 +582,15 @@ export function SettingsMobile({
           
           <TouchableOpacity 
             style={styles.actionButton}
+            onPress={() => router.push('/faq')}
+          >
+            <Ionicons name="help-circle-outline" size={20} color={iconColor} />
+            <ThemedText style={styles.actionButtonText}>{t('settings.faq')}</ThemedText>
+            <Ionicons name="chevron-forward" size={20} color={borderColor} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionButton}
             onPress={() => router.push('/about')}
           >
             <Ionicons name="information-circle" size={20} color={iconColor} />

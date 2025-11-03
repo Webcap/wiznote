@@ -55,7 +55,7 @@ export class BetterAuthService {
     // On web, this is a backup if the event listener doesn't catch it
     setTimeout(() => {
       // Only restore if we still don't have a user and are not already restoring
-      if (!this.currentUser && !this.isRestoringSession) {
+      if (!this.currentUser && !this.isRecoveringSession) {
         this.sessionRestorationPromise = this.restoreSession().catch(error => {
           // Silently handle session restoration errors
           console.warn('BetterAuthService: Session restoration failed silently:', error.message);
@@ -223,10 +223,25 @@ export class BetterAuthService {
         role: 'user' as UserRole,
         createdAt: new Date(),
         lastLoginAt: new Date(),
-        preferences: { theme: 'auto', language: 'en', autoSync: true, notifications: true },
-        premium: null,
-        permissions: { canCreateNotes: true, canExportNotes: true, canShareNotes: true },
-        supportInfo: null,
+        preferences: { 
+          theme: 'auto', 
+          language: 'en', 
+          autoSync: true, 
+          notifications: true,
+          autoKeyDetails: false,
+          autoAISummaries: false,
+        },
+        premium: undefined,
+        permissions: {
+          canManageUsers: false,
+          canAccessAdminPanel: false,
+          canViewAnalytics: false,
+          canManageContent: false,
+          canAccessSupportTools: false,
+          canViewUserData: false,
+          canManageSystemSettings: false,
+        },
+        supportInfo: undefined,
       };
       
       this.currentUser = minimalUser;
@@ -967,6 +982,108 @@ export class BetterAuthService {
     }
   }
 
+  /**
+   * Update password from password reset link (recovery session)
+   * This does NOT require the current password - used when user clicks reset link from email
+   */
+  async updatePasswordFromReset(newPassword: string): Promise<void> {
+    try {
+      console.log('BetterAuthService: Updating password from reset link...');
+      
+      // Check if we have a session (should be a recovery session from reset link)
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('❌ No valid session for password reset:', sessionError);
+        throw new Error('Invalid or expired reset link. Please request a new password reset.');
+      }
+      
+      console.log('✅ Recovery session found, updating password...');
+      
+      // Validate new password
+      if (!this.currentUser) {
+        // Try to get current user from session
+        const user = await this.getCurrentUser();
+        if (!user) {
+          throw new Error('User session not found');
+        }
+      }
+      
+      const validatedPassword = validateSignIn({
+        email: this.currentUser?.email || session.user.email || '',
+        password: newPassword,
+      }).password;
+      
+      console.log('✅ New password validation passed');
+      
+      // Update password via Supabase (recovery sessions allow this without current password)
+      const { error } = await supabase.auth.updateUser({
+        password: validatedPassword
+      });
+
+      if (error) {
+        console.error('Password reset update error:', error);
+        if (error.message?.includes('session') || error.message?.includes('expired')) {
+          throw new Error('Reset link has expired. Please request a new password reset.');
+        }
+        throw error;
+      }
+      
+      // Force logout all other sessions on password change
+      try {
+        const userId = this.currentUser?.id || session.user.id;
+        const terminatedCount = await terminateAllSessions(
+          userId,
+          'password_changed'
+        );
+        console.log(`✅ Terminated ${terminatedCount} other sessions after password reset`);
+      } catch (terminateError) {
+        console.error('Failed to terminate other sessions:', terminateError);
+        // Don't fail password update if session termination fails
+      }
+      
+      // Log successful password reset
+      try {
+        const userId = this.currentUser?.id || session.user.id;
+        const userEmail = this.currentUser?.email || session.user.email || '';
+        await logAuthEvent(
+          'auth.password_reset.success',
+          userId,
+          userEmail,
+          true,
+          undefined,
+          { platform: Platform.OS, force_logout: true, from_reset_link: true }
+        );
+      } catch (logError) {
+        console.error('Failed to log password reset:', logError);
+      }
+      
+      console.log('✅ Password reset completed successfully');
+      
+    } catch (error) {
+      console.error('Error updating password from reset:', error);
+      
+      // Log failed password reset
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await logAuthEvent(
+            'auth.password_reset.failure',
+            session.user.id,
+            session.user.email || '',
+            false,
+            error instanceof Error ? error.message : 'Unknown error',
+            { platform: Platform.OS, update_failed: true }
+          );
+        }
+      } catch (logError) {
+        console.error('Failed to log password reset failure:', logError);
+      }
+      
+      throw error;
+    }
+  }
+
   async signInWithGoogle(): Promise<User> {
     try {
       console.log('Signing in with Google...');
@@ -1105,6 +1222,9 @@ export class BetterAuthService {
               (nativeError.message.includes('not properly installed') ||
                nativeError.message.includes('Cannot read property'));
             
+            // Type guard for error handling
+            const errorMessage = nativeError instanceof Error ? nativeError.message : String(nativeError);
+            
             if (isDeveloperError || isModuleError) {
               console.log(`${isDeveloperError ? 'DEVELOPER_ERROR' : 'Module error'} detected - clearing any partial session and falling back to OAuth`);
               try {
@@ -1125,7 +1245,8 @@ export class BetterAuthService {
               useOAuthFallback = true;
             } else {
               // Other errors - try OAuth fallback first, then throw if that doesn't work
-              console.warn('Native Google Sign-In failed with unexpected error, attempting OAuth fallback:', nativeError.message);
+              const nativeErrorMessage = nativeError instanceof Error ? nativeError.message : String(nativeError);
+              console.warn('Native Google Sign-In failed with unexpected error, attempting OAuth fallback:', nativeErrorMessage);
               useOAuthFallback = true;
             }
           }
@@ -1831,7 +1952,8 @@ export class BetterAuthService {
               try {
                 await Promise.race([sessionPromise, timeoutPromise]);
               } catch (error) {
-                console.warn('BetterAuthService: Session restoration failed:', error.message);
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                console.warn('BetterAuthService: Session restoration failed:', errorMessage);
                 // Don't throw error, just log it
               }
             } else {
@@ -1843,7 +1965,8 @@ export class BetterAuthService {
                 try {
                   await this.performSafeSessionRestoration();
                 } catch (error) {
-                  console.warn('BetterAuthService: Session restoration failed:', error.message);
+                  const errorMessage = error instanceof Error ? error.message : String(error);
+                  console.warn('BetterAuthService: Session restoration failed:', errorMessage);
                 }
               }
             }
@@ -1877,7 +2000,8 @@ export class BetterAuthService {
         try {
           await this.handleSignIn(session.user);
         } catch (profileError) {
-          console.warn('BetterAuthService: Profile verification failed:', profileError.message);
+          const errorMessage = profileError instanceof Error ? profileError.message : String(profileError);
+          console.warn('BetterAuthService: Profile verification failed:', errorMessage);
           
           // Profile doesn't exist or failed to load - clear user
           this.currentUser = null;
@@ -2165,9 +2289,9 @@ export class BetterAuthService {
             setTimeout(() => reject(new Error('Session attempt timeout')), attemptTimeoutMs)
           );
           
-          const result = await Promise.race([attemptPromise, attemptTimeout]);
-          session = result.data.session;
-          error = result.error;
+          const result = await Promise.race([attemptPromise, attemptTimeout]) as any;
+          session = result?.data?.session;
+          error = result?.error;
           
           if (session?.user || !error) {
             break; // Success or no error, exit retry loop
@@ -2295,14 +2419,23 @@ export class BetterAuthService {
   }
 
   private handleError(error: unknown, context: string = 'Authentication'): never {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    // Import error sanitizer
+    const { sanitizeErrorForClient, logErrorForServer } = require('../utils/errorSanitizer');
+    
+    // Log full error server-side
+    logErrorForServer(error, { context, service: 'BetterAuthService' });
+    
+    // Sanitize error for client (don't expose sensitive details)
+    const isProduction = process.env.NODE_ENV === 'production';
+    const sanitizedMessage = sanitizeErrorForClient(error, isProduction);
+    
     console.error(`BetterAuthService: ${context} error:`, error);
     
     if (this.onError) {
-      this.onError(errorMessage, 'error');
+      this.onError(sanitizedMessage, 'error');
     }
     
-    throw new Error(`${context}: ${errorMessage}`);
+    throw new Error(`${context}: ${sanitizedMessage}`);
   }
 }
 
@@ -2322,9 +2455,12 @@ export const betterAuthService = {
   signOut: () => betterAuthService.instance.signOut(),
   getCurrentUser: () => betterAuthService.instance.getCurrentUser(),
   resetPassword: (email: string) => betterAuthService.instance.resetPassword(email),
-  updatePassword: (newPassword: string) => betterAuthService.instance.updatePassword(newPassword),
+  updatePassword: (currentPassword: string, newPassword: string) => betterAuthService.instance.updatePassword(currentPassword, newPassword),
+  updatePasswordFromReset: (newPassword: string) => betterAuthService.instance.updatePasswordFromReset(newPassword),
   setErrorHandler: (callback: (error: string, type: 'error' | 'warning' | 'info') => void) => betterAuthService.instance.setErrorHandler(callback),
   setAuthStateChangeHandler: (callback: (user: User | null) => void) => betterAuthService.instance.setAuthStateChangeHandler(callback),
   updatePreferences: (preferences: Partial<UserPreferences>) => betterAuthService.instance.updatePreferences(preferences),
   getCurrentUserWithValidation: () => betterAuthService.instance.getCurrentUserWithValidation(),
+  getAllUsers: () => betterAuthService.instance.getAllUsers(),
+  updateUserRole: (userId: string, newRole: string) => betterAuthService.instance.updateUserRole(userId, newRole),
 }; 

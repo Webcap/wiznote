@@ -226,20 +226,34 @@ export class AuthInitializationService {
       }
 
       this.notifyProgress({
-        stage: 'feature-limits',
+        stage: 'preferences',
         progress: 80,
-        message: 'Finalizing setup...',
+        message: 'Loading your preferences...',
       });
+
+      // Step 4: Ensure preferences are loaded (they should already be in fullUser from profile)
+      // But verify they exist - if not, set defaults
+      // CRITICAL: Theme must always be defined to avoid white flash
+      if (!fullUser.preferences) {
+        console.warn('AuthInitializationService: Preferences not found in profile, setting defaults');
+        fullUser.preferences = {
+          theme: 'auto',
+          language: 'en',
+          autoSync: true,
+          notifications: true,
+        };
+      } else if (!fullUser.preferences.theme) {
+        // Ensure theme is always defined even if preferences object exists
+        console.warn('AuthInitializationService: Theme not found in preferences, setting default');
+        fullUser.preferences.theme = 'auto';
+      }
+      
+      // Log preferences for debugging
+      console.log('AuthInitializationService: Preferences loaded with theme:', fullUser.preferences.theme);
 
       // Update last login time in background (don't block)
       this.updateLastLogin(supabaseUser.id).catch(error => {
         console.warn('AuthInitializationService: Failed to update last login:', error);
-      });
-
-      // Step 4: Load preferences in background (non-blocking, lower priority)
-      // Preferences are already in fullUser, so this is just for any additional settings
-      this.loadPreferencesInBackground(fullUser.id).catch(error => {
-        console.warn('AuthInitializationService: Failed to load preferences in background:', error);
       });
 
       const elapsed = Date.now() - startTime;
