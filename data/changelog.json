@@ -5,6 +5,22 @@
       "date": "Unreleased",
       "sections": [
         {
+          "title": "Bug Fixes",
+          "emoji": "🐛",
+          "items": [
+            {
+              "title": "Fixed Netlify functions API key error",
+              "description": "Monthly usage reset now works correctly",
+              "details": [
+                "Removed deprecated legacy API key fallback",
+                "All Netlify functions now use correct Supabase credentials",
+                "Improved error messages for missing environment variables",
+                "Admin dashboard monthly usage reset feature now functional"
+              ]
+            }
+          ]
+        },
+        {
           "title": "Multi-Language Support",
           "emoji": "🌐",
           "items": [

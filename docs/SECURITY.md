@@ -213,7 +213,7 @@ WizNote is built with security as a foundational principle. Our comprehensive se
 | Input Validation | [INPUT_VALIDATION_SETUP.md](./INPUT_VALIDATION_SETUP.md) | ✅ Complete |
 | Security Logging | [SECURITY_LOGGING_SETUP.md](./SECURITY_LOGGING_SETUP.md) | ✅ Complete |
 | Incident Response | [INCIDENT_RESPONSE_PLAN.md](./INCIDENT_RESPONSE_PLAN.md) | ✅ Complete |
-| CSRF Protection | See `services/CSRFService.ts` | ✅ Complete |
+| CSRF Protection | [CSRF_PROTECTION_SETUP.md](./CSRF_PROTECTION_SETUP.md) | ✅ Complete |
 | Account Lockout | [ACCOUNT_LOCKOUT_SETUP.md](./ACCOUNT_LOCKOUT_SETUP.md) | ⏳ Pending |
 | Session Management | [SESSION_MANAGEMENT_SETUP.md](./SESSION_MANAGEMENT_SETUP.md) | ⏳ Pending |
 | API Request Signing | [API_REQUEST_SIGNING_SETUP.md](./API_REQUEST_SIGNING_SETUP.md) | ⏳ Pending |
