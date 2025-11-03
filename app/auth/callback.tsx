@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { betterAuthService } from '../../services/BetterAuthService';
+import { authInitializationService } from '../../services/AuthInitializationService';
+import { ProgressCallback } from '../../services/AuthInitializationService';
 
 /**
  * Auth Callback Screen
@@ -10,8 +13,9 @@ import { supabase } from '../../lib/supabase';
 export default function AuthCallbackScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
+  const [status, setStatus] = useState<'verifying' | 'initializing' | 'success' | 'error'>('verifying');
   const [message, setMessage] = useState('Verifying your email...');
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     handleAuthCallback();
@@ -72,14 +76,78 @@ export default function AuthCallbackScreen() {
         }
 
         if (session) {
-          console.log('Active session found, redirecting to app...');
-          setStatus('success');
-          setMessage('Signed in successfully! Redirecting...');
+          console.log('Active session found, waiting for initialization...');
+          setStatus('initializing');
+          setMessage('Loading your account...');
           
-          // Redirect to main app
-          setTimeout(() => {
-            router.replace('/(tabs)');
-          }, 1500);
+          // Set up progress tracking
+          const progressCallback: ProgressCallback = (progress) => {
+            setMessage(progress.message);
+            setProgress(progress.progress);
+            
+            if (progress.stage === 'complete') {
+              // Wait a moment for UI to update, then redirect
+              setTimeout(() => {
+                setStatus('success');
+                setMessage('Ready! Redirecting...');
+                setTimeout(() => {
+                  router.replace('/(tabs)');
+                }, 500);
+              }, 300);
+            } else if (progress.error) {
+              setStatus('error');
+              setMessage(progress.error);
+            }
+          };
+          
+          const unsubscribe = authInitializationService.onProgress(progressCallback);
+          
+          // Wait for initialization to complete
+          try {
+            // Check if user is already initialized
+            const user = await betterAuthService.instance.waitForInitialization();
+            
+            if (user && betterAuthService.instance.isUserInitialized()) {
+              setStatus('success');
+              setMessage('Ready! Redirecting...');
+              unsubscribe();
+              setTimeout(() => {
+                router.replace('/(tabs)');
+              }, 500);
+            } else {
+              // Wait up to 30 seconds for initialization
+              const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Initialization timeout')), 30000);
+              });
+              
+              await Promise.race([
+                betterAuthService.instance.waitForInitialization(),
+                timeoutPromise
+              ]);
+              
+              unsubscribe();
+              
+              if (betterAuthService.instance.isUserInitialized()) {
+                setStatus('success');
+                setMessage('Ready! Redirecting...');
+                setTimeout(() => {
+                  router.replace('/(tabs)');
+                }, 500);
+              } else {
+                throw new Error('Initialization incomplete');
+              }
+            }
+          } catch (error) {
+            unsubscribe();
+            console.error('Initialization error:', error);
+            setStatus('error');
+            setMessage('Failed to load your account. Please try signing in again.');
+            
+            // Redirect to login after 3 seconds
+            setTimeout(() => {
+              router.replace('/(auth)/login');
+            }, 3000);
+          }
         } else {
           console.log('No session found, redirecting to login...');
           setStatus('error');
@@ -105,10 +173,18 @@ export default function AuthCallbackScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        {status === 'verifying' && (
+        {(status === 'verifying' || status === 'initializing') && (
           <>
             <ActivityIndicator size="large" color="#007AFF" />
             <Text style={styles.message}>{message}</Text>
+            {status === 'initializing' && progress > 0 && (
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBar}>
+                  <View style={[styles.progressFill, { width: `${progress}%` }]} />
+                </View>
+                <Text style={styles.progressText}>{progress}%</Text>
+              </View>
+            )}
           </>
         )}
         
@@ -123,6 +199,12 @@ export default function AuthCallbackScreen() {
           <>
             <Text style={styles.errorIcon}>❌</Text>
             <Text style={[styles.message, styles.errorText]}>{message}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => router.replace('/(auth)/login')}
+            >
+              <Text style={styles.retryButtonText}>Go to Login</Text>
+            </TouchableOpacity>
           </>
         )}
       </View>
@@ -160,6 +242,42 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#FF3B30',
+    fontWeight: '600',
+  },
+  progressContainer: {
+    marginTop: 20,
+    width: '80%',
+    alignItems: 'center',
+  },
+  progressBar: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#007AFF',
+    borderRadius: 4,
+    transition: 'width 0.3s ease',
+  },
+  progressText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  retryButton: {
+    marginTop: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
   },
 });

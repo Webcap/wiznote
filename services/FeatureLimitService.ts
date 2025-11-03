@@ -301,22 +301,6 @@ export class FeatureLimitService {
     }
   }
 
-  // Initialize default limits
-  async initializeDefaultLimits(): Promise<void> {
-    try {
-      console.log('FeatureLimitService: Initializing default limits...');
-      
-      this.limits = this.convertUnifiedToLegacy(UNIFIED_FEATURE_LIMITS);
-      await this.saveToCache();
-      await this.saveLimitsToSupabase();
-
-      console.log('FeatureLimitService: Default limits initialized');
-    } catch (error) {
-      console.error('FeatureLimitService: Error initializing default limits:', error);
-      throw error;
-    }
-  }
-
   // Get user feature usage
   async getUserFeatureUsage(userId: string, featureId: string, isPremium: boolean = false): Promise<UserFeatureUsage | null> {
     try {

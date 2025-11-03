@@ -425,28 +425,6 @@ export default function AdminDashboardScreen() {
     router.push('/admin/feature-limits');
   };
 
-  const handleInitializeFeatureLimits = async () => {
-    try {
-      console.log('AdminDashboard: Initializing feature limits...');
-      await featureLimitService.initializeDefaultLimits();
-      
-      if (Platform.OS === 'web') {
-        showSnackbar('Feature limits initialized with defaults successfully!', 'success', 4000);
-      } else {
-        Alert.alert('Success', 'Feature limits initialized with defaults successfully!');
-      }
-      
-      console.log('AdminDashboard: Feature limits initialized successfully');
-    } catch (error) {
-      console.error('Error initializing feature limits:', error);
-      
-      if (Platform.OS === 'web') {
-        showSnackbar('Failed to initialize feature limits. Please try again.', 'error', 6000);
-      } else {
-        Alert.alert('Error', 'Failed to initialize feature limits. Please try again.');
-      }
-    }
-  };
 
   const refreshFeatureLimits = useCallback(async () => {
     try {
@@ -710,17 +688,6 @@ export default function AdminDashboardScreen() {
               <ThemedText style={styles.actionSubtitle}>Manage feature usage limits and restrictions. Use the refresh button in the header to see updates.</ThemedText>
             </TouchableOpacity>
             
-                          <TouchableOpacity 
-                style={[styles.actionCard, { backgroundColor: cardBg }]}
-                onPress={handleInitializeFeatureLimits}
-              >
-                <Ionicons name="refresh" size={32} color="#4CAF50" />
-                <ThemedText style={styles.actionTitle}>Initialize Feature Limits</ThemedText>
-                <ThemedText style={styles.actionSubtitle}>Set up default feature limits and restrictions</ThemedText>
-              </TouchableOpacity>
-
-
-            
             <TouchableOpacity 
               style={[styles.actionCard, { backgroundColor: cardBg }]}
               onPress={handleSystemSettings}
@@ -728,36 +695,6 @@ export default function AdminDashboardScreen() {
               <Ionicons name="settings" size={32} color="#FF6B6B" />
               <ThemedText style={styles.actionTitle}>System Settings</ThemedText>
               <ThemedText style={styles.actionSubtitle}>Configure system-wide settings</ThemedText>
-            </TouchableOpacity>
-            
-                         <TouchableOpacity 
-               style={[styles.actionCard, { backgroundColor: cardBg }]}
-               onPress={async () => {
-                 try {
-                   console.log('AdminDashboard: Syncing features with defaults...');
-                   await featureFlagService.syncWithDefaults();
-                   
-                   if (Platform.OS === 'web') {
-                     showSnackbar('Features synced with defaults successfully!', 'success', 4000);
-                   } else {
-                     Alert.alert('Success', 'Features synced with defaults successfully');
-                   }
-                   
-                   console.log('AdminDashboard: Features synced successfully');
-                 } catch (error) {
-                   console.error('AdminDashboard: Error syncing features:', error);
-                   
-                   if (Platform.OS === 'web') {
-                     showSnackbar(`Failed to sync features: ${error instanceof Error ? error.message : String(error)}`, 'error', 6000);
-                   } else {
-                     Alert.alert('Error', `Failed to sync features: ${error instanceof Error ? error.message : String(error)}`);
-                   }
-                 }
-               }}
-             >
-              <Ionicons name="sync" size={32} color="#4CAF50" />
-              <ThemedText style={styles.actionTitle}>Sync Features</ThemedText>
-              <ThemedText style={styles.actionSubtitle}>Sync with default feature definitions</ThemedText>
             </TouchableOpacity>
 
           </View>

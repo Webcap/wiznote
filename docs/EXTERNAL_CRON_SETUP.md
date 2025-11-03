@@ -2,6 +2,20 @@
 
 Since Netlify's scheduled functions might not be available in your plan, here's how to set up automatic monthly resets using external cron services.
 
+## Environment Variables Required
+
+Before setting up the cron job, make sure these environment variables are configured in your Netlify dashboard:
+
+```
+EXPO_PUBLIC_SUPABASE_URL=your-supabase-url
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key (required)
+# OR use the legacy name if you prefer:
+SUPABASE_SECRET_KEY=your-service-role-key (alternative name)
+CRON_API_KEY=your-secret-key (optional, for security)
+```
+
+**Important**: The `cron-reset` function requires the **service role key**, not the anon key, because it needs to bypass Row Level Security (RLS) policies to update usage records.
+
 ## Option 1: cron-job.org (Free & Easy)
 
 ### Setup Steps:

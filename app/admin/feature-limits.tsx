@@ -25,7 +25,6 @@ export default function FeatureLimitsScreen() {
     error,
     saveFeatureLimit,
     deleteFeatureLimit,
-    initializeDefaults,
     getFeatureLimitsByCategory,
     getPremiumFeatures,
     clearCache,
@@ -36,7 +35,6 @@ export default function FeatureLimitsScreen() {
   const [editingLimit, setEditingLimit] = useState<FeatureLimit | null>(null);
   const [showPremiumOnly, setShowPremiumOnly] = useState(false);
   const [editForm, setEditForm] = useState<Partial<FeatureLimit>>({});
-  const [isInitializing, setIsInitializing] = useState(false);
 
   // Theme colors
   const textColor = useThemeColor({}, 'text');
@@ -241,40 +239,6 @@ export default function FeatureLimitsScreen() {
     );
   };
 
-  const handleInitializeDefaults = async () => {
-    console.log('FeatureLimitsScreen: handleInitializeDefaults called');
-    Alert.alert(
-      'Initialize Default Limits',
-      'This will create default feature limits. Existing limits will be preserved. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Initialize',
-          onPress: async () => {
-            try {
-              console.log('FeatureLimitsScreen: Starting initialization...');
-              setIsInitializing(true);
-              
-              // Show loading snackbar
-              showSnackbar('Initializing default feature limits...', 'info', 3000);
-              
-              await initializeDefaults();
-              console.log('FeatureLimitsScreen: Initialization completed successfully');
-              
-              // Show success snackbar
-              showSnackbar('✅ Default feature limits initialized successfully', 'success', 4000);
-            } catch (error) {
-              console.error('FeatureLimitsScreen: Initialization failed:', error);
-              const errorMessage = error instanceof Error ? error.message : String(error);
-              showSnackbar(`❌ Failed to initialize defaults: ${errorMessage}`, 'error', 6000);
-            } finally {
-              setIsInitializing(false);
-            }
-          },
-        },
-      ]
-    );
-  };
 
 
   const renderLimitInput = (limit: FeatureLimit, field: 'freeUserLimit' | 'premiumUserLimit') => {
@@ -734,20 +698,6 @@ export default function FeatureLimitsScreen() {
             >
               <Ionicons name="headset" size={20} color={iconColor} />
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[
-                styles.refreshButton, 
-                { backgroundColor: 'rgba(255,255,255,0.1)' },
-                isInitializing && { opacity: 0.5 }
-              ]}
-              onPress={() => {
-                console.log('FeatureLimitsScreen: Header initialize button clicked!');
-                handleInitializeDefaults();
-              }}
-              disabled={isInitializing}
-            >
-              <Ionicons name={isInitializing ? "hourglass" : "refresh"} size={20} color={iconColor} />
-            </TouchableOpacity>
           </View>
         </View>
       }
@@ -759,13 +709,6 @@ export default function FeatureLimitsScreen() {
           </View>
         )}
 
-        {isInitializing && (
-          <View style={[styles.infoContainer, { backgroundColor: accentPrimary + '20' }]}>
-            <ThemedText style={[styles.infoText, { color: accentPrimary }]}>
-              Initializing default feature limits... Please wait.
-            </ThemedText>
-          </View>
-        )}
 
         <View style={styles.section}>
           <View style={styles.filters}>
@@ -816,19 +759,6 @@ export default function FeatureLimitsScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <ThemedText style={styles.sectionTitle}>Statistics</ThemedText>
-                        <TouchableOpacity
-              style={[styles.initializeButton, { backgroundColor: accentPrimary }]}
-              onPress={() => {
-                console.log('FeatureLimitsScreen: Statistics section initialize button clicked!');
-                handleInitializeDefaults();
-              }}
-              disabled={isInitializing}
-            >
-              <Ionicons name="refresh" size={16} color="#FFFFFF" />
-              <ThemedText style={[styles.initializeButtonText, { color: '#FFFFFF', fontSize: 14 }]}>
-                {isInitializing ? 'Initializing...' : 'Initialize Defaults'}
-              </ThemedText>
-            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.initializeButton, { backgroundColor: accentPrimary, marginLeft: 12 }]}
               onPress={async () => {
@@ -915,22 +845,10 @@ export default function FeatureLimitsScreen() {
               <ThemedText style={[styles.emptyText, { color: textSecondaryColor }]}>No features found</ThemedText>
               <ThemedText style={[styles.emptySubtext, { color: textSecondaryColor }]}>
                 {(featureLimits?.length || 0) === 0 
-                  ? 'No feature limits have been initialized yet. Click "Initialize Defaults" to set up default feature limits.'
+                  ? 'No feature limits found. Feature limits are managed via SQL in the database.'
                   : 'Try adjusting your filters'
                 }
               </ThemedText>
-              {(featureLimits?.length || 0) === 0 && (
-                <TouchableOpacity
-                  style={[styles.initializeButton, { backgroundColor: accentPrimary }]}
-                  onPress={handleInitializeDefaults}
-                  disabled={isInitializing}
-                >
-                  <Ionicons name="refresh" size={20} color="#FFFFFF" />
-                  <ThemedText style={[styles.initializeButtonText, { color: '#FFFFFF' }]}>
-                    {isInitializing ? 'Initializing...' : 'Initialize Default Feature Limits'}
-                  </ThemedText>
-                </TouchableOpacity>
-              )}
               
               {/* Test button to verify button functionality */}
               <TouchableOpacity

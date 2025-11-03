@@ -190,26 +190,6 @@ export const useFeatureFlags = () => {
     }
   }, [refreshFlags, showSnackbar]);
 
-  // Sync with defaults
-  const syncWithDefaults = useCallback(async () => {
-    try {
-      setError(null);
-      await featureFlagService.syncWithDefaults();
-      await refreshFlags();
-
-      if (Platform.OS === 'web') {
-        showSnackbar('Feature flags synced with defaults', 'success', 3000);
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to sync with defaults';
-      setError(errorMessage);
-      
-      if (Platform.OS === 'web') {
-        showSnackbar(errorMessage, 'error', 6000);
-      }
-      throw err;
-    }
-  }, [refreshFlags, showSnackbar]);
 
   // Reset feature to defaults
   const resetFeatureToDefaults = useCallback(async (flagKey: FeatureFlagKey) => {
@@ -316,7 +296,6 @@ export const useFeatureFlags = () => {
     // Management functions
     updateFlag,
     updateFeatureFlags,
-    syncWithDefaults,
     resetFeatureToDefaults,
     resetAllFeaturesToDefaults,
     getFlagsSummary,

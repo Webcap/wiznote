@@ -222,8 +222,6 @@ export class AudioStorage {
         console.log('AudioStorage: Platform:', Platform.OS, 'Version:', Platform.Version);
         console.log('AudioStorage: Supabase URL:', process.env.EXPO_PUBLIC_SUPABASE_URL);
         console.log('AudioStorage: Supabase Key present:', !!(process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY));
-        console.log('AudioStorage: Supabase client URL:', supabase.supabaseUrl);
-        console.log('AudioStorage: Supabase client key present:', !!supabase.supabaseKey);
         
         // Check authentication status
         try {
@@ -337,9 +335,11 @@ export class AudioStorage {
                 'apikey': process.env.EXPO_PUBLIC_SUPABASE_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
                 'Authorization': `Bearer ${session.access_token}`,
                 'Content-Type': normalizedContentType,
-                'Content-Length': fileBody instanceof Uint8Array ? fileBody.length.toString() : 'unknown',
+                'Content-Length': fileBody instanceof Uint8Array ? fileBody.length.toString() : (fileBody instanceof Blob ? fileBody.size.toString() : 'unknown'),
               },
-              body: fileBody,
+              body: fileBody instanceof Blob 
+                ? fileBody 
+                : new Blob([new Uint8Array(fileBody).buffer]),
               signal: controller.signal,
             });
             
@@ -401,9 +401,11 @@ export class AudioStorage {
               error = uploadError;
               
               // If it's a network error, retry
-              if (uploadError.message?.includes('Network request failed') || 
-                  uploadError.message?.includes('network') ||
-                  uploadError.message?.includes('timeout')) {
+              if (uploadError instanceof Error && (
+                uploadError.message?.includes('Network request failed') || 
+                uploadError.message?.includes('network') ||
+                uploadError.message?.includes('timeout')
+              )) {
                 retryCount++;
                 if (retryCount < maxRetries) {
                   console.log(`AudioStorage: Retrying upload in ${retryCount * 1000}ms...`);

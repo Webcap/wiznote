@@ -140,7 +140,7 @@ Transform WizNote's web version into a mobile-friendly progressive web app that 
 
 ```typescript
 // Touch-friendly sizes
-minHeight: 44, minWidth: 44 (for all interactive elements)
+minHeight: 44, minWdth: 44 (for all interactive elements)
 
 // Mobile-first media queries
 '@media (max-width: 768px)': { /* mobile styles */ }

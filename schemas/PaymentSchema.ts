@@ -13,7 +13,7 @@ import { z } from 'zod';
 export const PlanIdSchema = z.enum(
   ['monthly', 'yearly', 'monthly-ultra', 'yearly-ultra'],
   {
-    errorMap: () => ({ message: 'Invalid plan ID' }),
+    message: 'Invalid plan ID',
   }
 );
 
@@ -23,7 +23,7 @@ export const PlanIdSchema = z.enum(
 export const SubscriptionStatusSchema = z.enum(
   ['active', 'canceled', 'past_due', 'trialing', 'incomplete', 'incomplete_expired'],
   {
-    errorMap: () => ({ message: 'Invalid subscription status' }),
+    message: 'Invalid subscription status',
   }
 );
 
@@ -31,7 +31,7 @@ export const SubscriptionStatusSchema = z.enum(
  * Payment Method Schema
  */
 export const PaymentMethodSchema = z.enum(['card', 'paypal', 'apple_pay', 'google_pay'], {
-  errorMap: () => ({ message: 'Invalid payment method' }),
+  message: 'Invalid payment method',
 });
 
 /**
@@ -94,7 +94,7 @@ export const ReactivateSubscriptionSchema = z.object({
  */
 export const WebhookEventSchema = z.object({
   type: z.string().min(1, 'Event type required'),
-  data: z.record(z.any()),
+  data: z.record(z.string(), z.any()),
   created: z.number().int().positive(),
 });
 
@@ -137,7 +137,7 @@ export const PriceSchema = z.object({
   amount: AmountSchema,
   currency: CurrencySchema,
   interval: z.enum(['month', 'year'], {
-    errorMap: () => ({ message: 'Invalid billing interval' }),
+    message: 'Invalid billing interval',
   }),
 });
 
@@ -178,8 +178,8 @@ export function safeValidateCheckout(data: unknown): {
   if (result.success) {
     return { success: true, data: result.data };
   } else {
-    const errorMessage = result.error.errors
-      .map((err) => `${err.path.join('.')}: ${err.message}`)
+    const errorMessage = result.error.issues
+      .map((err: z.ZodIssue) => `${err.path.join('.')}: ${err.message}`)
       .join(', ');
     return { success: false, error: errorMessage };
   }

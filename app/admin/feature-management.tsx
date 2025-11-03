@@ -289,26 +289,6 @@ export default function FeatureManagementScreen() {
     });
   };
 
-  const handleSyncWithDefaults = async () => {
-    try {
-      await featureFlagService.syncWithDefaults();
-      await loadData();
-      
-      if (Platform.OS === 'web') {
-        showSnackbar('Features synced with defaults successfully', 'success', 4000);
-      } else {
-        Alert.alert('Success', 'Features synced with defaults successfully');
-      }
-    } catch (error) {
-      console.error('Error syncing with defaults:', error);
-      
-      if (Platform.OS === 'web') {
-        showSnackbar(`Failed to sync with defaults: ${error instanceof Error ? error.message : String(error)}`, 'error', 6000);
-      } else {
-        Alert.alert('Error', `Failed to sync with defaults: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
-  };
 
   const handleResetAllFeatures = async () => {
     try {
@@ -331,48 +311,6 @@ export default function FeatureManagementScreen() {
     }
   };
 
-  const handleInitializeAllFeatures = async () => {
-    Alert.alert(
-      'Initialize All Features',
-      'This will initialize feature flags with default configurations. Feature limits are already configured. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Initialize',
-          style: 'destructive',
-          onPress: async () => {
-            setIsInitializing(true);
-            try {
-              // Initialize feature flags with defaults
-              await featureFlagService.syncWithDefaults();
-              
-              const message = `Features initialized successfully!\n\nFlags: ✅ Initialized\nLimits: ✅ Already configured`;
-              
-              if (Platform.OS === 'web') {
-                showSnackbar(message, 'success', 6000);
-              } else {
-                Alert.alert('Success', message);
-              }
-              
-              // Reload data and health
-              await loadData();
-              await loadSystemHealth();
-            } catch (error) {
-              const errorMessage = `Failed to initialize features: ${error instanceof Error ? error.message : String(error)}`;
-              
-              if (Platform.OS === 'web') {
-                showSnackbar(errorMessage, 'error', 6000);
-              } else {
-                Alert.alert('Error', errorMessage);
-              }
-            } finally {
-              setIsInitializing(false);
-            }
-          }
-        }
-      ]
-    );
-  };
 
   const handleResetToDefaults = async () => {
     Alert.alert(
@@ -572,21 +510,10 @@ export default function FeatureManagementScreen() {
                    System Setup
                  </ThemedText>
                  <ThemedText style={[styles.sectionSubtitle, { color: mutedTextColor }]}>
-                   Initialize or reset the feature system to default configurations
+                   Reset the feature system to default configurations
                  </ThemedText>
                  
                  <View style={styles.setupButtons}>
-                   <TouchableOpacity 
-                     style={[styles.setupButton, { backgroundColor: '#FF9800', borderColor: '#FF9800' }]}
-                     onPress={handleInitializeAllFeatures}
-                     disabled={isInitializing}
-                   >
-                     <Ionicons name="rocket" size={20} color="white" />
-                     <ThemedText style={styles.setupButtonText}>
-                       {isInitializing ? 'Initializing...' : 'Initialize All Features'}
-                     </ThemedText>
-                   </TouchableOpacity>
-
                    <TouchableOpacity 
                      style={[styles.setupButton, { backgroundColor: '#9E9E9E', borderColor: '#9E9E9E' }]}
                      onPress={handleResetToDefaults}
@@ -693,15 +620,6 @@ export default function FeatureManagementScreen() {
                   </ThemedText>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={[styles.secondaryButton, { backgroundColor: '#4CAF50', borderColor: '#4CAF50' }]}
-                  onPress={handleSyncWithDefaults}
-                  disabled={isSaving}
-                >
-                  <ThemedText style={styles.secondaryButtonText}>
-                    Sync with Defaults
-                  </ThemedText>
-                </TouchableOpacity>
 
                 <TouchableOpacity 
                   style={[styles.secondaryButton, { backgroundColor: '#F44336', borderColor: '#F44336' }]}

@@ -12,7 +12,7 @@ import { z } from 'zod';
 export const TicketTypeSchema = z.enum(
   ['account_deletion', 'billing', 'technical', 'feature_request', 'other'],
   {
-    errorMap: () => ({ message: 'Invalid ticket type' }),
+    message: 'Invalid ticket type',
   }
 );
 
@@ -22,7 +22,7 @@ export const TicketTypeSchema = z.enum(
 export const TicketStatusSchema = z.enum(
   ['pending', 'in_progress', 'resolved', 'cancelled'],
   {
-    errorMap: () => ({ message: 'Invalid ticket status' }),
+    message: 'Invalid ticket status',
   }
 );
 
@@ -30,7 +30,7 @@ export const TicketStatusSchema = z.enum(
  * Support Ticket Priority Schema
  */
 export const TicketPrioritySchema = z.enum(['low', 'medium', 'high', 'urgent'], {
-  errorMap: () => ({ message: 'Invalid priority level' }),
+  message: 'Invalid priority level',
 });
 
 /**
@@ -115,7 +115,7 @@ export const FeatureLimitOverrideSchema = z.object({
       'Limit must be non-negative or unlimited'
     ),
   duration: z.enum(['24hours', '7days', '30days', 'permanent'], {
-    errorMap: () => ({ message: 'Invalid duration' }),
+    message: 'Invalid duration',
   }),
   reason: z
     .string()
@@ -176,8 +176,8 @@ export function safeValidateTicket(data: unknown): {
   if (result.success) {
     return { success: true, data: result.data };
   } else {
-    const errorMessage = result.error.errors
-      .map((err) => `${err.path.join('.')}: ${err.message}`)
+    const errorMessage = result.error.issues
+      .map((err: z.ZodIssue) => `${err.path.join('.')}: ${err.message}`)
       .join(', ');
     return { success: false, error: errorMessage };
   }

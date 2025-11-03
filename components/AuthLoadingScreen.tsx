@@ -5,13 +5,16 @@ import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
+import { InitializationProgress } from '../services/AuthInitializationService';
 
 interface AuthLoadingScreenProps {
   message?: string;
+  progress?: InitializationProgress | null;
 }
 
 export const AuthLoadingScreen: React.FC<AuthLoadingScreenProps> = ({ 
-  message = 'Loading your account...' 
+  message = 'Loading your account...',
+  progress
 }) => {
   const { isLoading, error, isAuthenticated, loadCurrentUser } = useAuth();
   const backgroundColor = useThemeColor({}, 'background');
@@ -22,6 +25,15 @@ export const AuthLoadingScreen: React.FC<AuthLoadingScreenProps> = ({
   
   const [loadingMessage, setLoadingMessage] = useState(message);
   const [retryCount, setRetryCount] = useState(0);
+
+  // Update message if progress is provided
+  useEffect(() => {
+    if (progress?.message) {
+      setLoadingMessage(progress.message);
+    } else {
+      setLoadingMessage(message);
+    }
+  }, [progress?.message, message]);
 
   // Update loading message based on retry count
   useEffect(() => {
@@ -70,7 +82,9 @@ export const AuthLoadingScreen: React.FC<AuthLoadingScreenProps> = ({
   }
 
   // Show loading state
-  if (isLoading) {
+  if (isLoading || progress) {
+    const showProgress = progress && progress.progress > 0;
+    
     return (
       <ThemedView style={[styles.container, { backgroundColor }]}>
         <View style={styles.content}>
@@ -82,6 +96,23 @@ export const AuthLoadingScreen: React.FC<AuthLoadingScreenProps> = ({
           <ThemedText style={[styles.message, { color: textColor }]}>
             {loadingMessage}
           </ThemedText>
+          
+          {showProgress && (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <View 
+                  style={[
+                    styles.progressFill, 
+                    { width: `${progress.progress}%`, backgroundColor: accentColor }
+                  ]} 
+                />
+              </View>
+              <ThemedText style={[styles.progressText, { color: textColor }]}>
+                {progress.progress}%
+              </ThemedText>
+            </View>
+          )}
+          
           {retryCount > 0 && (
             <ThemedText style={[styles.subMessage, { color: textColor }]}>
               Attempt {retryCount + 1}
@@ -146,5 +177,29 @@ const styles = StyleSheet.create({
   subMessage: {
     fontSize: 14,
     marginTop: 8,
+  },
+  progressContainer: {
+    marginTop: 20,
+    width: '80%',
+    maxWidth: 300,
+    alignItems: 'center',
+  },
+  progressBar: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+    transition: 'width 0.3s ease',
+  },
+  progressText: {
+    fontSize: 14,
+    fontWeight: '500',
+    opacity: 0.7,
   },
 }); 

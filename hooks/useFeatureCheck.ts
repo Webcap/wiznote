@@ -15,7 +15,7 @@ export const useFeatureCheck = () => {
   const { user } = useAuth();
   const [cache, setCache] = useState<FeatureCheckCache>({});
   const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
-  const cacheTimeout = useRef<NodeJS.Timeout | null>(null);
+  const cacheTimeout = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Clean up expired cache entries
   const cleanupCache = useCallback(() => {

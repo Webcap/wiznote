@@ -140,7 +140,7 @@ export class FeatureAnalyticsService {
   /**
    * Compare two features
    */
-  async compareFeatures(featureA: string, featureB: string, period: 'monthly' = 'monthly'): Promise<FeatureComparison> {
+  async compareFeatures(featureA: string, featureB: string, period: 'daily' | 'weekly' | 'monthly' = 'monthly'): Promise<FeatureComparison> {
     try {
       const [analyticsA, analyticsB] = await Promise.all([
         this.getFeatureAnalytics(featureA, period),

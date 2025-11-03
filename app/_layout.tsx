@@ -25,7 +25,7 @@ import '../lib/i18n';
 
 function AppContent() {
   const colorScheme = useColorScheme();
-  const { isAuthenticated, isLoading, user, error, isOnline } = useAuth();
+  const { isAuthenticated, isLoading, user, error, isOnline, isInitializing, initializationProgress } = useAuth();
   const networkStatus = useNetworkStatus();
   // Ensure isOnline is always defined
   const safeIsOnline = isOnline ?? true;
@@ -57,18 +57,29 @@ function AppContent() {
     }
   }, [isLoading]);
 
-  // Wait for session restoration to complete before allowing navigation
+  // Wait for session restoration AND initialization to complete before allowing navigation
   useEffect(() => {
-    if (!isLoading && !authTimeout) {
-      // Add a small delay to ensure session restoration has completed
-      const navigationTimer = setTimeout(() => {
-        console.log('Layout: Session restoration complete, allowing navigation');
-        setSessionRestorationComplete(true);
-      }, 1000); // 1 second delay to ensure session restoration completes
+    if (!isLoading && !authTimeout && !isInitializing && user) {
+      // Verify user has full data (premium and role info) before allowing navigation
+      const hasFullUserData = user.premium !== undefined && user.role !== undefined;
       
-      return () => clearTimeout(navigationTimer);
+      if (hasFullUserData) {
+        // Add a small delay to ensure everything is ready
+        const navigationTimer = setTimeout(() => {
+          console.log('Layout: Session restoration and initialization complete with full user data, allowing navigation');
+          setSessionRestorationComplete(true);
+        }, 200); // Small delay to ensure state is stable
+        
+        return () => clearTimeout(navigationTimer);
+      } else {
+        console.log('Layout: User data incomplete (missing premium/role), waiting for initialization...');
+        setSessionRestorationComplete(false);
+      }
+    } else if (isInitializing || (user && (user.premium === undefined || user.role === undefined))) {
+      // Reset completion flag while initializing or if user data is incomplete
+      setSessionRestorationComplete(false);
     }
-  }, [isLoading, authTimeout]);
+  }, [isLoading, authTimeout, isInitializing, user]);
 
   // Initialize feature flag service only after auth is determined
   useEffect(() => {
@@ -142,10 +153,16 @@ function AppContent() {
 
   // Handle navigation based on auth state
   useEffect(() => {
-    console.log('Layout: Navigation effect triggered - isLoading:', isLoading, 'authTimeout:', authTimeout, 'sessionRestorationComplete:', sessionRestorationComplete, 'isAuthenticated:', isAuthenticated);
+    console.log('Layout: Navigation effect triggered - isLoading:', isLoading, 'isInitializing:', isInitializing, 'authTimeout:', authTimeout, 'sessionRestorationComplete:', sessionRestorationComplete, 'isAuthenticated:', isAuthenticated);
+    
+    // Don't navigate while initializing
+    if (isInitializing) {
+      console.log('Layout: Waiting for initialization to complete...');
+      return;
+    }
     
     if ((!isLoading || authTimeout) && sessionRestorationComplete) {
-      console.log('Layout: Auth state determined - isAuthenticated:', isAuthenticated, 'authTimeout:', authTimeout);
+      console.log('Layout: Auth state determined - isAuthenticated:', isAuthenticated, 'authTimeout:', authTimeout, 'isInitializing:', isInitializing);
       
       // Get current pathname to check if we're on a payment page or valid note route
       const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
@@ -234,6 +251,21 @@ function AppContent() {
       <CustomThemeProvider initialTheme={userTheme}>
         <LanguageProvider>
           <AuthLoadingScreen message="Restoring your session..." />
+        </LanguageProvider>
+      </CustomThemeProvider>
+    );
+  }
+
+  if (isInitializing) {
+    console.log('Layout: Initializing user data, showing loading screen');
+    const progressMessage = initializationProgress?.message || 'Loading your account...';
+    return (
+      <CustomThemeProvider initialTheme={userTheme}>
+        <LanguageProvider>
+          <AuthLoadingScreen 
+            message={progressMessage}
+            progress={initializationProgress}
+          />
         </LanguageProvider>
       </CustomThemeProvider>
     );

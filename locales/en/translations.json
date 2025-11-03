@@ -83,6 +83,7 @@
     "noAccountFound": "No account found with this email. Please sign up or check your email address.",
     "networkError": "Network error. Please check your internet connection and try again.",
     "tooManyLoginAttempts": "Too many login attempts. Please wait a moment before trying again.",
+    "googleSignInDisabled": "Google Sign-In is currently disabled. Please use email and password to sign in.",
     "loginError": "Login Error",
     "verifyingResetLink": "Verifying reset link...",
     "invalidResetLink": "Invalid Reset Link",

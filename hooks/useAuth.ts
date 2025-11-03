@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { BetterAuthService } from '../services/BetterAuthService';
 import { supabaseNoteStorage } from '../services/SupabaseNoteStorage';
 import { AuthState, LoginCredentials, SignupCredentials, User, UserPreferences, UserRole } from '../types/User';
+import { authInitializationService, InitializationProgress } from '../services/AuthInitializationService';
 
 // Create a single instance of BetterAuthService
 let betterAuthService: BetterAuthService | null = null;
@@ -20,6 +21,9 @@ export const useAuth = () => {
     isLoading: true,
     error: null,
   });
+  
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [initializationProgress, setInitializationProgress] = useState<InitializationProgress | null>(null);
   
   const [connectionState, setConnectionState] = useState({
     isOnline: true,
@@ -67,14 +71,54 @@ export const useAuth = () => {
     // Set up auth state change handler
     authStateChangeHandlerRef.current = (user: User | null) => {
       console.log(`useAuth: Auth state change - user: ${user ? user.id : 'null'}`);
-      // Only update loading state to false if we have a definitive auth state
-      setAuthState(prev => ({
-        ...prev,
-        user,
-        isLoading: false, // Auth state change indicates we have a definitive answer
-        error: null,
-      }));
+      
+      if (user) {
+        // Check if user is initialized
+        const isInitialized = betterAuthService.isUserInitialized();
+        setIsInitializing(!isInitialized);
+        
+        // Only update loading state to false if we have a definitive auth state
+        setAuthState(prev => ({
+          ...prev,
+          user,
+          isLoading: false, // Auth state change indicates we have a definitive answer
+          error: null,
+        }));
+      } else {
+        // No user - not initializing
+        setIsInitializing(false);
+        setInitializationProgress(null);
+        setAuthState(prev => ({
+          ...prev,
+          user: null,
+          isLoading: false,
+          error: null,
+        }));
+      }
     };
+
+    // Set up progress handler
+    betterAuthService.setProgressHandler((progress) => {
+      setInitializationProgress(progress);
+      setIsInitializing(progress.stage !== 'complete');
+      
+      if (progress.stage === 'complete') {
+        // Check if user is now initialized
+        if (betterAuthService.isUserInitialized()) {
+          setIsInitializing(false);
+          
+          // Force refresh of user data when initialization completes
+          // This ensures UI components get the updated user with premium/admin info
+          if (betterAuthService.currentUser) {
+            // Trigger auth state change with updated user to force UI re-render
+            const currentUser = betterAuthService.currentUser;
+            if (authStateChangeHandlerRef.current) {
+              authStateChangeHandlerRef.current(currentUser);
+            }
+          }
+        }
+      }
+    });
 
     if (authStateChangeHandlerRef.current) {
       betterAuthService.setAuthStateChangeHandler(authStateChangeHandlerRef.current);
@@ -173,12 +217,16 @@ export const useAuth = () => {
             
             try {
               // Try to get current user with timeout
-              const userPromise = betterAuthService?.getCurrentUser();
-              const timeoutPromise = new Promise((_, reject) => 
+              if (!betterAuthService) {
+                throw new Error('BetterAuthService not available');
+              }
+              
+              const userPromise = betterAuthService.getCurrentUser();
+              const timeoutPromise = new Promise<never>((_, reject) => 
                 setTimeout(() => reject(new Error('User loading timeout')), 10000)
               );
               
-              const user = await Promise.race([userPromise, timeoutPromise]);
+              const user = await Promise.race([userPromise, timeoutPromise]) as User | null;
               
               if (user) {
                 console.log('useAuth: Crash recovery successful, user found');
@@ -525,10 +573,18 @@ export const useAuth = () => {
     return (authState.user.permissions as any)[permission] === true;
   }, [authState.user]);
 
-  // Check if user has specific role
+  // Check if user has specific role (only if user data is fully loaded)
   const hasRole = useCallback((role: UserRole): boolean => {
-    return authState.user?.role === role;
-  }, [authState.user]);
+    // Don't return true if user data is incomplete or still initializing
+    if (isInitializing || !authState.user) {
+      return false;
+    }
+    // Ensure we have full user data (role should be loaded)
+    if (authState.user.role === undefined) {
+      return false;
+    }
+    return authState.user.role === role;
+  }, [authState.user, isInitializing]);
 
   // Check if user is admin
   const isAdmin = useCallback((): boolean => {
@@ -540,10 +596,18 @@ export const useAuth = () => {
     return hasRole('support');
   }, [hasRole]);
 
-  // Check if user is premium
+  // Check if user is premium (only if user data is fully loaded)
   const isPremium = useCallback((): boolean => {
-    return authState.user?.premium?.isActive === true;
-  }, [authState.user]);
+    // Don't return true if user data is incomplete or still initializing
+    if (isInitializing || !authState.user) {
+      return false;
+    }
+    // Ensure we have full user data (premium info should be loaded)
+    if (authState.user.premium === undefined) {
+      return false;
+    }
+    return authState.user.premium?.isActive === true;
+  }, [authState.user, isInitializing]);
 
   // Get all users (admin only)
   const getAllUsers = useCallback(async (): Promise<User[]> => {
@@ -664,7 +728,9 @@ export const useAuth = () => {
     user: authState.user,
     isLoading: authState.isLoading,
     error: authState.error,
-    isAuthenticated: !!authState.user,
+    isAuthenticated: !!authState.user && !isInitializing,
+    isInitializing: isInitializing,
+    initializationProgress: initializationProgress,
     
     // Connection state - ensure these are always defined
     isOnline: safeConnectionState?.isOnline ?? true,
