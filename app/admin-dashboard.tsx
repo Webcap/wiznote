@@ -57,6 +57,18 @@ export default function AdminDashboardScreen() {
     isSyncing?: boolean;
   }>({});
 
+  // Monthly usage reset state
+  const [usageReset, setUsageReset] = useState<{
+    isResetting?: boolean;
+    lastResetTime?: string;
+    lastResetResult?: {
+      success: boolean;
+      resetCount?: number;
+      message?: string;
+      errors?: string[];
+    };
+  }>({});
+
   const iconColor = useThemeColor({}, 'text');
   const cardBg = useThemeColor({}, 'backgroundSecondary');
   const borderColor = useThemeColor({}, 'border');
@@ -446,6 +458,86 @@ export default function AdminDashboardScreen() {
     }
   }, [showSnackbar]);
 
+  // Trigger manual monthly usage reset
+  const triggerMonthlyUsageReset = useCallback(async () => {
+    try {
+      setUsageReset(prev => ({ ...prev, isResetting: true }));
+      
+      // Get the Netlify function URL - use EXPO_PUBLIC_API_URL for consistency with other services
+      const baseUrl = process.env.EXPO_PUBLIC_API_URL || 'https://wiznote.app';
+      const resetUrl = `${baseUrl}/.netlify/functions/manual-reset`;
+
+      // Optional API key if configured
+      const apiKey = process.env.EXPO_PUBLIC_USAGE_RESET_API_KEY;
+      const requestBody: any = {};
+      if (apiKey) {
+        requestBody.api_key = apiKey;
+      }
+
+      const resetRes = await fetch(resetUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      // Check if response is HTML (404 page) instead of JSON
+      const contentType = resetRes.headers.get('content-type');
+      const isJson = contentType && contentType.includes('application/json');
+      
+      if (!isJson) {
+        const text = await resetRes.text();
+        if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+          throw new Error(`Netlify function not found (404). Please check:\n1. Function is deployed at ${resetUrl}\n2. EXPO_PUBLIC_API_URL is set correctly (currently: ${baseUrl})\n3. Netlify functions are enabled`);
+        }
+        throw new Error(`Unexpected response format. Expected JSON, got: ${contentType || 'unknown'}`);
+      }
+
+      if (resetRes.ok) {
+        const resetData = await resetRes.json();
+        setUsageReset({
+          isResetting: false,
+          lastResetTime: new Date().toISOString(),
+          lastResetResult: {
+            success: resetData.success || false,
+            resetCount: resetData.resetCount || 0,
+            message: resetData.message,
+            errors: resetData.errors,
+          },
+        });
+
+        if (Platform.OS === 'web') {
+          const message = resetData.success
+            ? `✅ Monthly usage reset completed! Reset ${resetData.resetCount || 0} records.`
+            : `⚠️ Monthly usage reset completed with ${resetData.errors?.length || 0} errors.`;
+          showSnackbar(message, resetData.success ? 'success' : 'warning', 6000);
+        } else {
+          Alert.alert(
+            resetData.success ? 'Success' : 'Partial Success',
+            resetData.success
+              ? `Monthly usage reset completed! Reset ${resetData.resetCount || 0} records.`
+              : `Reset completed with ${resetData.errors?.length || 0} errors.`,
+            [{ text: 'OK' }]
+          );
+        }
+      } else {
+        const errorData = await resetRes.json().catch(() => ({ error: `HTTP ${resetRes.status} - ${resetRes.statusText}` }));
+        throw new Error(errorData.error || `HTTP ${resetRes.status}`);
+      }
+    } catch (error) {
+      console.error('Error triggering monthly usage reset:', error);
+      setUsageReset(prev => ({ ...prev, isResetting: false }));
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (Platform.OS === 'web') {
+        showSnackbar(`❌ Failed to trigger monthly usage reset: ${errorMessage}`, 'error', 8000);
+      } else {
+        Alert.alert('Error', `Failed to trigger monthly usage reset: ${errorMessage}`);
+      }
+    }
+  }, [showSnackbar]);
+
 
   // Show loading or redirect if not admin
   if (isLoading || isLoadingStats) {
@@ -697,6 +789,92 @@ export default function AdminDashboardScreen() {
               <ThemedText style={styles.actionSubtitle}>Configure system-wide settings</ThemedText>
             </TouchableOpacity>
 
+          </View>
+        </View>
+
+        {/* Admin Tools Section */}
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Admin Tools</ThemedText>
+          <View style={[styles.adminToolsCard, { backgroundColor: cardBg }]}>
+            <View style={styles.adminToolsHeader}>
+              <Ionicons name="construct" size={24} color="#FF8C00" />
+              <ThemedText style={styles.adminToolsTitle}>Monthly Usage Reset</ThemedText>
+            </View>
+            <ThemedText style={[styles.adminToolsDescription, { color: textSecondaryColor }]}>
+              Manually trigger the monthly usage reset function. This will reset all expired usage records for all users based on their period type (daily, weekly, or monthly).
+            </ThemedText>
+            {usageReset.lastResetResult && (
+              <View style={[styles.resetResultContainer, { backgroundColor: cardBg + '80', marginTop: 12 }]}>
+                <View style={styles.resetResultHeader}>
+                  <Ionicons 
+                    name={usageReset.lastResetResult.success ? 'checkmark-circle' : 'alert-circle'} 
+                    size={20} 
+                    color={usageReset.lastResetResult.success ? '#3CB371' : '#FFA500'} 
+                  />
+                  <ThemedText style={[styles.resetResultTitle, { color: textColor }]}>
+                    Last Reset Results
+                  </ThemedText>
+                </View>
+                {usageReset.lastResetTime && (
+                  <ThemedText style={[styles.resetResultTime, { color: textSecondaryColor }]}>
+                    {new Date(usageReset.lastResetTime).toLocaleString()}
+                  </ThemedText>
+                )}
+                {usageReset.lastResetResult.resetCount !== undefined && (
+                  <ThemedText style={[styles.resetResultText, { color: textColor }]}>
+                    Records reset: {usageReset.lastResetResult.resetCount}
+                  </ThemedText>
+                )}
+                {usageReset.lastResetResult.message && (
+                  <ThemedText style={[styles.resetResultText, { color: textColor }]}>
+                    {usageReset.lastResetResult.message}
+                  </ThemedText>
+                )}
+                {usageReset.lastResetResult.errors && usageReset.lastResetResult.errors.length > 0 && (
+                  <View style={styles.resetErrorsContainer}>
+                    <ThemedText style={[styles.resetErrorsTitle, { color: '#FFA500' }]}>
+                      Errors ({usageReset.lastResetResult.errors.length}):
+                    </ThemedText>
+                    {usageReset.lastResetResult.errors.slice(0, 3).map((error, idx) => (
+                      <ThemedText key={idx} style={[styles.resetErrorText, { color: textSecondaryColor }]}>
+                        • {error}
+                      </ThemedText>
+                    ))}
+                    {usageReset.lastResetResult.errors.length > 3 && (
+                      <ThemedText style={[styles.resetErrorText, { color: textSecondaryColor }]}>
+                        ... and {usageReset.lastResetResult.errors.length - 3} more
+                      </ThemedText>
+                    )}
+                  </View>
+                )}
+              </View>
+            )}
+            <TouchableOpacity
+              style={[
+                styles.resetButton,
+                { 
+                  backgroundColor: usageReset.isResetting ? '#999' : accentPrimary,
+                  opacity: usageReset.isResetting ? 0.6 : 1
+                }
+              ]}
+              onPress={triggerMonthlyUsageReset}
+              disabled={usageReset.isResetting}
+            >
+              <Ionicons 
+                name={usageReset.isResetting ? "hourglass" : "refresh"} 
+                size={20} 
+                color="white" 
+              />
+              <ThemedText style={styles.resetButtonText}>
+                {usageReset.isResetting ? 'Resetting...' : 'Trigger Monthly Usage Reset'}
+              </ThemedText>
+            </TouchableOpacity>
+            <View style={[styles.helpTextContainer, { marginTop: 12 }]}>
+              <Ionicons name="information-circle" size={16} color={textSecondaryColor} />
+              <ThemedText style={[styles.helpText, { color: textSecondaryColor }]}>
+                This function resets expired usage records. The automatic reset runs on the 1st of every month at 2 AM UTC via Netlify scheduled functions.
+              </ThemedText>
+            </View>
           </View>
         </View>
 
@@ -1442,5 +1620,80 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 15,
     fontWeight: '600',
+  },
+  adminToolsCard: {
+    padding: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  adminToolsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  adminToolsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  adminToolsDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    gap: 8,
+  },
+  resetButtonText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  resetResultContainer: {
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  resetResultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  resetResultTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  resetResultTime: {
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  resetResultText: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  resetErrorsContainer: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  resetErrorsTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  resetErrorText: {
+    fontSize: 12,
+    marginLeft: 8,
+    marginBottom: 2,
   },
 }); 

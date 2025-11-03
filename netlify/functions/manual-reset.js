@@ -7,11 +7,28 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
+// CORS headers helper
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 exports.handler = async (event, context) => {
+  // Handle CORS preflight
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: '',
+    };
+  }
+
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
+      headers: corsHeaders,
       body: JSON.stringify({ error: 'Method not allowed' })
     };
   }
@@ -24,6 +41,7 @@ exports.handler = async (event, context) => {
     if (process.env.USAGE_RESET_API_KEY && apiKey !== process.env.USAGE_RESET_API_KEY) {
       return {
         statusCode: 401,
+        headers: corsHeaders,
         body: JSON.stringify({ error: 'Invalid API key' })
       };
     }
@@ -57,6 +75,7 @@ exports.handler = async (event, context) => {
       console.log('✅ No usage records found');
       return {
         statusCode: 200,
+        headers: corsHeaders,
         body: JSON.stringify({
           success: true,
           message: 'No usage records found',
@@ -138,6 +157,7 @@ exports.handler = async (event, context) => {
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify(response)
     };
 
@@ -146,6 +166,7 @@ exports.handler = async (event, context) => {
     
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({
         success: false,
         error: error.message,
