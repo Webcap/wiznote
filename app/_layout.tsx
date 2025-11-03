@@ -37,8 +37,10 @@ function AppContent() {
   // Set page title for web
   usePageTitle();
 
-  // Get user preference if available
-  const userTheme = user?.preferences?.theme || 'auto';
+  // Get user preference if available - use 'dark' as default for loading screens to avoid white flash
+  // Only use user theme if preferences are fully loaded
+  const userTheme = (user?.preferences?.theme !== undefined) ? user.preferences.theme : 'dark';
+  const themeLoaded = user?.preferences?.theme !== undefined;
 
   // Add a timeout for auth loading to prevent infinite loading
   const [authTimeout, setAuthTimeout] = useState(false);
@@ -58,20 +60,22 @@ function AppContent() {
   }, [isLoading]);
 
   // Wait for session restoration AND initialization to complete before allowing navigation
+  // CRITICAL: Must have preferences (including theme) loaded before showing any content
   useEffect(() => {
     if (!isLoading && !authTimeout && !isInitializing && user) {
-      // Verify user has FULL data (premium, role, AND preferences) before allowing navigation
+      // Verify user has FULL data (premium, role, AND preferences with theme) before allowing navigation
       const hasFullUserData = 
         user.premium !== undefined && 
         user.role !== undefined && 
-        user.preferences !== undefined;
+        user.preferences !== undefined &&
+        user.preferences.theme !== undefined; // Theme must be loaded
       
       if (hasFullUserData) {
-        // Add a small delay to ensure everything is ready
+        // Add a small delay to ensure everything is ready and theme is applied
         const navigationTimer = setTimeout(() => {
-          console.log('Layout: Session restoration and initialization complete with full user data (premium, role, preferences), allowing navigation');
+          console.log('Layout: Session restoration and initialization complete with full user data (premium, role, preferences with theme), allowing navigation');
           setSessionRestorationComplete(true);
-        }, 200); // Small delay to ensure state is stable
+        }, 300); // Slightly longer delay to ensure theme is applied before showing content
         
         return () => clearTimeout(navigationTimer);
       } else {
@@ -79,11 +83,12 @@ function AppContent() {
         if (user.premium === undefined) missingData.push('premium');
         if (user.role === undefined) missingData.push('role');
         if (user.preferences === undefined) missingData.push('preferences');
+        if (user.preferences && user.preferences.theme === undefined) missingData.push('theme');
         console.log(`Layout: User data incomplete (missing: ${missingData.join(', ')}), waiting for initialization...`);
         setSessionRestorationComplete(false);
       }
-    } else if (isInitializing || (user && (user.premium === undefined || user.role === undefined || user.preferences === undefined))) {
-      // Reset completion flag while initializing or if user data is incomplete
+    } else if (isInitializing || (user && (user.premium === undefined || user.role === undefined || user.preferences === undefined || user.preferences?.theme === undefined))) {
+      // Reset completion flag while initializing or if user data is incomplete (including theme)
       setSessionRestorationComplete(false);
     }
   }, [isLoading, authTimeout, isInitializing, user]);
@@ -241,10 +246,13 @@ function AppContent() {
   }, [isAuthenticated, isLoading, authTimeout, sessionRestorationComplete, navigateToTabs, navigateToLogin]);
 
   // Show loading screen while auth is being determined or fonts are loading
+  // Use dark theme for loading screens to avoid white flash
+  const loadingTheme = themeLoaded ? userTheme : 'dark';
+  
   if (!loaded) {
     console.log('Layout: Fonts not loaded yet, showing loading screen');
     return (
-      <CustomThemeProvider initialTheme={userTheme}>
+      <CustomThemeProvider initialTheme={loadingTheme}>
         <LanguageProvider>
           <AuthLoadingScreen message="Loading fonts..." />
         </LanguageProvider>
@@ -255,7 +263,7 @@ function AppContent() {
   if (isLoading && !authTimeout) {
     console.log('Layout: Auth loading, showing loading screen - isLoading:', isLoading, 'authTimeout:', authTimeout);
     return (
-      <CustomThemeProvider initialTheme={userTheme}>
+      <CustomThemeProvider initialTheme={loadingTheme}>
         <LanguageProvider>
           <AuthLoadingScreen message="Restoring your session..." />
         </LanguageProvider>
@@ -267,7 +275,7 @@ function AppContent() {
     console.log('Layout: Initializing user data, showing loading screen');
     const progressMessage = initializationProgress?.message || 'Loading your account...';
     return (
-      <CustomThemeProvider initialTheme={userTheme}>
+      <CustomThemeProvider initialTheme={loadingTheme}>
         <LanguageProvider>
           <AuthLoadingScreen 
             message={progressMessage}
@@ -281,15 +289,18 @@ function AppContent() {
   if (!sessionRestorationComplete) {
     console.log('Layout: Session restoration not complete, showing loading screen');
     return (
-      <CustomThemeProvider initialTheme={userTheme}>
+      <CustomThemeProvider initialTheme={loadingTheme}>
         <LanguageProvider>
-          <AuthLoadingScreen message="Restoring your session..." />
+          <AuthLoadingScreen message="Loading your preferences..." />
         </LanguageProvider>
       </CustomThemeProvider>
     );
   }
 
-  console.log('Layout: Rendering main app content - isLoading:', isLoading, 'authTimeout:', authTimeout, 'sessionRestorationComplete:', sessionRestorationComplete, 'isAuthenticated:', isAuthenticated);
+  console.log('Layout: Rendering main app content - isLoading:', isLoading, 'authTimeout:', authTimeout, 'sessionRestorationComplete:', sessionRestorationComplete, 'isAuthenticated:', isAuthenticated, 'theme:', userTheme, 'themeLoaded:', themeLoaded);
+
+  // Use the user's theme once preferences are loaded, otherwise keep dark to avoid flash
+  const finalTheme = themeLoaded ? userTheme : 'dark';
 
   return (
     <ErrorBoundary
@@ -298,7 +309,7 @@ function AppContent() {
         // In production, you might want to send this to a crash reporting service
       }}
     >
-      <CustomThemeProvider initialTheme={userTheme}>
+      <CustomThemeProvider initialTheme={finalTheme}>
         <LanguageProvider>
           <SnackbarProvider>
             <PDFUploadProvider>
