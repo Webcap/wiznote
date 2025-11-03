@@ -28,6 +28,18 @@ import { WebLayout } from '../../components/web/WebLayout';
 import { WebNoteCard } from '../../components/web/WebNoteCard';
 import { UploadingNoteCard } from '../../components/UploadingNoteCard';
 import { homeStyles as styles } from '../../styles/HomeStyles';
+import { audioStorage } from '../../services/AudioStorage';
+import { AudioUtils } from '../../services/AudioUtils';
+
+// Audio upload configuration
+const AUDIO_CONFIG = {
+  MAX_FILE_SIZE_MB: 200,
+  get MAX_FILE_SIZE_BYTES() {
+    return this.MAX_FILE_SIZE_MB * 1024 * 1024;
+  },
+  ALLOWED_EXTENSIONS: ['mp3', 'm4a', 'wav', 'ogg', 'webm'],
+  ALLOWED_MIME_TYPES: ['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/wav', 'audio/wave', 'audio/ogg', 'audio/webm'],
+};
 
 export default function HomeScreen() {
   const { t } = useTranslation();
@@ -35,7 +47,7 @@ export default function HomeScreen() {
   const { isFeatureEnabled } = useFeatureFlags();
   const { showSnackbar } = useSnackbar();
   const { uploadingPDF, setUploadingPDF, setOnUploadComplete: setPDFUploadComplete } = usePDFUpload();
-  const { uploadingAudio, setOnUploadComplete: setAudioUploadComplete } = useAudioUpload();
+  const { uploadingAudio, setUploadingAudio, setOnUploadComplete: setAudioUploadComplete } = useAudioUpload();
   const { notes, loading, error, syncStatus, isRealtimeActive, toggleArchive, toggleFavorite, deleteNote, getFilteredNotes, refreshNotes } = useNotes(
     authLoading ? '' : (user?.id || '')
   );
@@ -52,6 +64,37 @@ export default function HomeScreen() {
   const [showSizeLimitWarning, setShowSizeLimitWarning] = useState(false);
   const [oversizedFile, setOversizedFile] = useState<{ name: string; size: number } | null>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper function to validate audio file format
+  const isValidAudioFormat = useCallback((fileName: string, mimeType?: string): boolean => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    if (extension && AUDIO_CONFIG.ALLOWED_EXTENSIONS.includes(extension)) {
+      return true;
+    }
+    if (mimeType && AUDIO_CONFIG.ALLOWED_MIME_TYPES.some(allowed => mimeType.includes(allowed.split('/')[1]))) {
+      return true;
+    }
+    return false;
+  }, []);
+
+  // Helper function to extract audio duration on web using Web Audio API
+  const extractAudioDuration = useCallback(async (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const audio = new Audio();
+      const url = URL.createObjectURL(file);
+      audio.src = url;
+      audio.addEventListener('loadedmetadata', () => {
+        const duration = audio.duration;
+        URL.revokeObjectURL(url);
+        resolve(duration);
+      });
+      audio.addEventListener('error', () => {
+        URL.revokeObjectURL(url);
+        resolve(0);
+      });
+    });
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated && user?.id) {
@@ -230,6 +273,209 @@ export default function HomeScreen() {
     }
   }, [user, showSnackbar, refreshNotes, setUploadingPDF, t]);
 
+  const handleUploadAudioNote = useCallback(async () => {
+    setShowCreateOptions(false);
+    if (audioInputRef.current) {
+      audioInputRef.current.click();
+    }
+  }, []);
+
+  const handleAudioFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      console.log('[HomeScreen] handleAudioFileChange: No file selected');
+      return;
+    }
+    event.target.value = '';
+    
+    console.log('[HomeScreen] handleAudioFileChange: Starting upload', { 
+      fileName: file.name, 
+      fileSize: file.size, 
+      fileType: file.type 
+    });
+    
+    // Validate file format
+    if (!isValidAudioFormat(file.name, file.type)) {
+      console.error('[HomeScreen] Invalid audio format:', { fileName: file.name, fileType: file.type });
+      showSnackbar(t('home.unsupportedAudioFormat'), 'error');
+      return;
+    }
+    
+    // Validate file size
+    if (file.size > AUDIO_CONFIG.MAX_FILE_SIZE_BYTES) {
+      console.error('[HomeScreen] File too large:', { fileSize: file.size, maxSize: AUDIO_CONFIG.MAX_FILE_SIZE_BYTES });
+      setOversizedFile({ name: file.name, size: file.size });
+      setShowSizeLimitWarning(true);
+      return;
+    }
+    
+    if (!user?.id) {
+      console.error('[HomeScreen] No user ID');
+      showSnackbar(t('home.pleaseSignIn'), 'error');
+      return;
+    }
+
+    try {
+      // Extract audio duration
+      let duration = 0;
+      try {
+        console.log('[HomeScreen] Extracting audio duration...');
+        duration = await extractAudioDuration(file);
+        console.log('[HomeScreen] Audio duration extracted:', duration, 'seconds');
+        if (duration === 0) {
+          console.warn('[HomeScreen] Audio duration is 0, continuing anyway');
+          showSnackbar(t('home.failedToExtractDuration'), 'error');
+          // Continue anyway
+        }
+      } catch (durationError) {
+        console.error('[HomeScreen] Error extracting audio duration:', durationError);
+        // Continue with duration 0
+      }
+
+      console.log('[HomeScreen] Setting upload state to preparing...');
+      setUploadingAudio({
+        fileName: file.name.replace(/\.(mp3|m4a|wav|ogg|webm)$/i, ''),
+        fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+        duration: Math.round(duration),
+        audioUrl: '',
+        progress: 10,
+        status: 'uploading',
+        statusMessage: t('home.preparingAudio'),
+      });
+
+      console.log('[HomeScreen] Creating placeholder note...');
+      const placeholderNote = await supabaseNoteStorage.createNote({
+        title: `🎤 ${file.name.replace(/\.(mp3|m4a|wav|ogg|webm)$/i, '')}`,
+        content: '⏳ Uploading audio... Please wait while we process your file.',
+        type: 'audio',
+        tags: ['audio', 'uploading'],
+        summary: `Uploading ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
+        audioUrl: '',
+        audioDuration: Math.round(duration),
+      });
+      console.log('[HomeScreen] Placeholder note created:', placeholderNote.id);
+
+      setUploadingAudio(prev => prev ? {
+        ...prev,
+        progress: 30,
+        statusMessage: t('home.uploadingAudioToCloud'),
+      } : null);
+
+      // Create blob URL for upload
+      console.log('[HomeScreen] Starting audio file upload to storage...');
+      const blobUrl = URL.createObjectURL(file);
+      const uploadedAudioUrl = await audioStorage.uploadAudioFile(
+        blobUrl,
+        user.id,
+        placeholderNote.id,
+        file // Pass the file blob for web
+      );
+      URL.revokeObjectURL(blobUrl);
+      console.log('[HomeScreen] Audio file uploaded successfully:', uploadedAudioUrl);
+
+      setUploadingAudio(prev => prev ? {
+        ...prev,
+        progress: 50,
+        status: 'processing',
+        statusMessage: t('home.processingAudioWithAI'),
+        audioUrl: uploadedAudioUrl,
+      } : null);
+
+      console.log('[HomeScreen] Processing audio for transcription...');
+      // Process audio for transcription
+      const processingResult = await AudioUtils.processAudioForTranscription(
+        uploadedAudioUrl,
+        user.id,
+        placeholderNote.id,
+        (message, progress) => {
+          const mappedProgress = 50 + (progress * 0.4);
+          setUploadingAudio(prev => prev ? {
+            ...prev,
+            progress: mappedProgress,
+            statusMessage: message,
+          } : null);
+        },
+        file // Pass the file blob for transcription
+      );
+      console.log('[HomeScreen] Audio processing completed:', { 
+        hasTitle: !!processingResult.title,
+        hasTranscription: !!processingResult.transcription,
+        hasSummary: !!processingResult.summary,
+        keyDetailsCount: processingResult.keyDetails?.length || 0
+      });
+
+      setUploadingAudio(prev => prev ? {
+        ...prev,
+        progress: 85,
+        statusMessage: t('home.saving'),
+      } : null);
+
+      console.log('[HomeScreen] Updating note with transcription and AI content...');
+      // Update note with transcription and AI content
+      await supabaseNoteStorage.updateNote(placeholderNote.id, {
+        title: processingResult.title || file.name.replace(/\.(mp3|m4a|wav|ogg|webm)$/i, ''),
+        content: processingResult.transcription || '',
+        summary: processingResult.summary || `Audio: ${file.name}`,
+        keyDetails: processingResult.keyDetails || [],
+        tags: ['audio'],
+        audioUrl: uploadedAudioUrl,
+        audioDuration: Math.round(duration),
+      });
+      console.log('[HomeScreen] Note updated successfully');
+
+      // Track usage (count duration in minutes)
+      try {
+        console.log('[HomeScreen] Recording feature usage...');
+        const { featureLimitService } = await import('../../services/FeatureLimitService');
+        await featureLimitService.initialize();
+        const durationInMinutes = Math.round(duration / 60);
+        const isPremium = Boolean(user?.premium?.isActive && user?.premium?.status !== 'canceled');
+        await featureLimitService.recordFeatureUsage(
+          user.id,
+          'voice_recording',
+          durationInMinutes,
+          isPremium,
+          'duration'
+        );
+        console.log('[HomeScreen] Feature usage recorded');
+      } catch (usageError) {
+        console.error('[HomeScreen] Error recording audio usage:', usageError);
+      }
+
+      setUploadingAudio(prev => prev ? {
+        ...prev,
+        progress: 100,
+        status: 'completed',
+        statusMessage: t('home.uploadComplete'),
+      } : null);
+
+      console.log('[HomeScreen] Audio upload completed successfully');
+      await refreshNotes?.();
+      setTimeout(() => { setUploadingAudio(null); }, 2000);
+    } catch (error) {
+      console.error('[HomeScreen] Audio upload failed:', error);
+      console.error('[HomeScreen] Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        fileName: file?.name,
+        fileSize: file?.size,
+        fileType: file?.type,
+        userId: user?.id
+      });
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showSnackbar(t('home.audioUploadFailed').replace('{{error}}', errorMessage), 'error');
+      setUploadingAudio(prev => prev ? {
+        ...prev,
+        progress: 100,
+        status: 'error',
+        statusMessage: t('home.uploadFailed'),
+      } : null);
+      setTimeout(() => { setUploadingAudio(null); }, 3000);
+    }
+  }, [user, showSnackbar, refreshNotes, setUploadingAudio, isValidAudioFormat, extractAudioDuration, t]);
+
   const filteredNotes = getFilteredNotes({
     searchQuery: '',
     tags: [],
@@ -367,11 +613,21 @@ export default function HomeScreen() {
         onChange={handlePDFFileChange}
       />
 
+      {/* Hidden Audio file input for web */}
+      <input
+        ref={audioInputRef}
+        type="file"
+        accept="audio/*"
+        style={{ display: 'none' }}
+        onChange={handleAudioFileChange}
+      />
+
       <CreateOptionsSheet
         visible={showCreateOptions}
         onClose={() => setShowCreateOptions(false)}
         onTextNote={handleCreateTextNote}
         onAudioNote={handleCreateAudioNote}
+        onUploadAudio={handleUploadAudioNote}
         onPDFNote={handleCreatePDFNote}
         isVoiceRecordingEnabled={isFeatureEnabled('voice_recording')}
         isPDFUploadEnabled={isFeatureEnabled('pdf_upload')}
@@ -386,6 +642,7 @@ const CreateOptionsSheet = ({
   onClose, 
   onTextNote, 
   onAudioNote,
+  onUploadAudio,
   onPDFNote,
   isVoiceRecordingEnabled,
   isPDFUploadEnabled,
@@ -395,6 +652,7 @@ const CreateOptionsSheet = ({
   onClose: () => void;
   onTextNote: () => void;
   onAudioNote: () => void;
+  onUploadAudio?: () => void;
   onPDFNote: () => void;
   isVoiceRecordingEnabled: boolean;
   isPDFUploadEnabled: boolean;
@@ -410,10 +668,11 @@ const CreateOptionsSheet = ({
   const snapPoints = useMemo(() => {
     let optionCount = 1;
     if (isVoiceRecordingEnabled) optionCount++;
+    if (onUploadAudio) optionCount++;
     if (isPDFUploadEnabled) optionCount++;
     const height = 200 + (optionCount * 80);
     return [height];
-  }, [isVoiceRecordingEnabled, isPDFUploadEnabled]);
+  }, [isVoiceRecordingEnabled, isPDFUploadEnabled, onUploadAudio]);
 
   const handleSheetChanges = useCallback((index: number) => {
     if (index === -1) {
@@ -499,6 +758,25 @@ const CreateOptionsSheet = ({
                   <View style={styles.createOptionContent}>
                     <ThemedText style={styles.createOptionTitle}>{t('home.audioNote')}</ThemedText>
                     <ThemedText style={styles.createOptionDescription}>{t('home.audioNoteDesc')}</ThemedText>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={chevronColor} />
+                </TouchableOpacity>
+              )}
+
+              {onUploadAudio && (
+                <TouchableOpacity 
+                  style={[styles.createOption, { backgroundColor: optionBg }]} 
+                  onPress={onUploadAudio} 
+                  testID="upload-audio-button"
+                  activeOpacity={0.7}
+                  delayPressIn={0}
+                >
+                  <View style={styles.createOptionIcon}>
+                    <Ionicons name="cloud-upload" size={24} color="#6A5ACD" />
+                  </View>
+                  <View style={styles.createOptionContent}>
+                    <ThemedText style={styles.createOptionTitle}>{t('sidebar.uploadAudio')}</ThemedText>
+                    <ThemedText style={styles.createOptionDescription}>{t('sidebar.uploadAudioDesc')}</ThemedText>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={chevronColor} />
                 </TouchableOpacity>

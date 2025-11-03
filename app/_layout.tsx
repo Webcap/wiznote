@@ -60,22 +60,29 @@ function AppContent() {
   // Wait for session restoration AND initialization to complete before allowing navigation
   useEffect(() => {
     if (!isLoading && !authTimeout && !isInitializing && user) {
-      // Verify user has full data (premium and role info) before allowing navigation
-      const hasFullUserData = user.premium !== undefined && user.role !== undefined;
+      // Verify user has FULL data (premium, role, AND preferences) before allowing navigation
+      const hasFullUserData = 
+        user.premium !== undefined && 
+        user.role !== undefined && 
+        user.preferences !== undefined;
       
       if (hasFullUserData) {
         // Add a small delay to ensure everything is ready
         const navigationTimer = setTimeout(() => {
-          console.log('Layout: Session restoration and initialization complete with full user data, allowing navigation');
+          console.log('Layout: Session restoration and initialization complete with full user data (premium, role, preferences), allowing navigation');
           setSessionRestorationComplete(true);
         }, 200); // Small delay to ensure state is stable
         
         return () => clearTimeout(navigationTimer);
       } else {
-        console.log('Layout: User data incomplete (missing premium/role), waiting for initialization...');
+        const missingData = [];
+        if (user.premium === undefined) missingData.push('premium');
+        if (user.role === undefined) missingData.push('role');
+        if (user.preferences === undefined) missingData.push('preferences');
+        console.log(`Layout: User data incomplete (missing: ${missingData.join(', ')}), waiting for initialization...`);
         setSessionRestorationComplete(false);
       }
-    } else if (isInitializing || (user && (user.premium === undefined || user.role === undefined))) {
+    } else if (isInitializing || (user && (user.premium === undefined || user.role === undefined || user.preferences === undefined))) {
       // Reset completion flag while initializing or if user data is incomplete
       setSessionRestorationComplete(false);
     }
