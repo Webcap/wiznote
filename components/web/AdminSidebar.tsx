@@ -41,11 +41,7 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
   const dropdownAnim = useRef(new Animated.Value(0)).current;
   const pdfFileInputRef = useRef<HTMLInputElement>(null);
 
-  if (Platform.OS !== 'web') {
-    return null;
-  }
-
-  // Handle keyboard shortcuts
+  // Handle keyboard shortcuts (web only)
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     // Ignore shortcuts if the user is typing in an input field
     const target = event.target as HTMLElement;
@@ -520,14 +516,16 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: backgroundSecondary }]}>
-      {/* Hidden PDF file input */}
-      <input
-        ref={pdfFileInputRef}
-        type="file"
-        accept="application/pdf"
-        style={{ display: 'none' }}
-        onChange={handlePDFFileChange}
-      />
+      {/* Hidden PDF file input - web only */}
+      {Platform.OS === 'web' && (
+        <input
+          ref={pdfFileInputRef}
+          type="file"
+          accept="application/pdf"
+          style={{ display: 'none' }}
+          onChange={handlePDFFileChange}
+        />
+      )}
 
       {/* Logo/Brand */}
       <View style={styles.brand}>

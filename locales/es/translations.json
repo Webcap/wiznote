@@ -1294,6 +1294,29 @@
     "pending": "Transcripción pendiente...",
     "failed": "Transcripción fallida",
     "notAvailable": "No hay transcripción disponible"
+  },
+  "unlock": {
+    "requestAccountUnlock": "Solicitar Desbloqueo de Cuenta",
+    "accountRecovery": "Recuperación de Cuenta",
+    "requestUnlockDescription": "Ingresa tu dirección de correo electrónico para recibir un enlace de desbloqueo. Este enlace te permitirá desbloquear tu cuenta si ha sido bloqueada debido a múltiples intentos de inicio de sesión fallidos.",
+    "sendUnlockLink": "Enviar Enlace de Desbloqueo",
+    "unlockEmailSent": "Si existe una cuenta y está bloqueada, hemos enviado un enlace de desbloqueo a {{email}}. Por favor revisa tu bandeja de entrada y haz clic en el enlace para desbloquear tu cuenta.",
+    "unlockEmailNote": "Nota: El enlace expirará en 1 hora. Si no recibes un correo, por favor revisa tu carpeta de spam o contacta con soporte.",
+    "requestFailed": "Solicitud Fallida",
+    "failedToSendUnlockEmail": "Error al enviar el correo de desbloqueo. Por favor intenta de nuevo o contacta con soporte.",
+    "errorRequestingUnlock": "Ocurrió un error al solicitar el desbloqueo. Por favor intenta de nuevo o contacta con soporte en support@wiznote.app",
+    "unlockAccount": "Desbloquear Cuenta",
+    "verifyingAndUnlocking": "Verificando y Desbloqueando Cuenta...",
+    "pleaseWaitVerifying": "Por favor espera mientras verificamos tu enlace de desbloqueo...",
+    "accountUnlocked": "¡Cuenta Desbloqueada!",
+    "accountUnlockedSuccess": "¡Tu cuenta ha sido desbloqueada exitosamente! Ahora puedes iniciar sesión.",
+    "unlockFailed": "Desbloqueo Fallido",
+    "requestNewUnlockLink": "Solicitar Nuevo Enlace de Desbloqueo",
+    "invalidUnlockLink": "Enlace de desbloqueo inválido. Faltan parámetros requeridos.",
+    "failedToVerifyAccountStatus": "Error al verificar el estado de la cuenta",
+    "accountAlreadyUnlocked": "Tu cuenta ya está desbloqueada. Puedes iniciar sesión ahora.",
+    "failedToUnlockAccount": "Error al desbloquear la cuenta",
+    "unlockLinkExpired": "Error al desbloquear la cuenta. El enlace puede haber expirado. Por favor solicita un nuevo enlace de desbloqueo."
   }
 }
 

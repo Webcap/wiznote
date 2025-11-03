@@ -1359,18 +1359,22 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: Platform.OS === 'web' ? 20 : 18,
     fontWeight: 'bold',
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
+    ...(Platform.OS !== 'web' ? {
+      paddingHorizontal: 8,
+    } : {}),
   },
   statCard: {
     flex: 1,
-    minWidth: 200,
-    padding: 20,
+    minWidth: Platform.OS === 'web' ? 200 : '100%',
+    maxWidth: Platform.OS !== 'web' ? '100%' : undefined,
+    padding: Platform.OS === 'web' ? 20 : 16,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
@@ -1382,11 +1386,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: Platform.OS === 'web' ? 24 : 20,
     fontWeight: 'bold',
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: Platform.OS === 'web' ? 14 : 13,
     opacity: 0.7,
   },
   statSubtext: {
@@ -1398,29 +1402,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
+    ...(Platform.OS !== 'web' ? {
+      paddingHorizontal: 8,
+    } : {}),
   },
   actionCard: {
     flex: 1,
-    minWidth: 250,
-    padding: 24,
+    minWidth: Platform.OS === 'web' ? 250 : '100%',
+    maxWidth: Platform.OS !== 'web' ? '100%' : undefined,
+    padding: Platform.OS === 'web' ? 24 : 20,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
     alignItems: 'center',
   },
   actionTitle: {
-    fontSize: 16,
+    fontSize: Platform.OS === 'web' ? 16 : 14,
     fontWeight: 'bold',
     marginTop: 12,
     marginBottom: 4,
   },
   actionSubtitle: {
-    fontSize: 12,
+    fontSize: Platform.OS === 'web' ? 12 : 11,
     opacity: 0.7,
     textAlign: 'center',
   },
   healthCard: {
-    padding: 24,
+    padding: Platform.OS === 'web' ? 24 : 16,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
@@ -1469,7 +1477,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   initializeCard: {
-    padding: 24,
+    padding: Platform.OS === 'web' ? 24 : 16,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
@@ -1508,7 +1516,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   debugCard: {
-    padding: 24,
+    padding: Platform.OS === 'web' ? 24 : 16,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
@@ -1639,7 +1647,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   adminToolsCard: {
-    padding: 24,
+    padding: Platform.OS === 'web' ? 24 : 16,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',

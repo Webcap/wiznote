@@ -1300,6 +1300,29 @@
     "pending": "Transcription pending...",
     "failed": "Transcription failed",
     "notAvailable": "No transcription available"
+  },
+  "unlock": {
+    "requestAccountUnlock": "Request Account Unlock",
+    "accountRecovery": "Account Recovery",
+    "requestUnlockDescription": "Enter your email address to receive an unlock link. This link will allow you to unlock your account if it has been locked due to multiple failed login attempts.",
+    "sendUnlockLink": "Send Unlock Link",
+    "unlockEmailSent": "If an account exists and is locked, we've sent an unlock link to {{email}}. Please check your inbox and click the link to unlock your account.",
+    "unlockEmailNote": "Note: The link will expire in 1 hour. If you don't receive an email, please check your spam folder or contact support.",
+    "requestFailed": "Request Failed",
+    "failedToSendUnlockEmail": "Failed to send unlock email. Please try again or contact support.",
+    "errorRequestingUnlock": "An error occurred while requesting unlock. Please try again or contact support at support@wiznote.app",
+    "unlockAccount": "Unlock Account",
+    "verifyingAndUnlocking": "Verifying and Unlocking Account...",
+    "pleaseWaitVerifying": "Please wait while we verify your unlock link...",
+    "accountUnlocked": "Account Unlocked!",
+    "accountUnlockedSuccess": "Your account has been unlocked successfully! You can now sign in.",
+    "unlockFailed": "Unlock Failed",
+    "requestNewUnlockLink": "Request New Unlock Link",
+    "invalidUnlockLink": "Invalid unlock link. Missing required parameters.",
+    "failedToVerifyAccountStatus": "Failed to verify account status",
+    "accountAlreadyUnlocked": "Your account is already unlocked. You can sign in now.",
+    "failedToUnlockAccount": "Failed to unlock account",
+    "unlockLinkExpired": "Failed to unlock account. The link may have expired. Please request a new unlock link."
   }
 }
 
