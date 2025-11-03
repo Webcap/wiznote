@@ -38,14 +38,19 @@ exports.handler = async (event, context) => {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
     
     if (!GEMINI_API_KEY) {
-      console.error('Gemini API key not configured');
+      console.error('Gemini API key not configured in Netlify environment variables');
+      console.error('Please set GEMINI_API_KEY in Netlify dashboard: Site settings → Environment variables');
       return {
         statusCode: 500,
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': process.env.EXPO_PUBLIC_WEB_URL || '*',
         },
-        body: JSON.stringify({ error: 'API configuration error' }),
+        body: JSON.stringify({ 
+          error: 'API configuration error',
+          message: 'Gemini API key is not configured. Please set GEMINI_API_KEY in Netlify environment variables.',
+          help: 'See env.template for configuration details or check Netlify dashboard → Site settings → Environment variables'
+        }),
       };
     }
 
