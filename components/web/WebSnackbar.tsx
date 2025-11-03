@@ -5,6 +5,29 @@ import { createPortal } from 'react-dom';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { ThemedText } from '../ThemedText';
 
+// Create a dedicated container for snackbars to avoid aria-hidden conflicts
+const getSnackbarContainer = (): HTMLElement => {
+  let container = document.getElementById('snackbar-portal-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'snackbar-portal-container';
+    container.setAttribute('aria-hidden', 'false');
+    container.setAttribute('role', 'region');
+    container.setAttribute('aria-live', 'polite');
+    container.style.position = 'fixed';
+    container.style.top = '0';
+    container.style.left = '0';
+    container.style.width = '100%';
+    container.style.height = '100%';
+    container.style.pointerEvents = 'none';
+    container.style.zIndex = '9999';
+    document.body.appendChild(container);
+  }
+  // Ensure aria-hidden is never set on our container
+  container.setAttribute('aria-hidden', 'false');
+  return container;
+};
+
 export type SnackbarType = 'success' | 'error' | 'warning' | 'info';
 
 export interface SnackbarProps {
@@ -125,6 +148,12 @@ export const WebSnackbar: React.FC<SnackbarProps> = ({
         pointerEvents: 'box-none' as any,
         paddingHorizontal: 20,
       }}
+      // @ts-ignore - React Native Web supports role attribute
+      role="status"
+      // @ts-ignore - React Native Web supports aria-live attribute
+      aria-live="polite"
+      // @ts-ignore - Ensure this element is not hidden from assistive tech
+      aria-hidden={false}
     >
       <View
         style={[
@@ -136,6 +165,8 @@ export const WebSnackbar: React.FC<SnackbarProps> = ({
             width: '100%',
           },
         ]}
+        // @ts-ignore - Ensure inner container is not hidden
+        aria-hidden={false}
       >
         <View style={styles.content}>
           <Ionicons
@@ -154,6 +185,11 @@ export const WebSnackbar: React.FC<SnackbarProps> = ({
             <TouchableOpacity
               style={styles.actionButton}
               onPress={handleActionPress}
+              // @ts-ignore - React Native Web supports accessibility props
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
+              // @ts-ignore - Ensure button is not hidden
+              aria-hidden={false}
             >
               <ThemedText style={styles.actionText}>
                 {action.label}
@@ -164,6 +200,11 @@ export const WebSnackbar: React.FC<SnackbarProps> = ({
           <TouchableOpacity
             style={styles.closeButton}
             onPress={hideSnackbar}
+            // @ts-ignore - React Native Web supports accessibility props
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            // @ts-ignore - Ensure button is not hidden
+            aria-hidden={false}
           >
             <Ionicons
               name="close"
@@ -177,9 +218,11 @@ export const WebSnackbar: React.FC<SnackbarProps> = ({
   );
 
   // Use portal on web to render outside the DOM hierarchy
+  // Use a dedicated container to avoid aria-hidden conflicts
   if (Platform.OS === 'web' && typeof document !== 'undefined') {
-    console.log('Rendering with createPortal to document.body');
-    return createPortal(snackbarContent, document.body) as any;
+    console.log('Rendering with createPortal to snackbar container');
+    const container = getSnackbarContainer();
+    return createPortal(snackbarContent, container) as any;
   }
 
   console.log('Rendering without portal');
