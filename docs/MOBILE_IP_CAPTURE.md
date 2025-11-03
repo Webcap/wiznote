@@ -85,6 +85,8 @@ The function at `netlify/functions/auth-log.js` will automatically deploy with y
 **Required Netlify Environment Variables**:
 ```env
 EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SECRET_KEY=sb_secret_your_key (recommended, NEW format)
+# OR legacy format (if still enabled):
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 

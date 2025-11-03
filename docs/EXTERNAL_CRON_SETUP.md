@@ -8,13 +8,17 @@ Before setting up the cron job, make sure these environment variables are config
 
 ```
 EXPO_PUBLIC_SUPABASE_URL=your-supabase-url
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key (required)
-# OR use the legacy name if you prefer:
-SUPABASE_SECRET_KEY=your-service-role-key (alternative name)
+SUPABASE_SECRET_KEY=sb_secret_your_key (recommended, NEW format)
+# OR legacy format (if still enabled in your project):
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...your-service-role-key
 CRON_API_KEY=your-secret-key (optional, for security)
 ```
 
-**Important**: The `cron-reset` function requires the **service role key**, not the anon key, because it needs to bypass Row Level Security (RLS) policies to update usage records.
+**Important**: 
+- The `cron-reset` function requires an **admin key** (secret key or service role key), not the anon key
+- It needs to bypass Row Level Security (RLS) policies to update usage records
+- **Use `SUPABASE_SECRET_KEY` (sb_secret_...)** format - this is the modern, recommended format
+- If your Supabase project has legacy keys disabled (as many do), you must use the new secret key format
 
 ## Option 1: cron-job.org (Free & Easy)
 
