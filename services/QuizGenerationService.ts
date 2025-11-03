@@ -35,8 +35,36 @@ export class QuizGenerationService {
 
       const startTime = Date.now();
 
-      // Check if AI quiz generation is enabled
-      if (!featureFlagService.isFeatureEnabled('ai_quiz')) {
+      // Get user profile for feature flag check (needs premium status and role)
+      let userForFeatureFlag: any = undefined;
+      try {
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('id, role, premium')
+          .eq('id', userId)
+          .single();
+        
+        if (userProfile) {
+          userForFeatureFlag = {
+            id: userProfile.id,
+            role: userProfile.role,
+            premium: userProfile.premium || {}
+          };
+          console.log('[QuizGenerationService] Loaded user profile for feature flag check:', {
+            id: userForFeatureFlag.id,
+            role: userForFeatureFlag.role,
+            premiumActive: userForFeatureFlag.premium?.isActive
+          });
+        }
+      } catch (profileError) {
+        console.warn('[QuizGenerationService] Failed to load user profile for feature flag check:', profileError);
+      }
+
+      // Check if AI quiz generation is enabled (with user context for proper evaluation)
+      const isEnabled = featureFlagService.isFeatureEnabled('ai_quiz', userForFeatureFlag);
+      console.log('[QuizGenerationService] AI quiz feature flag enabled:', isEnabled, 'for user:', userId);
+      
+      if (!isEnabled) {
         throw new Error('AI Quiz feature is currently disabled');
       }
 

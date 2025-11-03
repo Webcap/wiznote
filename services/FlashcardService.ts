@@ -37,8 +37,35 @@ export class FlashcardService {
     isPremium?: boolean;
   }> {
     try {
-      // Check if feature is enabled
-      const isEnabled = featureFlagService.isFeatureEnabled('ai_flashcards');
+      // Get user profile for feature flag check (needs premium status and role)
+      let userForFeatureFlag: any = undefined;
+      try {
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('id, role, premium')
+          .eq('id', userId)
+          .single();
+        
+        if (userProfile) {
+          userForFeatureFlag = {
+            id: userProfile.id,
+            role: userProfile.role,
+            premium: userProfile.premium || {}
+          };
+          console.log('[FlashcardService] Loaded user profile for feature flag check:', {
+            id: userForFeatureFlag.id,
+            role: userForFeatureFlag.role,
+            premiumActive: userForFeatureFlag.premium?.isActive
+          });
+        }
+      } catch (profileError) {
+        console.warn('[FlashcardService] Failed to load user profile for feature flag check:', profileError);
+      }
+      
+      // Check if feature is enabled (with user context for proper evaluation)
+      const isEnabled = featureFlagService.isFeatureEnabled('ai_flashcards', userForFeatureFlag);
+      console.log('[FlashcardService] AI flashcards feature flag enabled:', isEnabled, 'for user:', userId);
+      
       if (!isEnabled) {
         return {
           canUse: false,
@@ -228,13 +255,33 @@ export class FlashcardService {
       console.log('🚀 FlashcardService: About to call Gemini AI for flashcard generation...');
       console.log('🚀 FlashcardService: Content to use length:', contentToUse.length);
       
+      // Get user profile for feature flag check in generateFlashcardsWithGemini
+      let userForFeatureFlag: any = undefined;
+      try {
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('id, role, premium')
+          .eq('id', userId)
+          .single();
+        
+        if (userProfile) {
+          userForFeatureFlag = {
+            id: userProfile.id,
+            role: userProfile.role,
+            premium: userProfile.premium || {}
+          };
+        }
+      } catch (profileError) {
+        console.warn('[FlashcardService] Failed to load user profile for generateFlashcardsWithGemini:', profileError);
+      }
+      
       const aiResult = await generateFlashcardsWithGemini(contentToUse, {
         numCards: options.numCards,
         difficulty: options.difficulty,
         focusAreas: options.focusAreas,
         includeExplanations: options.includeExplanations,
         language: language,
-      });
+      }, userForFeatureFlag);
 
       console.log('🚀 FlashcardService: AI generation result:', aiResult);
 

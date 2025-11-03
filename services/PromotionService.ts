@@ -359,7 +359,15 @@ export class PromotionService {
         .from('user_feature_usage')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
+
+      // Handle expected errors (record doesn't exist) silently
+      if (error && (error.code === 'PGRST116' || error.message?.includes('406') || error.code === 'PGRST301')) {
+        if (__DEV__) {
+          console.debug('[PromotionService] No usage data found for user (expected for new users)');
+        }
+        return false;
+      }
 
       if (error || !usage) {
         console.log('[PromotionService] No usage data found for user, skipping limit check');
@@ -501,7 +509,15 @@ export class PromotionService {
           .from('user_feature_usage')
           .select('*')
           .eq('user_id', userId)
-          .single();
+          .maybeSingle();
+
+        // Handle expected errors (record doesn't exist) silently
+        if (error && (error.code === 'PGRST116' || error.message?.includes('406') || error.code === 'PGRST301')) {
+          if (__DEV__) {
+            console.debug('[PromotionService] No usage data found (expected for new users)');
+          }
+          return false;
+        }
 
         if (!error && usage) {
           const usagePercent = this.calculateOverallUsagePercent(usage);

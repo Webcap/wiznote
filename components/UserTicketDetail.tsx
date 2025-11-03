@@ -15,6 +15,7 @@ import { ThemedText } from './ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { supportService } from '../services/SupportService';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface UserTicketDetailProps {
   ticket: {
@@ -40,6 +41,7 @@ export default function UserTicketDetail({
   onBack,
   onMessageSent,
 }: UserTicketDetailProps) {
+  const { t } = useTranslation();
   const { showSnackbar } = useSnackbar();
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -92,9 +94,9 @@ export default function UserTicketDetail({
   const handleSendMessage = async () => {
     if (!newMessage.trim()) {
       if (Platform.OS === 'web') {
-        showSnackbar('Please enter a message', 'error');
+        showSnackbar(t('help.pleaseEnterMessage'), 'error');
       } else {
-        Alert.alert('Required', 'Please enter a message');
+        Alert.alert(t('help.required'), t('help.pleaseEnterMessage'));
       }
       return;
     }
@@ -116,7 +118,7 @@ export default function UserTicketDetail({
         onMessageSent?.();
         
         if (Platform.OS === 'web') {
-          showSnackbar('Message sent successfully', 'success');
+          showSnackbar(t('help.messageSentSuccess'), 'success');
         }
       } else {
         throw new Error(result.error);
@@ -124,9 +126,9 @@ export default function UserTicketDetail({
     } catch (error) {
       console.error('Error sending message:', error);
       if (Platform.OS === 'web') {
-        showSnackbar('Failed to send message', 'error');
+        showSnackbar(t('help.failedToSendMessage'), 'error');
       } else {
-        Alert.alert('Error', 'Failed to send message');
+        Alert.alert(t('common.error'), t('help.failedToSendMessage'));
       }
     } finally {
       setSending(false);
@@ -156,7 +158,7 @@ export default function UserTicketDetail({
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={textColor} />
         </TouchableOpacity>
-        <ThemedText style={[styles.headerTitle, { color: textColor }]}>Ticket Details</ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: textColor }]}>{t('help.ticketDetails')}</ThemedText>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -166,7 +168,10 @@ export default function UserTicketDetail({
           <ThemedText style={styles.ticketSubject}>{ticket.subject}</ThemedText>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(ticket.status) + '20' }]}>
             <ThemedText style={[styles.statusText, { color: getStatusColor(ticket.status) }]}>
-              {ticket.status === 'in_progress' ? 'In Progress' :
+              {ticket.status === 'in_progress' ? t('help.statusInProgress') : 
+               ticket.status === 'pending' ? t('help.statusPending') :
+               ticket.status === 'resolved' ? t('help.statusResolved') :
+               ticket.status === 'closed' ? t('help.statusClosed') :
                ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}
             </ThemedText>
           </View>
@@ -176,20 +181,24 @@ export default function UserTicketDetail({
           <View style={styles.metaRow}>
             <Ionicons name="pricetag" size={14} color={textSecondary} />
             <ThemedText style={[styles.metaText, { color: textSecondary }]}>
-              Type: {ticket.type}
+              {t('help.type')} {(() => {
+                // Convert snake_case to camelCase for translation keys
+                const ticketTypeKey = ticket.type.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+                return t(`help.ticketTypes.${ticketTypeKey}`) || ticket.type;
+              })()}
             </ThemedText>
           </View>
           <View style={styles.metaRow}>
             <Ionicons name="calendar" size={14} color={textSecondary} />
             <ThemedText style={[styles.metaText, { color: textSecondary }]}>
-              Created: {ticket.createdAt.toLocaleDateString()}
+              {t('help.created')} {ticket.createdAt.toLocaleDateString()}
             </ThemedText>
           </View>
         </View>
 
         <View style={[styles.descriptionCard, { backgroundColor, borderColor }]}>
           <ThemedText style={[styles.descriptionLabel, { color: textSecondary }]}>
-            Your Request:
+            {t('help.yourRequest')}
           </ThemedText>
           <ThemedText style={[styles.descriptionText, { color: textColor }]}>
             {ticket.description}
@@ -209,7 +218,7 @@ export default function UserTicketDetail({
           <View style={styles.emptyMessages}>
             <Ionicons name="chatbox-outline" size={48} color={textSecondary} />
             <ThemedText style={[styles.emptyMessagesText, { color: textSecondary }]}>
-              No messages yet. Our support team will respond soon!
+              {t('help.noMessagesYet')}
             </ThemedText>
           </View>
         ) : (
@@ -234,8 +243,8 @@ export default function UserTicketDetail({
                 >
                   <View style={styles.messageMeta}>
                     <ThemedText style={[styles.senderName, { color: isUser ? accentPrimary : textColor }]}>
-                      {isCurrentUser ? 'You' : msg.senderName}
-                      {!isUser && ' (Support)'}
+                      {isCurrentUser ? t('common.you') : msg.senderName}
+                      {!isUser && ` (${t('help.support')})`}
                     </ThemedText>
                     <ThemedText style={[styles.messageTime, { color: textSecondary }]}>
                       {msg.createdAt.toLocaleString()}
@@ -257,7 +266,7 @@ export default function UserTicketDetail({
           <View style={styles.inputRow}>
             <TextInput
               style={[styles.input, { backgroundColor, color: textColor, borderColor }]}
-              placeholder="Type your message..."
+              placeholder={t('help.typeYourMessage')}
               placeholderTextColor={textSecondary}
               value={newMessage}
               onChangeText={setNewMessage}
@@ -290,7 +299,7 @@ export default function UserTicketDetail({
         <View style={[styles.closedNotice, { backgroundColor: accentSuccess + '20', borderColor: accentSuccess }]}>
           <Ionicons name="checkmark-circle" size={20} color={accentSuccess} />
           <ThemedText style={[styles.closedNoticeText, { color: accentSuccess }]}>
-            This ticket has been {ticket.status}. Thank you for contacting support!
+            {ticket.status === 'resolved' ? t('help.ticketHasBeenResolved') : t('help.ticketHasBeenClosed')}
           </ThemedText>
         </View>
       )}

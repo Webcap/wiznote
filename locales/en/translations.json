@@ -17,7 +17,8 @@
     "confirm": "Confirm",
     "yes": "Yes",
     "no": "No",
-    "error": "Error"
+    "error": "Error",
+    "you": "You"
   },
   "auth": {
     "login": "Log In",
@@ -563,7 +564,19 @@
     "statusResolved": "Resolved",
     "statusClosed": "Closed",
     "id": "ID:",
-    "failedSubmitTicket": "Failed to submit ticket"
+    "failedSubmitTicket": "Failed to submit ticket",
+    "ticketDetails": "Ticket Details",
+    "pleaseEnterMessage": "Please enter a message",
+    "messageSentSuccess": "Message sent successfully",
+    "failedToSendMessage": "Failed to send message",
+    "type": "Type:",
+    "created": "Created:",
+    "yourRequest": "Your Request:",
+    "noMessagesYet": "No messages yet. Our support team will respond soon!",
+    "support": "Support",
+    "typeYourMessage": "Type your message...",
+    "ticketHasBeenResolved": "This ticket has been resolved. Thank you for contacting support!",
+    "ticketHasBeenClosed": "This ticket has been closed. Thank you for contacting support!"
   },
   "archived": {
     "archivedNotes": "Archived Notes",
@@ -1273,6 +1286,20 @@
     "createPublicLinkFailed": "Failed to create public link.",
     "linkCopied": "Link copied to clipboard!",
     "copyLinkFailed": "Failed to copy link"
+  },
+  "transcription": {
+    "title": "Transcriptions",
+    "loading": "Loading transcriptions...",
+    "noNoteSelected": "No note selected",
+    "selectNoteToView": "Please select a note to view its transcriptions.",
+    "noteNotFound": "Note not found",
+    "noteDeleted": "The selected note does not exist or has been deleted.",
+    "noTranscriptions": "No transcriptions found",
+    "noAudioFiles": "This note has no audio files with transcriptions yet.",
+    "processing": "Processing transcription...",
+    "pending": "Transcription pending...",
+    "failed": "Transcription failed",
+    "notAvailable": "No transcription available"
   }
 }
 

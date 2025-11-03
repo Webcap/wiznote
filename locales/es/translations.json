@@ -17,7 +17,8 @@
     "confirm": "Confirmar",
     "yes": "Sí",
     "no": "No",
-    "error": "Error"
+    "error": "Error",
+    "you": "Tú"
   },
   "auth": {
     "login": "Iniciar Sesión",
@@ -563,7 +564,19 @@
     "statusResolved": "Resuelto",
     "statusClosed": "Cerrado",
     "id": "ID:",
-    "failedSubmitTicket": "Error al enviar el ticket"
+    "failedSubmitTicket": "Error al enviar el ticket",
+    "ticketDetails": "Detalles del Ticket",
+    "pleaseEnterMessage": "Por favor ingresa un mensaje",
+    "messageSentSuccess": "Mensaje enviado exitosamente",
+    "failedToSendMessage": "Error al enviar el mensaje",
+    "type": "Tipo:",
+    "created": "Creado:",
+    "yourRequest": "Tu Solicitud:",
+    "noMessagesYet": "Aún no hay mensajes. ¡Nuestro equipo de soporte responderá pronto!",
+    "support": "Soporte",
+    "typeYourMessage": "Escribe tu mensaje...",
+    "ticketHasBeenResolved": "Este ticket ha sido resuelto. ¡Gracias por contactar soporte!",
+    "ticketHasBeenClosed": "Este ticket ha sido cerrado. ¡Gracias por contactar soporte!"
   },
   "archived": {
     "archivedNotes": "Notas Archivadas",
@@ -1267,6 +1280,20 @@
     "createPublicLinkFailed": "Error al crear el enlace público.",
     "linkCopied": "¡Enlace copiado al portapapeles!",
     "copyLinkFailed": "Error al copiar el enlace"
+  },
+  "transcription": {
+    "title": "Transcripciones",
+    "loading": "Cargando transcripciones...",
+    "noNoteSelected": "No se seleccionó una nota",
+    "selectNoteToView": "Por favor selecciona una nota para ver sus transcripciones.",
+    "noteNotFound": "Nota no encontrada",
+    "noteDeleted": "La nota seleccionada no existe o ha sido eliminada.",
+    "noTranscriptions": "No se encontraron transcripciones",
+    "noAudioFiles": "Esta nota no tiene archivos de audio con transcripciones aún.",
+    "processing": "Procesando transcripción...",
+    "pending": "Transcripción pendiente...",
+    "failed": "Transcripción fallida",
+    "notAvailable": "No hay transcripción disponible"
   }
 }
 
