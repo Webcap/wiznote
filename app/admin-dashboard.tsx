@@ -182,9 +182,20 @@ export default function AdminDashboardScreen() {
         if (syncData.ok && syncData.sync) {
           setSubscriptionSync(syncData.sync);
         }
+      } else {
+        console.warn('Failed to fetch sync status:', syncRes.status, syncRes.statusText);
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Error fetching subscription sync status:', error);
+      
+      // Check for SSL/certificate errors
+      if (errorMessage.includes('CERT') || 
+          errorMessage.includes('certificate') || 
+          errorMessage.includes('SSL') ||
+          errorMessage.includes('ERR_CERT')) {
+        console.error('SSL Certificate Error detected. Check EXPO_PUBLIC_WEBHOOK_BASE_URL. See SSL_CERTIFICATE_ERROR_FIX.md');
+      }
     }
   }, []);
 
@@ -212,14 +223,29 @@ export default function AdminDashboardScreen() {
           fetchSubscriptionSyncStatus();
         }, 2000);
       } else {
-        throw new Error('Failed to trigger sync');
+        throw new Error(`Failed to trigger sync: HTTP ${syncRes.status}`);
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Error triggering manual sync:', error);
-      if (Platform.OS === 'web') {
-        showSnackbar('❌ Failed to trigger sync. Please try again.', 'error', 6000);
+      
+      // Check for SSL/certificate errors
+      if (errorMessage.includes('CERT') || 
+          errorMessage.includes('certificate') || 
+          errorMessage.includes('SSL') ||
+          errorMessage.includes('ERR_CERT')) {
+        const sslErrorMsg = 'SSL Certificate Error. Check EXPO_PUBLIC_WEBHOOK_BASE_URL configuration. See SSL_CERTIFICATE_ERROR_FIX.md for details.';
+        if (Platform.OS === 'web') {
+          showSnackbar(`❌ ${sslErrorMsg}`, 'error', 6000);
+        } else {
+          Alert.alert('SSL Error', sslErrorMsg);
+        }
       } else {
-        Alert.alert('Error', 'Failed to trigger sync. Please try again.');
+        if (Platform.OS === 'web') {
+          showSnackbar('❌ Failed to trigger sync. Please try again.', 'error', 6000);
+        } else {
+          Alert.alert('Error', 'Failed to trigger sync. Please try again.');
+        }
       }
     } finally {
       setSubscriptionSync(prev => ({ ...prev, isSyncing: false }));
@@ -269,8 +295,17 @@ export default function AdminDashboardScreen() {
           stripeGuardianStatus = { status: 'error' };
         }
       } catch (guardianError: unknown) {
+        const errorMessage = guardianError instanceof Error ? guardianError.message : String(guardianError);
         console.error('Error checking Stripe Guardian:', guardianError);
+        
         if (guardianError instanceof Error && guardianError.name === 'AbortError') {
+          stripeGuardianStatus = { status: 'error' };
+        } else if (errorMessage.includes('CERT') || 
+                   errorMessage.includes('certificate') || 
+                   errorMessage.includes('SSL') ||
+                   errorMessage.includes('ERR_CERT')) {
+          // Log SSL error but don't add error property (type doesn't support it)
+          console.error('SSL Certificate Error detected. Check EXPO_PUBLIC_WEBHOOK_BASE_URL configuration. See SSL_CERTIFICATE_ERROR_FIX.md');
           stripeGuardianStatus = { status: 'error' };
         } else {
           stripeGuardianStatus = { status: 'error' };
@@ -301,9 +336,9 @@ export default function AdminDashboardScreen() {
 
   // Mobile-specific function to check Stripe Guardian status
   const checkStripeGuardianStatus = useCallback(async () => {
+    let stripeGuardianStatus: { status: 'ready' | 'error' | 'unknown'; uptime?: number; timestamp?: string } = { status: 'unknown' };
+    
     try {
-      let stripeGuardianStatus: { status: 'ready' | 'error' | 'unknown'; uptime?: number; timestamp?: string } = { status: 'unknown' };
-      
       // Cross-platform timeout solution
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
@@ -334,27 +369,31 @@ export default function AdminDashboardScreen() {
       } else {
         stripeGuardianStatus = { status: 'error' };
       }
-      
-      setMonitoring(prev => ({
-        ...prev,
-        stripeGuardian: stripeGuardianStatus as { status: 'ready' | 'error' | 'unknown'; uptime?: number; timestamp?: string },
-        lastUpdated: new Date(),
-        error: null
-      }));
-      
-      // Also fetch subscription sync status separately
-      fetchSubscriptionSyncStatus();
     } catch (guardianError: unknown) {
+      const errorMessage = guardianError instanceof Error ? guardianError.message : String(guardianError);
       console.error('Error checking Stripe Guardian:', guardianError);
-      const stripeGuardianStatus: { status: 'ready' | 'error' | 'unknown'; uptime?: number; timestamp?: string } = { status: 'error' };
       
-      setMonitoring(prev => ({
-        ...prev,
-        stripeGuardian: stripeGuardianStatus,
-        lastUpdated: new Date(),
-        error: 'Failed to check Stripe Guardian status'
-      }));
+      // Check for SSL/certificate errors
+      if (errorMessage.includes('CERT') || 
+          errorMessage.includes('certificate') || 
+          errorMessage.includes('SSL') ||
+          errorMessage.includes('ERR_CERT')) {
+        console.error('SSL Certificate Error detected. Check EXPO_PUBLIC_WEBHOOK_BASE_URL configuration. See SSL_CERTIFICATE_ERROR_FIX.md');
+        stripeGuardianStatus = { status: 'error' };
+      } else {
+        stripeGuardianStatus = { status: 'error' };
+      }
     }
+    
+    setMonitoring(prev => ({
+      ...prev,
+      stripeGuardian: stripeGuardianStatus as { status: 'ready' | 'error' | 'unknown'; uptime?: number; timestamp?: string },
+      lastUpdated: new Date(),
+      error: null
+    }));
+      
+    // Also fetch subscription sync status separately
+    fetchSubscriptionSyncStatus();
   }, [fetchSubscriptionSyncStatus]);
 
   useEffect(() => {
