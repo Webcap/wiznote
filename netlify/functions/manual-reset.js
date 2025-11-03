@@ -7,11 +7,12 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
-// CORS headers helper
+// CORS headers helper with Content-Type for JSON responses
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json',
 };
 
 exports.handler = async (event, context) => {
@@ -34,9 +35,25 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // Optional API key validation
-    const body = JSON.parse(event.body || '{}');
-    const apiKey = body.api_key || event.headers['x-api-key'];
+    // Optional API key validation - safely parse body
+    let body = {};
+    if (event.body) {
+      try {
+        body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+      } catch (parseError) {
+        console.error('❌ Failed to parse request body:', parseError);
+        return {
+          statusCode: 400,
+          headers: corsHeaders,
+          body: JSON.stringify({
+            success: false,
+            error: 'Invalid JSON in request body',
+            timestamp: new Date().toISOString()
+          })
+        };
+      }
+    }
+    const apiKey = body.api_key || event.headers['x-api-key'] || event.headers['X-API-Key'];
     
     if (process.env.USAGE_RESET_API_KEY && apiKey !== process.env.USAGE_RESET_API_KEY) {
       return {
@@ -164,14 +181,18 @@ exports.handler = async (event, context) => {
   } catch (error) {
     console.error('❌ Manual usage reset failed:', error);
     
+    // Ensure we always return JSON, even on errors
+    const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
+    const errorResponse = {
+      success: false,
+      error: errorMessage,
+      timestamp: new Date().toISOString()
+    };
+    
     return {
       statusCode: 500,
       headers: corsHeaders,
-      body: JSON.stringify({
-        success: false,
-        error: error.message,
-        timestamp: new Date().toISOString()
-      })
+      body: JSON.stringify(errorResponse)
     };
   }
 };

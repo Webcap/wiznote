@@ -483,20 +483,36 @@ export default function AdminDashboardScreen() {
         body: JSON.stringify(requestBody),
       });
 
-      // Check if response is HTML (404 page) instead of JSON
+      // Clone response so we can read it multiple times if needed
+      const responseClone = resetRes.clone();
+      
+      // Check if response is HTML (404 page) or other non-JSON format
       const contentType = resetRes.headers.get('content-type');
       const isJson = contentType && contentType.includes('application/json');
       
+      let resetData;
+      
       if (!isJson) {
+        // Try to get the response as text to provide better error message
         const text = await resetRes.text();
         if (text.includes('<!DOCTYPE') || text.includes('<html')) {
           throw new Error(`Netlify function not found (404). Please check:\n1. Function is deployed at ${resetUrl}\n2. EXPO_PUBLIC_API_URL is set correctly (currently: ${baseUrl})\n3. Netlify functions are enabled`);
         }
-        throw new Error(`Unexpected response format. Expected JSON, got: ${contentType || 'unknown'}`);
+        // If we get a non-JSON response but it might be an error message, include it
+        const errorMsg = text.length > 0 && text.length < 500 ? text : 'Unknown error';
+        throw new Error(`Unexpected response format. Expected JSON, got: ${contentType || 'unknown'}. Response: ${errorMsg}`);
+      }
+
+      // Try to parse JSON response
+      try {
+        resetData = await resetRes.json();
+      } catch (parseError) {
+        // If JSON parsing fails, try to get text response from clone for debugging
+        const text = await responseClone.text().catch(() => 'Unable to read response');
+        throw new Error(`Failed to parse JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}. Response: ${text.substring(0, 200)}`);
       }
 
       if (resetRes.ok) {
-        const resetData = await resetRes.json();
         setUsageReset({
           isResetting: false,
           lastResetTime: new Date().toISOString(),
@@ -523,8 +539,9 @@ export default function AdminDashboardScreen() {
           );
         }
       } else {
-        const errorData = await resetRes.json().catch(() => ({ error: `HTTP ${resetRes.status} - ${resetRes.statusText}` }));
-        throw new Error(errorData.error || `HTTP ${resetRes.status}`);
+        // Response is not OK, but we have parsed JSON with error details
+        const errorMessage = resetData?.error || resetData?.message || `HTTP ${resetRes.status} - ${resetRes.statusText}`;
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Error triggering monthly usage reset:', error);
