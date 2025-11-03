@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { AdminSidebar } from '../../components/web/AdminSidebar';
 import { WebLayout } from '../../components/web/WebLayout';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
+import { unlockAccount } from '../../lib/auth';
 
 /**
  * Security Dashboard - Admin Only
@@ -37,6 +38,7 @@ export default function SecurityDashboardScreen() {
   const [activeLockouts, setActiveLockouts] = useState<any[]>([]);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [suspiciousActivities, setSuspiciousActivities] = useState<any[]>([]);
+  const [unlockingEmail, setUnlockingEmail] = useState<string | null>(null);
 
   // Theme colors
   const backgroundColor = useThemeColor({}, 'background');
@@ -169,6 +171,46 @@ export default function SecurityDashboardScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     loadDashboardData();
+  };
+
+  const handleUnlockAccount = async (userEmail: string) => {
+    if (!user || user.role !== 'admin') {
+      console.error('Only admins can unlock accounts');
+      return;
+    }
+
+    try {
+      setUnlockingEmail(userEmail);
+      
+      // Use the unlockAccount helper function
+      const success = await unlockAccount(userEmail, 'admin');
+      
+      if (success) {
+        // Log the unlock action
+        try {
+          const { securityLoggingService } = await import('../../services/SecurityLoggingService');
+          await securityLoggingService.logAdminAction(
+            'account.unlock',
+            user.id,
+            userEmail,
+            true,
+            { unlocked_by_admin: user.email }
+          );
+        } catch (logError) {
+          console.error('Failed to log unlock action:', logError);
+        }
+        
+        // Refresh the dashboard to update lockout list
+        await loadDashboardData();
+        console.log(`✅ Account ${userEmail} unlocked successfully by ${user.email}`);
+      } else {
+        console.error(`Failed to unlock account ${userEmail}`);
+      }
+    } catch (error) {
+      console.error('Error unlocking account:', error);
+    } finally {
+      setUnlockingEmail(null);
+    }
   };
 
   const formatTimeAgo = (timestamp: string) => {
@@ -318,6 +360,26 @@ export default function SecurityDashboardScreen() {
                 <ThemedText style={[styles.eventDetail, { color: textSecondaryColor }]}>
                   Failed Attempts: {lockout.failed_attempt_count}
                 </ThemedText>
+                <TouchableOpacity
+                  style={[
+                    styles.unlockButton,
+                    {
+                      backgroundColor: unlockingEmail === lockout.user_email ? backgroundTertiary : '#10B981',
+                      opacity: unlockingEmail === lockout.user_email ? 0.6 : 1,
+                    },
+                  ]}
+                  onPress={() => handleUnlockAccount(lockout.user_email)}
+                  disabled={unlockingEmail === lockout.user_email}
+                >
+                  <Ionicons
+                    name={unlockingEmail === lockout.user_email ? 'hourglass' : 'lock-open'}
+                    size={16}
+                    color="#FFFFFF"
+                  />
+                  <ThemedText style={styles.unlockButtonText}>
+                    {unlockingEmail === lockout.user_email ? 'Unlocking...' : 'Unlock Account'}
+                  </ThemedText>
+                </TouchableOpacity>
               </View>
             ))}
           </View>
@@ -738,6 +800,21 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 14,
     marginTop: 8,
+  },
+  unlockButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  unlockButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

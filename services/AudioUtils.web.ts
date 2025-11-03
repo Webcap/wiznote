@@ -510,6 +510,17 @@ export class AudioUtils {
     keyDetails?: string[];
     error?: string;
   }> {
+    console.log('[AudioUtils Web] ===== PROCESSING AUDIO FOR TRANSCRIPTION STARTED =====');
+    console.log('[AudioUtils Web] Input parameters:', {
+      audioUrl,
+      userId,
+      noteId,
+      hasBlob: !!audioBlob,
+      blobSize: audioBlob?.size,
+      blobType: audioBlob?.type,
+      hasProgressCallback: !!onProgress
+    });
+    
     try {
       console.log('[AudioUtils Web] Processing audio for transcription:', audioUrl);
       console.log('[AudioUtils Web] Has blob?', !!audioBlob);
@@ -530,24 +541,102 @@ export class AudioUtils {
       const { featureLimitService } = await import('./FeatureLimitService');
       await featureLimitService.initialize();
       
-      // Transcribe the audio
-      onProgress?.('AI is transcribing your audio...', 40);
-      const transcription = await transcribeAudioWithGemini(base64Audio);
-      console.log('[AudioUtils Web] Transcription completed, length:', transcription.length);
+      // Initialize feature flag service to ensure flags are loaded
+      const { featureFlagService } = await import('./FeatureFlagService');
+      // Check if user is authenticated (feature flags might need user context)
+      const { supabase } = await import('../lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('[AudioUtils Web] Initializing feature flag service, user authenticated:', !!session?.user);
+      if (session?.user) {
+        await featureFlagService.initialize(true);
+      } else {
+        await featureFlagService.initialize(false);
+      }
       
-      // Track AI transcription usage
+      // Fetch full user profile for feature flag check (needs premium status)
+      let userForFeatureFlag: any = undefined;
+      if (session?.user && userId) {
+        try {
+          const { data: userProfile } = await supabase
+            .from('user_profiles')
+            .select('id, role, premium')
+            .eq('id', userId)
+            .single();
+          
+          if (userProfile) {
+            userForFeatureFlag = {
+              id: userProfile.id,
+              role: userProfile.role,
+              premium: userProfile.premium || {}
+            };
+            console.log('[AudioUtils Web] Loaded user profile for feature flag check:', {
+              id: userForFeatureFlag.id,
+              role: userForFeatureFlag.role,
+              premiumActive: userForFeatureFlag.premium?.isActive
+            });
+          }
+        } catch (profileError) {
+          console.warn('[AudioUtils Web] Failed to load user profile for feature flag check:', profileError);
+        }
+      }
+      
+      // Check feature flag status before attempting transcription
+      const isTranscriptionEnabled = featureFlagService.isFeatureEnabled('ai_transcription', userForFeatureFlag);
+      console.log('[AudioUtils Web] AI transcription feature flag enabled:', isTranscriptionEnabled, 'for user:', userId);
+      
+      // Transcribe the audio (GeminiAI will check feature flags internally)
+      let transcription: string = '';
       try {
-        await featureLimitService.recordFeatureUsage(userId, 'ai_transcription', 1, false, 'count');
-        console.log('[AudioUtils Web] AI transcription usage recorded');
-      } catch (usageError) {
-        console.warn('[AudioUtils Web] Failed to record AI transcription usage:', usageError);
+        onProgress?.('AI is transcribing your audio...', 40);
+        console.log('[AudioUtils Web] Calling transcribeAudioWithGemini with base64 length:', base64Audio.length);
+        // Pass user object to transcribeAudioWithGemini for proper feature flag check
+        transcription = await transcribeAudioWithGemini(base64Audio, userForFeatureFlag);
+        console.log('[AudioUtils Web] Transcription completed, length:', transcription.length);
+        
+        // Track AI transcription usage
+        try {
+          await featureLimitService.recordFeatureUsage(userId, 'ai_transcription', 1, false, 'count');
+          console.log('[AudioUtils Web] AI transcription usage recorded');
+        } catch (usageError) {
+          console.warn('[AudioUtils Web] Failed to record AI transcription usage:', usageError);
+        }
+      } catch (transcriptionError) {
+        console.error('[AudioUtils Web] Error processing audio for transcription:', transcriptionError);
+        // If transcription fails (e.g., feature disabled), continue without transcription
+        // This allows the note to be created even if AI features aren't available
+        const errorMessage = transcriptionError instanceof Error ? transcriptionError.message : 'Failed to transcribe audio';
+        
+        // Check if it's a feature disabled error - if so, return success but without transcription
+        if (errorMessage.includes('currently disabled')) {
+          console.warn('[AudioUtils Web] AI transcription is disabled, continuing without transcription');
+          return {
+            success: true, // Return success so note updates can continue
+            transcription: undefined,
+            summary: undefined,
+            title: undefined,
+            keyDetails: undefined,
+            error: errorMessage,
+          };
+        }
+        
+        // For other errors, also return success but without transcription
+        // This ensures the note is created even if transcription fails
+        return {
+          success: true,
+          transcription: undefined,
+          summary: undefined,
+          title: undefined,
+          keyDetails: undefined,
+          error: errorMessage,
+        };
       }
       
       // Generate title from transcription
       let title: string = '';
       try {
         onProgress?.('AI is generating a title...', 60);
-        title = await generateTitleWithGemini(transcription);
+        // Pass user object for proper feature flag check
+        title = await generateTitleWithGemini(transcription, userForFeatureFlag);
         console.log('[AudioUtils Web] AI title generated successfully:', title);
         
         // Track AI title generation usage
@@ -563,16 +652,23 @@ export class AudioUtils {
       }
       
       // Generate summary from transcription
-      onProgress?.('AI is creating a summary...', 80);
-      const summary = await generateSummaryWithGemini(transcription);
-      console.log('[AudioUtils Web] Summary generated, length:', summary.length);
-      
-      // Track AI summary usage
+      let summary: string = '';
       try {
-        await featureLimitService.recordFeatureUsage(userId, 'ai_summaries', 1, false, 'count');
-        console.log('[AudioUtils Web] AI summary usage recorded');
-      } catch (usageError) {
-        console.warn('[AudioUtils Web] Failed to record AI summary usage:', usageError);
+        onProgress?.('AI is creating a summary...', 80);
+        // Pass user object for proper feature flag check
+        summary = await generateSummaryWithGemini(transcription, userForFeatureFlag);
+        console.log('[AudioUtils Web] Summary generated, length:', summary.length);
+        
+        // Track AI summary usage
+        try {
+          await featureLimitService.recordFeatureUsage(userId, 'ai_summaries', 1, false, 'count');
+          console.log('[AudioUtils Web] AI summary usage recorded');
+        } catch (usageError) {
+          console.warn('[AudioUtils Web] Failed to record AI summary usage:', usageError);
+        }
+      } catch (summaryError) {
+        console.warn('[AudioUtils Web] Failed to generate summary:', summaryError);
+        summary = ''; // Continue without summary
       }
       
       // Generate key details from transcription
@@ -582,7 +678,8 @@ export class AudioUtils {
         
         if (canUseKeyDetails.canUse) {
           onProgress?.('AI is extracting key details...', 90);
-          keyDetails = await extractKeyDetailsWithGemini(transcription);
+          // Pass user object for proper feature flag check
+          keyDetails = await extractKeyDetailsWithGemini(transcription, userForFeatureFlag);
           console.log('[AudioUtils Web] Key details generated successfully');
           
           // Track AI key details usage
@@ -600,7 +697,16 @@ export class AudioUtils {
         console.warn('[AudioUtils Web] Failed to generate key details:', keyDetailsError);
       }
       
-      console.log('[AudioUtils Web] Audio processing completed successfully');
+      console.log('[AudioUtils Web] ===== AUDIO PROCESSING COMPLETED SUCCESSFULLY =====');
+      console.log('[AudioUtils Web] Results:', {
+        hasTranscription: !!transcription,
+        transcriptionLength: transcription?.length,
+        hasTitle: !!title,
+        hasSummary: !!summary,
+        summaryLength: summary?.length,
+        hasKeyDetails: !!keyDetails?.length,
+        keyDetailsCount: keyDetails?.length
+      });
       
       return {
         success: true,
@@ -610,7 +716,12 @@ export class AudioUtils {
         keyDetails,
       };
     } catch (error) {
-      console.error('[AudioUtils Web] Error processing audio for transcription:', error);
+      console.error('[AudioUtils Web] ===== ERROR PROCESSING AUDIO =====');
+      console.error('[AudioUtils Web] Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        error: error
+      });
       
       return {
         success: false,

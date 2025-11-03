@@ -17,7 +17,8 @@
     "confirm": "Confirmar",
     "yes": "Sí",
     "no": "No",
-    "error": "Error"
+    "error": "Error",
+    "you": "Tú"
   },
   "auth": {
     "login": "Iniciar Sesión",
@@ -563,7 +564,19 @@
     "statusResolved": "Resuelto",
     "statusClosed": "Cerrado",
     "id": "ID:",
-    "failedSubmitTicket": "Error al enviar el ticket"
+    "failedSubmitTicket": "Error al enviar el ticket",
+    "ticketDetails": "Detalles del Ticket",
+    "pleaseEnterMessage": "Por favor ingresa un mensaje",
+    "messageSentSuccess": "Mensaje enviado exitosamente",
+    "failedToSendMessage": "Error al enviar el mensaje",
+    "type": "Tipo:",
+    "created": "Creado:",
+    "yourRequest": "Tu Solicitud:",
+    "noMessagesYet": "Aún no hay mensajes. ¡Nuestro equipo de soporte responderá pronto!",
+    "support": "Soporte",
+    "typeYourMessage": "Escribe tu mensaje...",
+    "ticketHasBeenResolved": "Este ticket ha sido resuelto. ¡Gracias por contactar soporte!",
+    "ticketHasBeenClosed": "Este ticket ha sido cerrado. ¡Gracias por contactar soporte!"
   },
   "archived": {
     "archivedNotes": "Notas Archivadas",
@@ -1267,6 +1280,43 @@
     "createPublicLinkFailed": "Error al crear el enlace público.",
     "linkCopied": "¡Enlace copiado al portapapeles!",
     "copyLinkFailed": "Error al copiar el enlace"
+  },
+  "transcription": {
+    "title": "Transcripciones",
+    "loading": "Cargando transcripciones...",
+    "noNoteSelected": "No se seleccionó una nota",
+    "selectNoteToView": "Por favor selecciona una nota para ver sus transcripciones.",
+    "noteNotFound": "Nota no encontrada",
+    "noteDeleted": "La nota seleccionada no existe o ha sido eliminada.",
+    "noTranscriptions": "No se encontraron transcripciones",
+    "noAudioFiles": "Esta nota no tiene archivos de audio con transcripciones aún.",
+    "processing": "Procesando transcripción...",
+    "pending": "Transcripción pendiente...",
+    "failed": "Transcripción fallida",
+    "notAvailable": "No hay transcripción disponible"
+  },
+  "unlock": {
+    "requestAccountUnlock": "Solicitar Desbloqueo de Cuenta",
+    "accountRecovery": "Recuperación de Cuenta",
+    "requestUnlockDescription": "Ingresa tu dirección de correo electrónico para recibir un enlace de desbloqueo. Este enlace te permitirá desbloquear tu cuenta si ha sido bloqueada debido a múltiples intentos de inicio de sesión fallidos.",
+    "sendUnlockLink": "Enviar Enlace de Desbloqueo",
+    "unlockEmailSent": "Si existe una cuenta y está bloqueada, hemos enviado un enlace de desbloqueo a {{email}}. Por favor revisa tu bandeja de entrada y haz clic en el enlace para desbloquear tu cuenta.",
+    "unlockEmailNote": "Nota: El enlace expirará en 1 hora. Si no recibes un correo, por favor revisa tu carpeta de spam o contacta con soporte.",
+    "requestFailed": "Solicitud Fallida",
+    "failedToSendUnlockEmail": "Error al enviar el correo de desbloqueo. Por favor intenta de nuevo o contacta con soporte.",
+    "errorRequestingUnlock": "Ocurrió un error al solicitar el desbloqueo. Por favor intenta de nuevo o contacta con soporte en support@wiznote.app",
+    "unlockAccount": "Desbloquear Cuenta",
+    "verifyingAndUnlocking": "Verificando y Desbloqueando Cuenta...",
+    "pleaseWaitVerifying": "Por favor espera mientras verificamos tu enlace de desbloqueo...",
+    "accountUnlocked": "¡Cuenta Desbloqueada!",
+    "accountUnlockedSuccess": "¡Tu cuenta ha sido desbloqueada exitosamente! Ahora puedes iniciar sesión.",
+    "unlockFailed": "Desbloqueo Fallido",
+    "requestNewUnlockLink": "Solicitar Nuevo Enlace de Desbloqueo",
+    "invalidUnlockLink": "Enlace de desbloqueo inválido. Faltan parámetros requeridos.",
+    "failedToVerifyAccountStatus": "Error al verificar el estado de la cuenta",
+    "accountAlreadyUnlocked": "Tu cuenta ya está desbloqueada. Puedes iniciar sesión ahora.",
+    "failedToUnlockAccount": "Error al desbloquear la cuenta",
+    "unlockLinkExpired": "Error al desbloquear la cuenta. El enlace puede haber expirado. Por favor solicita un nuevo enlace de desbloqueo."
   }
 }
 

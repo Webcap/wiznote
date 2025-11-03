@@ -321,13 +321,16 @@ export class FeatureLimitService {
         .maybeSingle();
 
       if (error) {
-        // Handle 406 errors specifically - this might be due to RLS policies
-        if (error.code === 'PGRST116' || error.message?.includes('406')) {
-          console.warn(`⚠️ FeatureLimitService: Usage record not found or not accessible for ${featureId} (likely RLS policy):`, error.message);
-          console.warn(`  - Error code: ${error.code}`);
-          console.warn(`  - Error details: ${JSON.stringify(error)}`);
-          console.warn(`  - This might be due to Row Level Security (RLS) policies on user_feature_usage table`);
+        // Handle 406 errors specifically - this might be due to RLS policies or missing table
+        // These are expected when usage records don't exist yet or RLS blocks access
+        if (error.code === 'PGRST116' || error.message?.includes('406') || error.code === 'PGRST301') {
+          // Silently handle expected errors (record doesn't exist or not accessible)
+          // Only log in debug mode to reduce console noise
+          if (__DEV__) {
+            console.debug(`FeatureLimitService: Usage record not found for ${featureId} (this is expected for new users)`);
+          }
         } else {
+          // Log unexpected errors
           console.warn(`⚠️ FeatureLimitService: Error fetching usage for ${featureId}:`, error);
         }
         return null;

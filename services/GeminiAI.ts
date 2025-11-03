@@ -4,9 +4,39 @@ import { featureFlagService } from './FeatureFlagService';
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-export async function transcribeAudioWithGemini(base64Audio: string): Promise<string> {
+export async function transcribeAudioWithGemini(base64Audio: string, user?: any): Promise<string> {
   // Check if AI transcription is enabled
-  if (!featureFlagService.isFeatureEnabled('ai_transcription')) {
+  // If user is not provided, try to get it from session
+  let userForCheck = user;
+  if (!userForCheck) {
+    try {
+      const { supabase } = await import('../lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        // Try to load user profile for proper feature flag evaluation
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('id, role, premium')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (userProfile) {
+          userForCheck = {
+            id: userProfile.id,
+            role: userProfile.role,
+            premium: userProfile.premium || {}
+          };
+        } else if (session.user) {
+          // Fallback to basic user object
+          userForCheck = { id: session.user.id };
+        }
+      }
+    } catch (error) {
+      console.warn('GeminiAI: Failed to load user for feature flag check:', error);
+    }
+  }
+  
+  if (!featureFlagService.isFeatureEnabled('ai_transcription', userForCheck)) {
     throw new Error('AI transcription is currently disabled');
   }
   
@@ -52,12 +82,40 @@ export async function transcribeAudioWithGemini(base64Audio: string): Promise<st
   }
 }
 
-export async function generateTitleWithGemini(transcript: string): Promise<string> {
+export async function generateTitleWithGemini(transcript: string, user?: any): Promise<string> {
   console.log('GeminiAI: Starting title generation for transcript:', transcript.substring(0, 100) + '...');
   
+  // Get user object if not provided
+  let userForCheck = user;
+  if (!userForCheck) {
+    try {
+      const { supabase } = await import('../lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('id, role, premium')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (userProfile) {
+          userForCheck = {
+            id: userProfile.id,
+            role: userProfile.role,
+            premium: userProfile.premium || {}
+          };
+        } else if (session.user) {
+          userForCheck = { id: session.user.id };
+        }
+      }
+    } catch (error) {
+      console.warn('GeminiAI: Failed to load user for feature flag check:', error);
+    }
+  }
+  
   // Check if AI name generating is enabled
-  const isEnabled = featureFlagService.isFeatureEnabled('ai_name_generating');
-  console.log('GeminiAI: AI name generating enabled:', isEnabled);
+  const isEnabled = featureFlagService.isFeatureEnabled('ai_name_generating', userForCheck);
+  console.log('GeminiAI: AI name generating enabled:', isEnabled, 'for user:', userForCheck?.id);
   
   if (!isEnabled) {
     throw new Error('AI name generating is currently disabled');
@@ -121,9 +179,37 @@ export async function generateTitleWithGemini(transcript: string): Promise<strin
   }
 }
 
-export async function extractKeyDetailsWithGemini(noteText: string): Promise<string[]> {
+export async function extractKeyDetailsWithGemini(noteText: string, user?: any): Promise<string[]> {
+  // Get user object if not provided
+  let userForCheck = user;
+  if (!userForCheck) {
+    try {
+      const { supabase } = await import('../lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('id, role, premium')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (userProfile) {
+          userForCheck = {
+            id: userProfile.id,
+            role: userProfile.role,
+            premium: userProfile.premium || {}
+          };
+        } else if (session.user) {
+          userForCheck = { id: session.user.id };
+        }
+      }
+    } catch (error) {
+      console.warn('GeminiAI: Failed to load user for feature flag check:', error);
+    }
+  }
+  
   // Check if AI key details feature is enabled
-  if (!featureFlagService.isFeatureEnabled('ai_key_details')) {
+  if (!featureFlagService.isFeatureEnabled('ai_key_details', userForCheck)) {
     throw new Error('AI key details are currently disabled');
   }
   
@@ -171,9 +257,37 @@ export async function extractKeyDetailsWithGemini(noteText: string): Promise<str
   }
 }
 
-export async function generateSummaryWithGemini(noteText: string): Promise<string> {
+export async function generateSummaryWithGemini(noteText: string, user?: any): Promise<string> {
+  // Get user object if not provided
+  let userForCheck = user;
+  if (!userForCheck) {
+    try {
+      const { supabase } = await import('../lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('id, role, premium')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (userProfile) {
+          userForCheck = {
+            id: userProfile.id,
+            role: userProfile.role,
+            premium: userProfile.premium || {}
+          };
+        } else if (session.user) {
+          userForCheck = { id: session.user.id };
+        }
+      }
+    } catch (error) {
+      console.warn('GeminiAI: Failed to load user for feature flag check:', error);
+    }
+  }
+  
   // Check if AI summaries feature is enabled
-  if (!featureFlagService.isFeatureEnabled('ai_summaries')) {
+  if (!featureFlagService.isFeatureEnabled('ai_summaries', userForCheck)) {
     throw new Error('AI summaries are currently disabled');
   }
   
@@ -266,7 +380,8 @@ export async function generateFlashcardsWithGemini(
     focusAreas?: string[];
     includeExplanations: boolean;
     language?: string; // User's language preference ('en' or 'es')
-  }
+  },
+  user?: any
 ): Promise<{
   success: boolean;
   flashcards: Array<{
@@ -282,9 +397,37 @@ export async function generateFlashcardsWithGemini(
   console.log('🔮 GeminiAI: Starting flashcard generation for content:', content.substring(0, 100) + '...');
   console.log('🔮 GeminiAI: Options:', options);
   
-  // Check if AI flashcards is enabled
-  const isEnabled = featureFlagService.isFeatureEnabled('ai_flashcards');
-  console.log('🔮 GeminiAI: AI flashcards enabled:', isEnabled);
+  // Get user object if not provided
+  let userForCheck = user;
+  if (!userForCheck) {
+    try {
+      const { supabase } = await import('../lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('id, role, premium')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (userProfile) {
+          userForCheck = {
+            id: userProfile.id,
+            role: userProfile.role,
+            premium: userProfile.premium || {}
+          };
+        } else if (session.user) {
+          userForCheck = { id: session.user.id };
+        }
+      }
+    } catch (error) {
+      console.warn('GeminiAI: Failed to load user for feature flag check:', error);
+    }
+  }
+  
+  // Check if AI flashcards is enabled (with user context for proper evaluation)
+  const isEnabled = featureFlagService.isFeatureEnabled('ai_flashcards', userForCheck);
+  console.log('🔮 GeminiAI: AI flashcards enabled:', isEnabled, 'for user:', userForCheck?.id);
   
   if (!isEnabled) {
     console.log('🔮 GeminiAI: AI flashcards feature is disabled');

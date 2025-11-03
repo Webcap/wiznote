@@ -217,7 +217,7 @@ export default function HelpScreen() {
       if (Platform.OS === 'web') {
         showSnackbar(`❌ ${errorMsg}`, 'error', 6000);
       } else {
-        Alert.alert('Error', errorMsg);
+        Alert.alert(t('common.error'), errorMsg);
       }
     } finally {
       setIsSubmitting(false);
@@ -419,10 +419,18 @@ export default function HelpScreen() {
                   color={selectedType === type.value ? accentPrimary : textSecondary} 
                 />
                 <ThemedText style={[styles.ticketTypeLabel, selectedType === type.value && { color: accentPrimary }]}>
-                  {t(`help.ticketTypes.${type.value}`)}
+                  {(() => {
+                    // Convert snake_case to camelCase for translation keys
+                    const ticketTypeKey = type.value.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+                    return t(`help.ticketTypes.${ticketTypeKey}`);
+                  })()}
                 </ThemedText>
                 <ThemedText style={[styles.ticketTypeDescription, { color: textSecondary }]}>
-                  {t(`help.ticketTypes.${type.value}Desc`)}
+                  {(() => {
+                    // Convert snake_case to camelCase for translation keys
+                    const ticketTypeKey = type.value.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+                    return t(`help.ticketTypes.${ticketTypeKey}Desc`);
+                  })()}
                 </ThemedText>
               </TouchableOpacity>
             ))}

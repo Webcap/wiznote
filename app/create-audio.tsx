@@ -338,6 +338,13 @@ export default function CreateAudioNoteScreen() {
       
       console.log('[CreateAudio] Audio uploaded successfully:', uploadedAudioUrl);
 
+      // Set audioUri state so saveNote can access it
+      setAudioUri(uploadedAudioUrl);
+      setRecordingDuration(audioFile.duration);
+      setHasRecording(true);
+      setCanSave(true);
+      console.log('[CreateAudio] Set audioUri state:', uploadedAudioUrl);
+
       // Calculate file size for display
       const fileSizeKB = (audioFile.duration * 16) / 1000; // Rough estimate: 16KB per second
       const fileSize = fileSizeKB > 1024 
@@ -398,12 +405,25 @@ export default function CreateAudioNoteScreen() {
   const processAudioInBackground = async (
     audioUrl: string,
     duration: number,
-    tempNoteId: string,
+    noteId: string,
     noteTitle: string,
     noteTags: string[]
   ) => {
+    console.log('[CreateAudio] ===== processAudioInBackground CALLED =====');
+    console.log('[CreateAudio] Parameters:', {
+      audioUrl,
+      duration,
+      noteId,
+      noteTitle,
+      noteTags,
+      userId: user?.id,
+      hasBlob: !!audioBlobRef.current,
+      blobSize: audioBlobRef.current?.size,
+      blobType: audioBlobRef.current?.type
+    });
+    
     try {
-      // Ensure user is set before creating note
+      // Ensure user is set before processing
       if (!user?.id) {
         throw new Error('No user authenticated');
       }
@@ -411,20 +431,30 @@ export default function CreateAudioNoteScreen() {
       // Set the current user on the storage service to ensure authentication
       supabaseNoteStorage.setCurrentUser(user.id);
       
-      // Create note first
-      updateUploadProgress(30, t('audioNote.creatingNote'));
-      
-      const note = await supabaseNoteStorage.createNote({
-        title: noteTitle || 'Audio Note',
-        content: '',
-        tags: noteTags,
-        summary: '',
-        audioUrl: audioUrl,
-        audioDuration: duration,
-      });
-
-      updateUploadProgress(50, t('audioNote.noteCreatedSuccessfully'));
-      console.log('[CreateAudio] Note created:', note.id);
+      // Check if note already exists (from saveNote) or needs to be created (from handleRecordingComplete)
+      let finalNoteId = noteId;
+      if (noteId.startsWith('note_') && noteId.includes('_')) {
+        // This is a temp ID from handleRecordingComplete, create the note
+        console.log('[CreateAudio] Creating new note for background processing (temp ID detected)');
+        updateUploadProgress(30, t('audioNote.creatingNote'));
+        
+        const note = await supabaseNoteStorage.createNote({
+          title: noteTitle || 'Audio Note',
+          content: '',
+          tags: noteTags,
+          summary: '',
+          audioUrl: audioUrl,
+          audioDuration: duration,
+        });
+        
+        finalNoteId = note.id;
+        updateUploadProgress(50, t('audioNote.noteCreatedSuccessfully'));
+        console.log('[CreateAudio] Note created:', note.id);
+      } else {
+        // Note already exists (from saveNote), use the provided ID
+        console.log('[CreateAudio] Using existing note ID:', noteId);
+        finalNoteId = noteId;
+      }
 
       // Process audio for transcription and summary
       try {
@@ -435,15 +465,32 @@ export default function CreateAudioNoteScreen() {
         const audioBlob = audioBlobRef.current;
         console.log('[CreateAudio] Processing with blob:', !!audioBlob);
         
+        console.log('[CreateAudio] Calling AudioUtils.processAudioForTranscription with:', {
+          audioUrl,
+          userId,
+          noteId: finalNoteId,
+          hasBlob: !!audioBlob
+        });
+        
         const processingResult = await AudioUtils.processAudioForTranscription(
           audioUrl,
           userId,
-          note.id,
+          finalNoteId,
           (message, progress) => {
+            console.log('[CreateAudio] Processing progress:', message, progress);
             updateUploadProgress(60 + (progress * 0.4), message); // Scale 0-100 to 60-100
           },
           audioBlob || undefined // Pass the blob if available
         );
+        
+        console.log('[CreateAudio] Processing result:', {
+          success: processingResult.success,
+          hasTranscription: !!processingResult.transcription,
+          hasTitle: !!processingResult.title,
+          hasSummary: !!processingResult.summary,
+          hasKeyDetails: !!processingResult.keyDetails?.length,
+          error: processingResult.error
+        });
         
         // Clear the blob ref after successful processing
         if (audioBlob) {
@@ -451,15 +498,34 @@ export default function CreateAudioNoteScreen() {
           console.log('[CreateAudio] Cleared blob ref after processing');
         }
 
-        if (processingResult.success) {
-          // Update note with processed content
+        // Always update note with any AI content that was generated
+        // Even if processingResult.success is false, we may have partial results
+        if (processingResult) {
           updateUploadProgress(95, t('audioNote.savingAiGeneratedContent'));
-          await supabaseNoteStorage.updateNote(note.id, {
+          console.log('[CreateAudio] Updating note with AI content:', {
+            noteId: finalNoteId,
+            title: processingResult.title || noteTitle || 'Audio Note',
+            transcriptionLength: processingResult.transcription?.length || 0,
+            summaryLength: processingResult.summary?.length || 0,
+            keyDetailsCount: processingResult.keyDetails?.length || 0
+          });
+          
+          await supabaseNoteStorage.updateNote(finalNoteId, {
             title: processingResult.title || noteTitle || 'Audio Note',
             content: processingResult.transcription || '',
             summary: processingResult.summary || '',
             keyDetails: processingResult.keyDetails || [],
           });
+          
+          console.log('[CreateAudio] ===== NOTE SUCCESSFULLY UPDATED WITH AI CONTENT =====');
+          console.log('[CreateAudio] Final note state:', {
+            hasTitle: !!processingResult.title,
+            hasTranscription: !!processingResult.transcription,
+            hasSummary: !!processingResult.summary,
+            hasKeyDetails: !!processingResult.keyDetails?.length,
+          });
+        } else {
+          console.warn('[CreateAudio] No processing result received, skipping note update');
         }
       } catch (processingError) {
         console.warn('[CreateAudio] Audio processing failed:', processingError);
@@ -506,13 +572,51 @@ export default function CreateAudioNoteScreen() {
           audioDuration: recordingDuration,
         });
 
-        setProgress(100);
-        setProgressMessage('Complete!');
-        setShowProgressBar(false);
-        setIsLoading(false);
+        // Process audio in background BEFORE navigation so blob is still available
+        if (audioUri && user?.id) {
+          console.log('[CreateAudio] Starting background processing for saved note');
+          console.log('[CreateAudio] Audio details:', {
+            audioUri,
+            duration: recordingDuration,
+            noteId: note.id,
+            hasBlob: !!audioBlobRef.current,
+            blobSize: audioBlobRef.current?.size,
+            blobType: audioBlobRef.current?.type
+          });
+          
+          setProgress(50);
+          setProgressMessage('Note created, processing audio...');
+          
+          // Process in background - don't await, let it run while we navigate
+          processAudioInBackground(
+            audioUri,
+            recordingDuration,
+            note.id,
+            title.trim() || 'Audio Note',
+            tags
+          ).catch((error) => {
+            console.error('[CreateAudio] Background processing error:', error);
+          });
 
-        // Navigate to the note page (replace to avoid back button going to create-audio)
-        router.replace(`/note/${note.id}` as any);
+          // Navigate after starting processing (but don't wait for it)
+          setTimeout(() => {
+            router.replace(`/note/${note.id}` as any);
+          }, 100);
+        } else {
+          console.warn('[CreateAudio] Cannot process audio - missing audioUri or user:', {
+            hasAudioUri: !!audioUri,
+            audioUri: audioUri,
+            hasUser: !!user?.id,
+            userId: user?.id
+          });
+          setProgress(100);
+          setProgressMessage('Complete!');
+          setShowProgressBar(false);
+          setIsLoading(false);
+          
+          // Navigate to the note page
+          router.replace(`/note/${note.id}` as any);
+        }
       } else {
         // Update existing note
         await supabaseNoteStorage.updateNote(noteId, {
@@ -529,6 +633,32 @@ export default function CreateAudioNoteScreen() {
 
         // Navigate to the note page (replace to avoid back button going to create-audio)
         router.replace(`/note/${noteId}` as any);
+
+        // Process audio in background if audio exists and hasn't been processed
+        if (audioUri && user?.id) {
+          console.log('[CreateAudio] Starting background processing for updated note');
+          console.log('[CreateAudio] Audio details:', {
+            audioUri,
+            duration: recordingDuration,
+            noteId,
+            hasBlob: !!audioBlobRef.current,
+            blobSize: audioBlobRef.current?.size
+          });
+          processAudioInBackground(
+            audioUri,
+            recordingDuration,
+            noteId,
+            title.trim() || 'Audio Note',
+            tags
+          ).catch((error) => {
+            console.error('[CreateAudio] Background processing error:', error);
+          });
+        } else {
+          console.warn('[CreateAudio] Cannot process audio for update - missing audioUri or user:', {
+            hasAudioUri: !!audioUri,
+            hasUser: !!user?.id
+          });
+        }
       }
     } catch (error) {
       console.error('[CreateAudio] Error saving note:', error);

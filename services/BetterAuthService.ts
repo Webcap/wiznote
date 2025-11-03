@@ -22,6 +22,7 @@ import {
   formatRateLimitError,
   logAuthEvent,
   terminateSession,
+  terminateAllSessions,
   shouldLockAccount,
   lockAccount,
   getRecentFailedLogins,
@@ -916,7 +917,19 @@ export class BetterAuthService {
         throw error;
       }
       
-      // ✅ STEP 3: Log successful password update
+      // ✅ STEP 4: Force logout all other sessions on password change (P3.2)
+      try {
+        const terminatedCount = await terminateAllSessions(
+          this.currentUser.id,
+          'password_changed'
+        );
+        console.log(`✅ Terminated ${terminatedCount} other sessions after password change`);
+      } catch (terminateError) {
+        console.error('Failed to terminate other sessions:', terminateError);
+        // Don't fail password update if session termination fails
+      }
+      
+      // ✅ STEP 5: Log successful password update
       try {
         await logAuthEvent(
           'auth.password_reset.success',
@@ -924,7 +937,7 @@ export class BetterAuthService {
           this.currentUser.email,
           true,
           undefined,
-          { platform: Platform.OS }
+          { platform: Platform.OS, force_logout: true }
         );
       } catch (logError) {
         console.error('Failed to log password update:', logError);
