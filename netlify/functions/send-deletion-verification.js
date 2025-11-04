@@ -4,10 +4,10 @@
  * Sends an email to the user with a verification link to confirm their account deletion request.
  * The user clicks the link to verify, and the support agent can see the verification status.
  * 
- * Uses Postmark for email delivery: https://postmarkapp.com/developer/user-guide/sending-email/sending-with-api
+ * Uses Brevo (formerly Sendinblue) for email delivery: https://developers.brevo.com/
  */
 
-const postmark = require('postmark');
+const brevo = require('@getbrevo/brevo');
 
 exports.handler = async (event, context) => {
   // Get origin from request headers
@@ -58,12 +58,12 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Check Postmark Server API Token
-    const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_SERVER_TOKEN;
+    // Check Brevo API Key
+    const BREVO_API_KEY = process.env.BREVO_API_KEY;
     
-    if (!POSTMARK_SERVER_TOKEN) {
-      console.error('Postmark server token not configured in Netlify environment variables');
-      console.error('Please set POSTMARK_SERVER_TOKEN in Netlify dashboard: Site settings → Environment variables');
+    if (!BREVO_API_KEY) {
+      console.error('Brevo API key not configured in Netlify environment variables');
+      console.error('Please set BREVO_API_KEY in Netlify dashboard: Site settings → Environment variables');
       return {
         statusCode: 500,
         headers: {
@@ -72,14 +72,17 @@ exports.handler = async (event, context) => {
         },
         body: JSON.stringify({
           error: 'Email service not configured',
-          message: 'Postmark server token is not configured. Please set POSTMARK_SERVER_TOKEN in Netlify environment variables.',
-          help: 'See Postmark integration guide: https://postmarkapp.com/developer/user-guide/sending-email/sending-with-api',
+          message: 'Brevo API key is not configured. Please set BREVO_API_KEY in Netlify environment variables.',
+          help: 'See Brevo integration guide: https://developers.brevo.com/',
         }),
       };
     }
 
-    // Initialize Postmark client
-    const client = new postmark.ServerClient(POSTMARK_SERVER_TOKEN);
+    // Initialize Brevo client
+    const defaultClient = brevo.ApiClient.instance;
+    const apiKey = defaultClient.authentications['api-key'];
+    apiKey.apiKey = BREVO_API_KEY;
+    const apiInstance = new brevo.TransactionalEmailsApi();
 
     // Build verification URL
     const webUrl = process.env.EXPO_PUBLIC_WEB_URL || 'https://wiznote.app';
@@ -87,8 +90,8 @@ exports.handler = async (event, context) => {
 
     // Email content
     const emailSubject = 'Verify Your Account Deletion Request';
-    const fromEmail = process.env.POSTMARK_FROM_EMAIL || 'support@wiznote.app';
-    const fromName = process.env.POSTMARK_FROM_NAME || 'WizNote Support';
+    const fromEmail = process.env.BREVO_FROM_EMAIL || 'support@wiznote.app';
+    const fromName = process.env.BREVO_FROM_NAME || 'WizNote Support';
     
     const emailHtml = `
       <!DOCTYPE html>
@@ -163,18 +166,19 @@ Ticket ID: ${ticketId}
 This is an automated email. Please do not reply.
     `;
 
-    // Send email using Postmark
+    // Send email using Brevo
     try {
-      const result = await client.sendEmail({
-        From: `${fromName} <${fromEmail}>`,
-        To: email,
-        Subject: emailSubject,
-        HtmlBody: emailHtml,
-        TextBody: emailText,
-        MessageStream: 'outbound',
+      const sendSmtpEmail = new brevo.SendSmtpEmail({
+        to: [{ email: email }],
+        sender: { email: fromEmail, name: fromName },
+        subject: emailSubject,
+        htmlContent: emailHtml,
+        textContent: emailText,
       });
 
-      console.log(`Verification email sent successfully to ${email} for ticket ${ticketId}. MessageID: ${result.MessageID}`);
+      const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+
+      console.log(`Verification email sent successfully to ${email} for ticket ${ticketId}. MessageID: ${result.messageId}`);
       
       return {
         statusCode: 200,
@@ -185,18 +189,27 @@ This is an automated email. Please do not reply.
         body: JSON.stringify({
           success: true,
           message: 'Verification email sent successfully',
-          messageId: result.MessageID,
+          messageId: result.messageId,
         }),
       };
     } catch (sendError) {
-      console.error('Postmark error:', sendError);
+      console.error('Brevo error:', sendError);
       
-      // Handle Postmark errors
+      // Handle Brevo errors with better error messages
       let errorMessage = 'Failed to send verification email';
-      if (sendError && sendError.message) {
-        errorMessage = `Postmark error: ${sendError.message}`;
+      let errorCode = 'EMAIL_SEND_ERROR';
+      
+      if (sendError && sendError.response && sendError.response.body) {
+        const errorBody = sendError.response.body;
+        if (errorBody.message) {
+          errorMessage = `Brevo error: ${errorBody.message}`;
+        } else if (errorBody.error) {
+          errorMessage = `Brevo error: ${errorBody.error}`;
+        }
+      } else if (sendError && sendError.message) {
+        errorMessage = `Brevo error: ${sendError.message}`;
       } else if (sendError && typeof sendError === 'string') {
-        errorMessage = `Postmark error: ${sendError}`;
+        errorMessage = `Brevo error: ${sendError}`;
       }
       
       return {
@@ -208,6 +221,8 @@ This is an automated email. Please do not reply.
         body: JSON.stringify({
           error: 'Failed to send email',
           message: errorMessage,
+          errorCode: errorCode,
+          help: 'If this is a Brevo account issue, you can use the Admin Override feature to verify the deletion request without email verification.',
         }),
       };
     }

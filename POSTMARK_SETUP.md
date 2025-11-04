@@ -116,6 +116,20 @@ console.log('Email sent:', result.MessageID);
 **Error: "Rate limit exceeded"**
 - Solution: Check your Postmark plan limits (Free tier: 100 emails/month)
 
+**Error: "While your account is pending approval, all recipient addresses must share the same domain as the 'From' address"**
+- **Cause**: New Postmark accounts are pending approval. During this time, you can only send emails to addresses that match your verified sender domain.
+- **Solutions**:
+  1. **Request Account Approval** (Recommended):
+     - Go to Postmark Dashboard → Settings → Account
+     - Request account approval (usually takes 24-48 hours)
+     - Once approved, you can send to any email address
+  2. **Use Admin Override** (Temporary Workaround):
+     - If urgent, use the "Admin Override" button in the support tool to verify deletion requests without email verification
+     - This bypasses the email requirement for account deletion
+  3. **Wait for Approval**:
+     - Postmark will review your account and approve it automatically in most cases
+     - Check your email for approval notifications
+
 ### Postmark Limits
 
 - **Free Tier**: 100 emails/month

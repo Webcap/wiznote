@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   featureCard: {
-    width: Platform.OS === 'web' ? 'calc(50% - 8px)' : '100%',
+    width: Platform.OS === 'web' ? '48%' : '100%',
     padding: 20,
     borderRadius: 12,
     borderWidth: 1,
