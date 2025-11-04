@@ -376,6 +376,7 @@ function AppContent() {
                       }} />
                       <Stack.Screen name="about" options={{ headerShown: false }} />
                       <Stack.Screen name="delete-account-request" options={{ headerShown: false }} />
+                      <Stack.Screen name="verify-deletion" options={{ headerShown: false }} />
                       <Stack.Screen name="admin" options={{ headerShown: false }} />
                       <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
                       <Stack.Screen name="reset-password" options={{ headerShown: false }} />

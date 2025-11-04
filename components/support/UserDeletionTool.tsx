@@ -15,6 +15,7 @@ import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { useSnackbar } from '../../contexts/SnackbarContext';
+import { useAuth } from '../../hooks/useAuth';
 import { supportService } from '../../services/SupportService';
 import { supabase } from '../../lib/supabase';
 
@@ -36,6 +37,13 @@ interface DeletionTicket {
   updatedAt: Date;
 }
 
+interface VerificationStatus {
+  status: 'pending' | 'verified' | 'admin_override';
+  verified: boolean;
+  verifiedAt?: string;
+  verifiedBy?: string;
+}
+
 export default function UserDeletionTool({ supportAgentId }: UserDeletionToolProps) {
   const { showSnackbar } = useSnackbar();
   const [tickets, setTickets] = useState<DeletionTicket[]>([]);
@@ -47,6 +55,10 @@ export default function UserDeletionTool({ supportAgentId }: UserDeletionToolPro
     progress: number;
     details: string[];
   } | null>(null);
+  const [verificationStatuses, setVerificationStatuses] = useState<Record<string, VerificationStatus>>({});
+  const [startingVerification, setStartingVerification] = useState<string | null>(null);
+  const [resendingVerification, setResendingVerification] = useState<string | null>(null);
+  const { user, isAdmin } = useAuth();
 
   // Theme colors
   const textColor = useThemeColor({}, 'text');
@@ -70,6 +82,14 @@ export default function UserDeletionTool({ supportAgentId }: UserDeletionToolPro
         type: 'account_deletion',
       });
       setTickets(allTickets as any);
+      
+      // Load verification statuses for all tickets
+      const statuses: Record<string, VerificationStatus> = {};
+      for (const ticket of allTickets) {
+        const status = await supportService.getVerificationStatus(ticket.id);
+        statuses[ticket.id] = status;
+      }
+      setVerificationStatuses(statuses);
     } catch (error) {
       console.error('Error loading deletion requests:', error);
       if (Platform.OS === 'web') {
@@ -77,6 +97,101 @@ export default function UserDeletionTool({ supportAgentId }: UserDeletionToolPro
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStartVerification = async (ticket: DeletionTicket) => {
+    setStartingVerification(ticket.id);
+    try {
+      const result = await supportService.startVerification(ticket.id, supportAgentId);
+      
+      if (result.success) {
+        showSnackbar('Verification email sent to user', 'success', 5000);
+        // Refresh verification status
+        const status = await supportService.getVerificationStatus(ticket.id);
+        setVerificationStatuses(prev => ({
+          ...prev,
+          [ticket.id]: status,
+        }));
+        // Refresh tickets to update status
+        loadDeletionRequests();
+      } else {
+        showSnackbar(result.error || 'Failed to start verification', 'error', 6000);
+      }
+    } catch (error) {
+      console.error('Error starting verification:', error);
+      showSnackbar('Failed to start verification', 'error', 6000);
+    } finally {
+      setStartingVerification(null);
+    }
+  };
+
+  const handleResendVerification = async (ticket: DeletionTicket) => {
+    setResendingVerification(ticket.id);
+    try {
+      const result = await supportService.resendVerificationEmail(ticket.id, supportAgentId);
+      
+      if (result.success) {
+        showSnackbar('Verification email resent to user', 'success', 5000);
+        // Refresh verification status
+        const status = await supportService.getVerificationStatus(ticket.id);
+        setVerificationStatuses(prev => ({
+          ...prev,
+          [ticket.id]: status,
+        }));
+        loadDeletionRequests();
+      } else {
+        showSnackbar(result.error || 'Failed to resend verification email', 'error', 6000);
+      }
+    } catch (error) {
+      console.error('Error resending verification email:', error);
+      showSnackbar('Failed to resend verification email', 'error', 6000);
+    } finally {
+      setResendingVerification(null);
+    }
+  };
+
+  const handleAdminOverride = async (ticket: DeletionTicket) => {
+    if (!isAdmin()) {
+      showSnackbar('Only admins can override verification', 'error', 4000);
+      return;
+    }
+
+    const confirmMessage = `Admin Override Verification\n\nYou are about to override the verification requirement for this deletion request.\n\nTicket ID: ${ticket.id}\nUser Email: ${ticket.userEmail}\n\nThis should only be used in urgent cases where email verification is not possible.\n\nProceed with admin override?`;
+    
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm(confirmMessage)
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Admin Override Verification',
+            confirmMessage,
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Override', style: 'destructive', onPress: () => resolve(true) }
+            ]
+          );
+        });
+
+    if (!confirmed) return;
+
+    try {
+      const result = await supportService.adminOverrideVerification(ticket.id, user?.id || supportAgentId);
+      
+      if (result.success) {
+        showSnackbar('Admin override applied', 'success', 4000);
+        // Refresh verification status
+        const status = await supportService.getVerificationStatus(ticket.id);
+        setVerificationStatuses(prev => ({
+          ...prev,
+          [ticket.id]: status,
+        }));
+        loadDeletionRequests();
+      } else {
+        showSnackbar(result.error || 'Failed to apply admin override', 'error', 6000);
+      }
+    } catch (error) {
+      console.error('Error applying admin override:', error);
+      showSnackbar('Failed to apply admin override', 'error', 6000);
     }
   };
 
@@ -103,19 +218,38 @@ export default function UserDeletionTool({ supportAgentId }: UserDeletionToolPro
   const handleDeleteUser = async (ticket: DeletionTicket) => {
     const userEmail = ticket.userEmail;
     
-    // STEP 1: Verification check
-    const verified = await verifyDeletionRequest(ticket);
-    if (!verified) {
+    // STEP 1: Check verification status
+    const verificationStatus = verificationStatuses[ticket.id] || await supportService.getVerificationStatus(ticket.id);
+    
+    if (!verificationStatus.verified && !isAdmin()) {
       if (Platform.OS === 'web') {
-        showSnackbar('Deletion cancelled. Please verify the request before proceeding.', 'warning', 5000);
+        showSnackbar('Verification required. Please wait for user to verify via email link, or use admin override.', 'warning', 6000);
       } else {
         Alert.alert(
           'Verification Required',
-          'Please verify the deletion request:\n\n1. Email the user to confirm\n2. Wait for response from the SAME email\n3. Check for active subscriptions\n4. Only then proceed with deletion',
+          'The user must verify the deletion request via email link before proceeding. If you are an admin, you can use the admin override option.',
           [{ text: 'OK' }]
         );
       }
       return;
+    }
+
+    // If not verified but admin, show confirmation
+    if (!verificationStatus.verified && isAdmin()) {
+      const adminConfirm = Platform.OS === 'web'
+        ? window.confirm('⚠️ VERIFICATION NOT COMPLETE ⚠️\n\nThe user has not verified via email yet.\n\nAs an admin, you can proceed, but this is not recommended.\n\nConsider using the "Admin Override" button first, or wait for user verification.\n\nProceed anyway?')
+        : await new Promise<boolean>((resolve) => {
+            Alert.alert(
+              'Verification Not Complete',
+              'The user has not verified via email yet. As an admin, you can proceed, but this is not recommended. Consider using the "Admin Override" button first, or wait for user verification.',
+              [
+                { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                { text: 'Proceed Anyway', style: 'destructive', onPress: () => resolve(true) }
+              ]
+            );
+          });
+      
+      if (!adminConfirm) return;
     }
     
     // STEP 2: Final confirmation
@@ -608,86 +742,148 @@ export default function UserDeletionTool({ supportAgentId }: UserDeletionToolPro
                 Submitted: {ticket.createdAt.toLocaleString()}
               </ThemedText>
 
-              {/* Verification Warning */}
-              {ticket.status === 'pending' && (
-                <ThemedView style={styles.verificationWarning}>
-                  <Ionicons name="warning" size={20} color={accentWarning} />
-                  <View style={styles.verificationTextContainer}>
-                    <ThemedText style={styles.verificationTitle}>Verification Required</ThemedText>
-                    <ThemedText style={styles.verificationText}>
-                      Before processing, email {ticket.userEmail} to confirm this request came from them.
-                    </ThemedText>
-                  </View>
-                </ThemedView>
-              )}
+              {/* Verification Status */}
+              {(() => {
+                const verificationStatus = verificationStatuses[ticket.id] || { status: 'pending', verified: false };
+                return (
+                  <ThemedView style={[
+                    styles.verificationWarning,
+                    verificationStatus.verified && styles.verificationVerified,
+                    verificationStatus.status === 'admin_override' && styles.verificationAdminOverride
+                  ]}>
+                    <Ionicons 
+                      name={verificationStatus.verified ? "checkmark-circle" : "warning"} 
+                      size={20} 
+                      color={verificationStatus.verified ? accentSuccess : accentWarning} 
+                    />
+                    <View style={styles.verificationTextContainer}>
+                      <ThemedText style={styles.verificationTitle}>
+                        {verificationStatus.verified 
+                          ? (verificationStatus.status === 'admin_override' ? 'Verified (Admin Override)' : 'Verified')
+                          : 'Verification Required'}
+                      </ThemedText>
+                      <ThemedText style={styles.verificationText}>
+                        {verificationStatus.verified
+                          ? verificationStatus.status === 'admin_override'
+                            ? `Admin override applied by ${verificationStatus.verifiedBy || 'admin'}`
+                            : `Verified at ${verificationStatus.verifiedAt ? new Date(verificationStatus.verifiedAt).toLocaleString() : 'unknown'}`
+                          : `An email has been sent to ${ticket.userEmail}. Please wait for the user to click the verification link.`}
+                      </ThemedText>
+                    </View>
+                  </ThemedView>
+                );
+              })()}
 
               {/* Action Buttons */}
               <View style={styles.actionButtons}>
-                {ticket.status === 'pending' && (
-                  <>
-                    <TouchableOpacity
-                      style={[styles.actionButton, { backgroundColor: accentWarning }]}
-                      onPress={async () => {
-                        try {
-                          await supportService.updateTicketStatus(ticket.id, 'in_progress', {
-                            assignedTo: supportAgentId,
-                          });
-                          loadDeletionRequests();
-                          if (Platform.OS === 'web') {
-                            showSnackbar('Ticket marked as in progress. Remember to verify the request!', 'success', 4000);
-                          }
-                        } catch (error) {
-                          console.error('Error updating ticket:', error);
-                        }
-                      }}
-                      disabled={processingTicket === ticket.id}
-                    >
-                      <Ionicons name="play-circle" size={20} color="#FFFFFF" />
-                      <Text style={styles.actionButtonText}>Start Verification</Text>
-                    </TouchableOpacity>
+                {(() => {
+                  const verificationStatus = verificationStatuses[ticket.id] || { status: 'pending', verified: false };
+                  const isVerified = verificationStatus.verified;
+                  
+                  if (ticket.status === 'pending' || (!isVerified && ticket.status === 'in_progress')) {
+                    return (
+                      <>
+                        <TouchableOpacity
+                          style={[styles.actionButton, { backgroundColor: accentWarning }]}
+                          onPress={() => handleStartVerification(ticket)}
+                          disabled={startingVerification === ticket.id || resendingVerification === ticket.id || processingTicket === ticket.id}
+                        >
+                          {startingVerification === ticket.id ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <>
+                              <Ionicons name="mail" size={20} color="#FFFFFF" />
+                              <Text style={styles.actionButtonText}>Start Verification</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={[styles.actionButton, { backgroundColor: accentDanger }]}
-                      onPress={() => handleDeleteUser(ticket)}
-                      disabled={processingTicket === ticket.id}
-                    >
-                      {processingTicket === ticket.id ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <>
-                          <Ionicons name="shield-checkmark" size={20} color="#FFFFFF" />
-                          <Text style={styles.actionButtonText}>Verify & Delete</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </>
-                )}
+                        {ticket.status === 'in_progress' && !isVerified && (
+                          <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: accentPrimary }]}
+                            onPress={() => handleResendVerification(ticket)}
+                            disabled={resendingVerification === ticket.id || startingVerification === ticket.id || processingTicket === ticket.id}
+                          >
+                            {resendingVerification === ticket.id ? (
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : (
+                              <>
+                                <Ionicons name="refresh" size={20} color="#FFFFFF" />
+                                <Text style={styles.actionButtonText}>Resend Email</Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+                        )}
 
-                {ticket.status === 'in_progress' && (
-                  <>
-                    <ThemedView style={styles.inProgressNote}>
-                      <Ionicons name="checkmark-circle" size={16} color={accentSuccess} />
-                      <ThemedText style={styles.inProgressText}>
-                        Request verified. Ready to delete.
-                      </ThemedText>
-                    </ThemedView>
-                    
-                    <TouchableOpacity
-                      style={[styles.actionButton, { backgroundColor: accentDanger }]}
-                      onPress={() => handleDeleteUser(ticket)}
-                      disabled={processingTicket === ticket.id}
-                    >
-                      {processingTicket === ticket.id ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <>
-                          <Ionicons name="trash" size={20} color="#FFFFFF" />
-                          <Text style={styles.actionButtonText}>Complete Deletion</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </>
-                )}
+                        {isAdmin() && (
+                          <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: '#FF9800' }]}
+                            onPress={() => handleAdminOverride(ticket)}
+                            disabled={processingTicket === ticket.id}
+                          >
+                            <Ionicons name="shield" size={20} color="#FFFFFF" />
+                            <Text style={styles.actionButtonText}>Admin Override</Text>
+                          </TouchableOpacity>
+                        )}
+
+                        <TouchableOpacity
+                          style={[
+                            styles.actionButton, 
+                            { backgroundColor: accentDanger },
+                            !isVerified && !isAdmin() && styles.disabledButton
+                          ]}
+                          onPress={() => handleDeleteUser(ticket)}
+                          disabled={processingTicket === ticket.id || (!isVerified && !isAdmin())}
+                        >
+                          {processingTicket === ticket.id ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <>
+                              <Ionicons name="trash" size={20} color="#FFFFFF" />
+                              <Text style={styles.actionButtonText}>
+                                {isVerified ? 'Delete Account' : 'Delete (Requires Verification)'}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </>
+                    );
+                  }
+
+                  if ((ticket.status === 'in_progress' && isVerified) || ticket.status === 'resolved') {
+                    return (
+                      <>
+                        {isVerified && (
+                          <ThemedView style={styles.inProgressNote}>
+                            <Ionicons name="checkmark-circle" size={16} color={accentSuccess} />
+                            <ThemedText style={styles.inProgressText}>
+                              Request verified. Ready to delete.
+                            </ThemedText>
+                          </ThemedView>
+                        )}
+                        
+                        {ticket.status !== 'resolved' && (
+                          <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: accentDanger }]}
+                            onPress={() => handleDeleteUser(ticket)}
+                            disabled={processingTicket === ticket.id}
+                          >
+                            {processingTicket === ticket.id ? (
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : (
+                              <>
+                                <Ionicons name="trash" size={20} color="#FFFFFF" />
+                                <Text style={styles.actionButtonText}>Complete Deletion</Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+                        )}
+                      </>
+                    );
+                  }
+
+                  return null;
+                })()}
 
                 {ticket.status !== 'resolved' && ticket.status !== 'cancelled' && (
                   <TouchableOpacity
@@ -967,6 +1163,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 8,
     fontWeight: '500',
+  },
+  verificationVerified: {
+    backgroundColor: 'rgba(60, 179, 113, 0.1)',
+    borderColor: '#3CB371',
+  },
+  verificationAdminOverride: {
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+    borderColor: '#FF9800',
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });
 
