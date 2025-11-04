@@ -19,12 +19,22 @@ import { supportService } from '../services/SupportService';
 export default function VerifyDeletionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const ticketId = params.ticket as string;
-  const token = params.token as string;
+  
+  // On web, also check URL search params directly as fallback
+  let ticketId = params.ticket as string;
+  let token = params.token as string;
+  
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!ticketId) ticketId = urlParams.get('ticket') || '';
+    if (!token) token = urlParams.get('token') || '';
+  }
 
   const [status, setStatus] = useState<'loading' | 'verifying' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Loading...');
   const [error, setError] = useState<string | null>(null);
+  
+  console.log('VerifyDeletionScreen: Loaded with params:', { ticketId, token, allParams: params });
 
   // Theme colors
   const textColor = useThemeColor({}, 'text');
@@ -35,21 +45,41 @@ export default function VerifyDeletionScreen() {
   const cardBg = useThemeColor({}, 'backgroundSecondary');
 
   useEffect(() => {
+    // Prevent navigation during verification
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const preventNavigation = (e: BeforeUnloadEvent) => {
+        if (status === 'verifying') {
+          e.preventDefault();
+          e.returnValue = '';
+        }
+      };
+      window.addEventListener('beforeunload', preventNavigation);
+      return () => window.removeEventListener('beforeunload', preventNavigation);
+    }
+  }, [status]);
+
+  useEffect(() => {
+    console.log('VerifyDeletionScreen: useEffect triggered', { ticketId, token });
+    
     if (!ticketId || !token) {
+      console.error('VerifyDeletionScreen: Missing ticketId or token', { ticketId, token });
       setStatus('error');
       setError('Invalid verification link. Please check your email and try again.');
       return;
     }
 
+    console.log('VerifyDeletionScreen: Starting verification');
     verifyRequest();
   }, [ticketId, token]);
 
   const verifyRequest = async () => {
     try {
+      console.log('VerifyDeletionScreen: verifyRequest called', { ticketId, token });
       setStatus('verifying');
       setMessage('Verifying your request...');
 
       const result = await supportService.verifyDeletionRequest(ticketId, token);
+      console.log('VerifyDeletionScreen: Verification result', result);
 
       if (result.success && result.verified) {
         setStatus('success');

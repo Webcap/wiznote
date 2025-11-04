@@ -4,7 +4,11 @@ This guide explains how to configure Brevo (formerly Sendinblue) for sending acc
 
 ## Overview
 
-The account deletion verification system uses Brevo to send verification emails to users. When a support agent clicks "Start Verification", an email is sent to the user with a verification link.
+Brevo is used to send transactional emails for:
+- Account deletion verification emails (when support agents initiate verification)
+- Password reset emails (when users request password resets)
+
+Both email types are sent via Netlify functions that use the Brevo API.
 
 ## Why Brevo?
 
@@ -94,7 +98,9 @@ The implementation follows the [Brevo API Documentation](https://developers.brev
 
 ### Code Implementation
 
-The email sending is handled in `netlify/functions/send-deletion-verification.js`:
+#### Account Deletion Verification
+
+The account deletion verification email is handled in `netlify/functions/send-deletion-verification.js`:
 
 ```javascript
 const brevo = require('@getbrevo/brevo');
@@ -114,6 +120,40 @@ const sendSmtpEmail = new brevo.SendSmtpEmail({
 
 const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
 console.log('Email sent:', result.messageId);
+```
+
+#### Password Reset
+
+The password reset email is handled in `netlify/functions/send-password-reset.js`:
+
+```javascript
+const brevo = require('@getbrevo/brevo');
+const { createClient } = require('@supabase/supabase-js');
+
+// Initialize Supabase admin client
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+// Generate password reset link using Supabase admin API
+const { data: resetData } = await supabaseAdmin.auth.admin.generateLink({
+  type: 'recovery',
+  email: email,
+  options: { redirectTo: redirectUrl },
+});
+
+// Initialize Brevo client
+const apiInstance = new brevo.TransactionalEmailsApi();
+apiInstance.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
+
+// Send email
+const sendSmtpEmail = new brevo.SendSmtpEmail();
+sendSmtpEmail.to = [{ email: email }];
+sendSmtpEmail.sender = { email: fromEmail, name: fromName };
+sendSmtpEmail.subject = 'Reset Your WizNote Password';
+sendSmtpEmail.htmlContent = emailHtml;
+sendSmtpEmail.textContent = emailText;
+
+const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+console.log('Password reset email sent:', result.messageId);
 ```
 
 ## Troubleshooting

@@ -213,7 +213,8 @@ function AppContent() {
           isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage || isHelpPage;
       
       // Check if current path is a public route (accessible without authentication)
-      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage || isChangelogPage || isFaqPage || isSignupPage;
+      const isVerifyDeletionPage = currentPath === '/verify-deletion' || currentPath.startsWith('/verify-deletion');
+      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage || isChangelogPage || isFaqPage || isSignupPage || isVerifyDeletionPage;
       
       console.log('Layout: Current path:', currentPath);
       console.log('Layout: Is payment page:', isPaymentPage);
