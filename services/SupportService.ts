@@ -877,9 +877,20 @@ export class SupportService {
       });
 
       if (!emailResponse.ok) {
-        const errorText = await emailResponse.text();
-        console.error('Failed to send verification email:', errorText);
-        throw new Error('Failed to send verification email');
+        let errorMessage = 'Failed to send verification email';
+        try {
+          const errorData = await emailResponse.json();
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+          if (errorData.errorCode === 'EMAIL_SEND_ERROR') {
+            errorMessage += ' Use Admin Override if urgent.';
+          }
+        } catch {
+          const errorText = await emailResponse.text();
+          console.error('Failed to send verification email:', errorText);
+        }
+        throw new Error(errorMessage);
       }
 
       console.log(`SupportService: Verification started for ticket ${ticketId}, token generated`);
@@ -966,9 +977,20 @@ export class SupportService {
       });
 
       if (!emailResponse.ok) {
-        const errorText = await emailResponse.text();
-        console.error('Failed to resend verification email:', errorText);
-        throw new Error('Failed to resend verification email');
+        let errorMessage = 'Failed to resend verification email';
+        try {
+          const errorData = await emailResponse.json();
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+          if (errorData.errorCode === 'POSTMARK_PENDING_APPROVAL') {
+            errorMessage += ' Use Admin Override if urgent.';
+          }
+        } catch {
+          const errorText = await emailResponse.text();
+          console.error('Failed to resend verification email:', errorText);
+        }
+        throw new Error(errorMessage);
       }
 
       console.log(`SupportService: Verification email resent for ticket ${ticketId}`);
