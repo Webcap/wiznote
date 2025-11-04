@@ -765,6 +765,13 @@ export class SupportService {
             'All subscription information',
           ],
           gdprCompliant: true,
+          verification: {
+            status: 'pending', // 'pending', 'verified', 'admin_override'
+            token: null,
+            verified_at: null,
+            verified_by: null,
+            admin_override: false,
+          },
         },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -799,6 +806,368 @@ export class SupportService {
     } catch (error) {
       console.error('SupportService: Error creating account deletion request:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Start verification process for account deletion request
+   * Generates a verification token and triggers email sending
+   */
+  async startVerification(ticketId: string, supportAgentId: string): Promise<{
+    success: boolean;
+    token: string;
+    error?: string;
+  }> {
+    try {
+      console.log('SupportService: Starting verification for ticket:', ticketId);
+
+      // Generate a secure verification token
+      const token = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Get ticket to get user email
+      const { data: ticket, error: ticketError } = await supabase
+        .from('support_tickets')
+        .select('id, user_email, metadata')
+        .eq('id', ticketId)
+        .single();
+
+      if (ticketError || !ticket) {
+        throw new Error('Ticket not found');
+      }
+
+      // Update ticket metadata with verification token
+      const metadata = ticket.metadata || {};
+      const verification = metadata.verification || {};
+      
+      const updatedMetadata = {
+        ...metadata,
+        verification: {
+          ...verification,
+          status: 'pending',
+          token,
+          verified_at: null,
+          verified_by: null,
+          admin_override: false,
+        },
+      };
+
+      const { error: updateError } = await supabase
+        .from('support_tickets')
+        .update({
+          metadata: updatedMetadata,
+          status: 'in_progress',
+          assigned_to: supportAgentId,
+        })
+        .eq('id', ticketId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Call Netlify function to send verification email
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://wiznote.app';
+      const emailResponse = await fetch(`${apiUrl}/.netlify/functions/send-deletion-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: ticket.user_email,
+          ticketId,
+          token,
+        }),
+      });
+
+      if (!emailResponse.ok) {
+        const errorText = await emailResponse.text();
+        console.error('Failed to send verification email:', errorText);
+        throw new Error('Failed to send verification email');
+      }
+
+      console.log(`SupportService: Verification started for ticket ${ticketId}, token generated`);
+
+      return {
+        success: true,
+        token,
+      };
+    } catch (error) {
+      console.error('SupportService: Error starting verification:', error);
+      return {
+        success: false,
+        token: '',
+        error: error instanceof Error ? error.message : 'Failed to start verification',
+      };
+    }
+  }
+
+  /**
+   * Resend verification email for account deletion request
+   * Reuses existing token or generates a new one if needed
+   */
+  async resendVerificationEmail(ticketId: string, supportAgentId: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      console.log('SupportService: Resending verification email for ticket:', ticketId);
+
+      // Get ticket to get user email and current verification status
+      const { data: ticket, error: ticketError } = await supabase
+        .from('support_tickets')
+        .select('id, user_email, metadata')
+        .eq('id', ticketId)
+        .single();
+
+      if (ticketError || !ticket) {
+        throw new Error('Ticket not found');
+      }
+
+      const metadata = ticket.metadata || {};
+      const verification = metadata.verification || {};
+      
+      // Use existing token if available and not verified, otherwise generate new one
+      let token = verification.token;
+      if (!token || verification.status === 'verified') {
+        token = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Update metadata with new token
+        const updatedMetadata = {
+          ...metadata,
+          verification: {
+            ...verification,
+            status: 'pending',
+            token,
+            verified_at: null,
+            verified_by: null,
+            admin_override: false,
+          },
+        };
+
+        const { error: updateError } = await supabase
+          .from('support_tickets')
+          .update({
+            metadata: updatedMetadata,
+          })
+          .eq('id', ticketId);
+
+        if (updateError) {
+          throw updateError;
+        }
+      }
+
+      // Call Netlify function to send verification email
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://wiznote.app';
+      const emailResponse = await fetch(`${apiUrl}/.netlify/functions/send-deletion-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: ticket.user_email,
+          ticketId,
+          token,
+        }),
+      });
+
+      if (!emailResponse.ok) {
+        const errorText = await emailResponse.text();
+        console.error('Failed to resend verification email:', errorText);
+        throw new Error('Failed to resend verification email');
+      }
+
+      console.log(`SupportService: Verification email resent for ticket ${ticketId}`);
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      console.error('SupportService: Error resending verification email:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to resend verification email',
+      };
+    }
+  }
+
+  /**
+   * Verify account deletion request via token
+   */
+  async verifyDeletionRequest(ticketId: string, token: string): Promise<{
+    success: boolean;
+    verified: boolean;
+    error?: string;
+  }> {
+    try {
+      console.log('SupportService: Verifying deletion request:', ticketId);
+
+      // Get ticket
+      const { data: ticket, error: ticketError } = await supabase
+        .from('support_tickets')
+        .select('id, metadata, type')
+        .eq('id', ticketId)
+        .single();
+
+      if (ticketError || !ticket) {
+        throw new Error('Ticket not found');
+      }
+
+      if (ticket.type !== 'account_deletion') {
+        throw new Error('This ticket is not an account deletion request');
+      }
+
+      const metadata = ticket.metadata || {};
+      const verification = metadata.verification || {};
+
+      // Check if token matches
+      if (verification.token !== token) {
+        return {
+          success: false,
+          verified: false,
+          error: 'Invalid verification token',
+        };
+      }
+
+      // Check if already verified
+      if (verification.status === 'verified') {
+        return {
+          success: true,
+          verified: true,
+        };
+      }
+
+      // Update verification status
+      const updatedMetadata = {
+        ...metadata,
+        verification: {
+          ...verification,
+          status: 'verified',
+          verified_at: new Date().toISOString(),
+          verified_by: 'user', // User verified via email link
+        },
+      };
+
+      const { error: updateError } = await supabase
+        .from('support_tickets')
+        .update({
+          metadata: updatedMetadata,
+        })
+        .eq('id', ticketId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      console.log(`SupportService: Deletion request verified for ticket ${ticketId}`);
+
+      return {
+        success: true,
+        verified: true,
+      };
+    } catch (error) {
+      console.error('SupportService: Error verifying deletion request:', error);
+      return {
+        success: false,
+        verified: false,
+        error: error instanceof Error ? error.message : 'Failed to verify request',
+      };
+    }
+  }
+
+  /**
+   * Get verification status for a ticket
+   */
+  async getVerificationStatus(ticketId: string): Promise<{
+    status: 'pending' | 'verified' | 'admin_override';
+    verified: boolean;
+    verifiedAt?: string;
+    verifiedBy?: string;
+  }> {
+    try {
+      const { data: ticket, error } = await supabase
+        .from('support_tickets')
+        .select('metadata')
+        .eq('id', ticketId)
+        .single();
+
+      if (error || !ticket) {
+        return {
+          status: 'pending',
+          verified: false,
+        };
+      }
+
+      const metadata = ticket.metadata || {};
+      const verification = metadata.verification || {};
+
+      return {
+        status: verification.status || 'pending',
+        verified: verification.status === 'verified' || verification.status === 'admin_override',
+        verifiedAt: verification.verified_at,
+        verifiedBy: verification.verified_by,
+      };
+    } catch (error) {
+      console.error('SupportService: Error getting verification status:', error);
+      return {
+        status: 'pending',
+        verified: false,
+      };
+    }
+  }
+
+  /**
+   * Admin override verification (for urgent cases)
+   */
+  async adminOverrideVerification(ticketId: string, adminId: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      console.log('SupportService: Admin override verification for ticket:', ticketId);
+
+      // Get ticket
+      const { data: ticket, error: ticketError } = await supabase
+        .from('support_tickets')
+        .select('id, metadata')
+        .eq('id', ticketId)
+        .single();
+
+      if (ticketError || !ticket) {
+        throw new Error('Ticket not found');
+      }
+
+      const metadata = ticket.metadata || {};
+      const verification = metadata.verification || {};
+
+      // Update verification status to admin_override
+      const updatedMetadata = {
+        ...metadata,
+        verification: {
+          ...verification,
+          status: 'admin_override',
+          verified_at: new Date().toISOString(),
+          verified_by: adminId,
+          admin_override: true,
+        },
+      };
+
+      const { error: updateError } = await supabase
+        .from('support_tickets')
+        .update({
+          metadata: updatedMetadata,
+        })
+        .eq('id', ticketId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      console.log(`SupportService: Admin override applied to ticket ${ticketId} by ${adminId}`);
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      console.error('SupportService: Error applying admin override:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to apply admin override',
+      };
     }
   }
 

@@ -91,3 +91,4 @@ If FAQ should appear in sidebar navigation, update `components/web/UserSidebar.t
 - [x] Update app/_layout.tsx to configure FAQ as a public route
 - [x] Test FAQ page on web and mobile, authenticated and unauthenticated states
 
+
