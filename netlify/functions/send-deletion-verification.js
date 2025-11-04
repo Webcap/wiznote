@@ -4,10 +4,10 @@
  * Sends an email to the user with a verification link to confirm their account deletion request.
  * The user clicks the link to verify, and the support agent can see the verification status.
  * 
- * Uses SendGrid for email delivery: https://app.sendgrid.com/guide/integrate/langs/nodejs
+ * Uses Postmark for email delivery: https://postmarkapp.com/developer/user-guide/sending-email/sending-with-api
  */
 
-const sgMail = require('@sendgrid/mail');
+const postmark = require('postmark');
 
 exports.handler = async (event, context) => {
   // Get origin from request headers
@@ -58,12 +58,12 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Check SendGrid API key
-    const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+    // Check Postmark Server API Token
+    const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_SERVER_TOKEN;
     
-    if (!SENDGRID_API_KEY) {
-      console.error('SendGrid API key not configured in Netlify environment variables');
-      console.error('Please set SENDGRID_API_KEY in Netlify dashboard: Site settings → Environment variables');
+    if (!POSTMARK_SERVER_TOKEN) {
+      console.error('Postmark server token not configured in Netlify environment variables');
+      console.error('Please set POSTMARK_SERVER_TOKEN in Netlify dashboard: Site settings → Environment variables');
       return {
         statusCode: 500,
         headers: {
@@ -72,14 +72,14 @@ exports.handler = async (event, context) => {
         },
         body: JSON.stringify({
           error: 'Email service not configured',
-          message: 'SendGrid API key is not configured. Please set SENDGRID_API_KEY in Netlify environment variables.',
-          help: 'See SendGrid integration guide: https://app.sendgrid.com/guide/integrate/langs/nodejs',
+          message: 'Postmark server token is not configured. Please set POSTMARK_SERVER_TOKEN in Netlify environment variables.',
+          help: 'See Postmark integration guide: https://postmarkapp.com/developer/user-guide/sending-email/sending-with-api',
         }),
       };
     }
 
-    // Initialize SendGrid
-    sgMail.setApiKey(SENDGRID_API_KEY);
+    // Initialize Postmark client
+    const client = new postmark.ServerClient(POSTMARK_SERVER_TOKEN);
 
     // Build verification URL
     const webUrl = process.env.EXPO_PUBLIC_WEB_URL || 'https://wiznote.app';
@@ -87,8 +87,8 @@ exports.handler = async (event, context) => {
 
     // Email content
     const emailSubject = 'Verify Your Account Deletion Request';
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'support@wiznote.app';
-    const fromName = process.env.SENDGRID_FROM_NAME || 'WizNote Support';
+    const fromEmail = process.env.POSTMARK_FROM_EMAIL || 'support@wiznote.app';
+    const fromName = process.env.POSTMARK_FROM_NAME || 'WizNote Support';
     
     const emailHtml = `
       <!DOCTYPE html>
@@ -163,21 +163,18 @@ Ticket ID: ${ticketId}
 This is an automated email. Please do not reply.
     `;
 
-    // Send email using SendGrid
-    const msg = {
-      to: email,
-      from: {
-        email: fromEmail,
-        name: fromName,
-      },
-      subject: emailSubject,
-      text: emailText,
-      html: emailHtml,
-    };
-
+    // Send email using Postmark
     try {
-      await sgMail.send(msg);
-      console.log(`Verification email sent successfully to ${email} for ticket ${ticketId}`);
+      const result = await client.sendEmail({
+        From: `${fromName} <${fromEmail}>`,
+        To: email,
+        Subject: emailSubject,
+        HtmlBody: emailHtml,
+        TextBody: emailText,
+        MessageStream: 'outbound',
+      });
+
+      console.log(`Verification email sent successfully to ${email} for ticket ${ticketId}. MessageID: ${result.MessageID}`);
       
       return {
         statusCode: 200,
@@ -188,17 +185,18 @@ This is an automated email. Please do not reply.
         body: JSON.stringify({
           success: true,
           message: 'Verification email sent successfully',
+          messageId: result.MessageID,
         }),
       };
     } catch (sendError) {
-      console.error('SendGrid error:', sendError);
+      console.error('Postmark error:', sendError);
       
-      // Handle SendGrid errors
+      // Handle Postmark errors
       let errorMessage = 'Failed to send verification email';
-      if (sendError.response) {
-        const { body, statusCode } = sendError.response;
-        console.error('SendGrid response error:', body);
-        errorMessage = `SendGrid error (${statusCode}): ${body?.errors?.[0]?.message || 'Unknown error'}`;
+      if (sendError && sendError.message) {
+        errorMessage = `Postmark error: ${sendError.message}`;
+      } else if (sendError && typeof sendError === 'string') {
+        errorMessage = `Postmark error: ${sendError}`;
       }
       
       return {
