@@ -846,15 +846,34 @@ export class BetterAuthService {
         }
       };
       
-      // ✅ STEP 4: Send password reset email via Supabase
-      const { error } = await supabase.auth.resetPasswordForEmail(sanitizedEmail, {
-        redirectTo: getRedirectUrl(),
+      // ✅ STEP 4: Send password reset email via Brevo (Netlify function)
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://wiznote.app';
+      const emailResponse = await fetch(`${apiUrl}/.netlify/functions/send-password-reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: sanitizedEmail,
+          redirectTo: getRedirectUrl(),
+        }),
       });
 
-      if (error) {
-        console.error('Password reset error:', error);
-        throw error;
+      if (!emailResponse.ok) {
+        let errorMessage = 'Failed to send password reset email';
+        try {
+          const errorData = await emailResponse.json();
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch {
+          const errorText = await emailResponse.text();
+          console.error('Failed to send password reset email:', errorText);
+        }
+        throw new Error(errorMessage);
       }
+
+      // The function returns success even if user doesn't exist (to prevent enumeration)
+      const emailResult = await emailResponse.json();
+      console.log('Password reset email sent:', emailResult);
       
       // ✅ STEP 5: Log successful password reset request
       try {
