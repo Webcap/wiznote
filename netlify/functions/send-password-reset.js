@@ -60,10 +60,22 @@ exports.handler = async (event, context) => {
 
     // Initialize Supabase admin client to generate reset link
     const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Supabase credentials not configured');
+    // Support both new sb_secret_ keys and legacy JWT-based keys
+    const secretKey = process.env.SUPABASE_SECRET_KEY;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    let supabaseKey;
+    if (secretKey && secretKey.startsWith('sb_secret_')) {
+      console.log('Using NEW Supabase Secret Key (sb_secret_...)');
+      supabaseKey = secretKey;
+    } else if (serviceRoleKey) {
+      console.log('Using legacy Service Role Key (JWT-based)');
+      supabaseKey = serviceRoleKey;
+    } else {
+      console.error('Missing Supabase environment variables');
+      console.error('Required: EXPO_PUBLIC_SUPABASE_URL or SUPABASE_URL');
+      console.error('Required: SUPABASE_SECRET_KEY (sb_secret_...) OR SUPABASE_SERVICE_ROLE_KEY');
       return {
         statusCode: 500,
         headers: {
@@ -72,12 +84,27 @@ exports.handler = async (event, context) => {
         },
         body: JSON.stringify({
           error: 'Server configuration error',
-          message: 'Supabase credentials are not configured.',
+          message: 'Supabase credentials are not configured. Please set SUPABASE_SECRET_KEY (sb_secret_...) or SUPABASE_SERVICE_ROLE_KEY.',
+        }),
+      };
+    }
+    
+    if (!supabaseUrl) {
+      console.error('Missing Supabase URL');
+      return {
+        statusCode: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders,
+        },
+        body: JSON.stringify({
+          error: 'Server configuration error',
+          message: 'Supabase URL is not configured. Please set EXPO_PUBLIC_SUPABASE_URL or SUPABASE_URL.',
         }),
       };
     }
 
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
