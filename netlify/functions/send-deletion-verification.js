@@ -174,12 +174,17 @@ This is an automated email. Please do not reply.
 
     // Send email using Brevo
     try {
-      const sendSmtpEmail = new brevo.SendSmtpEmail({
-        to: [{ email: email }],
-        sender: { email: fromEmail, name: fromName },
-        subject: emailSubject,
-        htmlContent: emailHtml,
-        textContent: emailText,
+      const sendSmtpEmail = new brevo.SendSmtpEmail();
+      sendSmtpEmail.to = [{ email: email }];
+      sendSmtpEmail.sender = { email: fromEmail, name: fromName };
+      sendSmtpEmail.subject = emailSubject;
+      sendSmtpEmail.htmlContent = emailHtml;
+      sendSmtpEmail.textContent = emailText;
+
+      console.log('Sending email with Brevo:', {
+        to: sendSmtpEmail.to,
+        sender: sendSmtpEmail.sender,
+        subject: sendSmtpEmail.subject,
       });
 
       const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
