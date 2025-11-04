@@ -79,10 +79,16 @@ exports.handler = async (event, context) => {
     }
 
     // Initialize Brevo client
-    const defaultClient = brevo.ApiClient.instance;
-    const apiKey = defaultClient.authentications['api-key'];
-    apiKey.apiKey = BREVO_API_KEY;
-    const apiInstance = new brevo.TransactionalEmailsApi();
+    let apiInstance;
+    try {
+      apiInstance = new brevo.TransactionalEmailsApi();
+      // Set API key using the setApiKey method
+      apiInstance.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
+      console.log('Brevo client initialized successfully');
+    } catch (initError) {
+      console.error('Error initializing Brevo client:', initError);
+      throw new Error(`Failed to initialize Brevo client: ${initError.message}`);
+    }
 
     // Build verification URL
     const webUrl = process.env.EXPO_PUBLIC_WEB_URL || 'https://wiznote.app';
@@ -194,22 +200,38 @@ This is an automated email. Please do not reply.
       };
     } catch (sendError) {
       console.error('Brevo error:', sendError);
+      console.error('Brevo error stack:', sendError.stack);
+      console.error('Brevo error response:', sendError.response);
       
       // Handle Brevo errors with better error messages
       let errorMessage = 'Failed to send verification email';
       let errorCode = 'EMAIL_SEND_ERROR';
+      let errorDetails = null;
       
-      if (sendError && sendError.response && sendError.response.body) {
-        const errorBody = sendError.response.body;
-        if (errorBody.message) {
-          errorMessage = `Brevo error: ${errorBody.message}`;
-        } else if (errorBody.error) {
-          errorMessage = `Brevo error: ${errorBody.error}`;
+      if (sendError && sendError.response) {
+        // Brevo API error response
+        if (sendError.response.body) {
+          const errorBody = sendError.response.body;
+          errorDetails = errorBody;
+          if (errorBody.message) {
+            errorMessage = `Brevo error: ${errorBody.message}`;
+          } else if (errorBody.error) {
+            errorMessage = `Brevo error: ${errorBody.error}`;
+          } else if (typeof errorBody === 'string') {
+            errorMessage = `Brevo error: ${errorBody}`;
+          }
+        }
+        if (sendError.response.statusCode) {
+          errorMessage += ` (Status: ${sendError.response.statusCode})`;
         }
       } else if (sendError && sendError.message) {
         errorMessage = `Brevo error: ${sendError.message}`;
+        errorDetails = sendError.message;
       } else if (sendError && typeof sendError === 'string') {
         errorMessage = `Brevo error: ${sendError}`;
+        errorDetails = sendError;
+      } else {
+        errorDetails = JSON.stringify(sendError);
       }
       
       return {
@@ -222,22 +244,35 @@ This is an automated email. Please do not reply.
           error: 'Failed to send email',
           message: errorMessage,
           errorCode: errorCode,
+          details: errorDetails,
           help: 'If this is a Brevo account issue, you can use the Admin Override feature to verify the deletion request without email verification.',
         }),
       };
     }
   } catch (error) {
     console.error('Error sending verification email:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error type:', typeof error);
+    console.error('Error constructor:', error.constructor?.name);
     
     const isProduction = process.env.NODE_ENV === 'production';
     let errorMessage = 'An error occurred';
+    let errorDetails = null;
 
     if (error instanceof Error) {
+      errorDetails = {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      };
       if (isProduction) {
         errorMessage = 'An error occurred sending the verification email';
       } else {
-        errorMessage = error.message;
+        errorMessage = error.message || 'Unknown error occurred';
       }
+    } else {
+      errorDetails = JSON.stringify(error);
+      errorMessage = String(error);
     }
 
     return {
@@ -248,6 +283,8 @@ This is an automated email. Please do not reply.
       },
       body: JSON.stringify({
         error: errorMessage,
+        details: errorDetails,
+        help: 'Check Netlify function logs for more details. If this persists, verify BREVO_API_KEY is set correctly in Netlify environment variables.',
       }),
     };
   }

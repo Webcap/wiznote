@@ -100,10 +100,8 @@ The email sending is handled in `netlify/functions/send-deletion-verification.js
 const brevo = require('@getbrevo/brevo');
 
 // Initialize Brevo client
-const defaultClient = brevo.ApiClient.instance;
-const apiKey = defaultClient.authentications['api-key'];
-apiKey.apiKey = process.env.BREVO_API_KEY;
 const apiInstance = new brevo.TransactionalEmailsApi();
+apiInstance.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
 
 // Send email
 const sendSmtpEmail = new brevo.SendSmtpEmail({
