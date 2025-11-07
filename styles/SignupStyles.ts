@@ -128,12 +128,15 @@ export const signupStyles = StyleSheet.create({
     marginBottom: 40,
   },
   webLogoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 120,
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
+  },
+  webLogoImage: {
+    width: '100%',
+    height: '100%',
   },
   webBrandTitle: {
     fontSize: 48,

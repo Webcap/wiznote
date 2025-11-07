@@ -49,6 +49,10 @@ export const styles = StyleSheet.create({
       },
     } : {}),
   },
+  logoImage: {
+    width: 60,
+    height: 60,
+  },
   logoText: {
     fontSize: 24,
     fontWeight: 'bold',

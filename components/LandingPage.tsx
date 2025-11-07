@@ -6,7 +6,6 @@ import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { useTranslation } from '../hooks/useTranslation';
-import { Logo } from './Logo';
 import { LanguageSelector } from './LanguageSelector';
 import { styles } from './LandingPage.styles';
 
@@ -48,7 +47,11 @@ export default function LandingPage() {
         <View style={[styles.header, { backgroundColor: backgroundSecondary }]}>
           <View style={styles.headerContent}>
             <View style={styles.logo}>
-              <Logo size={60} showBackground={true} />
+              <Image
+                source={require('../assets/images/WiznoteLogoNov25.svg')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
               <ThemedText style={[styles.logoText, { color: textColor }]}>WizNote</ThemedText>
             </View>
             <View style={styles.headerButtons}>

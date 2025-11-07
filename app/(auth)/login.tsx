@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
-import { Logo } from '../../components/Logo';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
@@ -272,7 +271,11 @@ export default function LoginScreen() {
                 {/* Header Section */}
                 <View style={loginStyles.webMobileHeader}>
                   <View style={loginStyles.webMobileLogoContainer}>
-                    <Logo size={60} />
+                    <Image
+                      source={require('../../assets/images/WiznoteLogoNov25.svg')}
+                      style={loginStyles.webMobileLogoImage}
+                      resizeMode="contain"
+                    />
                   </View>
                   <ThemedText style={[loginStyles.webMobileTitle, { color: textColor }]}>WizNote</ThemedText>
                   <ThemedText style={[loginStyles.webMobileSubtitle, { color: textSecondaryColor }]}>
@@ -464,7 +467,11 @@ export default function LoginScreen() {
                 <View style={[loginStyles.webLeftPanel, { backgroundColor: cardBg }]}>
                   <View style={loginStyles.webBrandSection}>
                     <View style={loginStyles.webLogoContainer}>
-                      <Logo size={80} />
+                      <Image
+                        source={require('../../assets/images/WiznoteLogoNov25.svg')}
+                        style={loginStyles.webLogoImage}
+                        resizeMode="contain"
+                      />
                     </View>
                     <ThemedText style={[loginStyles.webBrandTitle, { color: textColor }]}>WizNote</ThemedText>
                     <ThemedText style={[loginStyles.webBrandSubtitle, { color: textSecondaryColor }]}>
@@ -716,8 +723,12 @@ export default function LoginScreen() {
         >
           {/* Header Section */}
           <View style={loginStyles.header}>
-            <View style={[loginStyles.logoContainer, { backgroundColor: cardBg }]}>
-              <Logo size={100} />
+            <View style={loginStyles.logoContainer}>
+              <Image
+                source={require('../../assets/images/WiznoteLogoNov25.svg')}
+                style={loginStyles.logoImage}
+                resizeMode="contain"
+              />
             </View>
             <ThemedText style={[loginStyles.title, { color: textColor }]}>{t('auth.welcomeBack')}</ThemedText>
             <ThemedText style={[loginStyles.subtitle, { color: textSecondaryColor }]}>

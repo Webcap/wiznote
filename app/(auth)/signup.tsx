@@ -276,8 +276,12 @@ export default function SignupScreen() {
           {/* Left Panel - Branding */}
           <View style={[styles.webLeftPanel, { backgroundColor: cardBg }]}>
             <View style={styles.webBrandSection}>
-              <View style={[styles.webLogoContainer, { backgroundColor: accentColor + '20' }]}>
-                <Ionicons name="document-text" size={48} color={accentColor} />
+              <View style={styles.webLogoContainer}>
+                <Image
+                  source={require('../../assets/images/WiznoteLogoNov25.svg')}
+                  style={styles.webLogoImage}
+                  resizeMode="contain"
+                />
               </View>
               <ThemedText style={[styles.webBrandTitle, { color: textColor }]}>WizNote</ThemedText>
               <ThemedText style={[styles.webBrandSubtitle, { color: textSecondaryColor }]}>
@@ -827,12 +831,15 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   webLogoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 120,
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
+  },
+  webLogoImage: {
+    width: '100%',
+    height: '100%',
   },
   webBrandTitle: {
     fontSize: 48,
