@@ -134,7 +134,7 @@ export default function NoteDetailScreen() {
     }
   }, [note, isRichTextEnabled]);
   
-  const { notes, toggleArchive, updateNote, deleteNote } = useNotes(user?.id || '');
+const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(user?.id || '');
 
   // Global debug function for testing feature flags
   useEffect(() => {
@@ -662,32 +662,86 @@ export default function NoteDetailScreen() {
 
   const handleDelete = async () => {
     if (!note) return;
-    
+
+    const notifyNoPermission = () => {
+      if (Platform.OS === 'web') {
+        showSnackbar(t('noteDetail.noPermissionToDelete'), 'error');
+      } else {
+        Alert.alert(t('noteDetail.cannotDelete'), t('noteDetail.noPermissionToDelete'));
+      }
+    };
+
     // Check permissions for shared notes
     if (!canEditNote(note)) {
-      Alert.alert(t('noteDetail.cannotDelete'), t('noteDetail.noPermissionToDelete'));
+      notifyNoPermission();
       return;
     }
-    
-    Alert.alert(
-      t('noteDetail.deleteNote'),
-      t('noteDetail.confirmDelete'),
-      [
-        { text: t('noteDetail.cancel'), style: 'cancel' },
-        {
-          text: t('notes.deleteNote'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteNote(note.id);
-              router.back();
-            } catch (error) {
-              Alert.alert(t('noteDetail.error'), t('noteDetail.failedToDeleteNote'));
-            }
-          }
+
+    const performDelete = async () => {
+      try {
+        await deleteNote(note.id);
+        try {
+          await supabaseNoteStorage.triggerNotesRefresh();
+        } catch (refreshError) {
+          console.warn('[NoteDetail] Failed to trigger notes refresh after delete:', refreshError);
         }
-      ]
-    );
+
+        try {
+          await refreshNotes?.();
+        } catch (refreshError) {
+          console.warn('[NoteDetail] Failed to call refreshNotes after delete:', refreshError);
+        }
+
+        if (Platform.OS === 'web') {
+          showSnackbar(t('noteDetail.noteDeleted'), 'success');
+          router.back();
+        } else {
+          Alert.alert(
+            t('noteDetail.success'),
+            t('noteDetail.noteDeleted'),
+            [
+              {
+                text: t('noteDetail.ok'),
+                onPress: () => router.back(),
+              },
+            ],
+          );
+        }
+      } catch (error) {
+        if (Platform.OS === 'web') {
+          showSnackbar(t('noteDetail.failedToDeleteNote'), 'error');
+        } else {
+          Alert.alert(t('noteDetail.error'), t('noteDetail.failedToDeleteNote'));
+        }
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined'
+        ? window.confirm(t('noteDetail.confirmDelete'))
+        : true;
+
+      if (!confirmed) {
+        return;
+      }
+
+      await performDelete();
+    } else {
+      Alert.alert(
+        t('noteDetail.deleteNote'),
+        t('noteDetail.confirmDelete'),
+        [
+          { text: t('noteDetail.cancel'), style: 'cancel' },
+          {
+            text: t('notes.deleteNote'),
+            style: 'destructive',
+            onPress: () => {
+              void performDelete();
+            },
+          },
+        ],
+      );
+    }
   };
 
   // Debug function to test Gemini API connection

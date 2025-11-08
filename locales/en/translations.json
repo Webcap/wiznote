@@ -321,6 +321,7 @@
     "success": "Success",
     "noteUnarchived": "Note unarchived",
     "noteArchived": "Note archived",
+    "noteDeleted": "Note deleted successfully",
     "ok": "OK",
     "error": "Error",
     "failedToUpdateNote": "Failed to update note",

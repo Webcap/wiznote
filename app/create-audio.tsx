@@ -450,6 +450,13 @@ export default function CreateAudioNoteScreen() {
         finalNoteId = note.id;
         updateUploadProgress(50, t('audioNote.noteCreatedSuccessfully'));
         console.log('[CreateAudio] Note created:', note.id);
+
+        try {
+          await supabaseNoteStorage.triggerNotesRefresh();
+          console.log('[CreateAudio] Triggered notes refresh after creating new audio note');
+        } catch (refreshError) {
+          console.warn('[CreateAudio] Failed to trigger notes refresh after create:', refreshError);
+        }
       } else {
         // Note already exists (from saveNote), use the provided ID
         console.log('[CreateAudio] Using existing note ID:', noteId);
@@ -524,6 +531,13 @@ export default function CreateAudioNoteScreen() {
             hasSummary: !!processingResult.summary,
             hasKeyDetails: !!processingResult.keyDetails?.length,
           });
+
+          try {
+            await supabaseNoteStorage.triggerNotesRefresh();
+            console.log('[CreateAudio] Triggered notes refresh after updating audio note content');
+          } catch (refreshError) {
+            console.warn('[CreateAudio] Failed to trigger notes refresh after update:', refreshError);
+          }
         } else {
           console.warn('[CreateAudio] No processing result received, skipping note update');
         }

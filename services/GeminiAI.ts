@@ -502,6 +502,7 @@ export async function processPDFWithGemini(
     generateTitle?: boolean;
     generateSummary?: boolean;
     extractKeyDetails?: boolean;
+    user?: any;
   } = {}
 ): Promise<{
   success: boolean;
@@ -514,8 +515,39 @@ export async function processPDFWithGemini(
   console.log('GeminiAI: Starting PDF processing with Gemini');
   console.log('GeminiAI: Options:', options);
   
+  let userForCheck = options?.user;
+
+  if (!userForCheck) {
+    try {
+      const { supabase } = await import('../lib/supabase');
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('id, role, premium')
+          .eq('id', session.user.id)
+          .single();
+
+        if (userProfile) {
+          userForCheck = {
+            id: userProfile.id,
+            role: userProfile.role,
+            premium: userProfile.premium || {},
+          };
+        } else {
+          userForCheck = { id: session.user.id };
+        }
+      }
+    } catch (error) {
+      console.warn('GeminiAI: Failed to load user for PDF feature flag check:', error);
+    }
+  }
+
   // Check if PDF processing is enabled
-  if (!featureFlagService.isFeatureEnabled('pdf_upload')) {
+  if (!featureFlagService.isFeatureEnabled('pdf_upload', userForCheck)) {
     console.log('GeminiAI: PDF upload feature is disabled');
     return {
       success: false,
