@@ -1,15 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Platform, ScrollView, Switch, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, Platform, ScrollView, Switch, TouchableOpacity, View } from 'react-native';
+import { Logo } from '../Logo';
 import { styles } from '../../styles/SettingsStyles';
 import { RoleBadge } from '../RoleBadge';
 import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { ThemePreference } from '../../ThemeContext';
-import { Logo } from '../Logo';
 import { featureFlagService } from '../../services/FeatureFlagService';
 import { featureCacheService } from '../../services/FeatureCacheService';
 import { useSnackbar } from '../../contexts/SnackbarContext';
@@ -394,8 +393,7 @@ export function SettingsMobile({
                 <Image 
                   source={{ uri: currentLanguage.flagUrl }} 
                   style={{ width: 20, height: 15, borderRadius: 2 }}
-                  contentFit="cover"
-                  transition={200}
+                  resizeMode="cover"
                 />
                 <ThemedText style={{ color: cardText, fontWeight: '500', fontSize: 14 }}>
                   {currentLanguage.name}
@@ -456,8 +454,7 @@ export function SettingsMobile({
                     <Image 
                       source={{ uri: lang.flagUrl }} 
                       style={{ width: 24, height: 18, borderRadius: 2 }}
-                      contentFit="cover"
-                      transition={200}
+                      resizeMode="cover"
                     />
                     <ThemedText
                       style={{
@@ -555,7 +552,7 @@ export function SettingsMobile({
           </TouchableOpacity>
           
           <View style={styles.logoSection}>
-            <Logo size={80} />
+            <Logo size={80} style={styles.logoImage} />
             <ThemedText style={styles.appName}>WizNote</ThemedText>
             <ThemedText style={[styles.appVersion, { color: textSecondary }]}>
               v{appVersion}

@@ -1,5 +1,8 @@
-import { registerRootComponent } from 'expo';
+// Ensure Reanimated is initialized as early as possible. This must be imported
+// before any other libraries that may initialize worklets.
+import 'react-native-reanimated';
 
+import { registerRootComponent } from 'expo';
 import App from './App';
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);

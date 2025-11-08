@@ -243,7 +243,7 @@ export default function PublicShareScreen() {
               {/* Branding Section */}
               <View style={styles.brandingSection}>
                 <Image
-                  source={require('../../assets/images/wiznote-logo.svg')}
+                  source={require('../../assets/images/WiznoteLogoNov25.png')}
                   style={styles.brandLogo}
                   resizeMode="contain"
                 />
@@ -313,7 +313,7 @@ export default function PublicShareScreen() {
 
               {/* Copyright */}
               <ThemedText style={[styles.copyright, { color: textMutedColor }]}>
-                © 2024 WizNote. All rights reserved.
+                © 2025 WizNote. a webcap media company. All rights reserved.
               </ThemedText>
             </View>
           </View>

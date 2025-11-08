@@ -18,15 +18,13 @@ export const loginStyles = StyleSheet.create({
   logoContainer: {
     width: 120,
     height: 120,
-    borderRadius: 60,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   title: {
     fontSize: 28,
@@ -199,12 +197,15 @@ export const loginStyles = StyleSheet.create({
     marginBottom: 60,
   },
   webLogoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 120,
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
+  },
+  webLogoImage: {
+    width: '100%',
+    height: '100%',
   },
   webBrandTitle: {
     fontSize: 48,
@@ -503,11 +504,13 @@ export const loginStyles = StyleSheet.create({
   webMobileLogoContainer: {
     width: 80,
     height: 80,
-    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  webMobileLogoImage: {
+    width: '100%',
+    height: '100%',
   },
   webMobileTitle: {
     fontSize: 32,

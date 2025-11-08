@@ -266,7 +266,10 @@ This is an automated email. Please do not reply.
 
       const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
 
-      console.log(`Password reset email sent successfully to ${email}. MessageID: ${result.messageId}`);
+      // Brevo returns messageId (lowercase) in the response
+      const messageId = result.messageId || result.messageID || result.id;
+      console.log(`Password reset email sent successfully to ${email}. MessageID: ${messageId}`);
+      console.log('Brevo response:', JSON.stringify(result, null, 2));
       
       return {
         statusCode: 200,
@@ -277,7 +280,7 @@ This is an automated email. Please do not reply.
         body: JSON.stringify({
           success: true,
           message: 'Password reset email sent successfully',
-          messageId: result.messageId,
+          messageId: messageId,
         }),
       };
     } catch (sendError) {

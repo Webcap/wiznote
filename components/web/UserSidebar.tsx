@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 // @ts-ignore - react-dom types not available in React Native environment
 import { createPortal } from 'react-dom';
-import { Alert, Animated, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Image, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { usePDFUpload } from '../../contexts/PDFUploadContext';
@@ -797,6 +797,11 @@ export function UserSidebar({
 
       {/* Logo/Brand */}
       <View style={styles.brand}>
+        <Image
+          source={require('../../assets/images/WiznoteLogoNov25.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
         <ThemedText type="title" style={styles.logo}>
           WizNote
         </ThemedText>
@@ -1016,10 +1021,17 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 20,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.1)',
+    gap: 12,
+  },
+  logoImage: {
+    width: 40,
+    height: 40,
   },
   logo: {
     fontSize: 24,
