@@ -272,7 +272,7 @@ export default function LoginScreen() {
                 <View style={loginStyles.webMobileHeader}>
                   <View style={loginStyles.webMobileLogoContainer}>
                     <Image
-                      source={require('../../assets/images/WiznoteLogoNov25.svg')}
+                      source={require('../../assets/images/WiznoteLogoNov25.png')}
                       style={loginStyles.webMobileLogoImage}
                       resizeMode="contain"
                     />
@@ -468,7 +468,7 @@ export default function LoginScreen() {
                   <View style={loginStyles.webBrandSection}>
                     <View style={loginStyles.webLogoContainer}>
                       <Image
-                        source={require('../../assets/images/WiznoteLogoNov25.svg')}
+                        source={require('../../assets/images/WiznoteLogoNov25.png')}
                         style={loginStyles.webLogoImage}
                         resizeMode="contain"
                       />
@@ -725,7 +725,7 @@ export default function LoginScreen() {
           <View style={loginStyles.header}>
             <View style={loginStyles.logoContainer}>
               <Image
-                source={require('../../assets/images/WiznoteLogoNov25.svg')}
+                source={require('../../assets/images/WiznoteLogoNov25.png')}
                 style={loginStyles.logoImage}
                 resizeMode="contain"
               />

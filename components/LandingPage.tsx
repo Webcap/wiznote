@@ -48,7 +48,7 @@ export default function LandingPage() {
           <View style={styles.headerContent}>
             <View style={styles.logo}>
               <Image
-                source={require('../assets/images/WiznoteLogoNov25.svg')}
+                source={require('../assets/images/WiznoteLogoNov25.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />

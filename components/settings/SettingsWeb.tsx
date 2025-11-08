@@ -7,7 +7,6 @@ import { RoleBadge } from '../RoleBadge';
 import { ThemedText } from '../ThemedText';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { ThemePreference } from '../../ThemeContext';
-import { Logo } from '../Logo';
 import { featureFlagService } from '../../services/FeatureFlagService';
 import { featureCacheService } from '../../services/FeatureCacheService';
 import { useSnackbar } from '../../contexts/SnackbarContext';
@@ -21,6 +20,7 @@ import { PermissionTest } from '../PermissionTest';
 import { WebLayout } from '../web/WebLayout';
 import { UserSidebar } from '../web/UserSidebar';
 import { getAppVersion } from '../../utils/appVersion';
+import { Logo } from '../Logo';
 
 interface SettingsWebProps {
   user: any;
@@ -565,7 +565,7 @@ export function SettingsWeb({
           </TouchableOpacity>
           
           <View style={styles.logoSection}>
-            <Logo size={80} />
+            <Logo size={80} style={styles.logoImage} />
             <ThemedText style={styles.appName}>WizNote</ThemedText>
             <ThemedText style={[styles.appVersion, { color: textSecondary }]}>
               v{appVersion}

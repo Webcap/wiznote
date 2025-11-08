@@ -167,6 +167,10 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
     backgroundColor: 'transparent',
   },
+  logoImage: {
+    width: 80,
+    height: 80,
+  },
   appName: {
     fontSize: 24,
     fontWeight: 'bold',

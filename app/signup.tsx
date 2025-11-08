@@ -231,7 +231,7 @@ export default function SignupScreen() {
             <View style={styles.webBrandSection}>
               <View style={styles.webLogoContainer}>
                 <Image
-                  source={require('../assets/images/WiznoteLogoNov25.svg')}
+                  source={require('../assets/images/WiznoteLogoNov25.png')}
                   style={styles.webLogoImage}
                   resizeMode="contain"
                 />
