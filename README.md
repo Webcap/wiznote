@@ -29,6 +29,8 @@ __tests__/
 └── services/        # Service tests (AuthService, etc.)
 ```
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/4828e55d-76ca-44cf-a4fc-4e04a0f88900/deploy-status)](https://app.netlify.com/projects/marvelous-syrniki-734072/deploys)
+
 ### **🛠️ Running Tests**
 
 #### **Basic Commands**
