@@ -128,6 +128,7 @@ Required for Gemini API to work:
 
 - [ ] `GEMINI_API_KEY` - Set in Netlify (server-side only)
 - [ ] `EXPO_PUBLIC_WEB_URL` - Set in Netlify (optional, for CORS)
+- [ ] `GEMINI_ALLOWED_ORIGINS` - Optional, comma-separated list of extra origins (e.g. local dev URLs)
 
 ## Testing Locally
 

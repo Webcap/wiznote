@@ -7,17 +7,118 @@
  * SECURITY: API key is stored server-side only and never exposed to clients.
  */
 
+const normalizeOrigin = (origin) => {
+  if (!origin) {
+    return '';
+  }
+  return origin.trim().replace(/\/$/, '');
+};
+
+const getAllowedOrigins = () => {
+  const baseOrigins = [
+    process.env.EXPO_PUBLIC_WEB_URL,
+    process.env.EXPO_PUBLIC_API_URL,
+    'https://wiznote.app',
+  ];
+
+  const extraOrigins = (process.env.GEMINI_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => normalizeOrigin(origin))
+    .filter(Boolean);
+
+  const devOrigins = [
+    'http://localhost:8081',
+    'http://127.0.0.1:8081',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ];
+
+  const shouldIncludeDevOrigins = process.env.NODE_ENV !== 'production';
+
+  const allOrigins = [
+    ...baseOrigins,
+    ...(shouldIncludeDevOrigins ? devOrigins : []),
+    ...extraOrigins,
+  ]
+    .map((origin) => normalizeOrigin(origin))
+    .filter(Boolean);
+
+  return Array.from(new Set(allOrigins));
+};
+
+const resolveCors = (event) => {
+  const allowedOrigins = getAllowedOrigins();
+  const requestOrigin = normalizeOrigin(
+    event.headers.origin || event.headers.Origin || ''
+  );
+
+  if (!allowedOrigins.length) {
+    return {
+      allowedOrigin: '*',
+      isOriginAllowed: true,
+      requestOrigin,
+    };
+  }
+
+  if (!requestOrigin) {
+    return {
+      allowedOrigin: allowedOrigins[0],
+      isOriginAllowed: true,
+      requestOrigin,
+    };
+  }
+
+  const isOriginAllowed = allowedOrigins.includes(requestOrigin);
+
+  return {
+    allowedOrigin: isOriginAllowed ? requestOrigin : allowedOrigins[0],
+    isOriginAllowed,
+    requestOrigin,
+  };
+};
+
+const buildCorsHeaders = (origin) => ({
+  'Access-Control-Allow-Origin': origin,
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Vary': 'Origin',
+});
+
 exports.handler = async (event, context) => {
+  const cors = resolveCors(event);
+  const corsHeaders = buildCorsHeaders(cors.allowedOrigin);
+
   // Handle CORS preflight
   if (event.httpMethod === 'OPTIONS') {
+    if (!cors.isOriginAllowed) {
+      return {
+        statusCode: 403,
+        headers: corsHeaders,
+        body: JSON.stringify({
+          error: 'Origin not allowed',
+          requestOrigin: cors.requestOrigin,
+        }),
+      };
+    }
+
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': process.env.EXPO_PUBLIC_WEB_URL || '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      },
+      headers: corsHeaders,
       body: '',
+    };
+  }
+
+  if (!cors.isOriginAllowed) {
+    return {
+      statusCode: 403,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders,
+      },
+      body: JSON.stringify({
+        error: 'Origin not allowed',
+        requestOrigin: cors.requestOrigin,
+      }),
     };
   }
 
@@ -27,7 +128,7 @@ exports.handler = async (event, context) => {
       statusCode: 405,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': process.env.EXPO_PUBLIC_WEB_URL || '*',
+        ...corsHeaders,
       },
       body: JSON.stringify({ error: 'Method not allowed' }),
     };
@@ -44,7 +145,7 @@ exports.handler = async (event, context) => {
         statusCode: 500,
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': process.env.EXPO_PUBLIC_WEB_URL || '*',
+          ...corsHeaders,
         },
         body: JSON.stringify({ 
           error: 'API configuration error',
@@ -63,7 +164,7 @@ exports.handler = async (event, context) => {
         statusCode: 400,
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': process.env.EXPO_PUBLIC_WEB_URL || '*',
+          ...corsHeaders,
         },
         body: JSON.stringify({ error: 'Invalid JSON in request body' }),
       };
@@ -77,7 +178,7 @@ exports.handler = async (event, context) => {
         statusCode: 400,
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': process.env.EXPO_PUBLIC_WEB_URL || '*',
+          ...corsHeaders,
         },
         body: JSON.stringify({ error: 'Missing or invalid endpoint' }),
       };
@@ -89,7 +190,7 @@ exports.handler = async (event, context) => {
         statusCode: 400,
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': process.env.EXPO_PUBLIC_WEB_URL || '*',
+          ...corsHeaders,
         },
         body: JSON.stringify({ error: 'Missing or invalid payload' }),
       };
@@ -115,7 +216,7 @@ exports.handler = async (event, context) => {
         statusCode: response.status,
         headers: {
           'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': process.env.EXPO_PUBLIC_WEB_URL || '*',
+          ...corsHeaders,
         },
         body: JSON.stringify({
           error: 'Gemini API request failed',
@@ -129,7 +230,7 @@ exports.handler = async (event, context) => {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': process.env.EXPO_PUBLIC_WEB_URL || '*',
+        ...corsHeaders,
       },
       body: JSON.stringify(responseData),
     };
@@ -155,7 +256,7 @@ exports.handler = async (event, context) => {
       statusCode: 500,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': process.env.EXPO_PUBLIC_WEB_URL || '*',
+        ...corsHeaders,
       },
       body: JSON.stringify({
         error: errorMessage,
