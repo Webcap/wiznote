@@ -5,6 +5,30 @@ import { PDFFile } from '../types/Note';
 import { PDF_CONFIG } from '../constants/PDFConfig';
 import { safeValidateFile, sanitizeFilename, isAllowedMimeType } from '../schemas/FileSchema';
 
+const NORMALIZED_PDF_MIME = 'application/pdf';
+
+const normalizeMimeType = (mimeType?: string | null, fallback: string = NORMALIZED_PDF_MIME): string => {
+  if (!mimeType) {
+    return fallback;
+  }
+
+  // Handle cases where the browser or upstream provides a comma-separated or semi-colon separated list
+  const splitTokens = mimeType
+    .split(/[;,]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (splitTokens.length === 0) {
+    return fallback;
+  }
+
+  if (splitTokens.includes(NORMALIZED_PDF_MIME)) {
+    return NORMALIZED_PDF_MIME;
+  }
+
+  return splitTokens[0] || fallback;
+};
+
 export class PDFStorage {
   private bucketName = PDF_CONFIG.BUCKET_NAME;
 
@@ -98,16 +122,24 @@ export class PDFStorage {
         throw new Error('Note ID is required for upload');
       }
       
+      let uploadContentType = NORMALIZED_PDF_MIME;
+      let originalContentType: string | undefined;
+
       // ✅ STEP 1: Validate file based on platform
       if (typeof fileOrUri !== 'string') {
         // Web: Validate File/Blob object
         const file = fileOrUri instanceof File ? fileOrUri : null;
+
         if (file) {
+          originalContentType = file.type;
+          const normalizedMimeType = normalizeMimeType(file.type);
+          uploadContentType = normalizedMimeType;
+
           console.log('Validating PDF file...');
           const validationResult = safeValidateFile({
             name: file.name,
             size: file.size,
-            type: file.type,
+            type: normalizedMimeType,
           }, 'pdf');
           
           if (!validationResult.success) {
@@ -131,8 +163,9 @@ export class PDFStorage {
       // Generate unique filename
       const timestamp = Date.now();
       let filename: string;
-      let pdfData: Uint8Array;
-      
+      let pdfData: Uint8Array | null = null;
+      let uploadFile: Blob | File | null = null;
+
       if (typeof fileOrUri === 'string') {
         // Mobile: fileOrUri is a URI string
         console.log('PDFStorage: Processing mobile file URI');
@@ -170,22 +203,54 @@ export class PDFStorage {
         console.log('PDFStorage: Processing web file object');
         
         // ✅ Sanitize filename
+        const webFile = fileOrUri as File | Blob;
+        if (webFile instanceof File) {
+          originalContentType = webFile.type;
+          uploadContentType = normalizeMimeType(webFile.type);
+        } else if ('type' in webFile && typeof webFile.type === 'string') {
+          originalContentType = webFile.type;
+          uploadContentType = normalizeMimeType(webFile.type);
+        }
+
         const webFilename = fileOrUri instanceof File ? fileOrUri.name : 'document.pdf';
         const cleanFilename = sanitizeFilename(webFilename);
         filename = `${userId}/${noteId}/pdf_${timestamp}_${cleanFilename}`;
         
         // Read file data
-        const arrayBuffer = await fileOrUri.arrayBuffer();
-        pdfData = new Uint8Array(arrayBuffer);
+        if (fileOrUri instanceof File) {
+          const file = fileOrUri;
+          if (normalizeMimeType(file.type) !== uploadContentType) {
+            const arrayBuffer = await file.arrayBuffer();
+            pdfData = new Uint8Array(arrayBuffer);
+            uploadFile = new File([pdfData], file.name, { type: uploadContentType });
+          } else {
+            uploadFile = file;
+          }
+        } else {
+          const arrayBuffer = await fileOrUri.arrayBuffer();
+          pdfData = new Uint8Array(arrayBuffer);
+          uploadFile = new Blob([pdfData], { type: uploadContentType });
+        }
       }
 
       console.log('PDFStorage: Uploading to path:', filename);
+      if (originalContentType) {
+        console.log('PDFStorage: Original content type:', originalContentType);
+      }
+      uploadContentType = normalizeMimeType(uploadContentType);
+      console.log('PDFStorage: Using content type:', uploadContentType);
+
+      const uploadBody: BodyInit =
+        uploadFile ??
+        (typeof Blob !== 'undefined' && pdfData
+          ? new Blob([pdfData], { type: uploadContentType })
+          : pdfData ?? new Uint8Array());
       
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from(this.bucketName)
-        .upload(filename, pdfData, {
-          contentType: 'application/pdf',
+        .upload(filename, uploadBody, {
+          contentType: uploadContentType,
           upsert: false,
         });
 

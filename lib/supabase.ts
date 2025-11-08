@@ -97,7 +97,6 @@ export const supabase = createClient(
       headers: {
         'X-Client-Info': `notez-react-app-${Platform.OS}`,
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
       },
     },
     // Optimize realtime configuration
@@ -119,7 +118,6 @@ export const supabase = createClient(
           signal: controller.signal,
           headers: {
             'Accept': 'application/json',
-            'Content-Type': 'application/json',
             ...options.headers,
           },
         }).finally(() => {
@@ -142,7 +140,6 @@ export const supabase = createClient(
             ...options.headers,
             'User-Agent': `WizNote-Mobile-${Platform.OS}`,
             'Accept': 'application/json',
-            'Content-Type': 'application/json',
           },
         }).finally(() => {
           clearTimeout(timeoutId);

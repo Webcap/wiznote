@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { TouchableOpacity, View, Modal } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
@@ -60,6 +61,14 @@ export default function HomeScreen() {
       setAudioUploadComplete(null);
     };
   }, [refreshNotes, setPDFUploadComplete, setAudioUploadComplete]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated) {
+        refreshNotes?.();
+      }
+    }, [isAuthenticated, refreshNotes])
+  );
 
   const [showSizeLimitWarning, setShowSizeLimitWarning] = useState(false);
   const [oversizedFile, setOversizedFile] = useState<{ name: string; size: number } | null>(null);

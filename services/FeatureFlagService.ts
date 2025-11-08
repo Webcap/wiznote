@@ -206,12 +206,16 @@ export class FeatureFlagService {
   isFeatureEnabled(flagKey: FeatureFlagKey, user?: User): boolean {
     const flag = this.flags[flagKey];
     if (!flag) {
-      console.warn(`FeatureFlagService: Flag ${flagKey} not found, returning false. Available flags:`, Object.keys(this.flags));
-      // For voice_recording, return true as fallback to ensure it works
-      if (flagKey === 'voice_recording') {
-        log('FeatureFlagService: Voice recording flag not found, allowing access as fallback');
-        return true;
+      console.warn(`FeatureFlagService: Flag ${flagKey} not found, using default fallback. Available flags:`, Object.keys(this.flags));
+
+      // Critical features should fall back to defaults so they continue working while flags load
+      const criticalFlags: FeatureFlagKey[] = ['voice_recording', 'pdf_upload', 'ai_quiz', 'ai_flashcards'];
+      if (criticalFlags.includes(flagKey)) {
+        log(`FeatureFlagService: ${flagKey} flag not found, falling back to DEFAULT_FEATURE_FLAGS`);
+        const defaultFlag = DEFAULT_FEATURE_FLAGS[flagKey];
+        return defaultFlag?.enabled ?? false;
       }
+
       return false;
     }
 
