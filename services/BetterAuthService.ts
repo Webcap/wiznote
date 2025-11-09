@@ -31,6 +31,14 @@ import {
   trackSession
 } from '../lib/auth';
 
+if (Platform.OS !== 'web') {
+  try {
+    WebBrowser.maybeCompleteAuthSession();
+  } catch (error) {
+    console.warn('BetterAuthService: Failed to complete auth session', error);
+  }
+}
+
 export class BetterAuthService {
   private currentUser: User | null = null;
   private onError?: (error: string, type: 'error' | 'warning' | 'info') => void;
@@ -1303,6 +1311,7 @@ export class BetterAuthService {
         provider: 'google',
         options: {
           redirectTo: getRedirectUrl(),
+          skipBrowserRedirect: true,
         },
       });
 
@@ -1310,46 +1319,45 @@ export class BetterAuthService {
         throw error;
       }
 
-      // For OAuth, we need to wait for the redirect
-      if (data.url) {
-        if (Platform.OS === 'web') {
-          // On web, redirect to OAuth provider
-          if (typeof window !== 'undefined') {
-            window.location.href = data.url;
-          }
-        } else {
-          // On mobile, use WebBrowser to open OAuth URL
-          try {
-            const result = await WebBrowser.openAuthSessionAsync(
-              data.url,
-              getRedirectUrl()
-            );
+      if (!data?.url) {
+        throw new Error('Failed to obtain Google Sign-In URL');
+      }
 
-            if (result.type === 'cancel') {
-              throw new Error('Google Sign-In was cancelled');
-            }
-
-            // Supabase will handle the callback automatically via deep link
-            // The auth state change listener will detect the sign-in
-            // Wait a moment for the auth state to update
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Check if we have a user now
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
-              await this.handleSignInOrSignUp(session.user);
-              // Wait for initialization to complete
-              await this.waitForInitialization();
-              return this.currentUser!;
-            }
-            
-            // If no session after callback, it might still be processing
-            throw new Error('Google Sign-In callback received but no session found. Please try again.');
-          } catch (browserError) {
-            console.error('Error opening browser for Google Sign-In:', browserError);
-            throw browserError;
-          }
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined') {
+          window.open(data.url, '_self', 'noopener,noreferrer');
         }
+        return this.currentUser!;
+      }
+
+      try {
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          getRedirectUrl()
+        );
+
+        if (result.type === 'cancel') {
+          throw new Error('Google Sign-In was cancelled');
+        }
+
+        // Supabase will handle the callback automatically via deep link
+        // Wait a moment for the auth state to update
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Check if we have a user now
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          await this.handleSignInOrSignUp(session.user);
+          // Wait for initialization to complete
+          await this.waitForInitialization();
+          return this.currentUser!;
+        }
+        
+        // If no session after callback, it might still be processing
+        throw new Error('Google Sign-In callback received but no session found. Please try again.');
+      } catch (browserError) {
+        console.error('Error opening browser for Google Sign-In:', browserError);
+        throw browserError;
       }
 
       // The auth state change listener will handle the rest
