@@ -1,18 +1,6 @@
 import { Platform, StyleSheet } from 'react-native';
 
 export const loginStyles = StyleSheet.create({
-  loadingWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
   // Mobile styles
   container: {
     flex: 1,
