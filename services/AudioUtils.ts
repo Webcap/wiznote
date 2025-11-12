@@ -850,7 +850,8 @@ export class AudioUtils {
     audioUrl: string,
     userId: string,
     noteId: string,
-    onProgress?: (message: string, progress: number) => void
+    onProgress?: (message: string, progress: number) => void,
+    audioBlob?: any
   ): Promise<{
     success: boolean;
     transcription?: string;

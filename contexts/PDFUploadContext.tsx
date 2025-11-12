@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, Dispatch, SetStateAction } from 'react';
 
 interface PDFUploadState {
   fileName: string;
@@ -10,7 +10,7 @@ interface PDFUploadState {
 
 interface PDFUploadContextType {
   uploadingPDF: PDFUploadState | null;
-  setUploadingPDF: (state: PDFUploadState | null) => void;
+  setUploadingPDF: Dispatch<SetStateAction<PDFUploadState | null>>;
   updateUploadProgress: (progress: number, statusMessage?: string) => void;
   updateUploadStatus: (status: PDFUploadState['status'], statusMessage?: string) => void;
   onUploadComplete: (() => void) | null;
@@ -60,7 +60,7 @@ export function usePDFUpload() {
     console.warn('usePDFUpload called outside PDFUploadProvider - using fallback');
     return {
       uploadingPDF: null,
-      setUploadingPDF: () => {},
+      setUploadingPDF: (() => {}) as Dispatch<SetStateAction<PDFUploadState | null>>,
       updateUploadProgress: () => {},
       updateUploadStatus: () => {},
       onUploadComplete: null,

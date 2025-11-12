@@ -81,11 +81,14 @@ export interface UpdateNoteData {
   isArchived?: boolean;
   isFavorite?: boolean;
   audioUri?: string;
+  audioUrl?: string; // Legacy compatibility
+  audioDuration?: number; // Legacy compatibility
   audioFiles?: AudioFile[];
   pdfUrl?: string;
   pdfFiles?: PDFFile[];
   keyDetails?: string[];
   summary?: string;
+  transcription?: string;
 }
 
 export interface NoteFilters {

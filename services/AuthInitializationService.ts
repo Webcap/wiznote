@@ -2,7 +2,9 @@ import { Platform } from 'react-native';
 import { featureFlagService } from './FeatureFlagService';
 import { featureLimitService } from './FeatureLimitService';
 import { supabase } from '../lib/supabase';
-import { User } from '../types/User';
+import { User, UserPermissions, UserRole } from '../types/User';
+import { roleService } from './RoleService';
+import { SubscriptionDetails, SubscriptionManagementService } from './SubscriptionManagementService';
 
 export interface InitializationProgress {
   stage: 'profile' | 'feature-flags' | 'feature-limits' | 'preferences' | 'complete';
@@ -187,18 +189,23 @@ export class AuthInitializationService {
         }
       }
 
+      const { role, permissions, premium, preferences: normalizedPreferences } = await this.normalizeProfileData(
+        supabaseUser,
+        userProfile
+      );
+
       // Build full user object from profile
       const fullUser: User = {
         id: supabaseUser.id,
         email: supabaseUser.email || '',
         displayName: userProfile.display_name || supabaseUser.email?.split('@')[0],
         photoURL: supabaseUser.user_metadata?.avatar_url,
-        role: userProfile.role,
+        role,
         createdAt: userProfile.created_at ? new Date(userProfile.created_at) : new Date(),
         lastLoginAt: userProfile.last_login_at ? new Date(userProfile.last_login_at) : new Date(),
-        preferences: userProfile.preferences,
-        premium: userProfile.premium,
-        permissions: userProfile.permissions,
+        preferences: normalizedPreferences,
+        premium,
+        permissions,
         supportInfo: userProfile.support_info,
       };
 
@@ -236,12 +243,14 @@ export class AuthInitializationService {
       // CRITICAL: Theme must always be defined to avoid white flash
       if (!fullUser.preferences) {
         console.warn('AuthInitializationService: Preferences not found in profile, setting defaults');
-        fullUser.preferences = {
-          theme: 'auto',
-          language: 'en',
-          autoSync: true,
-          notifications: true,
-        };
+        fullUser.preferences =
+          normalizedPreferences ||
+          {
+            theme: 'auto',
+            language: 'en',
+            autoSync: true,
+            notifications: true,
+          };
       } else if (!fullUser.preferences.theme) {
         // Ensure theme is always defined even if preferences object exists
         console.warn('AuthInitializationService: Theme not found in preferences, setting default');
@@ -297,6 +306,399 @@ export class AuthInitializationService {
         },
       };
     }
+  }
+
+  /**
+   * Normalize role, permissions, and premium information to guarantee downstream UI consistency.
+   */
+  private async normalizeProfileData(
+    supabaseUser: any,
+    userProfile: any
+  ): Promise<{
+    role: UserRole;
+    permissions: UserPermissions;
+    premium: User['premium'];
+    preferences: User['preferences'];
+  }> {
+    console.log('AuthInitializationService: Raw profile data', {
+      role: userProfile.role,
+      permissions: userProfile.permissions,
+      permissionsType: typeof userProfile.permissions,
+    });
+
+    let role = this.normalizeRole(userProfile.role);
+    let permissions = this.parseJsonField<UserPermissions>(userProfile.permissions);
+    let premium = this.deserializePremium(userProfile.premium);
+    let preferences = this.parseJsonField<User['preferences']>(userProfile.preferences);
+
+    const updates: Record<string, any> = {};
+
+    if (!role) {
+      const metadataRole = this.extractRoleFromSupabaseUser(supabaseUser);
+      if (metadataRole) {
+        console.log('AuthInitializationService: Resolved role from Supabase metadata:', metadataRole);
+        role = metadataRole;
+        updates.role = metadataRole;
+      }
+    }
+
+    if (!permissions) {
+      const metadataPermissions = this.extractPermissionsFromSupabaseUser(supabaseUser, role);
+      if (metadataPermissions) {
+        console.log('AuthInitializationService: Resolved permissions from Supabase metadata');
+        permissions = metadataPermissions;
+        updates.permissions = metadataPermissions;
+      }
+    }
+
+    if (!role) {
+      role = 'user';
+    }
+
+    if (!permissions) {
+      permissions = roleService.getDefaultPermissions(role);
+    }
+
+    if (permissions?.canAccessAdminPanel) {
+      role = 'admin';
+    } else if (permissions?.canAccessSupportTools && role !== 'admin') {
+      role = 'support';
+    }
+
+    console.log('AuthInitializationService: Normalized profile data', {
+      role,
+      permissions,
+    });
+
+
+    if (!premium || premium.isActive === undefined) {
+      premium = await this.resolvePremiumStatus(supabaseUser.id, premium);
+      if (premium) {
+        updates.premium = this.serializePremiumForStorage(premium);
+      }
+    }
+
+    if (!preferences) {
+      preferences = {
+        theme: 'auto',
+        language: 'en',
+        autoSync: true,
+        notifications: true,
+        autoKeyDetails: false,
+        autoAISummaries: false,
+      };
+      updates.preferences = preferences;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      try {
+        updates.updated_at = new Date().toISOString();
+        await supabase
+          .from('user_profiles')
+          .update(updates)
+          .eq('id', supabaseUser.id);
+      } catch (updateError) {
+        console.warn('AuthInitializationService: Failed to persist profile normalization updates:', updateError);
+      }
+    }
+
+    return {
+      role: role || 'user',
+      permissions: permissions || roleService.getDefaultPermissions('user'),
+      premium: premium ?? undefined,
+      preferences,
+    };
+  }
+
+  private normalizeRole(rawRole: any): UserRole | null {
+    if (rawRole === null || rawRole === undefined) {
+      return null;
+    }
+
+    if (typeof rawRole === 'object') {
+      if (Array.isArray(rawRole)) {
+        for (const item of rawRole) {
+          const normalized = this.normalizeRole(item);
+          if (normalized) {
+            return normalized;
+          }
+        }
+        return null;
+      }
+
+      if (typeof rawRole.role !== 'undefined') {
+        return this.normalizeRole(rawRole.role);
+      }
+
+      if (typeof rawRole.value !== 'undefined') {
+        return this.normalizeRole(rawRole.value);
+      }
+
+      if (typeof rawRole.type !== 'undefined') {
+        return this.normalizeRole(rawRole.type);
+      }
+
+      const stringified = JSON.stringify(rawRole);
+      if (stringified && stringified !== '{}' && stringified !== '[]') {
+        return this.normalizeRole(stringified);
+      }
+
+      return null;
+    }
+
+    let stringValue = String(rawRole).trim();
+
+    if (
+      (stringValue.startsWith('"') && stringValue.endsWith('"')) ||
+      (stringValue.startsWith("'") && stringValue.endsWith("'"))
+    ) {
+      stringValue = stringValue.slice(1, -1).trim();
+    }
+
+    if (stringValue.startsWith('{') || stringValue.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(stringValue);
+        return this.normalizeRole(parsed);
+      } catch (error) {
+        console.warn('AuthInitializationService: Failed to parse role JSON string:', error);
+      }
+    }
+
+    const lower = stringValue.toLowerCase();
+    if (lower === 'admin' || lower === 'support' || lower === 'user') {
+      return lower as UserRole;
+    }
+    return null;
+  }
+
+  private parseJsonField<T>(value: T | string | null | undefined): T | undefined {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value) as T;
+      } catch (error) {
+        console.warn('AuthInitializationService: Failed to parse JSON field', error);
+        return undefined;
+      }
+    }
+
+    return value as T;
+  }
+
+  private deserializePremium(raw: any): User['premium'] | undefined {
+    if (!raw) return undefined;
+
+    const premiumObject = typeof raw === 'string' ? this.parseJsonField<User['premium']>(raw) : raw;
+    if (!premiumObject) {
+      return undefined;
+    }
+
+    return {
+      isActive: premiumObject.isActive,
+      planId: premiumObject.planId,
+      currentPeriodStart: premiumObject.currentPeriodStart ? new Date(premiumObject.currentPeriodStart) : undefined,
+      currentPeriodEnd: premiumObject.currentPeriodEnd ? new Date(premiumObject.currentPeriodEnd) : undefined,
+      trialStart: premiumObject.trialStart ? new Date(premiumObject.trialStart) : undefined,
+      trialEnd: premiumObject.trialEnd ? new Date(premiumObject.trialEnd) : undefined,
+      status: premiumObject.status,
+      type: premiumObject.type,
+      renewedAt: premiumObject.renewedAt ? new Date(premiumObject.renewedAt) : undefined,
+      expiresAt: premiumObject.expiresAt ? new Date(premiumObject.expiresAt) : undefined,
+      updatedAt: premiumObject.updatedAt ? new Date(premiumObject.updatedAt) : undefined,
+    };
+  }
+
+  private serializePremiumForStorage(premium: User['premium']): Record<string, any> {
+    return {
+      ...premium,
+      currentPeriodStart: premium.currentPeriodStart ? premium.currentPeriodStart.toISOString() : undefined,
+      currentPeriodEnd: premium.currentPeriodEnd ? premium.currentPeriodEnd.toISOString() : undefined,
+      trialStart: premium.trialStart ? premium.trialStart.toISOString() : undefined,
+      trialEnd: premium.trialEnd ? premium.trialEnd.toISOString() : undefined,
+      renewedAt: premium.renewedAt ? premium.renewedAt.toISOString() : undefined,
+      expiresAt: premium.expiresAt ? premium.expiresAt.toISOString() : undefined,
+      updatedAt: premium.updatedAt ? premium.updatedAt.toISOString() : new Date().toISOString(),
+    };
+  }
+
+  private extractRoleFromSupabaseUser(supabaseUser: any): UserRole | null {
+    const roleCandidates = [
+      supabaseUser?.user_metadata?.role,
+      supabaseUser?.user_metadata?.Role,
+      supabaseUser?.user_metadata?.profile?.role,
+      supabaseUser?.user_metadata?.roles?.primary,
+      supabaseUser?.app_metadata?.role,
+      supabaseUser?.app_metadata?.user_role,
+      supabaseUser?.app_metadata?.profile?.role,
+      supabaseUser?.app_metadata?.roles,
+    ];
+
+    for (const candidate of roleCandidates) {
+      const normalized = this.normalizeRole(candidate);
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    if (supabaseUser?.app_metadata?.claims_admin === true) {
+      return 'admin';
+    }
+
+    if (supabaseUser?.app_metadata?.claims_support === true) {
+      return 'support';
+    }
+
+    return null;
+  }
+
+  private extractPermissionsFromSupabaseUser(
+    supabaseUser: any,
+    inferredRole: UserRole | null
+  ): UserPermissions | undefined {
+    const permissionCandidates = [
+      supabaseUser?.user_metadata?.permissions,
+      supabaseUser?.user_metadata?.Permissions,
+      supabaseUser?.user_metadata?.profile?.permissions,
+      supabaseUser?.app_metadata?.permissions,
+      supabaseUser?.app_metadata?.role_permissions,
+    ];
+
+    for (const candidate of permissionCandidates) {
+      const normalized = this.normalizePermissionsObject(candidate);
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    if (supabaseUser?.app_metadata?.claims_admin === true || inferredRole === 'admin') {
+      return roleService.getDefaultPermissions('admin');
+    }
+
+    if (supabaseUser?.app_metadata?.claims_support === true || inferredRole === 'support') {
+      return roleService.getDefaultPermissions('support');
+    }
+
+    return undefined;
+  }
+
+  private normalizePermissionsObject(source: any): UserPermissions | undefined {
+    if (!source) {
+      return undefined;
+    }
+
+    const parsed =
+      typeof source === 'string'
+        ? this.parseJsonField<UserPermissions>(source)
+        : (source as UserPermissions);
+
+    if (!parsed || typeof parsed !== 'object') {
+      return undefined;
+    }
+
+    const normalized: UserPermissions = {
+      canManageUsers: this.toBoolean((parsed as any).canManageUsers),
+      canAccessAdminPanel: this.toBoolean((parsed as any).canAccessAdminPanel),
+      canViewAnalytics: this.toBoolean((parsed as any).canViewAnalytics),
+      canManageContent: this.toBoolean((parsed as any).canManageContent),
+      canAccessSupportTools: this.toBoolean((parsed as any).canAccessSupportTools),
+      canViewUserData: this.toBoolean((parsed as any).canViewUserData),
+      canManageSystemSettings: this.toBoolean((parsed as any).canManageSystemSettings),
+    };
+
+    const hasDefinedField = [
+      'canManageUsers',
+      'canAccessAdminPanel',
+      'canViewAnalytics',
+      'canManageContent',
+      'canAccessSupportTools',
+      'canViewUserData',
+      'canManageSystemSettings',
+    ].some((key) => Object.prototype.hasOwnProperty.call(parsed, key));
+
+    if (!hasDefinedField) {
+      return undefined;
+    }
+
+    return normalized;
+  }
+
+  private toBoolean(value: any): boolean {
+    return value === true || value === 'true' || value === 1 || value === '1';
+  }
+
+  private async resolvePremiumStatus(
+    userId: string,
+    existingPremium?: User['premium']
+  ): Promise<User['premium'] | undefined> {
+    if (existingPremium && existingPremium.isActive !== undefined) {
+      return existingPremium;
+    }
+
+    const subscriptionManager = SubscriptionManagementService.getInstance();
+    try {
+      const subscription = await subscriptionManager.getCurrentSubscription(userId);
+      if (!subscription) {
+        if (existingPremium) {
+          existingPremium.isActive = false;
+          return existingPremium;
+        }
+        return undefined;
+      }
+
+      return this.buildPremiumFromSubscription(subscription);
+    } catch (error) {
+      console.warn('AuthInitializationService: Failed to resolve premium status:', error);
+      if (existingPremium) {
+        existingPremium.isActive = this.deriveIsActive(existingPremium.status, existingPremium.currentPeriodEnd);
+        return existingPremium;
+      }
+      return undefined;
+    }
+  }
+
+  private buildPremiumFromSubscription(subscription: SubscriptionDetails): User['premium'] {
+    const isActive = this.deriveIsActive(subscription.status, subscription.currentPeriodEnd);
+    const interval = subscription.planInterval?.toLowerCase();
+    const normalizedInterval =
+      interval === 'monthly' || interval === 'weekly' || interval === 'yearly' ? interval : null;
+
+    return {
+      isActive,
+      planId: subscription.planId,
+      currentPeriodStart: subscription.currentPeriodStart,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      trialStart: subscription.trialStart,
+      trialEnd: subscription.trialEnd,
+      status: subscription.status,
+      type: normalizedInterval,
+      renewedAt: subscription.nextBillingDate,
+      expiresAt: subscription.nextBillingDate,
+      updatedAt: new Date(),
+    };
+  }
+
+  private deriveIsActive(status?: string, periodEnd?: Date): boolean {
+    if (!status) {
+      if (!periodEnd) return false;
+      return periodEnd > new Date();
+    }
+
+    const normalized = status.toLowerCase();
+    if (normalized === 'active' || normalized === 'trialing' || normalized === 'past_due') {
+      return true;
+    }
+
+    if (normalized === 'canceled' || normalized === 'incomplete' || normalized === 'unpaid') {
+      if (periodEnd) {
+        return periodEnd > new Date();
+      }
+      return false;
+    }
+
+    return false;
   }
 
   /**
