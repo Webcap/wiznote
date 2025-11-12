@@ -15,25 +15,179 @@ if (typeof window !== 'undefined' || Platform.OS === 'android' || Platform.OS ==
   }
 }
 
+type AuthStateListener = (state: AuthState) => void;
+const authStateListeners = new Set<AuthStateListener>();
+let globalAuthState: AuthState = {
+  user: null,
+  isLoading: true,
+  error: null,
+};
+let hasGlobalAuthInitialized = false;
+
+type ConnectionState = {
+  isOnline: boolean;
+  lastSyncTime: number;
+  pendingOperations: number;
+};
+
+type IsInitializingListener = (value: boolean) => void;
+type InitializationProgressListener = (progress: InitializationProgress | null) => void;
+type ConnectionStateListener = (state: ConnectionState) => void;
+
+let globalIsInitializing = false;
+let globalInitializationProgress: InitializationProgress | null = null;
+let globalConnectionState: ConnectionState = {
+  isOnline: true,
+  lastSyncTime: Date.now(),
+  pendingOperations: 0,
+};
+
+const isInitializingListeners = new Set<IsInitializingListener>();
+const initializationProgressListeners = new Set<InitializationProgressListener>();
+const connectionStateListeners = new Set<ConnectionStateListener>();
+
+const setGlobalIsInitializing = (value: boolean) => {
+  globalIsInitializing = value;
+  isInitializingListeners.forEach(listener => {
+    try {
+      listener(value);
+    } catch (error) {
+      console.error('useAuth: Error notifying isInitializing listener:', error);
+    }
+  });
+};
+
+const setGlobalInitializationProgress = (progress: InitializationProgress | null) => {
+  globalInitializationProgress = progress;
+  initializationProgressListeners.forEach(listener => {
+    try {
+      listener(progress);
+    } catch (error) {
+      console.error('useAuth: Error notifying initialization progress listener:', error);
+    }
+  });
+};
+
+const setGlobalConnectionState = (
+  update: ConnectionState | ((prev: ConnectionState) => ConnectionState)
+) => {
+  const nextState =
+    typeof update === 'function'
+      ? (update as (prev: ConnectionState) => ConnectionState)(globalConnectionState)
+      : update;
+
+  globalConnectionState = nextState;
+  connectionStateListeners.forEach(listener => {
+    try {
+      listener(nextState);
+    } catch (error) {
+      console.error('useAuth: Error notifying connection state listener:', error);
+    }
+  });
+};
+
 export const useAuth = () => {
-  const [authState, setAuthState] = useState<AuthState>({
-    user: null,
-    isLoading: true,
-    error: null,
-  });
-  
-  const [isInitializing, setIsInitializing] = useState(false);
-  const [initializationProgress, setInitializationProgress] = useState<InitializationProgress | null>(null);
-  
-  const [connectionState, setConnectionState] = useState({
-    isOnline: true,
-    lastSyncTime: Date.now(),
-    pendingOperations: 0,
-  });
+  const [authState, setAuthStateLocal] = useState<AuthState>(globalAuthState);
+
+  const authStateRef = useRef<AuthState>(globalAuthState);
+  const localListenerRef = useRef<AuthStateListener>();
+
+  const notifyAuthStateChange = useCallback((state: AuthState, skipListener?: AuthStateListener | null) => {
+    authStateListeners.forEach(listener => {
+      if (!skipListener || listener !== skipListener) {
+        try {
+          listener(state);
+        } catch (listenerError) {
+          console.error('useAuth: Error notifying auth state listener:', listenerError);
+        }
+      }
+    });
+  }, []);
+
+  const setAuthState = useCallback(
+    (update: AuthState | ((prev: AuthState) => AuthState)) => {
+      const nextState =
+        typeof update === 'function' ? (update as (prev: AuthState) => AuthState)(globalAuthState) : update;
+
+      globalAuthState = nextState;
+      authStateRef.current = nextState;
+
+      if (localListenerRef.current) {
+        localListenerRef.current(nextState);
+      } else {
+        setAuthStateLocal(nextState);
+      }
+
+      notifyAuthStateChange(nextState, localListenerRef.current ?? null);
+    },
+    [notifyAuthStateChange]
+  );
+
+  const hasInitializedRef = useRef(false);
+
+  const [isInitializing, setIsInitializingLocal] = useState(globalIsInitializing);
+  const [initializationProgress, setInitializationProgressLocal] = useState<InitializationProgress | null>(globalInitializationProgress);
+  const [connectionState, setConnectionStateLocal] = useState<ConnectionState>(globalConnectionState);
 
   // Use ref to access current auth state without causing dependency issues
-  const authStateRef = useRef(authState);
-  authStateRef.current = authState;
+  useEffect(() => {
+    const listener: AuthStateListener = (state: AuthState) => {
+      authStateRef.current = state;
+      setAuthStateLocal(state);
+    };
+
+    localListenerRef.current = listener;
+    authStateListeners.add(listener);
+
+    // Ensure local state stays in sync with the latest global state on mount
+    listener(globalAuthState);
+
+    return () => {
+      authStateListeners.delete(listener);
+      if (localListenerRef.current === listener) {
+        localListenerRef.current = undefined;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleIsInitializing: IsInitializingListener = value => {
+      setIsInitializingLocal(value);
+    };
+
+    isInitializingListeners.add(handleIsInitializing);
+    handleIsInitializing(globalIsInitializing);
+
+    return () => {
+      isInitializingListeners.delete(handleIsInitializing);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleInitializationProgress: InitializationProgressListener = progress => {
+      setInitializationProgressLocal(progress);
+    };
+
+    initializationProgressListeners.add(handleInitializationProgress);
+    handleInitializationProgress(globalInitializationProgress);
+
+    return () => {
+      initializationProgressListeners.delete(handleInitializationProgress);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleConnectionState: ConnectionStateListener = state => {
+      setConnectionStateLocal(state);
+    };
+
+    connectionStateListeners.add(handleConnectionState);
+    handleConnectionState(globalConnectionState);
+
+    return () => {
+      connectionStateListeners.delete(handleConnectionState);
+    };
+  }, []);
 
   // Ensure connectionState is always defined
   const safeConnectionState = connectionState || {
@@ -75,7 +229,7 @@ export const useAuth = () => {
       if (user) {
         // Check if user is initialized
         const isInitialized = betterAuthService.isUserInitialized();
-        setIsInitializing(!isInitialized);
+        setGlobalIsInitializing(!isInitialized);
         
         // Only update loading state to false if we have a definitive auth state
         setAuthState(prev => ({
@@ -86,8 +240,8 @@ export const useAuth = () => {
         }));
       } else {
         // No user - not initializing
-        setIsInitializing(false);
-        setInitializationProgress(null);
+        setGlobalIsInitializing(false);
+        setGlobalInitializationProgress(null);
         setAuthState(prev => ({
           ...prev,
           user: null,
@@ -99,13 +253,13 @@ export const useAuth = () => {
 
     // Set up progress handler
     betterAuthService.setProgressHandler((progress) => {
-      setInitializationProgress(progress);
-      setIsInitializing(progress.stage !== 'complete');
+      setGlobalInitializationProgress(progress);
+      setGlobalIsInitializing(progress.stage !== 'complete');
       
       if (progress.stage === 'complete') {
         // Check if user is now initialized
         if (betterAuthService.isUserInitialized()) {
-          setIsInitializing(false);
+          setGlobalIsInitializing(false);
           
           // Force refresh of user data when initialization completes
           // This ensures UI components get the updated user with premium/admin info
@@ -181,7 +335,7 @@ export const useAuth = () => {
       }
 
       // Update connection state (simplified for now)
-      setConnectionState({
+      setGlobalConnectionState({
         isOnline: true,
         lastSyncTime: Date.now(),
         pendingOperations: 0,
@@ -208,77 +362,79 @@ export const useAuth = () => {
 
   // Add crash recovery mechanism
   useEffect(() => {
-    const handleCrashRecovery = async () => {
+    if (!authState.isLoading) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const recoveryTimer = setTimeout(async () => {
+      if (isCancelled || !authStateRef.current.isLoading) {
+        return;
+      }
+
+      console.log('useAuth: Auth loading timeout, attempting crash recovery...');
+      
       try {
-        // If we're in a loading state for too long, try to recover
-        if (authState.isLoading) {
-          const recoveryTimer = setTimeout(async () => {
-            console.log('useAuth: Auth loading timeout, attempting crash recovery...');
-            
-            try {
-              // Try to get current user with timeout
-              if (!betterAuthService) {
-                throw new Error('BetterAuthService not available');
-              }
-              
-              const userPromise = betterAuthService.getCurrentUser();
-              const timeoutPromise = new Promise<never>((_, reject) => 
-                setTimeout(() => reject(new Error('User loading timeout')), 10000)
-              );
-              
-              const user = await Promise.race([userPromise, timeoutPromise]) as User | null;
-              
-              if (user) {
-                console.log('useAuth: Crash recovery successful, user found');
-                setAuthState({
-                  user,
-                  isLoading: false,
-                  error: null,
-                });
-              } else if (!authStateRef.current.user) {
-                // Only clear user if one doesn't already exist
-                console.log('useAuth: Crash recovery found no user');
-                setAuthState({
-                  user: null,
-                  isLoading: false,
-                  error: null,
-                });
-              } else {
-                console.log('useAuth: Crash recovery timeout, but user already exists');
-                // Keep existing user, just set loading to false
-                setAuthState(prev => ({
-                  ...prev,
-                  isLoading: false,
-                  error: null,
-                }));
-              }
-            } catch (error) {
-              console.error('useAuth: Crash recovery failed:', error);
-              if (!authStateRef.current.user) {
-                setAuthState({
-                  user: null,
-                  isLoading: false,
-                  error: 'Failed to restore session. Please sign in again.',
-                });
-              } else {
-                // Keep existing user on error
-                setAuthState(prev => ({
-                  ...prev,
-                  isLoading: false,
-                  error: null,
-                }));
-              }
-            }
-          }, 30000); // Reduced to 30 seconds for faster failure (allows 2-3 retry attempts with 8s timeouts)
-          
-          return () => clearTimeout(recoveryTimer);
+        if (!betterAuthService) {
+          throw new Error('BetterAuthService not available');
+        }
+
+        const userPromise = betterAuthService.getCurrentUser();
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('User loading timeout')), 10000)
+        );
+        
+        const user = await Promise.race([userPromise, timeoutPromise]) as User | null;
+        
+        if (!authStateRef.current.isLoading) {
+          return;
+        }
+
+        if (user) {
+          console.log('useAuth: Crash recovery successful, user found');
+          setAuthState({
+            user,
+            isLoading: false,
+            error: null,
+          });
+        } else if (!authStateRef.current.user) {
+          console.log('useAuth: Crash recovery found no user');
+          setAuthState({
+            user: null,
+            isLoading: false,
+            error: null,
+          });
+        } else {
+          console.log('useAuth: Crash recovery timeout, but user already exists');
+          setAuthState(prev => ({
+            ...prev,
+            isLoading: false,
+            error: null,
+          }));
         }
       } catch (error) {
-        console.error('useAuth: Error in crash recovery setup:', error);
+        console.error('useAuth: Crash recovery failed:', error);
+        if (!authStateRef.current.user) {
+          setAuthState({
+            user: null,
+            isLoading: false,
+            error: 'Failed to restore session. Please sign in again.',
+          });
+        } else {
+          setAuthState(prev => ({
+            ...prev,
+            isLoading: false,
+            error: null,
+          }));
+        }
       }
-    };
+    }, 30000);
 
-    handleCrashRecovery();
+    return () => {
+      isCancelled = true;
+      clearTimeout(recoveryTimer);
+    };
   }, [authState.isLoading]);
 
   // Refresh user data from Supabase
@@ -311,7 +467,7 @@ export const useAuth = () => {
       });
 
       // Update connection state
-      setConnectionState({
+      setGlobalConnectionState({
         isOnline: true,
         lastSyncTime: Date.now(),
         pendingOperations: 0,
@@ -488,7 +644,7 @@ export const useAuth = () => {
       });
 
       // Reset connection state
-      setConnectionState({
+      setGlobalConnectionState({
         isOnline: true,
         lastSyncTime: Date.now(),
         pendingOperations: 0,
@@ -526,7 +682,7 @@ export const useAuth = () => {
         });
         
         // Reset connection state
-        setConnectionState({
+        setGlobalConnectionState({
           isOnline: true,
           lastSyncTime: Date.now(),
           pendingOperations: 0,
@@ -552,7 +708,7 @@ export const useAuth = () => {
       }
       
       // Reset connection state
-      setConnectionState({
+      setGlobalConnectionState({
         isOnline: true,
         lastSyncTime: Date.now(),
         pendingOperations: 0,
@@ -568,33 +724,64 @@ export const useAuth = () => {
   }, []);
 
   // Check if user has specific permission
-  const hasPermission = useCallback((permission: string): boolean => {
-    if (!authState.user?.permissions) return false;
-    return (authState.user.permissions as any)[permission] === true;
-  }, [authState.user]);
+  const hasPermission = useCallback(
+    (permission: string): boolean => {
+      if (!authState.user?.permissions) return false;
+      const value = (authState.user.permissions as any)[permission];
+      if (value === true) return true;
+      if (typeof value === 'string') {
+        return value.toLowerCase() === 'true';
+      }
+      if (typeof value === 'number') {
+        return value === 1;
+      }
+      return false;
+    },
+    [authState.user]
+  );
 
   // Check if user has specific role (only if user data is fully loaded)
-  const hasRole = useCallback((role: UserRole): boolean => {
-    // Don't return true if user data is incomplete or still initializing
-    if (isInitializing || !authState.user) {
-      return false;
-    }
-    // Ensure we have full user data (role should be loaded)
-    if (authState.user.role === undefined) {
-      return false;
-    }
-    return authState.user.role === role;
-  }, [authState.user, isInitializing]);
+  const hasRole = useCallback(
+    (role: UserRole): boolean => {
+      if (!authState.user || authState.user.role === undefined || authState.user.role === null) {
+        return false;
+      }
+
+      const userRole =
+        typeof authState.user.role === 'string'
+          ? authState.user.role.trim().toLowerCase()
+          : authState.user.role;
+
+      return userRole === role;
+    },
+    [authState.user]
+  );
 
   // Check if user is admin
   const isAdmin = useCallback((): boolean => {
-    return hasRole('admin');
-  }, [hasRole]);
+    if (!authState.user) {
+      return false;
+    }
+
+    if (hasRole('admin')) {
+      return true;
+    }
+
+    return hasPermission('canAccessAdminPanel');
+  }, [authState.user, hasRole, hasPermission]);
 
   // Check if user is support
   const isSupport = useCallback((): boolean => {
-    return hasRole('support');
-  }, [hasRole]);
+    if (!authState.user) {
+      return false;
+    }
+
+    if (hasRole('support')) {
+      return true;
+    }
+
+    return hasPermission('canAccessSupportTools');
+  }, [authState.user, hasRole, hasPermission]);
 
   // Check if user is premium (only if user data is fully loaded)
   const isPremium = useCallback((): boolean => {
@@ -680,6 +867,14 @@ export const useAuth = () => {
 
   // Initialize auth on mount with timeout
   useEffect(() => {
+    if (hasInitializedRef.current || hasGlobalAuthInitialized) {
+      hasInitializedRef.current = true;
+      return;
+    }
+
+    hasInitializedRef.current = true;
+    hasGlobalAuthInitialized = true;
+
     const initializeAuth = async () => {
       try {
         console.log('useAuth: Initializing auth...');

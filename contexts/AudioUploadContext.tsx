@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, Dispatch, SetStateAction } from 'react';
 
 interface AudioUploadState {
   fileName: string;
@@ -14,7 +14,7 @@ interface AudioUploadState {
 
 interface AudioUploadContextType {
   uploadingAudio: AudioUploadState | null;
-  setUploadingAudio: (state: AudioUploadState | null) => void;
+  setUploadingAudio: Dispatch<SetStateAction<AudioUploadState | null>>;
   updateUploadProgress: (progress: number, statusMessage?: string) => void;
   updateUploadStatus: (status: AudioUploadState['status'], statusMessage?: string) => void;
   onUploadComplete: (() => void) | null;
@@ -64,7 +64,7 @@ export function useAudioUpload() {
     console.warn('useAudioUpload called outside AudioUploadProvider - using fallback');
     return {
       uploadingAudio: null,
-      setUploadingAudio: () => {},
+      setUploadingAudio: (() => {}) as Dispatch<SetStateAction<AudioUploadState | null>>,
       updateUploadProgress: () => {},
       updateUploadStatus: () => {},
       onUploadComplete: null,

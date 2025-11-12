@@ -23,7 +23,6 @@ import { useThemeColor } from '../../hooks/useThemeColor';
 import { useTranslation } from '../../hooks/useTranslation';
 import { loginStyles } from '../../styles/LoginStyles';
 import { systemSettingsService } from '../../services/SystemSettingsService';
-import { LoadingSpinner } from '../../components/LoadingSpinner';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -33,53 +32,37 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isMobileWeb, setIsMobileWeb] = useState(false);
   const [googleSignInEnabled, setGoogleSignInEnabled] = useState(true); // Default to true for better UX
-  const [settingsLoading, setSettingsLoading] = useState(true);
 
   const { signIn, signInWithGoogle } = useAuth();
   const { showSnackbar } = useSnackbar();
-  const { isFeatureEnabled, loading: featureFlagsLoading } = useFeatureFlags();
+  const { isFeatureEnabled } = useFeatureFlags();
 
   // Set page title for web
   usePageTitle();
 
   // Load Google Sign-In settings (both feature flag and system setting)
   useEffect(() => {
-    let isMounted = true;
-
     const loadGoogleSignInSettings = async () => {
-      if (featureFlagsLoading) return;
-
       try {
-        setSettingsLoading(true);
-        const [settings, featureFlagEnabled] = await Promise.all([
-          systemSettingsService.getSettings(),
-          Promise.resolve(isFeatureEnabled('google_sign_in')),
-        ]);
-
-        if (!isMounted) {
-          return;
-        }
-
-        const enabled = featureFlagEnabled && settings.googleSignInEnabled;
+        // Check feature flag first
+        const featureFlagEnabled = isFeatureEnabled('google_sign_in');
+        
+        // Check system setting (system setting can override feature flag)
+        const systemSettingEnabled = await systemSettingsService.isGoogleSignInEnabled();
+        
+        // Google Sign-In is enabled only if BOTH feature flag AND system setting allow it
+        // System setting takes precedence - if disabled in system settings, disable regardless of feature flag
+        const enabled = featureFlagEnabled && systemSettingEnabled;
+        
         setGoogleSignInEnabled(enabled);
       } catch (error) {
         console.error('Error loading Google Sign-In settings:', error);
-        if (isMounted) {
-          setGoogleSignInEnabled(false);
-        }
-      } finally {
-        if (isMounted) {
-          setSettingsLoading(false);
-        }
+        // Default to false if there's an error (more secure)
+        setGoogleSignInEnabled(false);
       }
     };
-
     loadGoogleSignInSettings();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [featureFlagsLoading, isFeatureEnabled]);
+  }, [isFeatureEnabled]);
 
   // Detect mobile web browsers
   useEffect(() => {
@@ -269,17 +252,6 @@ export default function LoginScreen() {
   const textSecondaryColor = useThemeColor({}, 'textSecondary');
   const accentColor = useThemeColor({}, 'accentPrimary');
   const cardBg = useThemeColor({}, 'backgroundSecondary');
-
-  if (settingsLoading || featureFlagsLoading) {
-    return (
-      <ThemedView style={[loginStyles.loadingWrapper, { backgroundColor }]}>
-        <LoadingSpinner size={40} />
-        <ThemedText style={[loginStyles.loadingText, { color: textColor }]}>
-          {t('auth.initializing')}
-        </ThemedText>
-      </ThemedView>
-    );
-  }
 
   // Web layout - Responsive design
   if (Platform.OS === 'web') {

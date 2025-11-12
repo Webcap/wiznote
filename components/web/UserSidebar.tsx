@@ -49,6 +49,7 @@ export function UserSidebar({
   const backgroundColor = useThemeColor({}, 'background');
   const borderColor = useThemeColor({}, 'border');
   const { isAdmin, isSupport, user } = useAuth();
+
   const { showSnackbar } = useSnackbar();
   const { setUploadingPDF, onUploadComplete } = usePDFUpload();
   const { setUploadingAudio } = useAudioUpload();
@@ -204,42 +205,47 @@ export function UserSidebar({
   ], [activePage, searchQuery, onSearchQueryChange, t]);
 
   // Add admin section if user is admin
-  const adminItems = useMemo(() => isAdmin() ? [
-    {
-      id: 'admin-separator',
-      label: t('sidebar.admin'),
-      icon: 'shield' as const,
-      onPress: () => {},
-      isActive: false,
-      isSeparator: true,
-    },
-    {
-      id: 'admin-dashboard',
-      label: t('sidebar.adminDashboard'),
-      icon: 'shield' as const,
-      onPress: () => router.push('admin-dashboard'),
-      isActive: activePage === 'admin-dashboard',
-    },
-  ] : [], [isAdmin, activePage, t]);
+  const adminItems = isAdmin()
+    ? [
+        {
+          id: 'admin-separator',
+          label: t('sidebar.admin'),
+          icon: 'shield' as const,
+          onPress: () => {},
+          isActive: false,
+          isSeparator: true,
+        },
+        {
+          id: 'admin-dashboard',
+          label: t('sidebar.adminDashboard'),
+          icon: 'shield' as const,
+          onPress: () => router.push('admin-dashboard'),
+          isActive: activePage === 'admin-dashboard',
+        },
+      ]
+    : [];
 
   // Add support section if user is support
-  const supportItems = useMemo(() => isSupport() && !isAdmin() ? [
-    {
-      id: 'support-separator',
-      label: t('sidebar.support'),
-      icon: 'headset' as const,
-      onPress: () => {},
-      isActive: false,
-      isSeparator: true,
-    },
-    {
-      id: 'support-dashboard',
-      label: t('sidebar.supportDashboard'),
-      icon: 'headset' as const,
-      onPress: () => router.push('/admin/support'),
-      isActive: activePage === 'support',
-    },
-  ] : [], [isSupport, isAdmin, activePage, t]);
+  const supportItems =
+    isSupport() && !isAdmin()
+      ? [
+          {
+            id: 'support-separator',
+            label: t('sidebar.support'),
+            icon: 'headset' as const,
+            onPress: () => {},
+            isActive: false,
+            isSeparator: true,
+          },
+          {
+            id: 'support-dashboard',
+            label: t('sidebar.supportDashboard'),
+            icon: 'headset' as const,
+            onPress: () => router.push('/admin/support'),
+            isActive: activePage === 'support',
+          },
+        ]
+      : [];
 
   const allSidebarItems = useMemo(() => [...sidebarItems, ...adminItems, ...supportItems], [sidebarItems, adminItems, supportItems]);
 

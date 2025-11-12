@@ -1493,7 +1493,7 @@ export class BetterAuthService {
       const existingProfile = await this.loadUserProfile(supabaseUser.id);
       
       // Use RoleService to determine role based on email domain
-      const userRole = roleService.determineUserRole(supabaseUser.email);
+      let userRole = existingProfile?.role ?? roleService.determineUserRole(supabaseUser.email);
       console.log('Assigned role based on domain:', userRole);
       
       // If profile already exists, preserve the existing role but update other fields if needed
@@ -1607,7 +1607,7 @@ export class BetterAuthService {
       const existingProfile = await this.loadUserProfile(supabaseUser.id);
       
       // Use RoleService to determine role based on email domain
-      const userRole = roleService.determineUserRole(supabaseUser.email);
+      let userRole = roleService.determineUserRole(supabaseUser.email);
       console.log('Assigned role for minimal profile:', userRole);
       
       // If profile already exists, preserve the existing role to avoid overwriting manually assigned roles
