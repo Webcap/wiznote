@@ -115,32 +115,44 @@ class SystemSettingsService {
       }
 
       // Map database fields to camelCase
+      // Note: ?? operator only uses fallback if value is null/undefined, so false/0 values are preserved
       const settings: SystemSettings = {
         id: data.id,
-        emailVerificationRequired: data.email_verification_required,
-        mfaEnabled: data.mfa_enabled,
-        mfaRequiredForAdmin: data.mfa_required_for_admin,
-        accountLockoutEnabled: data.account_lockout_enabled,
-        accountLockoutAttempts: data.account_lockout_attempts,
-        accountLockoutDurationMinutes: data.account_lockout_duration_minutes,
-        sessionTimeoutHours: data.session_timeout_hours,
-        passwordMinLength: data.password_min_length,
-        passwordRequireSpecialChars: data.password_require_special_chars,
-        rateLimitEnabled: data.rate_limit_enabled,
-        rateLimitAuthAttempts: data.rate_limit_auth_attempts,
-        rateLimitAuthWindowMinutes: data.rate_limit_auth_window_minutes,
-        rateLimitApiRequests: data.rate_limit_api_requests,
-        rateLimitApiWindowMinutes: data.rate_limit_api_window_minutes,
+        emailVerificationRequired: data.email_verification_required ?? true,
+        mfaEnabled: data.mfa_enabled ?? false,
+        mfaRequiredForAdmin: data.mfa_required_for_admin ?? false,
+        accountLockoutEnabled: data.account_lockout_enabled ?? true,
+        accountLockoutAttempts: data.account_lockout_attempts ?? 5,
+        accountLockoutDurationMinutes: data.account_lockout_duration_minutes ?? 30,
+        sessionTimeoutHours: data.session_timeout_hours ?? 24,
+        passwordMinLength: data.password_min_length ?? 8,
+        passwordRequireSpecialChars: data.password_require_special_chars ?? true,
+        rateLimitEnabled: data.rate_limit_enabled ?? true,
+        rateLimitAuthAttempts: data.rate_limit_auth_attempts ?? 5,
+        rateLimitAuthWindowMinutes: data.rate_limit_auth_window_minutes ?? 15,
+        rateLimitApiRequests: data.rate_limit_api_requests ?? 100,
+        rateLimitApiWindowMinutes: data.rate_limit_api_window_minutes ?? 1,
         csrfProtectionEnabled: data.csrf_protection_enabled ?? true,
         csrfOriginCheckEnabled: data.csrf_origin_check_enabled ?? true,
         csrfTokenExpiryMinutes: data.csrf_token_expiry_minutes ?? 60,
-        maintenanceMode: data.maintenance_mode,
-        newUserRegistrationEnabled: data.new_user_registration_enabled,
+        maintenanceMode: data.maintenance_mode ?? false,
+        newUserRegistrationEnabled: data.new_user_registration_enabled ?? true,
         googleSignInEnabled: data.google_sign_in_enabled ?? true,
         updatedBy: data.updated_by,
-        updatedAt: new Date(data.updated_at),
-        createdAt: new Date(data.created_at),
+        updatedAt: this.parseDate(data.updated_at) ?? new Date(),
+        createdAt: this.parseDate(data.created_at) ?? new Date(),
       };
+
+      console.log('SystemSettingsService: Mapped settings from database:', {
+        rateLimitAuthAttempts: settings.rateLimitAuthAttempts,
+        rateLimitAuthWindowMinutes: settings.rateLimitAuthWindowMinutes,
+        googleSignInEnabled: settings.googleSignInEnabled,
+        rawData: {
+          rate_limit_auth_attempts: data.rate_limit_auth_attempts,
+          rate_limit_auth_window_minutes: data.rate_limit_auth_window_minutes,
+          google_sign_in_enabled: data.google_sign_in_enabled,
+        }
+      });
 
       // Update cache
       this.cachedSettings = settings;
@@ -151,6 +163,21 @@ class SystemSettingsService {
       console.error('SystemSettingsService: Unexpected error:', error);
       return this.getDefaultSettings();
     }
+  }
+
+  /**
+   * Safely parse a date value from the database
+   */
+  private parseDate(value: unknown): Date | null {
+    if (!value) return null;
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value;
+    }
+    if (typeof value === 'string' || typeof value === 'number') {
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+    return null;
   }
 
   /**
@@ -196,14 +223,37 @@ class SystemSettingsService {
     try {
       console.log('SystemSettingsService: Updating settings:', updates);
 
-      // Verify user is admin
+      // Verify user has permission (admin role OR canManageSystemSettings permission)
       const { data: userProfile, error: profileError } = await supabase
         .from('user_profiles')
-        .select('role, email')
+        .select('role, email, permissions')
         .eq('id', userId)
         .single();
 
-      if (profileError || !userProfile || userProfile.role !== 'admin') {
+      if (profileError || !userProfile) {
+        return {
+          success: false,
+          error: 'User profile not found',
+        };
+      }
+
+      // Check if user is admin
+      const isAdmin = userProfile.role === 'admin';
+      
+      // Check if user has canManageSystemSettings permission
+      let canManageSystemSettings = false;
+      if (userProfile.permissions) {
+        try {
+          const permissions = typeof userProfile.permissions === 'string' 
+            ? JSON.parse(userProfile.permissions) 
+            : userProfile.permissions;
+          canManageSystemSettings = permissions?.canManageSystemSettings === true;
+        } catch (e) {
+          console.warn('SystemSettingsService: Error parsing permissions:', e);
+        }
+      }
+
+      if (!isAdmin && !canManageSystemSettings) {
         // ✅ Log unauthorized admin action attempt
         const { logAdminAction } = await import('../lib/auth');
         await logAdminAction(
@@ -221,7 +271,7 @@ class SystemSettingsService {
         
         return {
           success: false,
-          error: 'Unauthorized: Only admins can update system settings',
+          error: 'Unauthorized: Only admins or users with canManageSystemSettings permission can update system settings',
         };
       }
 
@@ -356,7 +406,7 @@ class SystemSettingsService {
         newValue: log.new_value,
         changedBy: log.changed_by,
         changedByEmail: log.changed_by_email,
-        changedAt: new Date(log.changed_at),
+        changedAt: this.parseDate(log.changed_at) ?? new Date(),
         ipAddress: log.ip_address,
         userAgent: log.user_agent,
         reason: log.reason,

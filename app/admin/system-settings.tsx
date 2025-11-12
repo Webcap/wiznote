@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   ScrollView,
   Switch,
@@ -16,6 +16,7 @@ import { ThemedText } from '../../components/ThemedText';
 import { WebLayout } from '../../components/web/WebLayout';
 import { AdminSidebar } from '../../components/web/AdminSidebar';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
 import {
   systemSettingsService,
@@ -25,6 +26,7 @@ import {
 
 export default function SystemSettingsScreen() {
   const router = useRouter();
+  const { user, hasPermission, hasRole } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
@@ -43,38 +45,40 @@ export default function SystemSettingsScreen() {
   const accentSuccess = useThemeColor({}, 'accentSuccess');
   const iconColor = useThemeColor({}, 'icon');
 
-  useEffect(() => {
-    loadSettings();
-    checkAdminAccess();
-  }, []);
-
-  const checkAdminAccess = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+  const checkAdminAccess = useCallback(async () => {
     if (!user) {
       Alert.alert('Error', 'You must be logged in');
       router.back();
       return;
     }
 
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    // Check if user has admin role OR canManageSystemSettings permission
+    const isAdmin = hasRole('admin');
+    const canManage = hasPermission('canManageSystemSettings');
 
-    if (!profile || profile.role !== 'admin') {
-      Alert.alert('Unauthorized', 'Only admins can access system settings');
+    if (!isAdmin && !canManage) {
+      Alert.alert('Unauthorized', 'You do not have permission to access system settings');
       router.back();
+      return;
     }
-  };
+  }, [user, hasRole, hasPermission, router]);
+
+  useEffect(() => {
+    checkAdminAccess();
+    loadSettings();
+  }, [checkAdminAccess]);
 
   const loadSettings = async () => {
     try {
       setLoading(true);
+      // Clear cache to ensure we get fresh data from database
+      systemSettingsService.clearCache();
       const currentSettings = await systemSettingsService.getSettings();
+      console.log('SystemSettingsScreen: Loaded settings:', {
+        rateLimitAuthAttempts: currentSettings.rateLimitAuthAttempts,
+        rateLimitAuthWindowMinutes: currentSettings.rateLimitAuthWindowMinutes,
+        googleSignInEnabled: currentSettings.googleSignInEnabled,
+      });
       setSettings(currentSettings);
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -101,12 +105,17 @@ export default function SystemSettingsScreen() {
     try {
       setSaving(true);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
       if (!user) {
         Alert.alert('Error', 'You must be logged in');
+        return;
+      }
+
+      // Verify permission before saving
+      const isAdmin = hasRole('admin');
+      const canManage = hasPermission('canManageSystemSettings');
+
+      if (!isAdmin && !canManage) {
+        Alert.alert('Unauthorized', 'You do not have permission to update system settings');
         return;
       }
 
@@ -444,7 +453,9 @@ export default function SystemSettingsScreen() {
                   {log.oldValue} → {log.newValue}
                 </ThemedText>
                 <ThemedText style={[styles.auditLogMeta, { color: textSecondary }]}>
-                  {log.changedByEmail} • {new Date(log.changedAt).toLocaleString()}
+                  {log.changedByEmail} • {log.changedAt && !isNaN(new Date(log.changedAt).getTime())
+                    ? new Date(log.changedAt).toLocaleString()
+                    : 'Unknown date'}
                 </ThemedText>
               </ThemedView>
             ))}
@@ -456,7 +467,9 @@ export default function SystemSettingsScreen() {
             ⚠️ Changes affect all users immediately. Use with caution.
           </ThemedText>
           <ThemedText style={[styles.footerText, { color: textSecondary }]}>
-            Last updated: {settings.updatedAt.toLocaleString()}
+            Last updated: {settings.updatedAt && !isNaN(settings.updatedAt.getTime()) 
+              ? settings.updatedAt.toLocaleString() 
+              : 'Unknown'}
           </ThemedText>
         </ThemedView>
       </ScrollView>

@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { Note, SharePermission, UpdateNoteData } from '../types/Note';
 import { validateNoteTitle, validateNoteContent, NoteIdSchema } from '../schemas/NoteSchema';
-import { sanitizeNoteTitle, sanitizeNoteContent } from '../utils/sanitization';
+import { sanitizeNoteTitle, sanitizeNoteContent, sanitizePlainText } from '../utils/sanitization';
 import { Platform } from 'react-native';
 
 export class SupabaseNoteStorage {
@@ -210,6 +210,59 @@ export class SupabaseNoteStorage {
     throw new Error(errorMessage);
   }
 
+  /**
+   * Safely parse a date string, returning a valid Date or a fallback
+   */
+  private parseDate(dateValue: any): Date {
+    if (!dateValue) {
+      return new Date();
+    }
+    
+    // If it's already a Date object, validate it
+    if (dateValue instanceof Date) {
+      return isNaN(dateValue.getTime()) ? new Date() : dateValue;
+    }
+    
+    // If it's a string, try to parse it
+    if (typeof dateValue === 'string') {
+      // Empty string or whitespace-only string
+      if (dateValue.trim() === '') {
+        return new Date();
+      }
+      
+      const parsed = new Date(dateValue);
+      // Check if the parsed date is valid
+      if (isNaN(parsed.getTime())) {
+        console.warn('SupabaseNoteStorage: Invalid date string:', dateValue);
+        return new Date();
+      }
+      return parsed;
+    }
+    
+    // For any other type, return current date
+    return new Date();
+  }
+
+  /**
+   * Safely extract title from note data
+   */
+  private extractTitle(titleValue: any): string {
+    if (titleValue === null || titleValue === undefined) {
+      return '';
+    }
+    
+    if (typeof titleValue === 'string') {
+      return titleValue.trim();
+    }
+    
+    // Try to convert to string
+    try {
+      return String(titleValue).trim();
+    } catch {
+      return '';
+    }
+  }
+
   async getNotes(): Promise<Note[]> {
     if (!this.hasValidUser()) {
       throw new Error('No user authenticated');
@@ -220,8 +273,10 @@ export class SupabaseNoteStorage {
       
       // Add timeout to prevent blocking - longer for mobile
       const timeoutMs = Platform.OS === 'web' ? 20000 : 35000;
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Supabase query timeout')), timeoutMs);
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Supabase query timeout')), timeoutMs);
       });
       
       const queryPromise = supabase
@@ -230,38 +285,138 @@ export class SupabaseNoteStorage {
         .eq('user_id', this.currentUser)
         .order('updated_at', { ascending: false });
 
-      const result = await Promise.race([
-        queryPromise,
-        timeoutPromise
-      ]) as any;
+      let result: any;
+      try {
+        result = await Promise.race([
+          queryPromise,
+          timeoutPromise
+        ]);
+      } catch (raceError) {
+        // If timeout wins, clear it and throw
+        if (timeoutId) clearTimeout(timeoutId);
+        throw raceError;
+      }
+      
+      // Clear timeout if query completed first
+      if (timeoutId) clearTimeout(timeoutId);
+
+      // Check if result is a Supabase response
+      if (!result || typeof result !== 'object' || !('data' in result)) {
+        console.error('SupabaseNoteStorage: Invalid query result:', result);
+        throw new Error('Invalid response from Supabase');
+      }
 
       const { data: notes, error } = result;
 
       if (error) {
+        console.error('SupabaseNoteStorage: Query error:', error);
         this.handleError(error, 'getNotes');
       }
 
-      // Transform Supabase data to Note format
-      const transformedNotes: Note[] = (notes || []).map((note: any) => ({
-        id: note.id,
-        userId: note.user_id,
-        title: note.title,
-        content: note.content,
-        contentHtml: note.content_html,
-        contentFormat: note.content_format || 'plain',
-        type: note.type || 'text',
-        tags: note.tags || [],
-        isPinned: note.is_pinned || false,
-        isArchived: note.is_archived || false,
-        isFavorite: note.is_favorite || false,
-        audioFiles: note.audio_files || [],
-        pdfFiles: note.pdf_files || [],
-        keyDetails: note.key_details || [],
-        summary: note.summary,
-        createdAt: new Date(note.created_at),
-        updatedAt: new Date(note.updated_at),
-      }));
+      // Log what we received with more detail
+      console.log('SupabaseNoteStorage: Received notes count:', notes?.length || 0);
+      if (notes && notes.length > 0) {
+        const firstNote = notes[0];
+        console.log('SupabaseNoteStorage: First note sample (raw):', {
+          id: firstNote.id,
+          title: firstNote.title,
+          titleType: typeof firstNote.title,
+          titleIsNull: firstNote.title === null,
+          updated_at: firstNote.updated_at,
+          updated_atType: typeof firstNote.updated_at,
+          updated_atIsNull: firstNote.updated_at === null,
+          created_at: firstNote.created_at,
+          hasContent: !!firstNote.content,
+          contentLength: firstNote.content?.length || 0
+        });
+      }
 
+      // Transform Supabase data to Note format
+      const transformedNotes: Note[] = (notes || []).map((note: any) => {
+        try {
+          const title = this.extractTitle(note.title);
+          const createdAt = this.parseDate(note.created_at);
+          const updatedAt = this.parseDate(note.updated_at);
+          
+          // Validate the transformed note
+          if (isNaN(createdAt.getTime()) || isNaN(updatedAt.getTime())) {
+            console.warn('SupabaseNoteStorage: Invalid dates in note:', {
+              id: note.id,
+              created_at: note.created_at,
+              updated_at: note.updated_at,
+              createdAt: createdAt,
+              updatedAt: updatedAt
+            });
+          }
+          
+          return {
+            id: note.id,
+            userId: note.user_id,
+            title: title,
+            content: note.content || '',
+            contentHtml: note.content_html || null,
+            contentFormat: note.content_format || 'plain',
+            type: note.type || 'text',
+            tags: note.tags || [],
+            isPinned: note.is_pinned || false,
+            isArchived: note.is_archived || false,
+            isFavorite: note.is_favorite || false,
+            audioFiles: note.audio_files || [],
+            pdfFiles: note.pdf_files || [],
+            keyDetails: note.key_details || [],
+            summary: note.summary || null,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          };
+        } catch (transformError) {
+          console.error('SupabaseNoteStorage: Error transforming note:', {
+            noteId: note.id,
+            error: transformError,
+            rawNote: {
+              id: note.id,
+              title: note.title,
+              updated_at: note.updated_at,
+              created_at: note.created_at
+            }
+          });
+          // Return a minimal valid note to prevent breaking the entire list
+          return {
+            id: note.id || `error_${Date.now()}`,
+            userId: note.user_id || this.currentUser || '',
+            title: this.extractTitle(note.title) || 'Error loading note',
+            content: note.content || '',
+            contentHtml: null,
+            contentFormat: 'plain',
+            type: 'text',
+            tags: [],
+            isPinned: false,
+            isArchived: false,
+            isFavorite: false,
+            audioFiles: [],
+            pdfFiles: [],
+            keyDetails: [],
+            summary: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+        }
+      });
+
+      // Log transformed notes sample
+      if (transformedNotes.length > 0) {
+        const firstTransformed = transformedNotes[0];
+        console.log('SupabaseNoteStorage: First note sample (transformed):', {
+          id: firstTransformed.id,
+          title: firstTransformed.title,
+          titleLength: firstTransformed.title.length,
+          createdAt: firstTransformed.createdAt,
+          updatedAt: firstTransformed.updatedAt,
+          createdAtValid: !isNaN(firstTransformed.createdAt.getTime()),
+          updatedAtValid: !isNaN(firstTransformed.updatedAt.getTime())
+        });
+      }
+
+      console.log('SupabaseNoteStorage: Transformed notes count:', transformedNotes.length);
       return transformedNotes;
     } catch (error) {
       this.handleError(error, 'getNotes');
@@ -274,14 +429,76 @@ export class SupabaseNoteStorage {
       throw new Error('No user authenticated');
     }
 
+    // Validate noteId
+    if (!noteId || typeof noteId !== 'string' || noteId.trim().length === 0) {
+      console.error('SupabaseNoteStorage.getNote: Invalid noteId provided:', noteId);
+      return null;
+    }
+
     try {
+      console.log('🔍 SupabaseNoteStorage.getNote: Starting query with:', {
+        noteId,
+        noteIdType: typeof noteId,
+        noteIdLength: noteId?.length,
+        currentUser: this.currentUser,
+        currentUserType: typeof this.currentUser
+      });
+
       // First try to get the note as owner
-      let { data: note, error } = await supabase
+      const response = await supabase
         .from('notes')
         .select('*')
         .eq('id', noteId)
         .eq('user_id', this.currentUser)
         .single();
+      
+      let { data: note, error } = response;
+      
+      // Log the full response object
+      console.log('🔍 SupabaseNoteStorage.getNote: Full Supabase response object:', response);
+      console.log('🔍 SupabaseNoteStorage.getNote: Response.data:', response.data);
+      console.log('🔍 SupabaseNoteStorage.getNote: Response.error:', response.error);
+      
+      // Handle case where Supabase returns an array instead of a single object
+      // This can happen if .single() doesn't work as expected
+      if (Array.isArray(note) && note.length > 0) {
+        console.log('🔍 SupabaseNoteStorage.getNote: Data is an array, extracting first element');
+        note = note[0];
+      } else if (Array.isArray(note) && note.length === 0) {
+        console.log('🔍 SupabaseNoteStorage.getNote: Data is an empty array, treating as not found');
+        note = null;
+        error = { code: 'PGRST116', message: 'Note not found' } as any;
+      }
+
+      // Log the raw Supabase response for debugging
+      console.log('🔍 SupabaseNoteStorage.getNote: Raw Supabase response:', {
+        hasData: !!note,
+        dataType: typeof note,
+        dataIsNull: note === null,
+        dataIsUndefined: note === undefined,
+        dataKeys: note ? Object.keys(note) : [],
+        dataKeysDetails: note ? Object.keys(note).map(key => ({ key, value: note[key], valueType: typeof note[key] })) : [],
+        fullData: note ? JSON.stringify(note, null, 2) : 'null',
+        hasError: !!error,
+        errorCode: error?.code,
+        errorMessage: error?.message,
+        noteId: note?.id,
+        noteIdType: typeof note?.id
+      });
+      
+      // Direct log of the note object to see its structure
+      console.log('🔍 SupabaseNoteStorage.getNote: Direct note object:', note);
+      if (note && Object.keys(note).length > 0) {
+        console.log('🔍 SupabaseNoteStorage.getNote: First key in note:', Object.keys(note)[0], 'Value:', note[Object.keys(note)[0]]);
+      }
+
+      // Validate that we got a valid note with an id
+      // Supabase might return an empty object {} instead of null when not found
+      if (!error && (!note || note.id === undefined || note.id === null)) {
+        console.log('SupabaseNoteStorage.getNote: Query succeeded but note is invalid, treating as not found');
+        error = { code: 'PGRST116', message: 'Note not found' } as any;
+        note = null;
+      }
 
       // If not found as owner, check if it's a shared note
       if (error && error.code === 'PGRST116') {
@@ -331,14 +548,32 @@ export class SupabaseNoteStorage {
         console.log('Note is shared with current user (shared access detected), fetching note...');
         
         // Fetch the note without the user_id filter (rely on RLS policy)
-        const { data: sharedNote, error: sharedNoteError } = await supabase
+        const sharedNoteResponse = await supabase
           .from('notes')
           .select('*')
           .eq('id', noteId)
           .single();
 
+        let { data: sharedNote, error: sharedNoteError } = sharedNoteResponse;
+
+        // Handle case where Supabase returns an array instead of a single object
+        if (Array.isArray(sharedNote) && sharedNote.length > 0) {
+          console.log('🔍 SupabaseNoteStorage.getNote: Shared note data is an array, extracting first element');
+          sharedNote = sharedNote[0];
+        } else if (Array.isArray(sharedNote) && sharedNote.length === 0) {
+          console.log('🔍 SupabaseNoteStorage.getNote: Shared note data is an empty array');
+          sharedNote = null;
+          sharedNoteError = { code: 'PGRST116', message: 'Shared note not found' } as any;
+        }
+
         if (sharedNoteError) {
           console.error('Error fetching shared note:', sharedNoteError);
+          return null;
+        }
+
+        // Validate shared note has valid data
+        if (!sharedNote || sharedNote.id === undefined || sharedNote.id === null) {
+          console.error('SupabaseNoteStorage.getNote: Shared note query returned invalid data');
           return null;
         }
 
@@ -350,20 +585,51 @@ export class SupabaseNoteStorage {
         note.sharePermission = share.permission_level as SharePermission;
       }
 
-      if (error) {
+      // Final validation: ensure we have a valid note with an id
+      if (!note || note.id === undefined || note.id === null) {
+        console.log('SupabaseNoteStorage.getNote: Note not found (no valid note data)');
+        return null;
+      }
+
+      // Handle any remaining errors (non-PGRST116 errors)
+      if (error && error.code !== 'PGRST116') {
+        console.error('SupabaseNoteStorage.getNote: Error fetching note:', error);
         this.handleError(error, 'getNote');
         return null;
       }
 
-      if (!note) return null;
+      // Log raw data from Supabase BEFORE transformation
+      console.log('🔍 SupabaseNoteStorage.getNote: RAW DATA FROM SUPABASE:', {
+        id: note.id,
+        title: note.title,
+        titleType: typeof note.title,
+        titleIsNull: note.title === null,
+        titleIsUndefined: note.title === undefined,
+        titleValue: JSON.stringify(note.title),
+        content: note.content ? `${note.content.substring(0, 100)}...` : note.content,
+        contentType: typeof note.content,
+        contentIsNull: note.content === null,
+        contentIsUndefined: note.content === undefined,
+        contentLength: note.content?.length || 0,
+        content_html: note.content_html ? `${note.content_html.substring(0, 100)}...` : note.content_html,
+        content_htmlLength: note.content_html?.length || 0,
+        created_at: note.created_at,
+        updated_at: note.updated_at,
+        allFields: Object.keys(note)
+      });
 
       // Transform Supabase data to Note format
-      return {
+      const extractedTitle = this.extractTitle(note.title);
+      const extractedContent = note.content || '';
+      const parsedCreatedAt = this.parseDate(note.created_at);
+      const parsedUpdatedAt = this.parseDate(note.updated_at);
+      
+      const transformedNote = {
         id: note.id,
         userId: note.user_id,
-        title: note.title,
-        content: note.content,
-        contentHtml: note.content_html,
+        title: extractedTitle,
+        content: extractedContent,
+        contentHtml: note.content_html || null,
         contentFormat: note.content_format || 'plain',
         type: note.type || 'text',
         tags: note.tags || [],
@@ -373,13 +639,30 @@ export class SupabaseNoteStorage {
         audioFiles: note.audio_files || [],
         pdfFiles: note.pdf_files || [],
         keyDetails: note.key_details || [],
-        summary: note.summary,
-        createdAt: new Date(note.created_at),
-        updatedAt: new Date(note.updated_at),
+        summary: note.summary || null,
+        createdAt: parsedCreatedAt,
+        updatedAt: parsedUpdatedAt,
         // Include share permission info if this is a shared note
         isSharedNote: note.isSharedNote || false,
         sharePermission: note.sharePermission,
       };
+
+      // Log transformed data
+      console.log('🔍 SupabaseNoteStorage.getNote: TRANSFORMED DATA:', {
+        id: transformedNote.id,
+        title: transformedNote.title,
+        titleLength: transformedNote.title.length,
+        content: transformedNote.content ? `${transformedNote.content.substring(0, 100)}...` : transformedNote.content,
+        contentLength: transformedNote.content.length,
+        contentHtml: transformedNote.contentHtml ? `${transformedNote.contentHtml.substring(0, 100)}...` : transformedNote.contentHtml,
+        contentHtmlLength: transformedNote.contentHtml?.length || 0,
+        createdAt: transformedNote.createdAt,
+        updatedAt: transformedNote.updatedAt,
+        createdAtValid: !isNaN(transformedNote.createdAt.getTime()),
+        updatedAtValid: !isNaN(transformedNote.updatedAt.getTime())
+      });
+
+      return transformedNote;
     } catch (error) {
       this.handleError(error, 'getNote');
       return null;
@@ -399,7 +682,11 @@ export class SupabaseNoteStorage {
       
       // Sanitize HTML content to prevent XSS
       const sanitizedTitle = sanitizeNoteTitle(validatedTitle);
-      const sanitizedContent = sanitizeNoteContent(validatedContent);
+      // Sanitize content based on format: plain text vs HTML
+      const contentFormat = noteData.contentFormat || 'plain';
+      const sanitizedContent = contentFormat === 'html' 
+        ? sanitizeNoteContent(validatedContent)
+        : sanitizePlainText(validatedContent);
       console.log('✅ Note validation passed');
       
       // Generate a unique ID for the note
@@ -455,9 +742,9 @@ export class SupabaseNoteStorage {
       return {
         id: note.id,
         userId: note.user_id,
-        title: note.title,
-        content: note.content,
-        contentHtml: note.content_html,
+        title: this.extractTitle(note.title),
+        content: note.content || '',
+        contentHtml: note.content_html || null,
         contentFormat: note.content_format || 'plain',
         type: note.type || 'text',
         tags: note.tags || [],
@@ -467,9 +754,9 @@ export class SupabaseNoteStorage {
         audioFiles: note.audio_files || [],
         pdfFiles: note.pdf_files || [],
         keyDetails: note.key_details || [],
-        summary: note.summary,
-        createdAt: new Date(note.created_at),
-        updatedAt: new Date(note.updated_at),
+        summary: note.summary || null,
+        createdAt: this.parseDate(note.created_at),
+        updatedAt: this.parseDate(note.updated_at),
       };
     } catch (error) {
       this.handleError(error, 'createNote');
@@ -497,7 +784,11 @@ export class SupabaseNoteStorage {
       }
       if (updates.content !== undefined) {
         const validatedContent = validateNoteContent(updates.content);
-        updateData.content = sanitizeNoteContent(validatedContent);
+        // Sanitize content based on format: plain text vs HTML
+        const contentFormat = updates.contentFormat || 'plain';
+        updateData.content = contentFormat === 'html'
+          ? sanitizeNoteContent(validatedContent)
+          : sanitizePlainText(validatedContent);
       }
       if (updates.contentHtml !== undefined) {
         updateData.content_html = updates.contentHtml ? sanitizeNoteContent(updates.contentHtml) : null;
@@ -529,9 +820,9 @@ export class SupabaseNoteStorage {
       return {
         id: note.id,
         userId: note.user_id,
-        title: note.title,
-        content: note.content,
-        contentHtml: note.content_html,
+        title: this.extractTitle(note.title),
+        content: note.content || '',
+        contentHtml: note.content_html || null,
         contentFormat: note.content_format || 'plain',
         type: note.type || 'text',
         tags: note.tags || [],
@@ -541,9 +832,9 @@ export class SupabaseNoteStorage {
         audioFiles: note.audio_files || [],
         pdfFiles: note.pdf_files || [],
         keyDetails: note.key_details || [],
-        summary: note.summary,
-        createdAt: new Date(note.created_at),
-        updatedAt: new Date(note.updated_at),
+        summary: note.summary || null,
+        createdAt: this.parseDate(note.created_at),
+        updatedAt: this.parseDate(note.updated_at),
       };
     } catch (error) {
       this.handleError(error, 'updateNote');
