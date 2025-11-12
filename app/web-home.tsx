@@ -16,7 +16,7 @@ export default function WebHomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { isFeatureEnabled } = useFeatureFlags();
-  const { notes, loading, deleteNote, toggleArchive, toggleFavorite } = useNotes(user?.id || '');
+  const { notes, loading, deleteNote, toggleArchive, toggleFavorite } = useNotes(user?.id || '', user?.email || null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 

@@ -21,7 +21,7 @@ export const options = {
 export default function ArchivedNotesScreen() {
   const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
-  const { notes, loading, toggleArchive, toggleFavorite, deleteNote } = useNotes(user?.id || '');
+  const { notes, loading, toggleArchive, toggleFavorite, deleteNote } = useNotes(user?.id || '', user?.email || null);
   const router = useRouter();
   const navigation = useNavigation();
   const iconColor = useThemeColor({}, 'text');

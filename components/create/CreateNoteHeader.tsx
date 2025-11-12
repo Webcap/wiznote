@@ -3,17 +3,12 @@ import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
-import { EnhancedSaveStatus } from '@/components/EnhancedSaveStatus';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface CreateNoteHeaderProps {
   isEditMode: boolean;
-  isRichTextEnabled: boolean;
   isSaveDisabled: boolean;
   isSaving: boolean;
-  hasUnsavedChanges: boolean;
-  lastSaved: string | null;
-  error: string | null;
   handleSave: () => void;
   handleDiscard: () => void;
   renderSaveStatus: () => React.ReactNode;
@@ -22,7 +17,6 @@ interface CreateNoteHeaderProps {
 
 export const CreateNoteHeader: React.FC<CreateNoteHeaderProps> = ({
   isEditMode,
-  isRichTextEnabled,
   isSaveDisabled,
   isSaving,
   handleSave,
@@ -51,12 +45,10 @@ export const CreateNoteHeader: React.FC<CreateNoteHeaderProps> = ({
           <ThemedText style={styles.webHeaderTitle}>
             {isEditMode ? t('createNote.editNote') : t('createNote.createNote')}
           </ThemedText>
-          {isRichTextEnabled && (
-            <View style={styles.webRichTextBadge}>
-              <Ionicons name="text" size={12} color="#4CAF50" />
-              <ThemedText style={styles.webRichTextBadgeText}>{t('createNote.richText')}</ThemedText>
-            </View>
-          )}
+          <View style={styles.webRichTextBadge}>
+            <Ionicons name="text" size={12} color="#4CAF50" />
+            <ThemedText style={styles.webRichTextBadgeText}>{t('createNote.richText')}</ThemedText>
+          </View>
         </View>
         {renderSaveStatus()}
       </View>

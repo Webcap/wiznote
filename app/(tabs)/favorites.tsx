@@ -20,7 +20,7 @@ export const options = {
 export default function FavoritesScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { notes, loading, toggleFavorite, togglePin, toggleArchive, deleteNote } = useNotes(user?.id || '');
+  const { notes, loading, toggleFavorite, togglePin, toggleArchive, deleteNote } = useNotes(user?.id || '', user?.email || null);
   const router = useRouter();
   const iconColor = useThemeColor({}, 'text');
   const backgroundColor = useThemeColor({}, 'background');

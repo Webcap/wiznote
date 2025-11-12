@@ -33,7 +33,7 @@ export default function FlashcardsPage() {
   const { language } = useLanguage();
   const { noteId } = useLocalSearchParams<{ noteId: string }>();
   const { user } = useAuth();
-  const { notes, updateNote } = useNotes(user?.id || '');
+  const { notes, updateNote } = useNotes(user?.id || '', user?.email || null);
   const { isFeatureEnabled } = useFeatureFlags();
   const [note, setNote] = useState<any>(null);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);

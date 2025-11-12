@@ -44,8 +44,25 @@ export function WebNoteCard({
     }).format(date);
   };
 
-  const getPreview = (content: string) => {
-    const plainText = content.replace(/<[^>]*>/g, '');
+  const getPlainText = (value: Note): string => {
+    if (value.content && value.content.trim().length > 0) {
+      return value.content;
+    }
+
+    if (value.contentHtml) {
+      const withoutTags = value.contentHtml
+        .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<\/?[^>]+(>|$)/g, ' ')
+        .replace(/\s+/g, ' ');
+      return withoutTags.trim();
+    }
+
+    return '';
+  };
+
+  const getPreview = (value: Note) => {
+    const plainText = getPlainText(value);
     return plainText.length > 120 ? plainText.substring(0, 120) + '...' : plainText;
   };
 
@@ -117,7 +134,7 @@ export function WebNoteCard({
 
       {/* Content Preview */}
       <ThemedText style={styles.preview} numberOfLines={3}>
-        {getPreview(note.content)}
+        {getPreview(note)}
       </ThemedText>
 
       {/* Footer */}

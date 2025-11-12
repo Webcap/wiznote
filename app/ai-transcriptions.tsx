@@ -160,7 +160,7 @@ function formatTimestamp(seconds: number): string {
 export default function AITranscriptionsScreen() {
   const { noteId } = useLocalSearchParams<{ noteId?: string }>();
   const { user, isLoading: authLoading } = useAuth();
-  const { notes, loading: notesLoading } = useNotes(user?.id || '');
+  const { notes, loading: notesLoading } = useNotes(user?.id || '', user?.email || null);
   const router = useRouter();
   const { t } = useTranslation();
 

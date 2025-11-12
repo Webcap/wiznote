@@ -29,7 +29,6 @@ import { RichTextEditor } from '../components/RichTextEditor';
 
 // Hooks
 import { useAuth } from '../hooks/useAuth';
-import { useFeatureFlags } from '../hooks/useFeatureFlags';
 import { useNotes } from '../hooks/useNotes';
 import { useSaveManager } from '../hooks/useSaveManager';
 import { useThemeColor } from '../hooks/useThemeColor';
@@ -81,7 +80,6 @@ export default function CreateNoteScreen() {
   const originalNoteDataRef = useRef<{ title: string; content: string; contentHtml: string; tags: string[] } | null>(null);
   
   // Refs for TextInput to track cursor position
-  const contentInputRef = useRef<TextInput>(null);
   const titleInputRef = useRef<TextInput>(null);
   
   // Authentication and data hooks
@@ -89,12 +87,9 @@ export default function CreateNoteScreen() {
   const userId = user?.id || '';
   const isAuthenticated = !!user?.id && !authLoading;
   
-  const { notes, loading: notesLoading } = useNotes(userId);
+  const { notes, loading: notesLoading } = useNotes(userId, user?.email || null);
   
   // Feature flags
-  const { isFeatureEnabled } = useFeatureFlags();
-  const isRichTextEnabled = isFeatureEnabled('rich_text_editor');
-  
   // Generate temporary ID for new notes
   const currentNoteId = useMemo(() => {
     if (!isAuthenticated) return undefined;
@@ -142,11 +137,6 @@ export default function CreateNoteScreen() {
   // Memoize input styles to prevent re-renders
   const titleInputStyle = useMemo(() => [
     styles.titleInput, 
-    { backgroundColor: inputBg, color: inputText, borderColor }
-  ], [inputBg, inputText, borderColor]);
-  
-  const contentInputStyle = useMemo(() => [
-    styles.contentInput, 
     { backgroundColor: inputBg, color: inputText, borderColor }
   ], [inputBg, inputText, borderColor]);
   
@@ -291,25 +281,6 @@ export default function CreateNoteScreen() {
     // Use startTransition to make state update non-blocking and prevent cursor issues
     startTransition(() => {
       setTitle(text);
-    });
-    
-    // Clear existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    
-    // Set typing to false after 500ms of no typing
-    typingTimeoutRef.current = setTimeout(() => {
-      isTypingRef.current = false;
-    }, 500);
-  }, []);
-  
-  const handleContentChange = useCallback((text: string) => {
-    isTypingRef.current = true;
-    
-    // Use startTransition to make state update non-blocking and prevent cursor issues
-    startTransition(() => {
-      setContent(text);
     });
     
     // Clear existing timeout
@@ -532,12 +503,8 @@ export default function CreateNoteScreen() {
         <ThemedView style={styles.webContainer}>
           <CreateNoteHeader
             isEditMode={isEditMode}
-            isRichTextEnabled={isRichTextEnabled}
             isSaveDisabled={isSaveDisabled}
             isSaving={isSaving}
-            hasUnsavedChanges={hasUnsavedChanges}
-            lastSaved={lastSaved}
-            error={error}
             handleSave={handleSave}
             handleDiscard={handleDiscard}
             renderSaveStatus={renderSaveStatus}
@@ -562,15 +529,10 @@ export default function CreateNoteScreen() {
                 />
 
                 <NoteContentEditor
-                  isRichTextEnabled={isRichTextEnabled}
                   content={content}
                   setContent={setContent}
                   setContentHtml={setContentHtml}
                   setContentFormat={setContentFormat}
-                  inputBg={inputBg}
-                  inputText={inputText}
-                  borderColor={borderColor}
-                  placeholderColor={placeholderColor}
                 />
 
                 <NoteTagsInput
@@ -676,36 +638,22 @@ export default function CreateNoteScreen() {
                   editable={!isSaving}
                 />
 
-                {isRichTextEnabled ? (
-                  <View style={{ marginHorizontal: 20, marginTop: 12, marginBottom: 24 }}>
-                    <RichTextEditor
-                      value={contentHtml || content}
-                      onChange={(html, plainText) => {
-                        console.log('🔍 RichTextEditor onChange:', { html: html?.substring(0, 100), plainText: plainText?.substring(0, 100), htmlLength: html?.length });
-                        setContentHtml(html);
-                        setContent(plainText);
-                        setContentFormat(html ? 'html' : 'plain');
-                        // Log after state update
-                        setTimeout(() => {
-                          console.log('🔍 State after RichTextEditor onChange - contentHtml:', html?.substring(0, 50), 'contentFormat:', html ? 'html' : 'plain');
-                        }, 0);
-                      }}
-                      placeholder={t('createNote.startWriting')}
-                      style={{ minHeight: 400 }}
-                    />
-                  </View>
-                ) : (
-                  <MemoizedTextInput
-                    style={contentInputStyle}
+                <View style={{ marginHorizontal: 20, marginTop: 12, marginBottom: 24 }}>
+                  <RichTextEditor
+                    value={contentHtml || content}
+                    onChange={(html, plainText) => {
+                      console.log('🔍 RichTextEditor onChange:', { html: html?.substring(0, 100), plainText: plainText?.substring(0, 100), htmlLength: html?.length });
+                      setContentHtml(html);
+                      setContent(plainText);
+                      setContentFormat(html ? 'html' : 'plain');
+                      setTimeout(() => {
+                        console.log('🔍 State after RichTextEditor onChange - contentHtml:', html?.substring(0, 50), 'contentFormat:', html ? 'html' : 'plain');
+                      }, 0);
+                    }}
                     placeholder={t('createNote.startWriting')}
-                    placeholderTextColor={placeholderColor}
-                    value={content}
-                    onChangeText={handleContentChange}
-                    multiline
-                    textAlignVertical="top"
-                    editable={!isSaving}
+                    style={{ minHeight: 400 }}
                   />
-                )}
+                </View>
 
                 {/* Tags Section */}
                 <View style={styles.tagsSection}>
@@ -840,17 +788,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     minHeight: 64,
     lineHeight: 28,
-  },
-  contentInput: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 20,
-    fontSize: 16,
-    marginHorizontal: 20,
-    marginTop: 12,
-    marginBottom: 24,
-    minHeight: 400,
-    lineHeight: 24,
   },
   tagsSection: {
     marginHorizontal: 20,
