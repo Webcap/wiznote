@@ -104,26 +104,20 @@ export default function NoteDetailScreen() {
     return !!(note.pdfFiles && note.pdfFiles.length > 0);
   };
 
-  const loadNote = useCallback(async () => {
+  // Simplified note loading: single source of truth from Supabase
+  // Only use cache as fallback if Supabase fetch fails
+  useEffect(() => {
     if (!id) return;
     
+    // Wait for auth to finish loading
     if (authLoading) {
-      console.log('Waiting for auth to load...');
+      console.log('[NoteDetail] Waiting for auth to load...');
       return;
     }
     
-    setLoading(true);
-    
-    const foundNote = notes.find(n => n.id === id);
-    if (foundNote) {
-      console.log('Note found in user notes, updating display');
-      setNote(foundNote);
-      setLoading(false);
-      return;
-    }
-    
+    // If no user, show alert and redirect
     if (!user?.id) {
-      console.log('User not authenticated, cannot access shared notes');
+      console.log('[NoteDetail] User not authenticated');
       Alert.alert(
         t('noteDetail.authenticationRequired'),
         t('noteDetail.pleaseSignInToViewSharedNote'),
@@ -132,91 +126,106 @@ export default function NoteDetailScreen() {
           { text: t('noteDetail.signIn'), onPress: () => router.push('/(auth)/login') }
         ]
       );
-      setLoading(false);
       return;
     }
 
-    console.log('Note not found in user notes, trying to fetch as shared note...');
-    try {
-      const sharedNote = await supabaseNoteStorage.getNote(id);
-      if (sharedNote) {
-        console.log('Successfully loaded shared note:', sharedNote.title);
-        setNote(sharedNote);
-      } else {
-        console.log('Note not found or not shared with current user');
-        setNote(null);
-      }
-    } catch (error) {
-      console.error('Error fetching shared note:', error);
-      setNote(null);
-    }
-    setLoading(false);
-  }, [id, notes, user?.id, authLoading, t]);
-
-  useEffect(() => {
-    loadNote();
-  }, [loadNote]);
-
-  const shouldForceRefresh = useRef(false);
-  
-  useEffect(() => {
+    // Reset state when note ID changes
     setIsContentExpanded(false);
     setIsSummaryExpanded(false);
-  }, [id]);
+    setNote(null);
+    setLoading(true);
 
+    // Fetch note directly from Supabase - this is our single source of truth
+    const fetchNote = async () => {
+      try {
+        console.log('[NoteDetail] 🔍 Fetching note from Supabase:', id);
+        
+        const fetchedNote = await supabaseNoteStorage.getNote(id);
+        
+        if (fetchedNote) {
+          console.log('[NoteDetail] ✅ Note fetched successfully:', {
+            id: fetchedNote.id,
+            title: fetchedNote.title,
+            titleLength: fetchedNote.title?.length || 0,
+            contentLength: fetchedNote.content?.length || 0,
+            hasContentHtml: !!fetchedNote.contentHtml
+          });
+          
+          setNote(fetchedNote);
+        } else {
+          console.log('[NoteDetail] ❌ Note not found in Supabase, trying cache fallback');
+          // Fallback to cache if Supabase returns null
+          const cachedNote = notes.find(n => n.id === id);
+          if (cachedNote) {
+            console.log('[NoteDetail] ✅ Using cached note as fallback');
+            setNote(cachedNote);
+          } else {
+            setNote(null);
+          }
+        }
+      } catch (error) {
+        console.error('[NoteDetail] ❌ Error fetching note:', error);
+        // Fallback to cache on error
+        const cachedNote = notes.find(n => n.id === id);
+        if (cachedNote) {
+          console.log('[NoteDetail] ✅ Using cached note as error fallback');
+          setNote(cachedNote);
+        } else {
+          setNote(null);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNote();
+  }, [id, user?.id, authLoading, t]);
+
+  // Update note from cache only when it changes (e.g., after save)
+  // This is a secondary update mechanism, not the primary source
   useEffect(() => {
-    if (!id || notes.length === 0) return;
+    if (!id || !note || notes.length === 0) return;
     
     const updatedNote = notes.find(n => n.id === id);
     if (!updatedNote) return;
     
-    setNote(prevNote => {
-      if (!prevNote) {
-        shouldForceRefresh.current = false;
-        return updatedNote;
-      }
-      
-      if (shouldForceRefresh.current) {
-        shouldForceRefresh.current = false;
-        return updatedNote;
-      }
-      
-      const currentContent = prevNote.content || '';
-      const updatedContent = updatedNote.content || '';
-      const currentHtml = prevNote.contentHtml || '';
-      const updatedHtml = updatedNote.contentHtml || '';
-      const currentUpdatedAt = prevNote.updatedAt?.getTime() || 0;
-      const updatedUpdatedAt = updatedNote.updatedAt?.getTime() || 0;
-      
-      const hasContentChanged = currentContent !== updatedContent;
-      const hasHtmlChanged = currentHtml !== updatedHtml;
-      const hasTimestampChanged = currentUpdatedAt !== updatedUpdatedAt;
-      
-      if (hasContentChanged || hasHtmlChanged || hasTimestampChanged) {
-        return updatedNote;
-      }
-      
-      return prevNote;
-    });
-  }, [notes, id]);
+    // Only update if we're not currently loading and the note has actually changed
+    if (loading) return;
+    
+    // Check if the updated note has newer data (by timestamp)
+    const currentTimestamp = note.updatedAt?.getTime() || 0;
+    const updatedTimestamp = updatedNote.updatedAt?.getTime() || 0;
+    
+    // Only update if the cache has newer data
+    if (updatedTimestamp > currentTimestamp) {
+      console.log('[NoteDetail] 📝 Updating note from cache (newer timestamp detected)');
+      setNote(updatedNote);
+    }
+  }, [notes, id, note, loading]);
 
+  // Refresh note when screen comes into focus (native only)
   useFocusEffect(
     useCallback(() => {
-      if (!id) return;
+      if (!id || !user?.id) return;
       
       const fetchFromDatabase = async () => {
         try {
+          console.log('[NoteDetail] 📡 Refreshing note from database...');
           const freshNote = await supabaseNoteStorage.getNote(id);
           if (freshNote) {
+            console.log('[NoteDetail] ✅ Note refreshed:', {
+              title: freshNote.title,
+              contentLength: freshNote.content?.length || 0
+            });
             setNote(freshNote);
           }
         } catch (error) {
-          console.error('[NoteDetail] ❌ Error fetching from database:', error);
+          console.error('[NoteDetail] ❌ Error refreshing note:', error);
         }
       };
       
       fetchFromDatabase();
-    }, [id])
+    }, [id, user?.id])
   );
 
   const getNotePlainText = useCallback((source: Note | null | undefined): string => {
