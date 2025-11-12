@@ -234,8 +234,10 @@ function AppContent() {
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                     <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                     <Stack.Screen name="signup" options={{ headerShown: false }} />
-                    <Stack.Screen name="note" options={{ headerShown: false }} />
-                    <Stack.Screen name="payment" options={{ headerShown: false }} />
+                    <Stack.Screen name="note/[id]" options={{ headerShown: false }} />
+                    <Stack.Screen name="payment-success" options={{ headerShown: false }} />
+                    <Stack.Screen name="payment-success-mobile" options={{ headerShown: false }} />
+                    <Stack.Screen name="payment-cancelled" options={{ headerShown: false }} />
                     <Stack.Screen name="create" options={{ headerShown: false }} />
                     <Stack.Screen name="create-audio" options={{ headerShown: false }} />
                     <Stack.Screen name="ai-transcriptions" options={{ headerShown: false }} />
