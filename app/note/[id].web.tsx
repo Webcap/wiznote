@@ -94,7 +94,6 @@ export default function NoteDetailScreen() {
   const { isFeatureEnabled } = useFeatureFlags();
   const isAISummariesEnabled = isFeatureEnabled('ai_summaries');
   const isAIKeyDetailsEnabled = isFeatureEnabled('ai_key_details');
-  const isRichTextEnabled = isFeatureEnabled('rich_text_editor');
   const isAIQuizEnabled = isFeatureEnabled('ai_quiz');
   const isAIFlashcardsEnabled = isFeatureEnabled('ai_flashcards');
   const isAIChatEnabled = isFeatureEnabled('ai_chat');
@@ -104,7 +103,6 @@ export default function NoteDetailScreen() {
   console.log('🔍 NoteDetailScreen: Feature flag status:', {
     ai_summaries: isAISummariesEnabled,
     ai_key_details: isAIKeyDetailsEnabled,
-    rich_text_editor: isRichTextEnabled,
     ai_quiz: isAIQuizEnabled,
     ai_flashcards: isAIFlashcardsEnabled,
     ai_chat: isAIChatEnabled,
@@ -126,15 +124,68 @@ export default function NoteDetailScreen() {
         hasContentHtml: !!note.contentHtml,
         contentHtmlLength: note.contentHtml?.length || 0,
         contentFormat: note.contentFormat,
-        isRichTextEnabled: isRichTextEnabled,
         shouldUseRichTextViewer: Platform.OS === 'web' && note.contentFormat === 'html' && note.contentHtml,
         contentPreview: note.content?.substring(0, 100),
         contentHtmlPreview: note.contentHtml?.substring(0, 100)
       });
     }
-  }, [note, isRichTextEnabled]);
+  }, [note]);
   
-const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(user?.id || '');
+const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(user?.id || '', user?.email || null);
+
+  const ensureNoteShape = useCallback(
+    (raw: Note | null | undefined): Note | null => {
+      if (!raw) {
+        return null;
+      }
+
+      const coerceDate = (value: unknown): Date | undefined => {
+        if (value instanceof Date) {
+          return Number.isNaN(value.getTime()) ? undefined : value;
+        }
+        if (typeof value === 'string' || typeof value === 'number') {
+          const parsed = new Date(value);
+          return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+        }
+        return undefined;
+      };
+
+      const normalizedCreatedAt = coerceDate(raw.createdAt) ?? coerceDate(raw.updatedAt) ?? new Date();
+      const normalizedUpdatedAt = coerceDate(raw.updatedAt) ?? normalizedCreatedAt ?? new Date();
+
+      return {
+        ...raw,
+        title: typeof raw.title === 'string' ? raw.title : '',
+        content: typeof raw.content === 'string' ? raw.content : '',
+        tags: Array.isArray(raw.tags) ? raw.tags : [],
+        keyDetails: Array.isArray(raw.keyDetails) ? raw.keyDetails : [],
+        summary: raw.summary ?? null,
+        audioFiles: Array.isArray(raw.audioFiles) ? raw.audioFiles : [],
+        pdfFiles: Array.isArray(raw.pdfFiles) ? raw.pdfFiles : [],
+        createdAt: normalizedCreatedAt,
+        updatedAt: normalizedUpdatedAt,
+      };
+    },
+    []
+  );
+
+  const [isHydrating, setIsHydrating] = useState(false);
+
+  const noteNeedsHydration = useCallback(
+    (candidate: Note | null | undefined): boolean => {
+      if (!candidate) {
+        return true;
+      }
+      const titleMissing =
+        typeof candidate.title !== 'string' || candidate.title.trim().length === 0;
+      const createdInvalid =
+        !(candidate.createdAt instanceof Date) || Number.isNaN(candidate.createdAt.getTime());
+      const updatedInvalid =
+        !(candidate.updatedAt instanceof Date) || Number.isNaN(candidate.updatedAt.getTime());
+      return titleMissing || createdInvalid || updatedInvalid;
+    },
+    []
+  );
 
   // Global debug function for testing feature flags
   useEffect(() => {
@@ -225,15 +276,25 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
     
     // First try to find the note in the user's notes
     const foundNote = notes.find(n => n.id === id);
+    let shouldFetchFresh = true;
+
     if (foundNote) {
-      console.log('Note found in user notes, updating display');
-      setNote(foundNote);
-      setLoading(false);
-      return;
+      console.log('Note found in user notes, evaluating data quality');
+      const normalizedLocalNote = ensureNoteShape(foundNote);
+      shouldFetchFresh = noteNeedsHydration(foundNote);
+
+      if (!shouldFetchFresh && normalizedLocalNote) {
+        setNote(normalizedLocalNote);
+        setLoading(false);
+        setIsHydrating(false);
+        return;
+      }
+      console.log('Local note missing fields, will hydrate from Supabase');
+      setIsHydrating(true);
     }
     
-    // If not found in user's notes, try to fetch it directly (for shared notes)
-    // This requires authentication
+    // If the note wasn't found locally or needs additional hydration,
+    // attempt to fetch it directly (for shared notes or data cleanup).
     if (!user?.id) {
       console.log('User not authenticated, cannot access shared notes');
       // Redirect to login if not authenticated
@@ -245,22 +306,33 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
       return;
     }
 
-    console.log('Note not found in user notes, trying to fetch as shared note...');
+    console.log('Fetching latest note data from Supabase...');
     try {
-      const sharedNote = await supabaseNoteStorage.getNote(id);
-      if (sharedNote) {
-        console.log('Successfully loaded shared note:', sharedNote.title);
-        setNote(sharedNote);
+      const fetchedNote = await supabaseNoteStorage.getNote(id);
+      if (fetchedNote) {
+        console.log('Successfully loaded note from Supabase:', fetchedNote.title);
+        const normalizedFetchedNote = ensureNoteShape(fetchedNote);
+        if (normalizedFetchedNote) {
+          setNote(normalizedFetchedNote);
+        } else {
+          setNote(null);
+        }
       } else {
         console.log('Note not found or not shared with current user');
-        setNote(null);
+        if (!foundNote) {
+          setNote(null);
+        }
       }
     } catch (error) {
-      console.error('Error fetching shared note:', error);
-      setNote(null);
+      console.error('Error fetching note from Supabase:', error);
+      if (!foundNote) {
+        setNote(null);
+      }
+    } finally {
+      setIsHydrating(false);
+      setLoading(false);
     }
-    setLoading(false);
-  }, [id, notes, user?.id, authLoading]);
+  }, [id, notes, user?.id, authLoading, ensureNoteShape, noteNeedsHydration]);
 
   useEffect(() => {
     loadNote();
@@ -282,28 +354,38 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
     const updatedNote = notes.find(n => n.id === id);
     if (!updatedNote) return;
     
+    const normalizedUpdatedNote = ensureNoteShape(updatedNote);
+    if (!normalizedUpdatedNote) {
+      return;
+    }
+    
     setNote(prevNote => {
+      if (noteNeedsHydration(updatedNote)) {
+        console.log('[NoteDetail] Updated note still needs hydration; retaining current display until remote data arrives');
+        return prevNote ?? normalizedUpdatedNote;
+      }
+
       // If we don't have a note yet, set it
       if (!prevNote) {
         console.log('[NoteDetail] First load: setting note from notes array');
         shouldForceRefresh.current = false;
-        return updatedNote;
+        return normalizedUpdatedNote;
       }
       
       // If force refresh is requested (e.g., after returning from edit), always update
       if (shouldForceRefresh.current) {
         console.log('[NoteDetail] Force refresh requested, updating display');
         shouldForceRefresh.current = false;
-        return updatedNote;
+        return normalizedUpdatedNote;
       }
       
       // Compare content to detect changes
       const currentContent = prevNote.content || '';
-      const updatedContent = updatedNote.content || '';
+      const updatedContent = normalizedUpdatedNote.content || '';
       const currentHtml = prevNote.contentHtml || '';
-      const updatedHtml = updatedNote.contentHtml || '';
+      const updatedHtml = normalizedUpdatedNote.contentHtml || '';
       const currentUpdatedAt = prevNote.updatedAt?.getTime() || 0;
-      const updatedUpdatedAt = updatedNote.updatedAt?.getTime() || 0;
+      const updatedUpdatedAt = normalizedUpdatedNote.updatedAt?.getTime() || 0;
       
       const hasContentChanged = currentContent !== updatedContent;
       const hasHtmlChanged = currentHtml !== updatedHtml;
@@ -324,13 +406,13 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
       
       if (hasContentChanged || hasHtmlChanged || hasTimestampChanged) {
         console.log('[NoteDetail] Note data changed in notes array, updating display');
-        return updatedNote;
+        return normalizedUpdatedNote;
       }
       
       // No changes, return previous note
       return prevNote;
     });
-  }, [notes, id]);
+  }, [notes, id, ensureNoteShape, noteNeedsHydration]);
 
   // Refresh note when screen comes into focus (e.g., after returning from edit)
   // Note: useFocusEffect is for native only, on web we use useEffect with id dependency
@@ -372,10 +454,31 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
   }, [id]);
 
   // Memoize note content combination to prevent unnecessary re-computation
+  const getNotePlainText = useCallback((source: Note | null | undefined): string => {
+    if (!source) {
+      return '';
+    }
+
+    if (source.content && source.content.trim().length > 0) {
+      return source.content;
+    }
+
+    if (source.contentHtml) {
+      const withoutTags = source.contentHtml
+        .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<\/?[^>]+(>|$)/g, ' ')
+        .replace(/\s+/g, ' ');
+      return withoutTags.trim();
+    }
+
+    return '';
+  }, []);
+
   const combinedNoteContent = useMemo(() => {
     if (!note) return '';
     
-    let text = note.content || '';
+    let text = getNotePlainText(note);
     
     // Add transcription from note.transcription (legacy field)
     if ((note as any).transcription) {
@@ -392,7 +495,7 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
     }
     
     return text;
-  }, [note?.content, note?.contentHtml, note?.updatedAt, note?.audioFiles, (note as any)?.transcription]);
+  }, [note, note?.audioFiles, (note as any)?.transcription, getNotePlainText]);
 
   // Memoized key details generation function
   const generateKeyDetails = useCallback(async (text: string) => {
@@ -1064,7 +1167,7 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
   const cardBackground = useThemeColor({}, 'backgroundSecondary');
   const borderColor = useThemeColor({}, 'border');
 
-  if (loading) {
+  if (loading || isHydrating) {
     return (
       <ThemedView style={[styles.container, { backgroundColor }]}>
         <View style={[styles.loadingContainer, { backgroundColor }]}>
@@ -1292,11 +1395,11 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
           )}
 
           {/* Note Content - Only show for non-audio notes or audio notes with content */}
-          {(!isAudioNote(note) || (isAudioNote(note) && note.content && note.content.trim() !== '')) && (
+          {(!isAudioNote(note) || (isAudioNote(note) && getNotePlainText(note))) && (
             <View style={styles.webContentSection}>
               <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>{t('notes.content')}</ThemedText>
               <View style={[styles.webContentText, { backgroundColor: cardBackground }]}>
-                {isRichTextEnabled ? (
+                {note.contentFormat === 'html' && note.contentHtml ? (
                   <RichTextViewerWeb
                     content={note.contentHtml || note.content || ''}
                     contentFormat={note.contentFormat === 'html' ? 'html' : 'plain'}
@@ -1305,7 +1408,7 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
                   />
                 ) : (
                   <ThemedText style={[styles.webContentTextInner, { color: textColor }]}>
-                    {note.content || t('noteDetail.noContentAvailable')}
+                    {getNotePlainText(note) || t('noteDetail.noContentAvailable')}
                   </ThemedText>
                 )}
               </View>

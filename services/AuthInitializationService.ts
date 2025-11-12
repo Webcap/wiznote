@@ -325,6 +325,21 @@ export class AuthInitializationService {
       permissions: userProfile.permissions,
       permissionsType: typeof userProfile.permissions,
     });
+    try {
+      console.log(
+        'AuthInitializationService: Raw profile data (full dump)',
+        typeof userProfile === 'object' ? JSON.stringify(userProfile, null, 2) : userProfile
+      );
+    } catch (dumpError) {
+      console.warn('AuthInitializationService: Failed to stringify raw profile data:', dumpError);
+    }
+
+    if (Array.isArray(userProfile)) {
+      console.warn(
+        'AuthInitializationService: Profile payload is array, using first element'
+      );
+      userProfile = userProfile[0] ?? {};
+    }
 
     let role = this.normalizeRole(userProfile.role);
     let permissions = this.parseJsonField<UserPermissions>(userProfile.permissions);

@@ -50,7 +50,8 @@ export default function HomeScreen() {
   const { uploadingPDF, setUploadingPDF, setOnUploadComplete: setPDFUploadComplete } = usePDFUpload();
   const { uploadingAudio, setUploadingAudio, setOnUploadComplete: setAudioUploadComplete } = useAudioUpload();
   const { notes, loading, error, syncStatus, isRealtimeActive, toggleArchive, toggleFavorite, deleteNote, getFilteredNotes, refreshNotes } = useNotes(
-    authLoading ? '' : (user?.id || '')
+    authLoading ? '' : (user?.id || ''),
+    authLoading ? null : (user?.email || null)
   );
 
   useEffect(() => {

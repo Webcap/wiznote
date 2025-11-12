@@ -81,7 +81,6 @@ export default function NoteDetailScreen() {
   const { isFeatureEnabled } = useFeatureFlags();
   const isAISummariesEnabled = isFeatureEnabled('ai_summaries');
   const isAIKeyDetailsEnabled = isFeatureEnabled('ai_key_details');
-  const isRichTextEnabled = isFeatureEnabled('rich_text_editor');
   const isAIQuizEnabled = isFeatureEnabled('ai_quiz');
   const isAIFlashcardsEnabled = isFeatureEnabled('ai_flashcards');
   const isAIChatEnabled = isFeatureEnabled('ai_chat');
@@ -90,7 +89,7 @@ export default function NoteDetailScreen() {
   const showDebugInfo = __DEV__;
   
   const { user, isLoading: authLoading } = useAuth();
-  const { notes, toggleArchive, updateNote, deleteNote } = useNotes(user?.id || '');
+  const { notes, toggleArchive, updateNote, deleteNote } = useNotes(user?.id || '', user?.email || null);
 
   // Helper functions for note type detection
   const isAudioNote = (note: Note): boolean => {
@@ -220,10 +219,31 @@ export default function NoteDetailScreen() {
     }, [id])
   );
 
+  const getNotePlainText = useCallback((source: Note | null | undefined): string => {
+    if (!source) {
+      return '';
+    }
+
+    if (source.content && source.content.trim().length > 0) {
+      return source.content;
+    }
+
+    if (source.contentHtml) {
+      const withoutTags = source.contentHtml
+        .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<\/?[^>]+(>|$)/g, ' ')
+        .replace(/\s+/g, ' ');
+      return withoutTags.trim();
+    }
+
+    return '';
+  }, []);
+
   const combinedNoteContent = useMemo(() => {
     if (!note) return '';
     
-    let text = note.content || '';
+    let text = getNotePlainText(note);
     
     if ((note as any).transcription) {
       text += '\n' + (note as any).transcription;
@@ -238,7 +258,7 @@ export default function NoteDetailScreen() {
     }
     
     return text;
-  }, [note?.content, note?.contentHtml, note?.updatedAt, note?.audioFiles, (note as any)?.transcription]);
+  }, [note, note?.audioFiles, (note as any)?.transcription, getNotePlainText]);
 
   const generateKeyDetails = useCallback(async (text: string) => {
     if (!user || !note) return;
@@ -1137,10 +1157,10 @@ export default function NoteDetailScreen() {
           )}
 
           {/* Note Content Section - Only show for non-audio notes or audio notes with content */}
-          {(!isAudioNote(note) || (isAudioNote(note) && note.content && note.content.trim() !== '')) && (
+          {(!isAudioNote(note) || (isAudioNote(note) && getNotePlainText(note))) && (
             <View style={styles.summarySection}>
               <ThemedText style={[styles.summaryTitle, { color: textColor }]}>{t('notes.content')}</ThemedText>
-              {isRichTextEnabled && note.contentFormat === 'html' && note.contentHtml ? (
+              {note.contentFormat === 'html' && note.contentHtml ? (
                 <>
                   <View style={{ width: '100%', minHeight: isContentExpanded ? 'auto' : 400, maxHeight: isContentExpanded ? undefined : 800 }}>
                     <RichTextViewerNative
@@ -1164,7 +1184,7 @@ export default function NoteDetailScreen() {
               ) : (
                 <>
                   {(() => {
-                    const textContent = note.content || t('noteDetail.noContentAvailable');
+                    const textContent = getNotePlainText(note) || t('noteDetail.noContentAvailable');
                     const shouldTruncate = textContent.length > 1500 && !isContentExpanded;
                     const displayContent = shouldTruncate ? textContent.substring(0, 1500) + '...' : textContent;
                     

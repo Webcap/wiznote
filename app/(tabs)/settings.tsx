@@ -18,7 +18,7 @@ export default function SettingsScreen() {
     isAdmin,
     isSupport
   } = useAuth();
-  const { notes } = useNotes(user?.id || '');
+  const { notes } = useNotes(user?.id || '', user?.email || null);
   const [autoKeyDetails, setAutoKeyDetails] = useState(true);
   const [autoAISummaries, setAutoAISummaries] = useState(true);
   const [subscriptionDetails, setSubscriptionDetails] = useState<any>(null);

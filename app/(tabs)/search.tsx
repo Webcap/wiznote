@@ -34,7 +34,7 @@ export default function SearchScreen() {
   const [noteType, setNoteType] = useState<'all' | 'text' | 'audio' | 'pdf'>('all');
 
   const { user, isAdmin } = useAuth();
-  const { notes, getFilteredNotes, loading } = useNotes(user?.id || '');
+  const { notes, getFilteredNotes, loading } = useNotes(user?.id || '', user?.email || null);
 
   // Helper to check note type
   const isAudioNote = (note: Note) => {

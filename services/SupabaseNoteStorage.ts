@@ -6,6 +6,7 @@ import { Platform } from 'react-native';
 
 export class SupabaseNoteStorage {
   private currentUser: string | null = null;
+  private currentUserEmail: string | null = null;
   private onError?: (error: string, type: 'error' | 'warning' | 'info') => void;
   private onNotesChange?: (notes: Note[]) => void;
   private isOnline: boolean = true;
@@ -89,7 +90,7 @@ export class SupabaseNoteStorage {
     });
   }
 
-  setCurrentUser(userId: string | null) {
+  setCurrentUser(userId: string | null, userEmail: string | null = null) {
     console.log('SupabaseNoteStorage: setCurrentUser called with userId:', userId ? `${userId.substring(0, 8)}...` : 'null');
     
     // Don't clear the current user if an empty string is passed (this prevents race conditions)
@@ -111,6 +112,7 @@ export class SupabaseNoteStorage {
     }
     
     this.currentUser = userId;
+    this.currentUserEmail = userEmail ? userEmail.trim().toLowerCase() : null;
     
     // Initialize real-time subscription only if we have a valid user ID
     if (userId && userId.trim() !== '') {
@@ -178,6 +180,7 @@ export class SupabaseNoteStorage {
     this.cleanupRealtimeSubscription();
     // Don't clear currentUser here - let it be managed by setCurrentUser calls
     // this.currentUser = null;
+    this.currentUserEmail = null;
     this.onError = undefined;
     this.onNotesChange = undefined;
   }
@@ -186,6 +189,7 @@ export class SupabaseNoteStorage {
   clearUser() {
     this.cleanupRealtimeSubscription();
     this.currentUser = null;
+    this.currentUserEmail = null;
     this.onError = undefined;
     this.onNotesChange = undefined;
   }
@@ -284,20 +288,47 @@ export class SupabaseNoteStorage {
         console.log('Note not found as owner, checking if it\'s a shared note...');
         
         // Check if this note is shared with the current user
-        const { data: share, error: shareError } = await supabase
-          .from('note_shares')
-          .select('id, permission_level, owner_id, created_at')
-          .eq('note_id', noteId)
-          .eq('shared_with_user_id', this.currentUser)
-          .eq('is_active', true)
-          .single();
+        const shareSelect = 'id, permission_level, owner_id, shared_with_user_id, shared_with_email, created_at';
+        let share: any = null;
 
-        if (shareError || !share) {
-          console.log('Note is not shared with current user');
+        if (this.currentUser) {
+          const { data: shareByUser, error: shareByUserError } = await supabase
+            .from('note_shares')
+            .select(shareSelect)
+            .eq('note_id', noteId)
+            .eq('shared_with_user_id', this.currentUser)
+            .eq('is_active', true)
+            .maybeSingle();
+
+          if (shareByUser) {
+            share = shareByUser;
+          } else if (shareByUserError && shareByUserError.code && shareByUserError.code !== 'PGRST116') {
+            console.warn('SupabaseNoteStorage: Error checking note share by user id:', shareByUserError);
+          }
+        }
+
+        if (!share && this.currentUserEmail) {
+          const { data: shareByEmail, error: shareByEmailError } = await supabase
+            .from('note_shares')
+            .select(shareSelect)
+            .eq('note_id', noteId)
+            .ilike('shared_with_email', this.currentUserEmail)
+            .eq('is_active', true)
+            .maybeSingle();
+
+          if (shareByEmail) {
+            share = shareByEmail;
+          } else if (shareByEmailError && shareByEmailError.code && shareByEmailError.code !== 'PGRST116') {
+            console.warn('SupabaseNoteStorage: Error checking note share by email:', shareByEmailError);
+          }
+        }
+
+        if (!share) {
+          console.log('Note is not shared with current user via user ID or email');
           return null;
         }
 
-        console.log('Note is shared with current user, fetching note...');
+        console.log('Note is shared with current user (shared access detected), fetching note...');
         
         // Fetch the note without the user_id filter (rely on RLS policy)
         const { data: sharedNote, error: sharedNoteError } = await supabase

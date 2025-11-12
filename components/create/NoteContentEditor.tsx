@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
-import { View, TextInput, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,40 +62,29 @@ const convertMarkdownToHtml = (markdown: string): string => {
 };
 
 interface NoteContentEditorProps {
-  isRichTextEnabled: boolean;
   content: string;
   setContent: (content: string) => void;
   setContentHtml: (html: string) => void;
   setContentFormat?: (format: 'plain' | 'html') => void;
-  inputBg: string;
-  inputText: string;
-  borderColor: string;
-  placeholderColor: string;
 }
 
 export const NoteContentEditor: React.FC<NoteContentEditorProps> = ({
-  isRichTextEnabled,
   content,
   setContent,
   setContentHtml,
   setContentFormat,
-  inputBg,
-  inputText,
-  borderColor,
-  placeholderColor,
 }) => {
-  // Memoize HTML conversion to prevent unnecessary re-computation
   const htmlContent = useMemo(() => {
-    if (!isRichTextEnabled || !content) return '';
+    if (!content) return '';
     return convertMarkdownToHtml(content);
-  }, [content, isRichTextEnabled]);
+  }, [content]);
 
-  // Update HTML content when memoized value changes
   useEffect(() => {
-    if (isRichTextEnabled && htmlContent) {
-      setContentHtml(htmlContent);
+    setContentHtml(htmlContent);
+    if (setContentFormat) {
+      setContentFormat(htmlContent ? 'html' : 'plain');
     }
-  }, [htmlContent, isRichTextEnabled, setContentHtml]);
+  }, [htmlContent, setContentHtml, setContentFormat]);
   
   const { t } = useTranslation();
   
@@ -104,12 +93,10 @@ export const NoteContentEditor: React.FC<NoteContentEditorProps> = ({
       <View style={styles.webSectionHeader}>
         <View style={styles.webSectionTitleContainer}>
           <ThemedText style={styles.webSectionTitle}>{t('createNote.content')}</ThemedText>
-          {isRichTextEnabled && (
-            <View style={styles.richTextIndicator}>
-              <Ionicons name="text" size={14} color="#4CAF50" />
-              <ThemedText style={styles.richTextIndicatorText}>{t('createNote.richText')}</ThemedText>
-            </View>
-          )}
+          <View style={styles.richTextIndicator}>
+            <Ionicons name="text" size={14} color="#4CAF50" />
+            <ThemedText style={styles.richTextIndicatorText}>{t('createNote.richText')}</ThemedText>
+          </View>
         </View>
         <View style={styles.webSectionBadge}>
           <Ionicons name="create" size={16} color="#6A5ACD" />
@@ -117,32 +104,14 @@ export const NoteContentEditor: React.FC<NoteContentEditorProps> = ({
         </View>
       </View>
 
-
-      {isRichTextEnabled ? (
-        <RichTextEditor
-          value={content}
-          onChange={(newContent: string) => {
-            setContent(newContent);
-            // HTML conversion is now handled by useMemo above
-            // Set content format to HTML when rich text is enabled
-            if (setContentFormat) {
-              setContentFormat('html');
-            }
-          }}
-          placeholder={t('createNote.startWritingContent')}
-          style={{ minHeight: 300 }}
-        />
-      ) : (
-        <TextInput
-          style={[styles.webTextarea, { backgroundColor: inputBg, color: inputText, borderColor }]}
-          value={content}
-          onChangeText={setContent}
-          placeholder={t('createNote.startWritingContent')}
-          placeholderTextColor={placeholderColor}
-          multiline
-          textAlignVertical="top"
-        />
-      )}
+      <RichTextEditor
+        value={content}
+        onChange={(newContent: string) => {
+          setContent(newContent);
+        }}
+        placeholder={t('createNote.startWritingContent')}
+        style={{ minHeight: 300 }}
+      />
     </ThemedView>
   );
 };
@@ -210,28 +179,5 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 4,
     color: '#6A5ACD',
-  },
-  webTextarea: {
-    minHeight: 300,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    fontSize: 16,
-    lineHeight: 24,
-    ...(Platform.OS === 'web' ? {
-      '@media (max-width: 768px)': {
-        paddingHorizontal: 12,
-        paddingTop: 12,
-        fontSize: 16,
-        minHeight: 250,
-      },
-      '@media (max-width: 480px)': {
-        paddingHorizontal: 10,
-        paddingTop: 10,
-        fontSize: 16,
-        minHeight: 200,
-      },
-    } : {}),
   },
 });

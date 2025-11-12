@@ -440,6 +440,11 @@ export class FlashcardService {
   // Get all flashcard sets for a note
   async getFlashcardSetsForNote(noteId: string, userId: string): Promise<FlashcardSet[]> {
     try {
+      if (!userId) {
+        console.warn('[FlashcardService] getFlashcardSetsForNote called without a valid userId');
+        return [];
+      }
+
       // First, check if the user owns the note or has access to it as a shared note
       const { data: note, error: noteError } = await supabase
         .from('notes')
@@ -452,6 +457,11 @@ export class FlashcardService {
         throw noteError;
       }
 
+      if (!note) {
+        console.warn('[FlashcardService] Note not found when loading flashcard sets');
+        return [];
+      }
+
       let ownerUserId = note.user_id;
       let hasAccess = false;
 
@@ -462,7 +472,7 @@ export class FlashcardService {
         // Check if note is shared with the user
         const { data: share, error: shareError } = await supabase
           .from('note_shares')
-          .select('id, permission_level')
+          .select('id, permission_level, owner_id')
           .eq('note_id', noteId)
           .eq('shared_with_user_id', userId)
           .eq('is_active', true)
@@ -472,12 +482,20 @@ export class FlashcardService {
           hasAccess = true;
           // For shared notes, we need to get flashcards created by the original owner
           // but we'll still use the current user's ID for the query to respect RLS policies
+          if (!ownerUserId) {
+            ownerUserId = share.owner_id;
+          }
         }
       }
 
       if (!hasAccess) {
         console.log('User does not have access to note for flashcards');
         return [];
+      }
+
+      if (!ownerUserId) {
+        console.warn('[FlashcardService] Unable to determine note owner, defaulting to current user for flashcard query');
+        ownerUserId = userId;
       }
 
       // Get flashcard sets - for owned notes, use the owner's ID; for shared notes, 

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Alert, Animated, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Note } from '../types/Note';
 
@@ -48,6 +48,23 @@ export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onToggle
       ]
     );
   };
+
+  const plainTextContent = useMemo(() => {
+    if (note.content && note.content.trim().length > 0) {
+      return note.content;
+    }
+
+    if (note.contentHtml) {
+      const withoutTags = note.contentHtml
+        .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<\/?[^>]+(>|$)/g, ' ')
+        .replace(/\s+/g, ' ');
+      return withoutTags.trim();
+    }
+
+    return '';
+  }, [note.content, note.contentHtml]);
 
   const formatDate = (date: any) => {
     let dateObj: Date | null = null;
@@ -176,9 +193,9 @@ export const NoteCard = ({ note, onPress, onTogglePin, onToggleArchive, onToggle
           )}
         </View>
 
-        {note.content && (
+        {plainTextContent && (
           <Text style={styles.content} numberOfLines={Platform.OS === 'web' ? 3 : 5}>
-            {note.content}
+            {plainTextContent}
           </Text>
         )}
 

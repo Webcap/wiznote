@@ -429,7 +429,7 @@ export default function CreateAudioNoteScreen() {
       }
       
       // Set the current user on the storage service to ensure authentication
-      supabaseNoteStorage.setCurrentUser(user.id);
+      supabaseNoteStorage.setCurrentUser(user.id, user.email || null);
       
       // Check if note already exists (from saveNote) or needs to be created (from handleRecordingComplete)
       let finalNoteId = noteId;

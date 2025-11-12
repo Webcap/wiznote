@@ -13,7 +13,7 @@ interface FilterOptions {
   sortOrder: 'asc' | 'desc';
 }
 
-export const useNotes = (userId: string) => {
+export const useNotes = (userId: string, userEmail?: string | null) => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,8 +25,9 @@ export const useNotes = (userId: string) => {
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const isSubscribedRef = useRef(false);
   
-  // Keep track of the last valid user ID to prevent race conditions
+  // Keep track of the last valid user ID/email to prevent race conditions
   const lastValidUserIdRef = useRef<string | null>(null);
+  const lastValidUserEmailRef = useRef<string | null>(null);
   const clearUserIdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Debug logging for mobile vs web differences
@@ -35,6 +36,23 @@ export const useNotes = (userId: string) => {
   // Check if userId is a valid authenticated user
   const isAuthenticatedUser = userId && userId !== '';
   
+  const getPlainTextFromNote = useCallback((value: Note): string => {
+    if (value.content && value.content.trim().length > 0) {
+      return value.content;
+    }
+
+    if (value.contentHtml) {
+      const withoutTags = value.contentHtml
+        .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<\/?[^>]+(>|$)/g, ' ')
+        .replace(/\s+/g, ' ');
+      return withoutTags.trim();
+    }
+
+    return '';
+  }, []);
+
   // Additional protection for mobile navigation issues
   const shouldUseFallback = !isAuthenticatedUser && lastValidUserIdRef.current;
   
@@ -48,12 +66,17 @@ export const useNotes = (userId: string) => {
       debugLogRef.current.count++;
       debugLogRef.current.lastLog = now;
       
-      console.log(`useNotes [${Platform.OS}] #${debugLogRef.current.count}: userId="${userId}", isAuthenticatedUser=${isAuthenticatedUser}, lastValidUserId="${lastValidUserIdRef.current}"`);
+      console.log(
+        `useNotes [${Platform.OS}] #${debugLogRef.current.count}: userId="${userId}", isAuthenticatedUser=${isAuthenticatedUser}, lastValidUserId="${lastValidUserIdRef.current}", lastValidUserEmail="${lastValidUserEmailRef.current}"`
+      );
     }
     
     if (userId && userId !== '') {
       console.log('useNotes: Using authenticated user ID:', userId);
       lastValidUserIdRef.current = userId;
+      if (userEmail && userEmail !== '') {
+        lastValidUserEmailRef.current = userEmail.trim().toLowerCase();
+      }
       
       // Clear any existing timeout since we have a valid user ID
       if (clearUserIdTimeoutRef.current) {
@@ -68,13 +91,14 @@ export const useNotes = (userId: string) => {
         clearUserIdTimeoutRef.current = setTimeout(() => {
           console.log('useNotes: Clearing last valid user ID after timeout');
           lastValidUserIdRef.current = null;
+          lastValidUserEmailRef.current = null;
           clearUserIdTimeoutRef.current = null;
         }, 5000);
       }
     } else {
       console.warn('useNotes: No user ID provided, this should not happen');
     }
-  }, [userId, isAuthenticatedUser]);
+  }, [userId, userEmail, isAuthenticatedUser]);
   
       // Additional check for Supabase Auth state
   const [authState, setAuthState] = useState<'checking' | 'authenticated' | 'unauthenticated'>('checking');
@@ -83,10 +107,15 @@ export const useNotes = (userId: string) => {
   useEffect(() => {
     // Use the current userId if available, otherwise fall back to the last valid user ID
     const effectiveUserId = userId && userId !== '' ? userId : lastValidUserIdRef.current;
+    const effectiveEmailCandidate =
+      userEmail && userEmail !== ''
+        ? userEmail.trim().toLowerCase()
+        : lastValidUserEmailRef.current;
+    const effectiveEmail = effectiveEmailCandidate ?? null;
     
     if (effectiveUserId) {
       console.log('useNotes: Setting current user for SupabaseNoteStorage:', effectiveUserId);
-      supabaseNoteStorage.setCurrentUser(effectiveUserId);
+      supabaseNoteStorage.setCurrentUser(effectiveUserId, effectiveEmail);
       supabaseNoteStorage.setErrorHandler((error, type) => {
         console.error('SupabaseNoteStorage error:', error, type);
         if (Platform.OS === 'web') {
@@ -100,7 +129,7 @@ export const useNotes = (userId: string) => {
     } else {
       console.log('useNotes: No valid user ID available, skipping SupabaseNoteStorage initialization');
     }
-  }, [userId, showSnackbar]);
+  }, [userId, userEmail, showSnackbar]);
 
   // Load notes function that can be called manually
   const loadNotes = useCallback(async () => {
@@ -615,11 +644,14 @@ export const useNotes = (userId: string) => {
     // Filter by search query
     if (options.searchQuery) {
       const query = options.searchQuery.toLowerCase();
-      filteredNotes = filteredNotes.filter(note =>
-        note.title.toLowerCase().includes(query) ||
-        note.content.toLowerCase().includes(query) ||
-        note.tags.some(tag => tag.toLowerCase().includes(query))
-      );
+      filteredNotes = filteredNotes.filter(note => {
+        const plainText = getPlainTextFromNote(note).toLowerCase();
+        return (
+          note.title.toLowerCase().includes(query) ||
+          plainText.includes(query) ||
+          note.tags.some(tag => tag.toLowerCase().includes(query))
+        );
+      });
     }
 
     // Filter by tags
@@ -668,7 +700,7 @@ export const useNotes = (userId: string) => {
     });
 
     return filteredNotes;
-  }, [notes]);
+  }, [notes, getPlainTextFromNote]);
 
   return {
     notes,
