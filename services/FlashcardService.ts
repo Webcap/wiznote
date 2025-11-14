@@ -17,6 +17,7 @@ import { featureFlagService } from './FeatureFlagService';
 import { generateFlashcardsWithGemini } from './GeminiAI';
 import { featureLimitService } from './FeatureLimitService';
 import { SupabaseNoteStorage } from './SupabaseNoteStorage';
+import { betterAuthService } from './BetterAuthService';
 
 export class FlashcardService {
   private static instance: FlashcardService;
@@ -40,23 +41,54 @@ export class FlashcardService {
       // Get user profile for feature flag check (needs premium status and role)
       let userForFeatureFlag: any = undefined;
       try {
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('id, role, premium')
-          .eq('id', userId)
-          .single();
+        // Try to get user from BetterAuthService first (has premium status)
+        const currentUser = await betterAuthService.getCurrentUser();
+        console.log('[FlashcardService] BetterAuthService.getCurrentUser() result:', {
+          hasUser: !!currentUser,
+          userId: currentUser?.id,
+          requestedUserId: userId,
+          hasRole: !!currentUser?.role,
+          hasPremium: !!currentUser?.premium
+        });
         
-        if (userProfile) {
+        if (currentUser && currentUser.id) {
+          // Use currentUser if it exists and has an id (should be the authenticated user)
+          // If ids don't match, still use it as it's the authenticated user
           userForFeatureFlag = {
-            id: userProfile.id,
-            role: userProfile.role,
-            premium: userProfile.premium || {}
+            id: currentUser.id,
+            role: currentUser.role || 'user',
+            premium: currentUser.premium || {}
           };
-          console.log('[FlashcardService] Loaded user profile for feature flag check:', {
+          console.log('[FlashcardService] Loaded user from BetterAuthService for feature flag check:', {
             id: userForFeatureFlag.id,
             role: userForFeatureFlag.role,
             premiumActive: userForFeatureFlag.premium?.isActive
           });
+        }
+        
+        // If BetterAuthService didn't provide a valid user, fallback to database
+        if (!userForFeatureFlag || !userForFeatureFlag.id) {
+          console.log('[FlashcardService] BetterAuthService user not available, querying database...');
+          const { data: userProfile, error } = await supabase
+            .from('user_profiles')
+            .select('id, role, premium')
+            .eq('id', userId)
+            .single();
+          
+          if (error) {
+            console.warn('[FlashcardService] Error loading user profile from database:', error);
+          } else if (userProfile && userProfile.id) {
+            userForFeatureFlag = {
+              id: userProfile.id,
+              role: userProfile.role || 'user',
+              premium: userProfile.premium || {}
+            };
+            console.log('[FlashcardService] Loaded user profile from database for feature flag check:', {
+              id: userForFeatureFlag.id,
+              role: userForFeatureFlag.role,
+              premiumActive: userForFeatureFlag.premium?.isActive
+            });
+          }
         }
       } catch (profileError) {
         console.warn('[FlashcardService] Failed to load user profile for feature flag check:', profileError);
@@ -177,40 +209,9 @@ export class FlashcardService {
         };
       }
 
-      // Determine the correct user ID for flashcard creation
-      // For shared notes, we need to use the original note owner's ID
-      let flashcardOwnerId = userId;
-      
-      if (noteId !== 'custom') {
-        try {
-          const { data: note, error: noteError } = await supabase
-            .from('notes')
-            .select('user_id')
-            .eq('id', noteId)
-            .single();
-
-          if (!noteError && note) {
-            // Check if this is a shared note
-            if (note.user_id !== userId) {
-              const { data: share, error: shareError } = await supabase
-                .from('note_shares')
-                .select('id, permission_level')
-                .eq('note_id', noteId)
-                .eq('shared_with_user_id', userId)
-                .eq('is_active', true)
-                .single();
-
-              if (!shareError && share) {
-                // This is a shared note, use the original owner's ID for flashcard creation
-                flashcardOwnerId = note.user_id;
-                console.log('🚀 FlashcardService: Using original owner ID for shared note:', flashcardOwnerId);
-              }
-            }
-          }
-        } catch (error) {
-          console.warn('🚀 FlashcardService: Could not determine note ownership, using current user ID');
-        }
-      }
+      // Always use the authenticated user's ID for flashcard creation
+      // This ensures RLS policies allow the insert (auth.uid() must match user_id)
+      // Flashcards belong to the user who generated them, not necessarily the note owner
 
       // Validate options
       if (options.numCards < 5 || options.numCards > 20) {
@@ -258,18 +259,35 @@ export class FlashcardService {
       // Get user profile for feature flag check in generateFlashcardsWithGemini
       let userForFeatureFlag: any = undefined;
       try {
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('id, role, premium')
-          .eq('id', userId)
-          .single();
+        // Try to get user from BetterAuthService first (has premium status)
+        const currentUser = await betterAuthService.getCurrentUser();
         
-        if (userProfile) {
+        if (currentUser && currentUser.id) {
+          // Use currentUser if it exists and has an id (should be the authenticated user)
           userForFeatureFlag = {
-            id: userProfile.id,
-            role: userProfile.role,
-            premium: userProfile.premium || {}
+            id: currentUser.id,
+            role: currentUser.role || 'user',
+            premium: currentUser.premium || {}
           };
+        }
+        
+        // If BetterAuthService didn't provide a valid user, fallback to database
+        if (!userForFeatureFlag || !userForFeatureFlag.id) {
+          const { data: userProfile, error } = await supabase
+            .from('user_profiles')
+            .select('id, role, premium')
+            .eq('id', userId)
+            .single();
+          
+          if (error) {
+            console.warn('[FlashcardService] Error loading user profile from database:', error);
+          } else if (userProfile && userProfile.id) {
+            userForFeatureFlag = {
+              id: userProfile.id,
+              role: userProfile.role || 'user',
+              premium: userProfile.premium || {}
+            };
+          }
         }
       } catch (profileError) {
         console.warn('[FlashcardService] Failed to load user profile for generateFlashcardsWithGemini:', profileError);
@@ -294,16 +312,17 @@ export class FlashcardService {
       }
 
       try {
-        // Try to create database records using the correct owner ID
-        const flashcardSet = await this.createFlashcardSet(noteId, flashcardOwnerId, {
+        // Create database records using the authenticated user's ID
+        // This ensures RLS policies allow the insert (auth.uid() must match user_id)
+        const flashcardSet = await this.createFlashcardSet(noteId, userId, {
           title: `AI Flashcards (${options.numCards} cards)`,
           description: `AI-generated flashcards with ${options.difficulty} difficulty level`,
         });
 
-        // Create individual flashcards using the correct owner ID
+        // Create individual flashcards using the authenticated user's ID
         const flashcards: Flashcard[] = [];
         for (const aiCard of aiResult.flashcards) {
-          const flashcard = await this.createFlashcard(flashcardSet.id, flashcardOwnerId, {
+          const flashcard = await this.createFlashcard(flashcardSet.id, userId, noteId, {
             question: aiCard.question,
             answer: aiCard.answer,
             explanation: aiCard.explanation,
@@ -314,10 +333,10 @@ export class FlashcardService {
           flashcards.push(flashcard);
         }
 
-        // Update flashcard set with generated cards using the correct owner ID
-        const updatedSet = await this.getFlashcardSet(flashcardSet.id, flashcardOwnerId);
+        // Update flashcard set with generated cards using the authenticated user's ID
+        const updatedSet = await this.getFlashcardSet(flashcardSet.id, userId);
         
-        // Record usage for the current user (not the owner)
+        // Record usage for the current user
         await featureLimitService.recordFeatureUsage(userId, 'ai_flashcards', 1, false, 'count');
 
         const generationTime = Date.now() - startTime;
@@ -334,7 +353,7 @@ export class FlashcardService {
         const mockFlashcardSet: FlashcardSet = {
           id: `temp_${Date.now()}`,
           noteId: noteId,
-          userId: flashcardOwnerId, // Use the correct owner ID
+          userId: userId, // Use the authenticated user's ID
           title: `AI Flashcards (${options.numCards} cards)`,
           description: `AI-generated flashcards with ${options.difficulty} difficulty level`,
           totalCards: aiResult.flashcards.length,
@@ -345,7 +364,7 @@ export class FlashcardService {
             id: `temp_${Date.now()}_${index}`,
             flashcardSetId: `temp_${Date.now()}`,
             noteId: noteId,
-            userId: flashcardOwnerId, // Use the correct owner ID
+            userId: userId, // Use the authenticated user's ID
             question: aiCard.question,
             answer: aiCard.answer,
             explanation: aiCard.explanation,
@@ -392,12 +411,34 @@ export class FlashcardService {
           title: data.title,
           description: data.description,
         })
-        .select()
+        .select('*')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating flashcard set - Supabase error:', error);
+        throw error;
+      }
 
-      return this.mapFlashcardSetRow(row);
+      if (!row) {
+        console.error('Error creating flashcard set - No data returned from insert');
+        throw new Error('No data returned from flashcard set insert');
+      }
+
+      // Handle case where .single() returns an array instead of a single object
+      const flashcardSetRow = Array.isArray(row) ? row[0] : row;
+
+      if (!flashcardSetRow) {
+        console.error('Error creating flashcard set - No data in returned array/object:', row);
+        throw new Error('Flashcard set insert returned empty data');
+      }
+
+      if (!flashcardSetRow.id) {
+        console.error('Error creating flashcard set - Missing id in returned data:', flashcardSetRow);
+        throw new Error('Flashcard set insert did not return an id');
+      }
+
+      console.log('✅ FlashcardService: Successfully created flashcard set with id:', flashcardSetRow.id);
+      return this.mapFlashcardSetRow(flashcardSetRow);
     } catch (error) {
       console.error('Error creating flashcard set:', error);
       throw error;
@@ -589,6 +630,7 @@ export class FlashcardService {
   async createFlashcard(
     setId: string,
     userId: string,
+    noteId: string,
     data: {
       question: string;
       answer: string;
@@ -599,11 +641,15 @@ export class FlashcardService {
     }
   ): Promise<Flashcard> {
     try {
+      if (!setId || setId === 'undefined') {
+        throw new Error(`Invalid flashcard set ID: ${setId}`);
+      }
+
       const { data: row, error } = await supabase
         .from('flashcards')
         .insert({
           flashcard_set_id: setId,
-          note_id: (await this.getFlashcardSet(setId, userId)).noteId,
+          note_id: noteId,
           user_id: userId,
           question: data.question,
           answer: data.answer,
@@ -612,12 +658,28 @@ export class FlashcardService {
           category: data.category,
           tags: data.tags,
         })
-        .select()
+        .select('*')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating flashcard - Supabase error:', error);
+        throw error;
+      }
 
-      return this.mapFlashcardRow(row);
+      if (!row) {
+        console.error('Error creating flashcard - No data returned from insert');
+        throw new Error('No data returned from flashcard insert');
+      }
+
+      // Handle case where .single() returns an array instead of a single object
+      const flashcardRow = Array.isArray(row) ? row[0] : row;
+
+      if (!flashcardRow) {
+        console.error('Error creating flashcard - No data in returned array/object:', row);
+        throw new Error('Flashcard insert returned empty data');
+      }
+
+      return this.mapFlashcardRow(flashcardRow);
     } catch (error) {
       console.error('Error creating flashcard:', error);
       throw error;
@@ -926,7 +988,7 @@ export class FlashcardService {
           for (const flashcardId of operation.flashcardIds) {
             const flashcard = await this.getFlashcardById(flashcardId, userId);
             if (flashcard) {
-              await this.createFlashcard(flashcard.flashcardSetId, userId, {
+              await this.createFlashcard(flashcard.flashcardSetId, userId, flashcard.noteId, {
                 question: flashcard.question,
                 answer: flashcard.answer,
                 explanation: flashcard.explanation,

@@ -43,6 +43,10 @@ export default function PremiumManagement({ user, supportAgentId, onPremiumUpdat
   const borderColor = useThemeColor({}, 'border');
 
   const refreshPremiumStatus = async () => {
+    if (!user?.id) {
+      console.warn('PremiumManagement: Cannot refresh premium status - user.id is missing');
+      return;
+    }
     setRefreshing(true);
     try {
       const status = await premiumManagementService.getPremiumStatus(user.id);
@@ -104,6 +108,28 @@ export default function PremiumManagement({ user, supportAgentId, onPremiumUpdat
   };
 
   const executeGrant = async () => {
+    if (!user?.id) {
+      const errorMsg = 'User ID is missing. Cannot grant premium access.';
+      console.error('PremiumManagement:', errorMsg);
+      if (Platform.OS === 'web') {
+        showSnackbar(errorMsg, 'error');
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
+      return;
+    }
+
+    if (!user?.email) {
+      const errorMsg = 'User email is missing. Cannot grant premium access.';
+      console.error('PremiumManagement:', errorMsg);
+      if (Platform.OS === 'web') {
+        showSnackbar(errorMsg, 'error');
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await premiumManagementService.grantFreePremium({
@@ -146,6 +172,17 @@ export default function PremiumManagement({ user, supportAgentId, onPremiumUpdat
   };
 
   const handleRevokePremium = async () => {
+    if (!user?.id || !user?.email) {
+      const errorMsg = 'User ID or email is missing. Cannot revoke premium access.';
+      console.error('PremiumManagement:', errorMsg);
+      if (Platform.OS === 'web') {
+        showSnackbar(errorMsg, 'error');
+      } else {
+        Alert.alert('Error', errorMsg);
+      }
+      return;
+    }
+
     const confirmMessage = `Revoke premium access from ${user.email}?`;
 
     const executeRevoke = async () => {
@@ -199,8 +236,12 @@ export default function PremiumManagement({ user, supportAgentId, onPremiumUpdat
 
   // Load premium status on mount
   useEffect(() => {
-    refreshPremiumStatus();
-  }, [user.id]);
+    if (user?.id) {
+      refreshPremiumStatus();
+    } else {
+      console.warn('PremiumManagement: user.id is missing, skipping premium status refresh');
+    }
+  }, [user?.id]);
 
   const currentPremium = premiumStatus || user.premium;
   const isPremiumActive = currentPremium?.isActive || false;

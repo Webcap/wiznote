@@ -61,6 +61,16 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
       
       if (user) {
         console.log('SupportDashboard: User found:', user);
+        console.log('SupportDashboard: User object:', { id: user.id, email: user.email, displayName: user.displayName });
+        if (!user.id) {
+          console.error('SupportDashboard: WARNING - User object missing id field!', user);
+          if (Platform.OS === 'web') {
+            showSnackbar('Error: User data is incomplete. Please try searching again.', 'error');
+          } else {
+            Alert.alert('Error', 'User data is incomplete. Please try searching again.');
+          }
+          return;
+        }
         setSelectedUser(user);
         setCurrentView('user-details');
         
@@ -109,6 +119,16 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
       
       if (user) {
         console.log('SupportDashboard: User found, switching to details view');
+        console.log('SupportDashboard: User object:', { id: user.id, email: user.email, displayName: user.displayName });
+        if (!user.id) {
+          console.error('SupportDashboard: WARNING - User object missing id field!', user);
+          if (Platform.OS === 'web') {
+            showSnackbar('Error: User data is incomplete. Please try searching again.', 'error');
+          } else {
+            Alert.alert('Error', 'User data is incomplete. Please try searching again.');
+          }
+          return;
+        }
         setSelectedUser(user);
         setCurrentView('user-details'); // Switch to user details view
         
@@ -374,17 +394,21 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
           </View>
 
           {/* Premium Management Section */}
-          <PremiumManagement
-            user={selectedUser}
-            supportAgentId={supportAgentId}
-            onPremiumUpdated={async () => {
-              // Refresh user data after premium changes
-              const updatedUser = await supportService.searchUser(selectedUser.email);
-              if (updatedUser) {
-                setSelectedUser(updatedUser);
-              }
-            }}
-          />
+          {selectedUser?.id && (
+            <PremiumManagement
+              user={selectedUser}
+              supportAgentId={supportAgentId}
+              onPremiumUpdated={async () => {
+                // Refresh user data after premium changes
+                if (selectedUser?.email) {
+                  const updatedUser = await supportService.searchUser(selectedUser.email);
+                  if (updatedUser) {
+                    setSelectedUser(updatedUser);
+                  }
+                }
+              }}
+            />
+          )}
 
           {userFeatureStatus && (
             <View style={[styles.statusCard, { backgroundColor: backgroundSecondary, borderColor: borderColor }]}>

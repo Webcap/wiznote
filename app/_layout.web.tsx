@@ -127,7 +127,8 @@ function AppContent() {
         
         // Check if current path is a public route (accessible without authentication)
         const isVerifyDeletionPage = currentPath === '/verify-deletion' || currentPath.startsWith('/verify-deletion');
-        const isPublicRoute = isPrivacyPage || isTermsPage || isChangelogPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage || isSignupPage || isVerifyDeletionPage;
+        // Note: isIndexPage is excluded from isPublicRoute when authenticated - let index page handle its own redirect
+        const isPublicRoute = isPrivacyPage || isTermsPage || isChangelogPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isSignupPage || isVerifyDeletionPage;
         
         console.log('Layout: Current path:', currentPath);
         console.log('Layout: Is payment page:', isPaymentPage);
@@ -136,10 +137,14 @@ function AppContent() {
         console.log('Layout: Is public route:', isPublicRoute);
         console.log('Layout: Is forgot password page:', isForgotPasswordPage);
         console.log('Layout: Is reset password page:', isResetPasswordPage);
+        console.log('Layout: Is index page:', isIndexPage);
         
         if (isAuthenticated) {
-          // Don't redirect if we're on a payment page, valid authenticated route, or public route
-          if (!isPaymentPage && !isValidAuthenticatedRoute && !isPublicRoute) {
+          // If on index page, let the index page component handle the redirect
+          // Don't redirect if we're on a payment page, valid authenticated route, or public route (excluding index)
+          if (isIndexPage) {
+            console.log('Layout: User authenticated on index page, letting index page handle redirect');
+          } else if (!isPaymentPage && !isValidAuthenticatedRoute && !isPublicRoute) {
             console.log('Layout: User authenticated, navigating to tabs');
             try {
               router.replace('/(tabs)');

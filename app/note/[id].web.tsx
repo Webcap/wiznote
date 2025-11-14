@@ -445,8 +445,8 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
   }, [note, note?.audioFiles, (note as any)?.transcription, getNotePlainText]);
 
   // Memoized key details generation function
-  const generateKeyDetails = useCallback(async (text: string) => {
-    if (!user || !note) return;
+  const generateKeyDetails = useCallback(async (text: string, noteId: string) => {
+    if (!user || !noteId) return;
     
     try {
       // Check usage limits using unified feature limit system
@@ -459,7 +459,7 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
       
       if (!canUseResult.canUse) {
         if (__DEV__) console.log('🔍 NoteDetailScreen: User cannot use AI key details:', canUseResult.reason);
-        setKeyDetailsGeneratedFor(note.id);
+        setKeyDetailsGeneratedFor(noteId);
           setSummaryUsageLimit(t('noteDetail.usageLimitReached', { currentUsage: canUseResult.currentUsage, limit: canUseResult.limit }));
         return;
       }
@@ -467,9 +467,9 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
       // Generate key details
       if (__DEV__) console.log('🔍 NoteDetailScreen: Starting key details generation');
       setKeyDetailsLoading(true);
-      setKeyDetailsGeneratedFor(note.id);
+      setKeyDetailsGeneratedFor(noteId);
       
-      const details = await extractKeyDetailsWithGemini(text);
+      const details = await extractKeyDetailsWithGemini(text, user);
       if (__DEV__) console.log('🔍 NoteDetailScreen: Key details generated successfully:', details);
       
       setKeyDetails(details);
@@ -492,10 +492,10 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
       }
       
       // Save to Firebase
-      if (note && details && details.length > 0) {
+      if (noteId && details && details.length > 0) {
         try {
           if (__DEV__) console.log('🔍 NoteDetailScreen: Saving key details to Firebase');
-          await updateNote(note.id, { keyDetails: details });
+          await updateNote(noteId, { keyDetails: details });
         } catch (e) {
           console.error('🔍 Failed to save key details:', e);
         }
@@ -503,9 +503,17 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
     } catch (error) {
       console.error('🔍 NoteDetailScreen: Failed to generate key details:', error);
       setKeyDetailsLoading(false);
-      setKeyDetailsGeneratedFor(null); // Reset on error to allow retry
+      
+      // If AI key details are disabled, mark as attempted to prevent infinite loop
+      // Otherwise, reset to allow retry for other errors
+      if (error instanceof Error && error.message.includes('AI key details are currently disabled')) {
+        console.log('🔍 NoteDetailScreen: AI key details disabled, marking as attempted to prevent loop');
+        setKeyDetailsGeneratedFor(noteId);
+      } else {
+        setKeyDetailsGeneratedFor(null); // Reset on error to allow retry
+      }
     }
-  }, [user, note, updateNote, t]);
+  }, [user, updateNote, t]);
 
   // Generate key details when note changes
   useEffect(() => {
@@ -553,7 +561,7 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
         return;
       }
       
-      // Use memoized content combination
+      // Compute content inside effect to avoid dependency loop
       const text = combinedNoteContent;
       
       if (__DEV__) {
@@ -571,13 +579,14 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
       if (__DEV__) console.log('🔍 NoteDetailScreen: Content validation passed, proceeding with generation');
       
       // Use memoized generation function
-      generateKeyDetails(text);
+      generateKeyDetails(text, note.id);
     }
-  }, [note?.id, keyDetailsGeneratedFor, isAIKeyDetailsEnabled, user?.id, user?.preferences?.autoKeyDetails, note?.isSharedNote, combinedNoteContent, generateKeyDetails]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note?.id, keyDetailsGeneratedFor, isAIKeyDetailsEnabled, user?.id, user?.preferences?.autoKeyDetails, note?.isSharedNote]);
 
   // Memoized summary generation function
-  const generateSummary = useCallback(async (text: string) => {
-    if (!user || !note) return;
+  const generateSummary = useCallback(async (text: string, noteId: string) => {
+    if (!user || !noteId) return;
     
     try {
       // Check feature limits before generating summary
@@ -591,7 +600,7 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
         
         if (!canUseResult.canUse) {
           if (__DEV__) console.log('🚫 AI Summary BLOCKED:', canUseResult.reason);
-          setSummaryGeneratedFor(note.id);
+          setSummaryGeneratedFor(noteId);
           setSummaryUsageLimit(t('noteDetail.usageLimitReachedForSummaries', { currentUsage: canUseResult.currentUsage, limit: canUseResult.limit }));
           return;
         }
@@ -600,9 +609,9 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
       // Generate summary
       if (__DEV__) console.log('🔍 NoteDetailScreen: Starting summary generation');
       setSummaryLoading(true);
-      setSummaryGeneratedFor(note.id);
+      setSummaryGeneratedFor(noteId);
       
-      const generatedSummary = await generateSummaryWithGemini(text);
+      const generatedSummary = await generateSummaryWithGemini(text, user);
       if (__DEV__) console.log('🔍 NoteDetailScreen: Summary generated successfully:', generatedSummary);
       
       setSummary(generatedSummary);
@@ -625,10 +634,10 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
       }
       
       // Save to Firebase
-      if (note && generatedSummary && generatedSummary.trim().length > 0) {
+      if (noteId && generatedSummary && generatedSummary.trim().length > 0) {
         try {
           if (__DEV__) console.log('🔍 NoteDetailScreen: Saving summary to Firebase');
-          await updateNote(note.id, { summary: generatedSummary });
+          await updateNote(noteId, { summary: generatedSummary });
         } catch (e) {
           console.error('🔍 Failed to save summary:', e);
         }
@@ -636,9 +645,17 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
     } catch (error) {
       console.error('🔍 NoteDetailScreen: Failed to generate summary:', error);
       setSummaryLoading(false);
-      setSummaryGeneratedFor(null); // Reset on error to allow retry
+      
+      // If AI summaries are disabled, mark as attempted to prevent infinite loop
+      // Otherwise, reset to allow retry for other errors
+      if (error instanceof Error && error.message.includes('AI summaries are currently disabled')) {
+        console.log('🔍 NoteDetailScreen: AI summaries disabled, marking as attempted to prevent loop');
+        setSummaryGeneratedFor(noteId);
+      } else {
+        setSummaryGeneratedFor(null); // Reset on error to allow retry
+      }
     }
-  }, [user, note, updateNote, t]);
+  }, [user, updateNote, t]);
 
   // Generate summary when note changes
   useEffect(() => {
@@ -690,9 +707,10 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
       
       console.log('🔍 NoteDetailScreen: Content validation passed, proceeding with summary generation');
       
-      generateSummary(text);
+      generateSummary(text, note.id);
     }
-  }, [note?.id, summaryGeneratedFor, isAISummariesEnabled, user?.id, user?.preferences?.autoAISummaries, note?.isSharedNote, combinedNoteContent, generateSummary]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note?.id, summaryGeneratedFor, isAISummariesEnabled, user?.id, user?.preferences?.autoAISummaries, note?.isSharedNote]);
 
   const handleArchiveToggle = async () => {
     if (!note) return;

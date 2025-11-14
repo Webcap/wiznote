@@ -3,6 +3,7 @@ import { DEFAULT_FEATURE_FLAGS } from '../constants/DefaultFeatureFlags';
 import { supabase } from '../lib/supabase';
 import { FeatureFlag, FeatureFlagKey } from '../types/FeatureFlags';
 import { User } from '../types/User';
+import { betterAuthService } from './BetterAuthService';
 
 // Optional environment variable to control FeatureFlagService logging
 const enableFeatureFlagServiceLogs = process.env.EXPO_PUBLIC_FEATURE_FLAG_SERVICE_LOGS === 'true';
@@ -435,28 +436,50 @@ export class FeatureFlagService {
       log('FeatureFlagService: Current Supabase user:', session.user.id);
       log('FeatureFlagService: User authenticated:', !!session.user);
       
-      // Check user role
+      // Check user role - try BetterAuthService first, then fallback to Supabase
+      let userRole: string | undefined;
       try {
-        const { data: userData, error: userError } = await supabase
-          .from('user_profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
+        // Try to get user from BetterAuthService first (has cached role)
+        const currentUser = await betterAuthService.getCurrentUser();
+        if (currentUser?.role) {
+          userRole = currentUser.role;
+          log('FeatureFlagService: User role from BetterAuthService:', userRole);
+        } else {
+          // Fallback to Supabase query
+          log('FeatureFlagService: BetterAuthService did not provide role, querying Supabase...');
+          const { data: userData, error: userError } = await supabase
+            .from('user_profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
 
-        if (userError) {
-          console.error('FeatureFlagService: Supabase error checking user role:', userError);
-          throw userError;
-        }
-        if (userData) {
-          log('FeatureFlagService: User role:', userData.role);
-          if (userData.role !== 'admin') {
-            throw new Error('Only admins can update feature flags');
+          if (userError) {
+            console.error('FeatureFlagService: Supabase error checking user role:', userError);
+            // Don't throw here, we'll check if userRole is set below
+            log('FeatureFlagService: Could not query user role from Supabase:', userError.message);
+          } else if (userData?.role) {
+            userRole = userData.role;
+            log('FeatureFlagService: User role from Supabase:', userRole);
           }
         }
       } catch (roleError) {
         console.error('FeatureFlagService: Error checking user role:', roleError);
-        throw new Error('Unable to verify user permissions');
+        // Don't throw here, we'll check if userRole is set below
+        log('FeatureFlagService: Exception while checking user role:', roleError);
       }
+
+      // Verify admin role
+      if (!userRole) {
+        console.error('FeatureFlagService: Could not determine user role');
+        throw new Error('Unable to verify user permissions: Could not determine user role');
+      }
+
+      if (userRole !== 'admin') {
+        log('FeatureFlagService: User is not an admin, role:', userRole);
+        throw new Error('Only admins can update feature flags');
+      }
+
+      log('FeatureFlagService: Admin role verified, proceeding with update');
 
       // Update each flag
       for (const [flagKey, updates] of Object.entries(featureFlags)) {
