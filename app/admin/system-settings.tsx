@@ -68,23 +68,64 @@ export default function SystemSettingsScreen() {
     loadSettings();
   }, [checkAdminAccess]);
 
-  const loadSettings = async () => {
+  // Debug: Log when settings.googleSignInEnabled changes
+  useEffect(() => {
+    if (settings) {
+      console.log('SystemSettingsScreen: settings.googleSignInEnabled changed:', {
+        value: settings.googleSignInEnabled,
+        type: typeof settings.googleSignInEnabled,
+        isFalse: settings.googleSignInEnabled === false,
+        isTrue: settings.googleSignInEnabled === true,
+        stringified: String(settings.googleSignInEnabled),
+      });
+    }
+  }, [settings?.googleSignInEnabled]);
+
+  const loadSettings = async (showLoading: boolean = true) => {
     try {
-      setLoading(true);
-      // Clear cache to ensure we get fresh data from database
+      if (showLoading) {
+        setLoading(true);
+      }
+      // Clear cache and force refresh to ensure we get fresh data from database
       systemSettingsService.clearCache();
-      const currentSettings = await systemSettingsService.getSettings();
+      const currentSettings = await systemSettingsService.getSettings(true);
       console.log('SystemSettingsScreen: Loaded settings:', {
         rateLimitAuthAttempts: currentSettings.rateLimitAuthAttempts,
         rateLimitAuthWindowMinutes: currentSettings.rateLimitAuthWindowMinutes,
-        googleSignInEnabled: currentSettings.googleSignInEnabled,
+        googleSignInEnabled: {
+          value: currentSettings.googleSignInEnabled,
+          type: typeof currentSettings.googleSignInEnabled,
+          isFalse: currentSettings.googleSignInEnabled === false,
+          isTrue: currentSettings.googleSignInEnabled === true,
+          strictEqual: currentSettings.googleSignInEnabled === false ? 'FALSE' : currentSettings.googleSignInEnabled === true ? 'TRUE' : 'OTHER',
+        },
+        mfaEnabled: {
+          value: currentSettings.mfaEnabled,
+          type: typeof currentSettings.mfaEnabled,
+        },
+        rateLimitEnabled: {
+          value: currentSettings.rateLimitEnabled,
+          type: typeof currentSettings.rateLimitEnabled,
+        },
       });
-      setSettings(currentSettings);
+      
+      // Explicitly log the state that will be set
+      console.log('SystemSettingsScreen: About to set state with googleSignInEnabled:', {
+        value: currentSettings.googleSignInEnabled,
+        type: typeof currentSettings.googleSignInEnabled,
+        willSetToFalse: currentSettings.googleSignInEnabled === false,
+      });
+      // Force state update with fresh settings
+      setSettings({ ...currentSettings });
+      // Reset hasChanges when loading fresh settings
+      setHasChanges(false);
     } catch (error) {
       console.error('Error loading settings:', error);
       Alert.alert('Error', 'Failed to load system settings');
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -107,6 +148,7 @@ export default function SystemSettingsScreen() {
 
       if (!user) {
         Alert.alert('Error', 'You must be logged in');
+        setSaving(false);
         return;
       }
 
@@ -116,38 +158,119 @@ export default function SystemSettingsScreen() {
 
       if (!isAdmin && !canManage) {
         Alert.alert('Unauthorized', 'You do not have permission to update system settings');
+        setSaving(false);
         return;
       }
 
-      const result = await systemSettingsService.updateSettings(
-        {
-          emailVerificationRequired: settings.emailVerificationRequired,
-          mfaEnabled: settings.mfaEnabled,
-          mfaRequiredForAdmin: settings.mfaRequiredForAdmin,
-          accountLockoutEnabled: settings.accountLockoutEnabled,
-          accountLockoutAttempts: settings.accountLockoutAttempts,
-          accountLockoutDurationMinutes: settings.accountLockoutDurationMinutes,
-          sessionTimeoutHours: settings.sessionTimeoutHours,
-          passwordMinLength: settings.passwordMinLength,
-          passwordRequireSpecialChars: settings.passwordRequireSpecialChars,
-          rateLimitEnabled: settings.rateLimitEnabled,
-          rateLimitAuthAttempts: settings.rateLimitAuthAttempts,
-          rateLimitAuthWindowMinutes: settings.rateLimitAuthWindowMinutes,
-          rateLimitApiRequests: settings.rateLimitApiRequests,
-          rateLimitApiWindowMinutes: settings.rateLimitApiWindowMinutes,
-          maintenanceMode: settings.maintenanceMode,
-          newUserRegistrationEnabled: settings.newUserRegistrationEnabled,
-          googleSignInEnabled: settings.googleSignInEnabled,
+      console.log('SystemSettingsScreen: Attempting to save settings:', {
+        userId: user.id,
+        isAdmin,
+        canManage,
+        settingsCount: Object.keys(settings).length,
+        googleSignInEnabled: {
+          value: settings.googleSignInEnabled,
+          type: typeof settings.googleSignInEnabled,
+          isFalse: settings.googleSignInEnabled === false,
+          isTrue: settings.googleSignInEnabled === true,
         },
-        user.id
+        rateLimitEnabled: {
+          value: settings.rateLimitEnabled,
+          type: typeof settings.rateLimitEnabled,
+          isFalse: settings.rateLimitEnabled === false,
+          isTrue: settings.rateLimitEnabled === true,
+        },
+        mfaEnabled: {
+          value: settings.mfaEnabled,
+          type: typeof settings.mfaEnabled,
+          isFalse: settings.mfaEnabled === false,
+          isTrue: settings.mfaEnabled === true,
+        },
+      });
+
+      // Pass user role and permissions to avoid RLS blocking issues
+      const updatesToSave = {
+        emailVerificationRequired: settings.emailVerificationRequired,
+        mfaEnabled: settings.mfaEnabled,
+        mfaRequiredForAdmin: settings.mfaRequiredForAdmin,
+        accountLockoutEnabled: settings.accountLockoutEnabled,
+        accountLockoutAttempts: settings.accountLockoutAttempts,
+        accountLockoutDurationMinutes: settings.accountLockoutDurationMinutes,
+        sessionTimeoutHours: settings.sessionTimeoutHours,
+        passwordMinLength: settings.passwordMinLength,
+        passwordRequireSpecialChars: settings.passwordRequireSpecialChars,
+        rateLimitEnabled: settings.rateLimitEnabled,
+        rateLimitAuthAttempts: settings.rateLimitAuthAttempts,
+        rateLimitAuthWindowMinutes: settings.rateLimitAuthWindowMinutes,
+        rateLimitApiRequests: settings.rateLimitApiRequests,
+        rateLimitApiWindowMinutes: settings.rateLimitApiWindowMinutes,
+        maintenanceMode: settings.maintenanceMode,
+        newUserRegistrationEnabled: settings.newUserRegistrationEnabled,
+        googleSignInEnabled: settings.googleSignInEnabled,
+      };
+      
+      console.log('SystemSettingsScreen: Updates to save (before sending):', {
+        googleSignInEnabled: {
+          value: updatesToSave.googleSignInEnabled,
+          type: typeof updatesToSave.googleSignInEnabled,
+          isFalse: updatesToSave.googleSignInEnabled === false,
+          isTrue: updatesToSave.googleSignInEnabled === true,
+        },
+      });
+      
+      const result = await systemSettingsService.updateSettings(
+        updatesToSave,
+        user.id,
+        undefined, // reason
+        user.role, // userRole - pass from UI to avoid RLS issues
+        user.permissions // userPermissions - pass from UI to avoid RLS issues
       );
 
+      console.log('SystemSettingsScreen: Save result:', result);
+
       if (result.success) {
-        Alert.alert('Success', 'System settings updated successfully');
+        console.log('SystemSettingsScreen: Settings saved successfully');
+        
+        // Clear cache and force reload to get fresh data
+        systemSettingsService.clearCache();
+        console.log('SystemSettingsScreen: Cache cleared, waiting for database to commit...');
+        
+        // Longer delay to ensure database transaction has fully committed
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Force refresh to bypass cache - explicitly clear cache again before fetching
+        systemSettingsService.clearCache();
+        console.log('SystemSettingsScreen: Fetching fresh settings from database...');
+        const freshSettings = await systemSettingsService.getSettings(true);
+        console.log('SystemSettingsScreen: Reloaded fresh settings after save:', {
+          googleSignInEnabled: {
+            value: freshSettings.googleSignInEnabled,
+            type: typeof freshSettings.googleSignInEnabled,
+            isFalse: freshSettings.googleSignInEnabled === false,
+            isTrue: freshSettings.googleSignInEnabled === true,
+          },
+          mfaEnabled: freshSettings.mfaEnabled,
+          rateLimitEnabled: freshSettings.rateLimitEnabled,
+        });
+        
+        // Update state with fresh settings - create a new object to force React to re-render
+        const newSettings = { ...freshSettings };
+        console.log('SystemSettingsScreen: Setting state with newSettings.googleSignInEnabled:', {
+          value: newSettings.googleSignInEnabled,
+          type: typeof newSettings.googleSignInEnabled,
+          isFalse: newSettings.googleSignInEnabled === false,
+        });
+        setSettings(newSettings);
         setHasChanges(false);
-        await loadSettings();
+        
+        Alert.alert('Success', 'System settings updated successfully');
       } else {
-        Alert.alert('Error', result.error || 'Failed to update settings');
+        console.error('SystemSettingsScreen: Save failed:', result.error);
+        const errorMessage = result.error || 'Failed to update settings';
+        Alert.alert(
+          'Error Saving Settings',
+          errorMessage + '\n\nPlease check:\n1. You have admin access or canManageSystemSettings permission\n2. RLS policies are correctly configured\n3. Check browser console for detailed error logs',
+          [{ text: 'OK' }]
+        );
       }
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -392,9 +515,10 @@ export default function SystemSettingsScreen() {
         />
 
         <SettingToggle
+          key={`google-sign-in-${settings.googleSignInEnabled}`}
           label="Google Sign-In"
           description="Enable Google Sign-In and Sign-Up for all users"
-          value={settings.googleSignInEnabled}
+          value={Boolean(settings.googleSignInEnabled)}
           onChange={(value) =>
             updateSetting('googleSignInEnabled', value)
           }
@@ -513,7 +637,8 @@ function SettingToggle({
         </ThemedText>
       </ThemedView>
       <Switch
-        value={value}
+        key={`switch-${value}`}
+        value={Boolean(value)}
         onValueChange={onChange}
         trackColor={{ false: '#767577', true: accentSuccess }}
         thumbColor={Platform.OS === 'ios' ? '#fff' : value ? '#fff' : '#f4f3f4'}

@@ -144,18 +144,51 @@ export class SupportService {
             .eq('id', user.id)
             .single();
 
-          if (!profileError && profile) {
+          if (profileError) {
+            console.warn(`SupportService: Error fetching profile for user ${user.id}:`, profileError);
+            // If profile query failed but we have RPC user data, return basic profile
+            if (user.id) {
+              console.warn(`SupportService: Profile query failed, returning RPC data only for user ${user.id}`);
+              return {
+                id: user.id,
+                email: user.email || 'Unknown',
+                displayName: user.display_name || 'Unknown User',
+                createdAt: new Date(),
+                lastActive: new Date(),
+                premium: { isActive: false, planName: 'Free', expiresAt: undefined },
+              };
+            }
+          } else if (profile) {
             const premium = profile.premium 
               ? await this.enrichPremiumData(profile.premium)
               : { isActive: false, planName: 'Free', expiresAt: undefined };
 
+            // Use user.id from RPC as fallback if profile.id is missing
+            const userId = profile.id || user.id;
+            if (!userId) {
+              console.error('SupportService: Both profile.id and user.id are missing!', { profile, user });
+              return null;
+            }
+
             return {
-              id: profile.id,
+              id: userId,
               email: user.email || profile.email || 'Unknown',
               displayName: profile.display_name || user.display_name || 'Unknown User',
               createdAt: new Date(profile.created_at || Date.now()),
               lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
               premium,
+            };
+          } else if (user.id) {
+            // Profile doesn't exist but we have user data from RPC
+            // Return a basic user profile with the RPC data
+            console.warn(`SupportService: Profile not found for user ${user.id}, returning RPC data only`);
+            return {
+              id: user.id,
+              email: user.email || 'Unknown',
+              displayName: user.display_name || 'Unknown User',
+              createdAt: new Date(),
+              lastActive: new Date(),
+              premium: { isActive: false, planName: 'Free', expiresAt: undefined },
             };
           }
         }

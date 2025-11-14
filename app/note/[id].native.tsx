@@ -269,8 +269,8 @@ export default function NoteDetailScreen() {
     return text;
   }, [note, note?.audioFiles, (note as any)?.transcription, getNotePlainText]);
 
-  const generateKeyDetails = useCallback(async (text: string) => {
-    if (!user || !note) return;
+  const generateKeyDetails = useCallback(async (text: string, noteId: string) => {
+    if (!user || !noteId) return;
     
     try {
       const canUseResult = await featureLimitService.canUseFeature(
@@ -281,15 +281,15 @@ export default function NoteDetailScreen() {
       );
       
       if (!canUseResult.canUse) {
-        setKeyDetailsGeneratedFor(note.id);
+        setKeyDetailsGeneratedFor(noteId);
         setSummaryUsageLimit(t('noteDetail.usageLimitReached', { currentUsage: canUseResult.currentUsage, limit: canUseResult.limit }));
         return;
       }
       
       setKeyDetailsLoading(true);
-      setKeyDetailsGeneratedFor(note.id);
+      setKeyDetailsGeneratedFor(noteId);
       
-      const details = await extractKeyDetailsWithGemini(text);
+      const details = await extractKeyDetailsWithGemini(text, user);
       
       setKeyDetails(details);
       setKeyDetailsLoading(false);
@@ -308,9 +308,9 @@ export default function NoteDetailScreen() {
         }
       }
       
-      if (note && details && details.length > 0) {
+      if (noteId && details && details.length > 0) {
         try {
-          await updateNote(note.id, { keyDetails: details });
+          await updateNote(noteId, { keyDetails: details });
         } catch (e) {
           console.error('🔍 Failed to save key details:', e);
         }
@@ -318,9 +318,17 @@ export default function NoteDetailScreen() {
     } catch (error) {
       console.error('🔍 NoteDetailScreen: Failed to generate key details:', error);
       setKeyDetailsLoading(false);
-      setKeyDetailsGeneratedFor(null);
+      
+      // If AI key details are disabled, mark as attempted to prevent infinite loop
+      // Otherwise, reset to allow retry for other errors
+      if (error instanceof Error && error.message.includes('AI key details are currently disabled')) {
+        console.log('🔍 NoteDetailScreen: AI key details disabled, marking as attempted to prevent loop');
+        setKeyDetailsGeneratedFor(noteId);
+      } else {
+        setKeyDetailsGeneratedFor(null); // Reset on error to allow retry
+      }
     }
-  }, [user, note, updateNote, t]);
+  }, [user, updateNote, t]);
 
   useEffect(() => {
     if (note && isAIKeyDetailsEnabled) {
@@ -347,6 +355,7 @@ export default function NoteDetailScreen() {
         return;
       }
       
+      // Compute content inside effect to avoid dependency loop
       const text = combinedNoteContent;
       
       if (!text.trim()) {
@@ -354,12 +363,13 @@ export default function NoteDetailScreen() {
         return;
       }
       
-      generateKeyDetails(text);
+      generateKeyDetails(text, note.id);
     }
-  }, [note?.id, keyDetailsGeneratedFor, isAIKeyDetailsEnabled, user?.id, user?.preferences?.autoKeyDetails, note?.isSharedNote, combinedNoteContent, generateKeyDetails, note]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note?.id, keyDetailsGeneratedFor, isAIKeyDetailsEnabled, user?.id, user?.preferences?.autoKeyDetails, note?.isSharedNote]);
 
-  const generateSummary = useCallback(async (text: string) => {
-    if (!user || !note) return;
+  const generateSummary = useCallback(async (text: string, noteId: string) => {
+    if (!user || !noteId) return;
     
     try {
       if (user) {
@@ -371,16 +381,16 @@ export default function NoteDetailScreen() {
         );
         
         if (!canUseResult.canUse) {
-          setSummaryGeneratedFor(note.id);
+          setSummaryGeneratedFor(noteId);
           setSummaryUsageLimit(t('noteDetail.usageLimitReachedForSummaries', { currentUsage: canUseResult.currentUsage, limit: canUseResult.limit }));
           return;
         }
       }
         
       setSummaryLoading(true);
-      setSummaryGeneratedFor(note.id);
+      setSummaryGeneratedFor(noteId);
       
-      const generatedSummary = await generateSummaryWithGemini(text);
+      const generatedSummary = await generateSummaryWithGemini(text, user);
       
       setSummary(generatedSummary);
       setSummaryLoading(false);
@@ -399,9 +409,9 @@ export default function NoteDetailScreen() {
         }
       }
       
-      if (note && generatedSummary && generatedSummary.trim().length > 0) {
+      if (noteId && generatedSummary && generatedSummary.trim().length > 0) {
         try {
-          await updateNote(note.id, { summary: generatedSummary });
+          await updateNote(noteId, { summary: generatedSummary });
         } catch (e) {
           console.error('🔍 Failed to save summary:', e);
         }
@@ -409,9 +419,17 @@ export default function NoteDetailScreen() {
     } catch (error) {
       console.error('🔍 NoteDetailScreen: Failed to generate summary:', error);
       setSummaryLoading(false);
-      setSummaryGeneratedFor(null);
+      
+      // If AI summaries are disabled, mark as attempted to prevent infinite loop
+      // Otherwise, reset to allow retry for other errors
+      if (error instanceof Error && error.message.includes('AI summaries are currently disabled')) {
+        console.log('🔍 NoteDetailScreen: AI summaries disabled, marking as attempted to prevent loop');
+        setSummaryGeneratedFor(noteId);
+      } else {
+        setSummaryGeneratedFor(null); // Reset on error to allow retry
+      }
     }
-  }, [user, note, updateNote, t]);
+  }, [user, updateNote, t]);
 
   useEffect(() => {
     if (note && isAISummariesEnabled) {
@@ -445,9 +463,10 @@ export default function NoteDetailScreen() {
         return;
       }
       
-      generateSummary(text);
+      generateSummary(text, note.id);
     }
-  }, [note?.id, summaryGeneratedFor, isAISummariesEnabled, user?.id, user?.preferences?.autoAISummaries, note?.isSharedNote, combinedNoteContent, generateSummary, note]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note?.id, summaryGeneratedFor, isAISummariesEnabled, user?.id, user?.preferences?.autoAISummaries, note?.isSharedNote]);
 
   const handleArchiveToggle = async () => {
     if (!note) return;
