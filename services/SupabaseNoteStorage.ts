@@ -728,39 +728,86 @@ export class SupabaseNoteStorage {
         updated_at: new Date().toISOString(),
       };
 
+      console.log('SupabaseNoteStorage: About to insert note with ID:', noteId);
+      console.log('SupabaseNoteStorage: Note data to insert:', {
+        id: noteToCreate.id,
+        user_id: noteToCreate.user_id,
+        title: noteToCreate.title,
+        type: noteToCreate.type,
+      });
+
       const { data: note, error } = await supabase
         .from('notes')
         .insert(noteToCreate)
-        .select()
+        .select('*')
         .single();
 
+      console.log('SupabaseNoteStorage: Insert result - error:', error);
+      console.log('SupabaseNoteStorage: Insert result - data:', note);
+
       if (error) {
-        this.handleError(error, 'createNote');
+        console.error('SupabaseNoteStorage: Error creating note:', error);
+        console.error('SupabaseNoteStorage: Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        });
+        // Don't call handleError here since it throws, and we want to throw the original error
+        throw new Error(`Failed to create note: ${error.message || 'Unknown error'}`);
       }
 
+      if (!note) {
+        console.error('SupabaseNoteStorage: No note data returned from insert');
+        throw new Error('Failed to create note: No data returned from database');
+      }
+
+      // Handle case where .single() returns an array instead of a single object
+      const noteRow = Array.isArray(note) ? note[0] : note;
+
+      if (!noteRow) {
+        console.error('SupabaseNoteStorage: No note data in returned array/object:', note);
+        throw new Error('Failed to create note: No data in response');
+      }
+
+      if (!noteRow.id) {
+        console.error('SupabaseNoteStorage: Note created but missing ID:', noteRow);
+        console.error('SupabaseNoteStorage: Full noteRow object:', JSON.stringify(noteRow, null, 2));
+        throw new Error('Failed to create note: Note ID is missing from database response');
+      }
+
+      console.log('SupabaseNoteStorage: Note created successfully with ID:', noteRow.id);
+
       // Transform Supabase data to Note format
-      return {
-        id: note.id,
-        userId: note.user_id,
-        title: this.extractTitle(note.title),
-        content: note.content || '',
-        contentHtml: note.content_html || null,
-        contentFormat: note.content_format || 'plain',
-        type: note.type || 'text',
-        tags: note.tags || [],
-        isPinned: note.is_pinned || false,
-        isArchived: note.is_archived || false,
-        isFavorite: note.is_favorite || false,
-        audioFiles: note.audio_files || [],
-        pdfFiles: note.pdf_files || [],
-        keyDetails: note.key_details || [],
-        summary: note.summary || null,
-        createdAt: this.parseDate(note.created_at),
-        updatedAt: this.parseDate(note.updated_at),
+      const transformedNote = {
+        id: noteRow.id,
+        userId: noteRow.user_id,
+        title: this.extractTitle(noteRow.title),
+        content: noteRow.content || '',
+        contentHtml: noteRow.content_html || null,
+        contentFormat: noteRow.content_format || 'plain',
+        type: noteRow.type || 'text',
+        tags: noteRow.tags || [],
+        isPinned: noteRow.is_pinned || false,
+        isArchived: noteRow.is_archived || false,
+        isFavorite: noteRow.is_favorite || false,
+        audioFiles: noteRow.audio_files || [],
+        pdfFiles: noteRow.pdf_files || [],
+        keyDetails: noteRow.key_details || [],
+        summary: noteRow.summary || null,
+        createdAt: this.parseDate(noteRow.created_at),
+        updatedAt: this.parseDate(noteRow.updated_at),
       };
+
+      console.log('SupabaseNoteStorage: Returning transformed note with ID:', transformedNote.id);
+      return transformedNote;
     } catch (error) {
-      this.handleError(error, 'createNote');
-      throw error;
+      console.error('SupabaseNoteStorage: Exception in createNote:', error);
+      // Don't call handleError since it throws again - just log and re-throw the original error
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(`Failed to create note: ${String(error)}`);
     }
   }
 

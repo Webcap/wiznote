@@ -684,6 +684,13 @@ export function UserSidebar({
         summary: `${t('sidebar.uploadingPDF')} ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
       });
 
+      if (!placeholderNote || !placeholderNote.id) {
+        console.error('PDF upload: Failed to create placeholder note:', placeholderNote);
+        throw new Error('Failed to create note for PDF upload. Please try again.');
+      }
+
+      console.log('PDF upload: Placeholder note created with ID:', placeholderNote.id);
+
       // Navigate to home screen immediately
       router.push('/(tabs)');
 

@@ -238,21 +238,90 @@ export default function HomeScreen() {
         status: 'uploading',
         statusMessage: t('home.preparingPDF'),
       });
-      const placeholderNote = await supabaseNoteStorage.createNote({
-        title: `📄 ${file.name.replace('.pdf', '')}`,
-        content: '⏳ Uploading PDF... Please wait while we process your document.',
-        type: 'pdf',
-        tags: ['pdf', 'uploading'],
-        summary: `Uploading ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
+      console.log('PDF upload: About to create placeholder note for file:', file.name);
+      console.log('PDF upload: User ID:', user?.id);
+      console.log('PDF upload: User object:', user);
+      
+      // Ensure supabaseNoteStorage has the current user set
+      if (!user?.id) {
+        console.error('PDF upload: No user ID available');
+        throw new Error('User must be authenticated to upload PDFs. Please sign in and try again.');
+      }
+      
+      // Explicitly set the current user before creating the note
+      console.log('PDF upload: Setting current user in supabaseNoteStorage:', user.id);
+      supabaseNoteStorage.setCurrentUser(user.id, user.email || null);
+      
+      // Verify the user is set
+      const hasValidUser = (supabaseNoteStorage as any).hasValidUser?.() || false;
+      console.log('PDF upload: supabaseNoteStorage has valid user:', hasValidUser);
+      
+      if (!hasValidUser) {
+        console.error('PDF upload: supabaseNoteStorage does not have a valid user after setting');
+        throw new Error('Failed to authenticate user for note creation. Please try again.');
+      }
+      
+      let placeholderNote: any;
+      try {
+        console.log('PDF upload: About to call createNote...');
+        placeholderNote = await supabaseNoteStorage.createNote({
+          title: `📄 ${file.name.replace('.pdf', '')}`,
+          content: '⏳ Uploading PDF... Please wait while we process your document.',
+          type: 'pdf',
+          tags: ['pdf', 'uploading'],
+          summary: `Uploading ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`,
+        });
+        console.log('PDF upload: createNote completed without throwing');
+      } catch (createError) {
+        console.error('PDF upload: createNote threw an error:', createError);
+        console.error('PDF upload: createNote error details:', {
+          message: createError instanceof Error ? createError.message : String(createError),
+          stack: createError instanceof Error ? createError.stack : undefined,
+          name: createError instanceof Error ? createError.name : typeof createError,
+        });
+        throw new Error(`Failed to create note for PDF upload: ${createError instanceof Error ? createError.message : String(createError)}. Please check your database permissions and try again.`);
+      }
+
+      console.log('PDF upload: createNote returned:', placeholderNote);
+      console.log('PDF upload: placeholderNote type:', typeof placeholderNote);
+      console.log('PDF upload: placeholderNote.id:', placeholderNote?.id);
+      console.log('PDF upload: placeholderNote keys:', placeholderNote ? Object.keys(placeholderNote) : 'placeholderNote is null/undefined');
+
+      if (!placeholderNote) {
+        console.error('PDF upload: placeholderNote is null or undefined after createNote');
+        throw new Error('Failed to create note for PDF upload: Note creation returned null/undefined. This might be a database permissions issue. Please try again.');
+      }
+
+      if (!placeholderNote.id) {
+        console.error('PDF upload: placeholderNote exists but has no ID:', placeholderNote);
+        console.error('PDF upload: Full placeholderNote object:', JSON.stringify(placeholderNote, null, 2));
+        throw new Error('Failed to create note for PDF upload: Note was created but has no ID. This might be a database issue. Please try again.');
+      }
+
+      console.log('PDF upload: Placeholder note created successfully with ID:', placeholderNote.id);
+      console.log('PDF upload: About to call uploadPDFFile with noteId:', placeholderNote.id);
+      console.log('PDF upload: uploadPDFFile parameters:', {
+        file: file?.name || 'unknown',
+        userId: user?.id || 'unknown',
+        noteId: placeholderNote.id,
       });
+      
       setUploadingPDF(prev => prev ? { ...prev, progress: 30, statusMessage: t('home.uploadingToCloud') } : null);
       const uploadedPDFUrl = await pdfStorage.uploadPDFFile(
         file,
         user.id,
         placeholderNote.id
       );
+      console.log('PDF upload: uploadPDFFile succeeded, URL:', uploadedPDFUrl);
       setUploadingPDF(prev => prev ? { ...prev, progress: 50, status: 'processing', statusMessage: 'Processing with AI...' } : null);
-      const aiResult = await pdfStorage.processPDFWithAI(file, { generateTitle: true, generateSummary: true, extractKeyDetails: true });
+      console.log('PDF upload: About to process PDF with AI, user:', user);
+      const aiResult = await pdfStorage.processPDFWithAI(file, { 
+        generateTitle: true, 
+        generateSummary: true, 
+        extractKeyDetails: true,
+        user: user, // Pass user for feature flag check
+      });
+      console.log('PDF upload: AI processing result:', aiResult);
       setUploadingPDF(prev => prev ? { ...prev, progress: 85, statusMessage: t('home.saving') } : null);
       const extractedText = aiResult.extractedText || '';
       const aiTitle = aiResult.title || file.name.replace('.pdf', '');
@@ -278,7 +347,26 @@ export default function HomeScreen() {
       await refreshNotes?.();
       setTimeout(() => { setUploadingPDF(null); }, 2000);
     } catch (error) {
-      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'error', statusMessage: t('home.uploadFailed') } : null);
+      console.error('PDF upload error:', error);
+      console.error('PDF upload error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : typeof error,
+      });
+      
+      // Check if the error is about note creation
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const isNoteCreationError = errorMessage.toLowerCase().includes('note') || 
+                                   errorMessage.toLowerCase().includes('create') ||
+                                   errorMessage.toLowerCase().includes('failed to create');
+      
+      if (isNoteCreationError) {
+        console.error('PDF upload: Error is related to note creation');
+        console.error('PDF upload: This suggests the note was not created successfully');
+      }
+      
+      setUploadingPDF(prev => prev ? { ...prev, progress: 100, status: 'error', statusMessage: errorMessage || t('home.uploadFailed') } : null);
+      showSnackbar(errorMessage || t('home.uploadFailed'), 'error');
       setTimeout(() => { setUploadingPDF(null); }, 3000);
     }
   }, [user, showSnackbar, refreshNotes, setUploadingPDF, t]);
