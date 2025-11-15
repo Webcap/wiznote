@@ -24,6 +24,7 @@ import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useNotes } from '../../hooks/useNotes';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useUnifiedFeatureLimits } from '../../hooks/useUnifiedFeatureLimits';
 import { extractKeyDetailsWithGemini, generateSummaryWithGemini, testGeminiConnection } from '../../services/GeminiAI';
 import { featureLimitService } from '../../services/FeatureLimitService';
 import { supabase } from '../../lib/supabase';
@@ -85,6 +86,9 @@ export default function NoteDetailScreen() {
   const isAIFlashcardsEnabled = isFeatureEnabled('ai_flashcards');
   const isAIChatEnabled = isFeatureEnabled('ai_chat');
   const isAIWriteEssayEnabled = isFeatureEnabled('ai_write_essay');
+  
+  // Get refresh function for usage limits
+  const { refreshLimits } = useUnifiedFeatureLimits();
   
   const showDebugInfo = __DEV__;
   
@@ -303,6 +307,13 @@ export default function NoteDetailScreen() {
             user.premium?.isActive || false,
             'count'
           );
+          
+          // Refresh usage limits to update the counter
+          setTimeout(() => {
+            refreshLimits().catch(err => {
+              console.warn('Failed to refresh usage limits after recording:', err);
+            });
+          }, 500); // Small delay to ensure database update is complete
         } catch (usageError) {
           console.error('🔍 NoteDetailScreen: Failed to record AI key details usage:', usageError);
         }
@@ -328,7 +339,7 @@ export default function NoteDetailScreen() {
         setKeyDetailsGeneratedFor(null); // Reset on error to allow retry
       }
     }
-  }, [user, updateNote, t]);
+  }, [user, updateNote, t, refreshLimits]);
 
   useEffect(() => {
     if (note && isAIKeyDetailsEnabled) {
@@ -404,6 +415,13 @@ export default function NoteDetailScreen() {
             user.premium?.isActive || false,
             'count'
           );
+          
+          // Refresh usage limits to update the counter
+          setTimeout(() => {
+            refreshLimits().catch(err => {
+              console.warn('Failed to refresh usage limits after recording:', err);
+            });
+          }, 500); // Small delay to ensure database update is complete
         } catch (usageError) {
           console.error('🔍 NoteDetailScreen: Failed to record AI summary usage:', usageError);
         }
@@ -429,7 +447,7 @@ export default function NoteDetailScreen() {
         setSummaryGeneratedFor(null); // Reset on error to allow retry
       }
     }
-  }, [user, updateNote, t]);
+  }, [user, updateNote, t, refreshLimits]);
 
   useEffect(() => {
     if (note && isAISummariesEnabled) {

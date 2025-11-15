@@ -574,15 +574,21 @@ export class FeatureLimitService {
       // Get current usage values from database
       const { data: existingUsage } = await supabase
         .from('user_feature_usage')
-        .select('usage_count, usage_duration, usage_storage')
+        .select('usage_count, usage_duration, usage_storage, current_period_end')
         .eq('user_id', userId)
         .eq('feature_id', featureId)
         .single();
 
+      // Check if the period has expired - if so, reset usage
+      const periodExpired = existingUsage?.current_period_end 
+        ? new Date(existingUsage.current_period_end) < now
+        : true; // If no existing usage, treat as new period
+
       // Calculate new usage values
-      const currentCount = existingUsage?.usage_count || 0;
-      const currentDuration = existingUsage?.usage_duration || 0;
-      const currentStorage = existingUsage?.usage_storage || 0;
+      // If period expired, start fresh; otherwise add to existing
+      const currentCount = periodExpired ? 0 : (existingUsage?.usage_count || 0);
+      const currentDuration = periodExpired ? 0 : (existingUsage?.usage_duration || 0);
+      const currentStorage = periodExpired ? 0 : (existingUsage?.usage_storage || 0);
 
       let newCount = currentCount;
       let newDuration = currentDuration;
@@ -601,26 +607,52 @@ export class FeatureLimitService {
           break;
       }
 
+      if (periodExpired && existingUsage) {
+        console.log(`FeatureLimitService: Period expired for ${featureId}, resetting usage from ${existingUsage.usage_count} to ${newCount}`);
+      }
+
       // Update or create usage record
-      const { error } = await supabase
+      const upsertData = {
+        user_id: userId,
+        feature_id: featureId,
+        usage_count: newCount,
+        usage_duration: newDuration,
+        usage_storage: newStorage,
+        current_period_start: periodStart.toISOString(),
+        current_period_end: periodEnd.toISOString(),
+        period_type: period,
+        last_used_at: now.toISOString(),
+      };
+
+      console.log(`FeatureLimitService: Recording usage for ${featureId}:`, {
+        userId,
+        featureId,
+        amount,
+        usageType,
+        periodExpired,
+        previousCount: existingUsage?.usage_count || 0,
+        newCount,
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString(),
+      });
+
+      const { error, data } = await supabase
         .from('user_feature_usage')
-        .upsert({
-          user_id: userId,
-          feature_id: featureId,
-          usage_count: newCount,
-          usage_duration: newDuration,
-          usage_storage: newStorage,
-          current_period_start: periodStart.toISOString(),
-          current_period_end: periodEnd.toISOString(),
-          period_type: period,
-          last_used_at: now.toISOString(),
-        }, {
+        .upsert(upsertData, {
           onConflict: 'user_id,feature_id'
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error(`FeatureLimitService: Error upserting usage for ${featureId}:`, error);
+        throw error;
+      }
 
-      console.log(`FeatureLimitService: Recorded usage for ${featureId}: ${amount} ${usageType} (total: ${newCount + newDuration + newStorage})`);
+      console.log(`FeatureLimitService: Successfully recorded usage for ${featureId}: ${amount} ${usageType} (new total: ${newCount} count, ${newDuration} duration, ${newStorage} storage)`);
+      
+      if (data && data.length > 0) {
+        console.log(`FeatureLimitService: Updated record:`, data[0]);
+      }
     } catch (error) {
       console.error('FeatureLimitService: Error recording usage:', error);
       throw error;
