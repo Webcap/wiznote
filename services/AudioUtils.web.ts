@@ -553,27 +553,49 @@ export class AudioUtils {
         await featureFlagService.initialize(false);
       }
       
-      // Fetch full user profile for feature flag check (needs premium status)
+      // Load user profile for feature flag check - prioritize BetterAuthService, then Supabase
       let userForFeatureFlag: any = undefined;
-      if (session?.user && userId) {
+      if (userId) {
         try {
-          const { data: userProfile } = await supabase
-            .from('user_profiles')
-            .select('id, role, premium')
-            .eq('id', userId)
-            .single();
+          // Try BetterAuthService first (has cached role and premium)
+          const { betterAuthService } = await import('./BetterAuthService');
+          const currentUser = await betterAuthService.getCurrentUser();
           
-          if (userProfile) {
-            userForFeatureFlag = {
-              id: userProfile.id,
-              role: userProfile.role,
-              premium: userProfile.premium || {}
-            };
-            console.log('[AudioUtils Web] Loaded user profile for feature flag check:', {
-              id: userForFeatureFlag.id,
-              role: userForFeatureFlag.role,
-              premiumActive: userForFeatureFlag.premium?.isActive
+          if (currentUser && currentUser.id && currentUser.id === userId) {
+            console.log('[AudioUtils Web] Loaded user from BetterAuthService for feature flag check:', {
+              id: currentUser.id,
+              role: currentUser.role,
+              premiumActive: currentUser.premium?.isActive,
             });
+            userForFeatureFlag = {
+              id: currentUser.id,
+              role: currentUser.role || 'user',
+              premium: currentUser.premium || {},
+            };
+          } else {
+            // Fallback to Supabase user profile
+            const { data: userProfile } = await supabase
+              .from('user_profiles')
+              .select('id, role, premium')
+              .eq('id', userId)
+              .maybeSingle();
+            
+            if (userProfile) {
+              // Handle case where .maybeSingle() might return an array
+              const profile = Array.isArray(userProfile) ? userProfile[0] : userProfile;
+              if (profile && profile.id) {
+                userForFeatureFlag = {
+                  id: profile.id,
+                  role: profile.role || 'user',
+                  premium: profile.premium || {},
+                };
+                console.log('[AudioUtils Web] Loaded user profile from Supabase for feature flag check:', {
+                  id: userForFeatureFlag.id,
+                  role: userForFeatureFlag.role,
+                  premiumActive: userForFeatureFlag.premium?.isActive,
+                });
+              }
+            }
           }
         } catch (profileError) {
           console.warn('[AudioUtils Web] Failed to load user profile for feature flag check:', profileError);
