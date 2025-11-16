@@ -162,7 +162,7 @@ function AppContent() {
           }
         } else {
           // Don't redirect if we're on a payment page or public route
-          if (!isPaymentPage && !isPublicRoute) {
+          if (!isPaymentPage && !isPublicRoute && !isIndexPage) {
             console.log('Layout: User not authenticated, navigating to login');
             try {
               router.replace('/(auth)/login');
