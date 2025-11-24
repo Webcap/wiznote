@@ -303,6 +303,10 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
     setNote(null);
     setLoading(true);
     setIsHydrating(true);
+    // CRITICAL: Reset generation flags when note ID changes to allow fresh generation
+    setKeyDetailsGeneratedFor(null);
+    setSummaryGeneratedFor(null);
+    if (__DEV__) console.log(`🔍 NoteDetailScreen: Note ID changed to ${id}, resetting generation flags`);
 
     // Fetch note directly from Supabase - this is our single source of truth
     const fetchNote = async () => {
@@ -482,6 +486,7 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
       // Record usage if generation succeeded
       if (user?.id && details && details.length > 0) {
         try {
+          console.log(`🔍 NoteDetailScreen: Recording usage for ai_key_details - userId: ${user.id}, noteId: ${noteId}`);
           await featureLimitService.recordFeatureUsage(
             user.id, 
             'ai_key_details', 
@@ -489,7 +494,7 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
             user.premium?.isActive || false,
             'count'
           );
-          if (__DEV__) console.log('🔍 NoteDetailScreen: AI key details usage recorded');
+          console.log('✅ NoteDetailScreen: AI key details usage recorded successfully');
           
           // Refresh usage limits to update the counter
           setTimeout(() => {
@@ -498,8 +503,11 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
             });
           }, 500); // Small delay to ensure database update is complete
         } catch (usageError) {
-          console.error('🔍 NoteDetailScreen: Failed to record AI key details usage:', usageError);
+          console.error('❌ NoteDetailScreen: Failed to record AI key details usage:', usageError);
+          // Don't throw - allow UI to continue even if usage tracking fails
         }
+      } else {
+        console.warn(`🔍 NoteDetailScreen: Skipping usage recording - user: ${!!user?.id}, details: ${details?.length || 0}`);
       }
       
       // Save to Firebase
@@ -526,6 +534,16 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
     }
   }, [user, updateNote, t, refreshLimits]);
 
+  // Reset generation state when note ID changes - this ensures each note gets a fresh start
+  // This effect runs when the URL param changes, which happens before the note loads
+  useEffect(() => {
+    if (id) {
+      console.log(`🔍 NoteDetailScreen: Note ID param changed to ${id}, resetting generation flags`);
+      setKeyDetailsGeneratedFor(null);
+      setSummaryGeneratedFor(null);
+    }
+  }, [id]); // Reset when URL param changes
+
   // Generate key details when note changes
   useEffect(() => {
     if (__DEV__) {
@@ -551,17 +569,22 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
         return;
       }
       
-      // Skip if we already have key details for this note
+      // If note already has key details, use them but mark as generated to prevent auto-regeneration
+      // This allows manual regeneration later if needed
       if (note.keyDetails && note.keyDetails.length && note.keyDetails.length > 0) {
         if (__DEV__) console.log('🔍 NoteDetailScreen: Note already has key details, using existing');
         setKeyDetails(note.keyDetails);
-        setKeyDetailsGeneratedFor(note.id);
+        // Only mark as generated if we haven't already marked it for this note
+        if (keyDetailsGeneratedFor !== note.id) {
+          setKeyDetailsGeneratedFor(note.id);
+        }
         return;
       }
       
-      // Skip if we already attempted to generate for this note
+      // Skip if we already attempted to generate for this note in this session
+      // This prevents infinite loops but allows regeneration when note changes
       if (keyDetailsGeneratedFor === note.id) {
-        if (__DEV__) console.log('🔍 NoteDetailScreen: Already attempted generation for this note');
+        if (__DEV__) console.log('🔍 NoteDetailScreen: Already attempted generation for this note in this session, skipping');
         return;
       }
       
@@ -631,6 +654,7 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
       // Record usage if generation succeeded
       if (user?.id && generatedSummary && generatedSummary.trim().length > 0) {
         try {
+          console.log(`🔍 NoteDetailScreen: Recording usage for ai_summaries - userId: ${user.id}, noteId: ${noteId}`);
           await featureLimitService.recordFeatureUsage(
             user.id, 
             'ai_summaries', 
@@ -638,7 +662,7 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
             user.premium?.isActive || false,
             'count'
           );
-          if (__DEV__) console.log('🔍 NoteDetailScreen: AI summary usage recorded');
+          console.log('✅ NoteDetailScreen: AI summary usage recorded successfully');
           
           // Refresh usage limits to update the counter
           setTimeout(() => {
@@ -647,8 +671,11 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
             });
           }, 500); // Small delay to ensure database update is complete
         } catch (usageError) {
-          console.error('🔍 NoteDetailScreen: Failed to record AI summary usage:', usageError);
+          console.error('❌ NoteDetailScreen: Failed to record AI summary usage:', usageError);
+          // Don't throw - allow UI to continue even if usage tracking fails
         }
+      } else {
+        console.warn(`🔍 NoteDetailScreen: Skipping usage recording - user: ${!!user?.id}, summary: ${generatedSummary?.trim().length || 0}`);
       }
       
       // Save to Firebase
@@ -690,17 +717,22 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
         return;
       }
       
-      // Skip if we already have a summary for this note
+      // If note already has a summary, use it but mark as generated to prevent auto-regeneration
+      // This allows manual regeneration later if needed
       if (note.summary && note.summary.trim().length > 0) {
         console.log('🔍 NoteDetailScreen: Note already has a summary, using existing');
         setSummary(note.summary);
-        setSummaryGeneratedFor(note.id);
+        // Only mark as generated if we haven't already marked it for this note
+        if (summaryGeneratedFor !== note.id) {
+          setSummaryGeneratedFor(note.id);
+        }
         return;
       }
       
-      // Skip if we already attempted to generate for this note
+      // Skip if we already attempted to generate for this note in this session
+      // This prevents infinite loops but allows regeneration when note changes
       if (summaryGeneratedFor === note.id) {
-        console.log('🔍 NoteDetailScreen: Already attempted summary generation for this note');
+        console.log('🔍 NoteDetailScreen: Already attempted summary generation for this note in this session, skipping');
         return;
       }
       

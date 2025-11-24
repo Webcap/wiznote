@@ -557,12 +557,16 @@ export class FeatureLimitService {
     usageType: 'count' | 'duration' | 'storage' = 'count'
   ): Promise<void> {
     try {
-      // Get current usage and limit
-      const currentUsage = await this.getUserFeatureUsage(userId, featureId, isPremium);
       const limit = this.limits[featureId];
       
       if (!limit) {
         console.warn(`FeatureLimitService: No limit found for feature ${featureId}`);
+        return;
+      }
+
+      // Validate amount
+      if (amount <= 0) {
+        console.warn(`FeatureLimitService: Invalid amount ${amount} for feature ${featureId}`);
         return;
       }
 
@@ -644,17 +648,77 @@ export class FeatureLimitService {
         .select();
 
       if (error) {
-        console.error(`FeatureLimitService: Error upserting usage for ${featureId}:`, error);
+        console.error(`FeatureLimitService: Error upserting usage for ${featureId}:`, {
+          error,
+          userId,
+          featureId,
+          amount,
+          usageType,
+          upsertData
+        });
+        // Don't dispatch event if database update failed
         throw error;
       }
 
-      console.log(`FeatureLimitService: Successfully recorded usage for ${featureId}: ${amount} ${usageType} (new total: ${newCount} count, ${newDuration} duration, ${newStorage} storage)`);
+      if (!data || data.length === 0) {
+        console.warn(`FeatureLimitService: Upsert succeeded but no data returned for ${featureId}`);
+        // Still dispatch event with calculated values as fallback
+      }
+
+      // Get the actual updated usage from the database response
+      const updatedRecord = data && data.length > 0 ? data[0] : null;
+      const actualNewCount = updatedRecord?.usage_count ?? newCount;
+      const actualNewDuration = updatedRecord?.usage_duration ?? newDuration;
+      const actualNewStorage = updatedRecord?.usage_storage ?? newStorage;
       
-      if (data && data.length > 0) {
-        console.log(`FeatureLimitService: Updated record:`, data[0]);
+      // Determine the actual usage value based on usageType
+      let actualNewUsage = actualNewCount;
+      if (usageType === 'duration') {
+        actualNewUsage = actualNewDuration;
+      } else if (usageType === 'storage') {
+        actualNewUsage = actualNewStorage;
+      }
+
+      console.log(`FeatureLimitService: Successfully recorded usage for ${featureId}: ${amount} ${usageType} (new total: ${actualNewCount} count, ${actualNewDuration} duration, ${actualNewStorage} storage)`);
+      
+      if (updatedRecord) {
+        console.log(`FeatureLimitService: Updated record:`, updatedRecord);
+      }
+
+      // Notify app listeners that usage changed so UIs can refresh immediately
+      // Include the new total usage in the event so UI can update optimistically without re-querying
+      try {
+        if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+          window.dispatchEvent(new CustomEvent('featureUsageChanged', {
+            detail: { 
+              userId, 
+              featureId, 
+              amount, 
+              usageType, 
+              newUsage: actualNewUsage, // Include the new total usage
+              newCount: actualNewCount,
+              newDuration: actualNewDuration,
+              newStorage: actualNewStorage,
+              timestamp: Date.now() 
+            }
+          }));
+        }
+      } catch (emitError) {
+        // Non-fatal: logging only
+        console.warn('FeatureLimitService: Failed to dispatch featureUsageChanged event:', emitError);
       }
     } catch (error) {
-      console.error('FeatureLimitService: Error recording usage:', error);
+      console.error('FeatureLimitService: Error recording usage:', {
+        error,
+        userId,
+        featureId,
+        amount,
+        usageType,
+        isPremium,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined
+      });
+      // Re-throw to allow callers to handle the error
       throw error;
     }
   }
