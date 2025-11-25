@@ -101,31 +101,71 @@ export async function transcribeAudioWithGemini(base64Audio: string, user?: any)
 export async function generateTitleWithGemini(transcript: string, user?: any): Promise<string> {
   console.log('GeminiAI: Starting title generation for transcript:', transcript.substring(0, 100) + '...');
   
-  // Get user object if not provided
+  // Get user object if not provided - try BetterAuthService first, then options, then session
   let userForCheck = user;
-  if (!userForCheck) {
+
+  if (!userForCheck || !userForCheck.role || !userForCheck.premium) {
     try {
-      const { supabase } = await import('../lib/supabase');
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('id, role, premium')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (userProfile) {
-          userForCheck = {
-            id: userProfile.id,
-            role: userProfile.role,
-            premium: userProfile.premium || {}
-          };
-        } else if (session.user) {
-          userForCheck = { id: session.user.id };
+      // Try to get user from BetterAuthService first (has cached role and premium)
+      const { betterAuthService } = await import('./BetterAuthService');
+      const currentUser = await betterAuthService.getCurrentUser();
+      
+      if (currentUser && currentUser.id) {
+        console.log('GeminiAI: Loaded user from BetterAuthService for title generation:', {
+          id: currentUser.id,
+          role: currentUser.role,
+          premiumActive: currentUser.premium?.isActive,
+        });
+        userForCheck = {
+          id: currentUser.id,
+          role: currentUser.role || 'user',
+          premium: currentUser.premium || {},
+        };
+      } else if (user?.id) {
+        // If BetterAuthService didn't provide a user, but we have a user ID from parameter, use it
+        userForCheck = {
+          id: user.id,
+          role: user.role || 'user',
+          premium: user.premium || {},
+        };
+      } else {
+        // Fallback to session
+        const { supabase } = await import('../lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: userProfile } = await supabase
+            .from('user_profiles')
+            .select('id, role, premium')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          
+          if (userProfile) {
+            // Handle case where .maybeSingle() might return an array
+            const profile = Array.isArray(userProfile) ? userProfile[0] : userProfile;
+            if (profile && profile.id) {
+              userForCheck = {
+                id: profile.id,
+                role: profile.role || 'user',
+                premium: profile.premium || {}
+              };
+            } else if (session.user) {
+              userForCheck = { id: session.user.id, role: 'user' };
+            }
+          } else if (session.user) {
+            userForCheck = { id: session.user.id, role: 'user' };
+          }
         }
       }
     } catch (error) {
       console.warn('GeminiAI: Failed to load user for feature flag check:', error);
+      // If we have a user ID from parameter, use it with default role
+      if (user?.id) {
+        userForCheck = {
+          id: user.id,
+          role: 'user',
+          premium: {},
+        };
+      }
     }
   }
   
@@ -171,31 +211,71 @@ export async function generateTitleWithGemini(transcript: string, user?: any): P
 }
 
 export async function extractKeyDetailsWithGemini(noteText: string, user?: any): Promise<string[]> {
-  // Get user object if not provided
+  // Get user object if not provided - try BetterAuthService first, then options, then session
   let userForCheck = user;
-  if (!userForCheck) {
+
+  if (!userForCheck || !userForCheck.role || !userForCheck.premium) {
     try {
-      const { supabase } = await import('../lib/supabase');
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('id, role, premium')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (userProfile) {
-          userForCheck = {
-            id: userProfile.id,
-            role: userProfile.role,
-            premium: userProfile.premium || {}
-          };
-        } else if (session.user) {
-          userForCheck = { id: session.user.id };
+      // Try to get user from BetterAuthService first (has cached role and premium)
+      const { betterAuthService } = await import('./BetterAuthService');
+      const currentUser = await betterAuthService.getCurrentUser();
+      
+      if (currentUser && currentUser.id) {
+        console.log('GeminiAI: Loaded user from BetterAuthService for key details extraction:', {
+          id: currentUser.id,
+          role: currentUser.role,
+          premiumActive: currentUser.premium?.isActive,
+        });
+        userForCheck = {
+          id: currentUser.id,
+          role: currentUser.role || 'user',
+          premium: currentUser.premium || {},
+        };
+      } else if (user?.id) {
+        // If BetterAuthService didn't provide a user, but we have a user ID from parameter, use it
+        userForCheck = {
+          id: user.id,
+          role: user.role || 'user',
+          premium: user.premium || {},
+        };
+      } else {
+        // Fallback to session
+        const { supabase } = await import('../lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: userProfile } = await supabase
+            .from('user_profiles')
+            .select('id, role, premium')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          
+          if (userProfile) {
+            // Handle case where .maybeSingle() might return an array
+            const profile = Array.isArray(userProfile) ? userProfile[0] : userProfile;
+            if (profile && profile.id) {
+              userForCheck = {
+                id: profile.id,
+                role: profile.role || 'user',
+                premium: profile.premium || {}
+              };
+            } else if (session.user) {
+              userForCheck = { id: session.user.id, role: 'user' };
+            }
+          } else if (session.user) {
+            userForCheck = { id: session.user.id, role: 'user' };
+          }
         }
       }
     } catch (error) {
       console.warn('GeminiAI: Failed to load user for feature flag check:', error);
+      // If we have a user ID from parameter, use it with default role
+      if (user?.id) {
+        userForCheck = {
+          id: user.id,
+          role: 'user',
+          premium: {},
+        };
+      }
     }
   }
   
@@ -227,31 +307,71 @@ export async function extractKeyDetailsWithGemini(noteText: string, user?: any):
 }
 
 export async function generateSummaryWithGemini(noteText: string, user?: any): Promise<string> {
-  // Get user object if not provided
+  // Get user object if not provided - try BetterAuthService first, then options, then session
   let userForCheck = user;
-  if (!userForCheck) {
+
+  if (!userForCheck || !userForCheck.role || !userForCheck.premium) {
     try {
-      const { supabase } = await import('../lib/supabase');
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('id, role, premium')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (userProfile) {
-          userForCheck = {
-            id: userProfile.id,
-            role: userProfile.role,
-            premium: userProfile.premium || {}
-          };
-        } else if (session.user) {
-          userForCheck = { id: session.user.id };
+      // Try to get user from BetterAuthService first (has cached role and premium)
+      const { betterAuthService } = await import('./BetterAuthService');
+      const currentUser = await betterAuthService.getCurrentUser();
+      
+      if (currentUser && currentUser.id) {
+        console.log('GeminiAI: Loaded user from BetterAuthService for summary generation:', {
+          id: currentUser.id,
+          role: currentUser.role,
+          premiumActive: currentUser.premium?.isActive,
+        });
+        userForCheck = {
+          id: currentUser.id,
+          role: currentUser.role || 'user',
+          premium: currentUser.premium || {},
+        };
+      } else if (user?.id) {
+        // If BetterAuthService didn't provide a user, but we have a user ID from parameter, use it
+        userForCheck = {
+          id: user.id,
+          role: user.role || 'user',
+          premium: user.premium || {},
+        };
+      } else {
+        // Fallback to session
+        const { supabase } = await import('../lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: userProfile } = await supabase
+            .from('user_profiles')
+            .select('id, role, premium')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          
+          if (userProfile) {
+            // Handle case where .maybeSingle() might return an array
+            const profile = Array.isArray(userProfile) ? userProfile[0] : userProfile;
+            if (profile && profile.id) {
+              userForCheck = {
+                id: profile.id,
+                role: profile.role || 'user',
+                premium: profile.premium || {}
+              };
+            } else if (session.user) {
+              userForCheck = { id: session.user.id, role: 'user' };
+            }
+          } else if (session.user) {
+            userForCheck = { id: session.user.id, role: 'user' };
+          }
         }
       }
     } catch (error) {
       console.warn('GeminiAI: Failed to load user for feature flag check:', error);
+      // If we have a user ID from parameter, use it with default role
+      if (user?.id) {
+        userForCheck = {
+          id: user.id,
+          role: 'user',
+          premium: {},
+        };
+      }
     }
   }
   
@@ -515,45 +635,187 @@ export async function processPDFWithGemini(
   console.log('GeminiAI: Starting PDF processing with Gemini');
   console.log('GeminiAI: Options:', options);
   
+  // Initialize feature flag service to ensure flags are loaded
+  try {
+    console.log('GeminiAI: Initializing feature flag service for PDF processing...');
+    // First try to initialize normally (this loads from cache and Supabase)
+    await featureFlagService.initialize(true); // true = user is authenticated (or will be)
+    
+    // Reload flags from Supabase to ensure we have the latest values
+    console.log('GeminiAI: Reloading flags from Supabase for latest values...');
+    try {
+      // Access the private method via type assertion (not ideal, but necessary for debugging)
+      const service = featureFlagService as any;
+      if (service.loadFlagsFromSupabase) {
+        await service.loadFlagsFromSupabase();
+        console.log('GeminiAI: Flags reloaded from Supabase');
+      } else {
+        console.warn('GeminiAI: loadFlagsFromSupabase method not accessible');
+      }
+    } catch (reloadError) {
+      console.warn('GeminiAI: Failed to reload flags from Supabase, using cached values:', reloadError);
+    }
+    
+    console.log('GeminiAI: Feature flag service initialized');
+  } catch (error) {
+    console.warn('GeminiAI: Failed to initialize feature flag service:', error);
+    // Continue anyway - feature flag service might already be initialized
+  }
+  
+  // Load user for feature flag check - try BetterAuthService first, then options, then session
   let userForCheck = options?.user;
 
-  if (!userForCheck) {
+  if (!userForCheck || !userForCheck.role || !userForCheck.premium) {
     try {
-      const { supabase } = await import('../lib/supabase');
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      // Try to get user from BetterAuthService first (has cached role and premium)
+      const { betterAuthService } = await import('./BetterAuthService');
+      const currentUser = await betterAuthService.getCurrentUser();
+      
+      if (currentUser && currentUser.id) {
+        console.log('GeminiAI: Loaded user from BetterAuthService for PDF feature flag check:', {
+          id: currentUser.id,
+          role: currentUser.role,
+          premiumActive: currentUser.premium?.isActive,
+        });
+        userForCheck = {
+          id: currentUser.id,
+          role: currentUser.role || 'user',
+          premium: currentUser.premium || {},
+        };
+      } else if (options?.user?.id) {
+        // If BetterAuthService didn't provide a user, but we have a user ID from options, use it
+        console.log('GeminiAI: BetterAuthService did not provide user, using user ID from options:', options.user.id);
+        userForCheck = {
+          id: options.user.id,
+          role: options.user.role || 'user',
+          premium: options.user.premium || {},
+        };
+      } else {
+        // Fallback to session
+        const { supabase } = await import('../lib/supabase');
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      if (session?.user) {
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('id, role, premium')
-          .eq('id', session.user.id)
-          .single();
+        if (session?.user) {
+          console.log('GeminiAI: Loading user profile from session for PDF feature flag check:', session.user.id);
+          const { data: userProfile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('id, role, premium')
+            .eq('id', session.user.id)
+            .maybeSingle();
 
-        if (userProfile) {
-          userForCheck = {
-            id: userProfile.id,
-            role: userProfile.role,
-            premium: userProfile.premium || {},
-          };
+          if (profileError) {
+            console.error('GeminiAI: Error loading user profile:', profileError);
+            // Fall back to session user ID only with default role
+            userForCheck = { id: session.user.id, role: 'user' };
+            console.log('GeminiAI: Profile load error, using session user ID with default role:', userForCheck);
+          } else if (userProfile) {
+            // Handle case where .maybeSingle() might return an array
+            const profile = Array.isArray(userProfile) ? userProfile[0] : userProfile;
+            
+            if (profile && profile.id) {
+              userForCheck = {
+                id: profile.id,
+                role: profile.role || 'user',
+                premium: profile.premium || {},
+              };
+              console.log('GeminiAI: User profile loaded for PDF feature flag check:', {
+                id: userForCheck.id,
+                role: userForCheck.role,
+                premiumActive: userForCheck.premium?.isActive,
+              });
+            } else {
+              userForCheck = { id: session.user.id, role: 'user' };
+              console.log('GeminiAI: Profile data incomplete, using session user ID with default role:', userForCheck);
+            }
+          } else {
+            userForCheck = { id: session.user.id, role: 'user' };
+            console.log('GeminiAI: User profile not found, using session user ID with default role:', userForCheck);
+          }
         } else {
-          userForCheck = { id: session.user.id };
+          console.log('GeminiAI: No session found for PDF feature flag check');
         }
       }
     } catch (error) {
       console.warn('GeminiAI: Failed to load user for PDF feature flag check:', error);
+      // If we have a user ID from options, use it with default role
+      if (options?.user?.id) {
+        userForCheck = {
+          id: options.user.id,
+          role: 'user',
+          premium: {},
+        };
+        console.log('GeminiAI: Using user ID from options with default role due to error:', userForCheck);
+      }
     }
+  } else {
+    console.log('GeminiAI: User provided for PDF feature flag check:', {
+      id: userForCheck.id,
+      role: userForCheck.role,
+      premiumActive: userForCheck.premium?.isActive,
+    });
   }
 
   // Check if PDF processing is enabled
-  if (!featureFlagService.isFeatureEnabled('pdf_upload', userForCheck)) {
-    console.log('GeminiAI: PDF upload feature is disabled');
-    return {
-      success: false,
-      error: 'PDF upload feature is currently disabled'
-    };
+  console.log('GeminiAI: Checking pdf_upload feature flag...');
+  const allFlags = featureFlagService.getAllFlags();
+  console.log('GeminiAI: Available flags:', Object.keys(allFlags));
+  console.log('GeminiAI: pdf_upload flag exists:', !!allFlags['pdf_upload']);
+  
+  const pdfUploadFlag = allFlags['pdf_upload'];
+  if (pdfUploadFlag) {
+    console.log('GeminiAI: pdf_upload flag details:', {
+      enabled: pdfUploadFlag.enabled,
+      premiumOnly: pdfUploadFlag.premiumOnly,
+      targetRoles: pdfUploadFlag.targetRoles,
+      targetUsers: pdfUploadFlag.targetUsers,
+      targetEnvironments: pdfUploadFlag.targetEnvironments,
+      rolloutPercentage: pdfUploadFlag.rolloutPercentage,
+    });
+  } else {
+    console.warn('GeminiAI: pdf_upload flag not found in loaded flags');
+    console.warn('GeminiAI: This should fall back to DEFAULT_FEATURE_FLAGS');
   }
+  
+  const isEnabled = featureFlagService.isFeatureEnabled('pdf_upload', userForCheck);
+  console.log('GeminiAI: pdf_upload feature flag enabled:', isEnabled);
+  console.log('GeminiAI: User for check:', userForCheck);
+  
+  // If flag check fails, check default flag as fallback
+  if (!isEnabled) {
+    console.error('GeminiAI: PDF upload feature flag check returned false');
+    console.error('GeminiAI: Feature flag check details:', {
+      flagKey: 'pdf_upload',
+      user: userForCheck,
+      flagsLoaded: Object.keys(allFlags).length,
+      flagExists: !!pdfUploadFlag,
+      flagEnabled: pdfUploadFlag?.enabled,
+      flagPremiumOnly: pdfUploadFlag?.premiumOnly,
+      userRole: userForCheck?.role,
+      userPremium: userForCheck?.premium?.isActive,
+      targetRoles: pdfUploadFlag?.targetRoles,
+      targetUsers: pdfUploadFlag?.targetUsers,
+      targetEnvironments: pdfUploadFlag?.targetEnvironments,
+    });
+    
+    // Check default flag as final fallback
+    const { DEFAULT_FEATURE_FLAGS } = await import('../constants/DefaultFeatureFlags');
+    const defaultFlag = DEFAULT_FEATURE_FLAGS['pdf_upload'];
+    if (defaultFlag && defaultFlag.enabled) {
+      console.warn('GeminiAI: Feature flag check failed, but default flag is enabled. Using default flag.');
+      console.warn('GeminiAI: This suggests the database flag might be misconfigured. Proceeding with PDF processing.');
+      // Don't return error - proceed with processing
+    } else {
+      console.error('GeminiAI: PDF upload feature is disabled in both database and defaults');
+      return {
+        success: false,
+        error: 'PDF upload feature is currently disabled'
+      };
+    }
+  }
+  
+  console.log('GeminiAI: PDF upload feature is enabled, proceeding with processing...');
   
   try {
     const result: any = { success: true };
@@ -581,7 +843,7 @@ export async function processPDFWithGemini(
       console.log('GeminiAI: Generating title from PDF content...');
       
       try {
-        result.title = await generateTitleWithGemini(result.extractedText);
+        result.title = await generateTitleWithGemini(result.extractedText, userForCheck);
       } catch (error) {
         console.error('GeminiAI: Error generating title:', error);
         result.title = 'PDF Document';
@@ -593,7 +855,7 @@ export async function processPDFWithGemini(
       console.log('GeminiAI: Generating summary from PDF content...');
       
       try {
-        result.summary = await generateSummaryWithGemini(result.extractedText);
+        result.summary = await generateSummaryWithGemini(result.extractedText, userForCheck);
       } catch (error) {
         console.error('GeminiAI: Error generating summary:', error);
         result.summary = '';
@@ -605,7 +867,7 @@ export async function processPDFWithGemini(
       console.log('GeminiAI: Extracting key details from PDF content...');
       
       try {
-        result.keyDetails = await extractKeyDetailsWithGemini(result.extractedText);
+        result.keyDetails = await extractKeyDetailsWithGemini(result.extractedText, userForCheck);
       } catch (error) {
         console.error('GeminiAI: Error extracting key details:', error);
         result.keyDetails = [];

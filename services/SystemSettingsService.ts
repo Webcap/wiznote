@@ -117,39 +117,30 @@ class SystemSettingsService {
         }
       }
       
-      // CRITICAL: If google_sign_in_enabled is missing, the column might not exist or RLS is blocking it
-      // Try a direct query for just that field
+      // If google_sign_in_enabled is missing, try a direct query for just that field
       if (!error && data && typeof data === 'object' && data !== null && data.google_sign_in_enabled === undefined) {
-        console.error('SystemSettingsService: ⚠️ google_sign_in_enabled field is MISSING from response!');
-        console.error('SystemSettingsService: Available fields:', Object.keys(data));
+        if (__DEV__) {
+          console.warn('SystemSettingsService: google_sign_in_enabled field missing, attempting direct query');
+        }
         
-        // Try querying just that field to see if it exists
-        const { data: fieldCheck, error: fieldError } = await supabase
-          .rpc('get_system_setting', { setting_key: 'google_sign_in_enabled' })
+        // Fallback: Try selecting just that field
+        const { data: directField, error: directError } = await supabase
+          .from('system_settings')
+          .select('google_sign_in_enabled')
+          .eq('id', 'default')
           .single();
         
-        if (!fieldError && fieldCheck) {
-          console.log('SystemSettingsService: RPC query returned:', fieldCheck);
+        // Normalize directField if it's an array
+        const normalizedDirectField = Array.isArray(directField) ? directField[0] : directField;
+        
+        if (!directError && normalizedDirectField && normalizedDirectField.google_sign_in_enabled !== undefined) {
+          data.google_sign_in_enabled = normalizedDirectField.google_sign_in_enabled;
         } else {
-          // Fallback: Try selecting just that field
-          const { data: directField, error: directError } = await supabase
-            .from('system_settings')
-            .select('google_sign_in_enabled')
-            .eq('id', 'default')
-            .single();
-          
-          // Normalize directField if it's an array
-          const normalizedDirectField = Array.isArray(directField) ? directField[0] : directField;
-          
-          if (!directError && normalizedDirectField && normalizedDirectField.google_sign_in_enabled !== undefined) {
-            console.log('SystemSettingsService: Direct field query succeeded:', normalizedDirectField);
-            data.google_sign_in_enabled = normalizedDirectField.google_sign_in_enabled;
-          } else {
-            console.error('SystemSettingsService: ⚠️ Column google_sign_in_enabled may not exist in database!');
-            console.error('SystemSettingsService: Direct field query error:', directError);
-            // Set it to null so we can handle it explicitly
-            data.google_sign_in_enabled = null;
+          if (__DEV__) {
+            console.warn('SystemSettingsService: Column google_sign_in_enabled may not exist in database');
           }
+          // Set it to null so we can handle it explicitly
+          data.google_sign_in_enabled = null;
         }
       }
 
@@ -164,57 +155,14 @@ class SystemSettingsService {
         return this.getDefaultSettings();
       }
 
-      // Log raw data from database BEFORE any processing
-      try {
-        console.log('SystemSettingsService: Raw data from database (FULL OBJECT):', JSON.stringify(data, null, 2));
-        console.log('SystemSettingsService: Raw data keys:', Object.keys(data));
-      } catch (logError) {
-        console.warn('SystemSettingsService: Could not stringify data for logging:', logError);
-        console.log('SystemSettingsService: Raw data type:', typeof data, 'isArray:', Array.isArray(data));
+      // Log raw data from database in development only
+      if (__DEV__) {
+        try {
+          console.log('SystemSettingsService: Fetched settings from database');
+        } catch (logError) {
+          // Silent fail for logging
+        }
       }
-      
-      // CRITICAL: Check if google_sign_in_enabled field exists and what its value is
-      const hasGoogleSignInField = 'google_sign_in_enabled' in data;
-      const googleSignInRawValue = data.google_sign_in_enabled;
-      console.log('SystemSettingsService: CRITICAL DEBUG - google_sign_in_enabled:', {
-        exists: hasGoogleSignInField,
-        rawValue: googleSignInRawValue,
-        type: typeof googleSignInRawValue,
-        isFalse: googleSignInRawValue === false,
-        isTrue: googleSignInRawValue === true,
-        isNull: googleSignInRawValue === null,
-        isUndefined: googleSignInRawValue === undefined,
-        strictFalse: googleSignInRawValue === false,
-        strictTrue: googleSignInRawValue === true,
-        stringValue: String(googleSignInRawValue),
-        jsonValue: JSON.stringify(googleSignInRawValue),
-        allFields: Object.keys(data).filter(k => k.includes('google') || k.includes('sign')),
-      });
-      
-      console.log('SystemSettingsService: Raw data from database:', {
-        google_sign_in_enabled: {
-          value: data.google_sign_in_enabled,
-          type: typeof data.google_sign_in_enabled,
-          isFalse: data.google_sign_in_enabled === false,
-          isTrue: data.google_sign_in_enabled === true,
-          isNull: data.google_sign_in_enabled === null,
-          isUndefined: data.google_sign_in_enabled === undefined,
-          strictEqual: data.google_sign_in_enabled === false ? 'FALSE' : data.google_sign_in_enabled === true ? 'TRUE' : data.google_sign_in_enabled === null ? 'NULL' : data.google_sign_in_enabled === undefined ? 'UNDEFINED' : 'OTHER',
-          hasProperty: 'google_sign_in_enabled' in data,
-        },
-        rate_limit_enabled: {
-          value: data.rate_limit_enabled,
-          type: typeof data.rate_limit_enabled,
-          isFalse: data.rate_limit_enabled === false,
-          isTrue: data.rate_limit_enabled === true,
-        },
-        mfa_enabled: {
-          value: data.mfa_enabled,
-          type: typeof data.mfa_enabled,
-          isFalse: data.mfa_enabled === false,
-          isTrue: data.mfa_enabled === true,
-        },
-      });
 
       // Helper function to safely get boolean values (preserves false, uses default for null/undefined)
       // Handles: boolean, string "true"/"false", null, undefined
@@ -295,69 +243,51 @@ class SystemSettingsService {
           csrfTokenExpiryMinutes: data.csrf_token_expiry_minutes ?? 60,
           maintenanceMode: getBoolean(data.maintenance_mode, false),
           newUserRegistrationEnabled: getBoolean(data.new_user_registration_enabled, true),
-          // CRITICAL: Directly handle google_sign_in_enabled - handle ALL possible cases
+          // Handle google_sign_in_enabled field
           googleSignInEnabled: (() => {
-          // First check if field exists in response
           const fieldExists = 'google_sign_in_enabled' in data;
           const rawValue = data.google_sign_in_enabled;
           
-          console.error('🔴 SystemSettingsService: googleSignInEnabled DIRECT MAPPING:', {
-            fieldExists,
-            rawValue,
-            rawValueType: typeof rawValue,
-            isStrictFalse: rawValue === false,
-            isStrictTrue: rawValue === true,
-            isNull: rawValue === null,
-            isUndefined: rawValue === undefined,
-            stringRep: String(rawValue),
-            jsonRep: JSON.stringify(rawValue),
-            allDataKeys: Object.keys(data),
-            dataHasGoogle: Object.keys(data).some(k => k.includes('google')),
-          });
-          
           // If field doesn't exist, the column might not be in the database
           if (!fieldExists) {
-            console.error('🔴 SystemSettingsService: google_sign_in_enabled field DOES NOT EXIST in response!');
-            console.error('🔴 SystemSettingsService: This means the column may not exist in the database table.');
-            console.error('🔴 SystemSettingsService: Please run the migration: database/add-google-signin-setting.sql');
-            // Return default, but this is a problem
-            return true;
+            if (__DEV__) {
+              console.warn('SystemSettingsService: google_sign_in_enabled field missing - column may not exist in database');
+            }
+            return true; // Default
           }
           
           // Field exists but is null/undefined - this shouldn't happen with NOT NULL constraint
           if (rawValue === null || rawValue === undefined) {
-            console.error('🔴 SystemSettingsService: google_sign_in_enabled is NULL/UNDEFINED (should not happen with NOT NULL constraint)');
+            if (__DEV__) {
+              console.warn('SystemSettingsService: google_sign_in_enabled is NULL/UNDEFINED (should not happen with NOT NULL constraint)');
+            }
             return true; // Default
           }
           
-          // If it's already a boolean, use it directly (THIS IS THE CORRECT CASE)
+          // If it's already a boolean, use it directly
           if (typeof rawValue === 'boolean') {
-            console.log('✅ SystemSettingsService: google_sign_in_enabled is boolean:', rawValue);
-            return rawValue; // This should preserve false correctly
+            return rawValue;
           }
           
           // If it's a string, convert it
           if (typeof rawValue === 'string') {
             const lower = rawValue.toLowerCase().trim();
             if (lower === 'false' || lower === 'f' || lower === '0' || lower === 'no' || lower === 'n') {
-              console.log('✅ SystemSettingsService: google_sign_in_enabled string converted to false:', rawValue);
               return false;
             }
-            const result = lower === 'true' || lower === 't' || lower === '1' || lower === 'yes' || lower === 'y';
-            console.log('✅ SystemSettingsService: google_sign_in_enabled string converted:', rawValue, '->', result);
-            return result;
+            return lower === 'true' || lower === 't' || lower === '1' || lower === 'yes' || lower === 'y';
           }
           
           // If it's a number, 0 = false
           if (typeof rawValue === 'number') {
-            const result = rawValue !== 0;
-            console.log('✅ SystemSettingsService: google_sign_in_enabled number converted:', rawValue, '->', result);
-            return result;
+            return rawValue !== 0;
           }
           
           // Fallback - should not reach here
           const result = Boolean(rawValue);
-          console.error('🔴 SystemSettingsService: google_sign_in_enabled fallback conversion (unexpected type):', rawValue, '->', result);
+          if (__DEV__) {
+            console.warn('SystemSettingsService: google_sign_in_enabled unexpected type:', typeof rawValue, '->', result);
+          }
           return result;
         })(),
         updatedBy: data.updated_by,
@@ -370,60 +300,7 @@ class SystemSettingsService {
         return this.getDefaultSettings();
       }
 
-      // Log all boolean values to help debug
-      console.log('SystemSettingsService: Mapped settings from database:', {
-        booleans: {
-          emailVerificationRequired: {
-            raw: data.email_verification_required,
-            type: typeof data.email_verification_required,
-            mapped: settings.emailVerificationRequired,
-          },
-          mfaEnabled: {
-            raw: data.mfa_enabled,
-            type: typeof data.mfa_enabled,
-            mapped: settings.mfaEnabled,
-          },
-          googleSignInEnabled: {
-            raw: data.google_sign_in_enabled,
-            type: typeof data.google_sign_in_enabled,
-            mapped: settings.googleSignInEnabled,
-            isFalse: data.google_sign_in_enabled === false,
-            isTrue: data.google_sign_in_enabled === true,
-            strictEqual: data.google_sign_in_enabled === false ? 'FALSE' : data.google_sign_in_enabled === true ? 'TRUE' : 'OTHER',
-          },
-          rateLimitEnabled: {
-            raw: data.rate_limit_enabled,
-            type: typeof data.rate_limit_enabled,
-            mapped: settings.rateLimitEnabled,
-          },
-          newUserRegistrationEnabled: {
-            raw: data.new_user_registration_enabled,
-            type: typeof data.new_user_registration_enabled,
-            mapped: settings.newUserRegistrationEnabled,
-          },
-        },
-        numbers: {
-          rateLimitAuthAttempts: {
-            raw: data.rate_limit_auth_attempts,
-            mapped: settings.rateLimitAuthAttempts,
-          },
-          rateLimitAuthWindowMinutes: {
-            raw: data.rate_limit_auth_window_minutes,
-            mapped: settings.rateLimitAuthWindowMinutes,
-          },
-        }
-      });
-      
-      // Explicitly log googleSignInEnabled to catch any issues
-      console.log('SystemSettingsService: googleSignInEnabled DEBUG:', {
-        rawValue: data.google_sign_in_enabled,
-        rawType: typeof data.google_sign_in_enabled,
-        rawStrictFalse: data.google_sign_in_enabled === false,
-        rawStrictTrue: data.google_sign_in_enabled === true,
-        getBooleanResult: getBoolean(data.google_sign_in_enabled, true),
-        finalValue: settings.googleSignInEnabled,
-        finalType: typeof settings.googleSignInEnabled,
-      });
+      // Settings mapped successfully - no need for verbose logging in production
 
       // Update cache
       this.cachedSettings = settings;
@@ -685,13 +562,7 @@ class SystemSettingsService {
         dbUpdates.new_user_registration_enabled = updates.newUserRegistrationEnabled;
       }
       if (updates.googleSignInEnabled !== undefined) {
-        console.log('SystemSettingsService: Setting google_sign_in_enabled:', {
-          value: updates.googleSignInEnabled,
-          type: typeof updates.googleSignInEnabled,
-          isFalse: updates.googleSignInEnabled === false,
-          isTrue: updates.googleSignInEnabled === true,
-        });
-        dbUpdates.google_sign_in_enabled = Boolean(updates.googleSignInEnabled); // Explicitly convert to boolean
+        dbUpdates.google_sign_in_enabled = Boolean(updates.googleSignInEnabled);
       }
 
       // Log what we're about to update
@@ -757,13 +628,9 @@ class SystemSettingsService {
         };
       }
 
-      console.log('SystemSettingsService: Update successful, updated row:', updateData[0]);
-      console.log('SystemSettingsService: Updated row google_sign_in_enabled:', {
-        value: updateData[0]?.google_sign_in_enabled,
-        type: typeof updateData[0]?.google_sign_in_enabled,
-        isFalse: updateData[0]?.google_sign_in_enabled === false,
-        isTrue: updateData[0]?.google_sign_in_enabled === true,
-      });
+      if (__DEV__) {
+        console.log('SystemSettingsService: Update successful');
+      }
 
       // Clear cache
       this.clearCache();

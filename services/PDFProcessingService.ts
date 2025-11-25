@@ -45,6 +45,7 @@ export class PDFProcessingService {
       generateTitle?: boolean;
       generateSummary?: boolean;
       extractKeyDetails?: boolean;
+      user?: any; // Add user parameter for feature flag check
     } = {}
   ): Promise<{
     success: boolean;
@@ -72,12 +73,13 @@ export class PDFProcessingService {
       
       console.log('PDFProcessingService: Base64 conversion complete, length:', base64PDF.length);
       
-      // Process with Gemini AI
+      // Process with Gemini AI - pass user for feature flag check
       const result = await processPDFWithGemini(base64PDF, {
         extractText: true,
         generateTitle: options.generateTitle !== false, // Default true
         generateSummary: options.generateSummary !== false, // Default true
         extractKeyDetails: options.extractKeyDetails !== false, // Default true
+        user: options.user, // Pass user for feature flag check
       });
       
       if (!result.success) {

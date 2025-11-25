@@ -860,12 +860,60 @@ export class SupportService {
       // Get ticket to get user email
       const { data: ticket, error: ticketError } = await supabase
         .from('support_tickets')
-        .select('id, user_email, metadata')
+        .select('id, user_email, user_id, metadata')
         .eq('id', ticketId)
         .single();
 
       if (ticketError || !ticket) {
         throw new Error('Ticket not found');
+      }
+
+      // Get user email - try ticket.user_email first, then fetch from user profile if missing
+      let userEmail = ticket.user_email;
+      
+      if (!userEmail && ticket.user_id) {
+        console.log('SupportService: user_email missing, fetching from user profile for user_id:', ticket.user_id);
+        try {
+          // First try user_profiles table (faster if email column is populated)
+          const { data: userProfile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('email')
+            .eq('id', ticket.user_id)
+            .single();
+          
+          if (!profileError && userProfile?.email) {
+            userEmail = userProfile.email;
+            console.log('SupportService: Found email in user_profiles:', userEmail);
+          } else {
+            // Fallback: Use RPC function to get email from auth.users (more reliable)
+            console.log('SupportService: Trying RPC function to get email from auth.users');
+            const { data: userDetails, error: rpcError } = await supabase
+              .rpc('get_user_details_by_ids', { user_ids: [ticket.user_id] });
+            
+            if (!rpcError && userDetails && userDetails.length > 0 && userDetails[0]?.email) {
+              userEmail = userDetails[0].email;
+              console.log('SupportService: Found email via RPC function:', userEmail);
+            } else {
+              console.error('SupportService: RPC function error:', rpcError);
+            }
+          }
+          
+          // Update the ticket with the email for future use if we found it
+          if (userEmail) {
+            await supabase
+              .from('support_tickets')
+              .update({ user_email: userEmail })
+              .eq('id', ticketId);
+            console.log('SupportService: Updated ticket with email:', userEmail);
+          }
+        } catch (fetchError) {
+          console.error('SupportService: Error fetching user email:', fetchError);
+        }
+      }
+      
+      // Validate that we have an email address
+      if (!userEmail) {
+        throw new Error('Ticket does not have a user email address and could not be retrieved from user profile. Please use Admin Override to verify the deletion request.');
       }
 
       // Update ticket metadata with verification token
@@ -897,32 +945,54 @@ export class SupportService {
         throw updateError;
       }
 
+      // Prepare request payload
+      const requestPayload = {
+        email: userEmail,
+        ticketId,
+        token,
+      };
+
+      console.log('SupportService: Sending verification email request:', {
+        email: userEmail,
+        ticketId,
+        hasToken: !!token,
+      });
+
       // Call Netlify function to send verification email
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://wiznote.app';
       const emailResponse = await fetch(`${apiUrl}/.netlify/functions/send-deletion-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: ticket.user_email,
-          ticketId,
-          token,
-        }),
+        body: JSON.stringify(requestPayload),
       });
 
       if (!emailResponse.ok) {
         let errorMessage = 'Failed to send verification email';
+        let errorDetails = null;
+        
         try {
           const errorData = await emailResponse.json();
+          console.error('SupportService: Netlify function error response:', errorData);
+          
           if (errorData.message) {
             errorMessage = errorData.message;
+          } else if (errorData.error) {
+            errorMessage = errorData.error;
           }
-          if (errorData.errorCode === 'EMAIL_SEND_ERROR') {
+          
+          if (errorData.details) {
+            errorDetails = errorData.details;
+          }
+          
+          if (errorData.errorCode === 'POSTMARK_PENDING_APPROVAL' || errorData.errorCode === 'EMAIL_SEND_ERROR') {
             errorMessage += ' Use Admin Override if urgent.';
           }
-        } catch {
+        } catch (parseError) {
           const errorText = await emailResponse.text();
-          console.error('Failed to send verification email:', errorText);
+          console.error('SupportService: Failed to parse error response:', errorText);
+          errorMessage = `HTTP ${emailResponse.status}: ${errorText || 'Unknown error'}`;
         }
+        
         throw new Error(errorMessage);
       }
 
@@ -956,7 +1026,7 @@ export class SupportService {
       // Get ticket to get user email and current verification status
       const { data: ticket, error: ticketError } = await supabase
         .from('support_tickets')
-        .select('id, user_email, metadata')
+        .select('id, user_email, user_id, metadata')
         .eq('id', ticketId)
         .single();
 
@@ -967,6 +1037,54 @@ export class SupportService {
       const metadata = ticket.metadata || {};
       const verification = metadata.verification || {};
       
+      // Get user email - try ticket.user_email first, then fetch from user profile if missing
+      let userEmail = ticket.user_email;
+      
+      if (!userEmail && ticket.user_id) {
+        console.log('SupportService: user_email missing, fetching from user profile for user_id:', ticket.user_id);
+        try {
+          // First try user_profiles table (faster if email column is populated)
+          const { data: userProfile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('email')
+            .eq('id', ticket.user_id)
+            .single();
+          
+          if (!profileError && userProfile?.email) {
+            userEmail = userProfile.email;
+            console.log('SupportService: Found email in user_profiles:', userEmail);
+          } else {
+            // Fallback: Use RPC function to get email from auth.users (more reliable)
+            console.log('SupportService: Trying RPC function to get email from auth.users');
+            const { data: userDetails, error: rpcError } = await supabase
+              .rpc('get_user_details_by_ids', { user_ids: [ticket.user_id] });
+            
+            if (!rpcError && userDetails && userDetails.length > 0 && userDetails[0]?.email) {
+              userEmail = userDetails[0].email;
+              console.log('SupportService: Found email via RPC function:', userEmail);
+            } else {
+              console.error('SupportService: RPC function error:', rpcError);
+            }
+          }
+          
+          // Update the ticket with the email for future use if we found it
+          if (userEmail) {
+            await supabase
+              .from('support_tickets')
+              .update({ user_email: userEmail })
+              .eq('id', ticketId);
+            console.log('SupportService: Updated ticket with email:', userEmail);
+          }
+        } catch (fetchError) {
+          console.error('SupportService: Error fetching user email:', fetchError);
+        }
+      }
+      
+      // Validate that we have an email address
+      if (!userEmail) {
+        throw new Error('Ticket does not have a user email address and could not be retrieved from user profile. Please use Admin Override to verify the deletion request.');
+      }
+
       // Use existing token if available and not verified, otherwise generate new one
       let token = verification.token;
       if (!token || verification.status === 'verified') {
@@ -997,32 +1115,59 @@ export class SupportService {
         }
       }
 
+      // Validate all required fields before making the request
+      if (!token) {
+        throw new Error('Verification token is missing. Cannot send verification email.');
+      }
+
+      // Prepare request payload
+      const requestPayload = {
+        email: userEmail,
+        ticketId,
+        token,
+      };
+
+      console.log('SupportService: Sending verification email request:', {
+        email: userEmail,
+        ticketId,
+        hasToken: !!token,
+      });
+
       // Call Netlify function to send verification email
       const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://wiznote.app';
       const emailResponse = await fetch(`${apiUrl}/.netlify/functions/send-deletion-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: ticket.user_email,
-          ticketId,
-          token,
-        }),
+        body: JSON.stringify(requestPayload),
       });
 
       if (!emailResponse.ok) {
         let errorMessage = 'Failed to resend verification email';
+        let errorDetails = null;
+        
         try {
           const errorData = await emailResponse.json();
+          console.error('SupportService: Netlify function error response:', errorData);
+          
           if (errorData.message) {
             errorMessage = errorData.message;
+          } else if (errorData.error) {
+            errorMessage = errorData.error;
           }
-          if (errorData.errorCode === 'POSTMARK_PENDING_APPROVAL') {
+          
+          if (errorData.details) {
+            errorDetails = errorData.details;
+          }
+          
+          if (errorData.errorCode === 'POSTMARK_PENDING_APPROVAL' || errorData.errorCode === 'EMAIL_SEND_ERROR') {
             errorMessage += ' Use Admin Override if urgent.';
           }
-        } catch {
+        } catch (parseError) {
           const errorText = await emailResponse.text();
-          console.error('Failed to resend verification email:', errorText);
+          console.error('SupportService: Failed to parse error response:', errorText);
+          errorMessage = `HTTP ${emailResponse.status}: ${errorText || 'Unknown error'}`;
         }
+        
         throw new Error(errorMessage);
       }
 

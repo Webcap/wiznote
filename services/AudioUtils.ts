@@ -876,9 +876,68 @@ export class AudioUtils {
         generateTitleWithGemini 
       } = await import('./GeminiAI');
       
+      // Initialize feature flag service to ensure flags are loaded
+      const { featureFlagService } = await import('./FeatureFlagService');
+      const { supabase } = await import('../lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await featureFlagService.initialize(true);
+      } else {
+        await featureFlagService.initialize(false);
+      }
+      
+      // Load user profile for feature flag check - prioritize BetterAuthService, then Supabase
+      let userForFeatureFlag: any = undefined;
+      if (userId) {
+        try {
+          // Try BetterAuthService first (has cached role and premium)
+          const { betterAuthService } = await import('./BetterAuthService');
+          const currentUser = await betterAuthService.getCurrentUser();
+          
+          if (currentUser && currentUser.id && currentUser.id === userId) {
+            console.log('[AudioUtils] Loaded user from BetterAuthService for feature flag check:', {
+              id: currentUser.id,
+              role: currentUser.role,
+              premiumActive: currentUser.premium?.isActive,
+            });
+            userForFeatureFlag = {
+              id: currentUser.id,
+              role: currentUser.role || 'user',
+              premium: currentUser.premium || {},
+            };
+          } else {
+            // Fallback to Supabase user profile
+            const { data: userProfile } = await supabase
+              .from('user_profiles')
+              .select('id, role, premium')
+              .eq('id', userId)
+              .maybeSingle();
+            
+            if (userProfile) {
+              // Handle case where .maybeSingle() might return an array
+              const profile = Array.isArray(userProfile) ? userProfile[0] : userProfile;
+              if (profile && profile.id) {
+                userForFeatureFlag = {
+                  id: profile.id,
+                  role: profile.role || 'user',
+                  premium: profile.premium || {},
+                };
+                console.log('[AudioUtils] Loaded user profile from Supabase for feature flag check:', {
+                  id: userForFeatureFlag.id,
+                  role: userForFeatureFlag.role,
+                  premiumActive: userForFeatureFlag.premium?.isActive,
+                });
+              }
+            }
+          }
+        } catch (profileError) {
+          console.warn('[AudioUtils] Failed to load user profile for feature flag check:', profileError);
+        }
+      }
+      
       // Transcribe the audio
       onProgress?.('AI is transcribing your audio...', 40);
-      const transcription = await transcribeAudioWithGemini(base64Audio);
+      const transcription = await transcribeAudioWithGemini(base64Audio, userForFeatureFlag);
       
       // Track AI transcription usage
       try {
@@ -892,7 +951,7 @@ export class AudioUtils {
       let title: string = '';
       try {
         onProgress?.('AI is generating a title...', 60);
-        title = await generateTitleWithGemini(transcription);
+        title = await generateTitleWithGemini(transcription, userForFeatureFlag);
         console.log('[AudioUtils] AI title generated successfully:', title);
         
         // Track AI title generation usage
@@ -910,7 +969,7 @@ export class AudioUtils {
       
       // Generate summary from transcription
       onProgress?.('AI is creating a summary...', 80);
-      const summary = await generateSummaryWithGemini(transcription);
+      const summary = await generateSummaryWithGemini(transcription, userForFeatureFlag);
       
       // Track AI summary usage
       try {
@@ -928,7 +987,7 @@ export class AudioUtils {
         
         if (canUseKeyDetails.canUse) {
           onProgress?.('AI is extracting key details...', 90);
-          keyDetails = await extractKeyDetailsWithGemini(transcription);
+          keyDetails = await extractKeyDetailsWithGemini(transcription, userForFeatureFlag);
           console.log('[AudioUtils] Key details generated successfully');
           
           // Track AI key details usage

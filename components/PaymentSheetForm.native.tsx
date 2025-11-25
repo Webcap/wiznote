@@ -74,6 +74,8 @@ function PaymentSheetFormContent({
       return;
     }
 
+    // Reset state on new attempt
+
     // Validate user before proceeding
     try {
       let isValid = await validateCurrentUser();
@@ -156,7 +158,26 @@ function PaymentSheetFormContent({
           endpoint: ApiConfig.STRIPE.CREATE_PAYMENTSHEET
         });
         
-        throw new Error(errorData.error || errorData.details || 'Failed to create PaymentSheet');
+        // Handle specific error cases with user-friendly messages
+        const errorMessage = errorData.error || errorData.details || 'Failed to create PaymentSheet';
+        const errorDetails = errorData.details || '';
+        
+        // Check for missing Stripe customer error
+        if (errorDetails.includes('No such customer') || errorMessage.includes('No such customer')) {
+          throw new Error('Payment account setup required. Please contact support or try again in a moment.');
+        }
+        
+        // Check for authentication/authorization errors
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('Authentication required. Please sign in again.');
+        }
+        
+        // Check for server errors
+        if (response.status >= 500) {
+          throw new Error('Payment service temporarily unavailable. Please try again in a moment.');
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const responseData = await response.json();
@@ -247,8 +268,12 @@ function PaymentSheetFormContent({
       setIsPaymentSheetReady(true);
       
       try {
-        // Present PaymentSheet
-        console.log('Presenting PaymentSheet...');
+        // Present PaymentSheet immediately to avoid expiration
+        // Note: Setup intents expire quickly, so we present immediately after initialization
+        console.log('Presenting PaymentSheet immediately after initialization...');
+        
+        // Small delay to ensure initialization is complete (but minimal to avoid expiration)
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         const { error: presentError } = await presentPaymentSheet();
         
@@ -258,7 +283,47 @@ function PaymentSheetFormContent({
             onError('Payment was cancelled');
           } else {
             console.error('PaymentSheet present error:', presentError);
-            onError(`Payment failed: ${presentError.message}`);
+            
+            // Handle specific Stripe errors with user-friendly messages
+            const errorMessage = presentError.message || '';
+            const errorCode = presentError.stripeErrorCode || '';
+            
+            // Check for expired or missing setup/payment intent
+            if (
+              errorMessage.includes('No such setupintent') ||
+              errorMessage.includes('No such paymentintent') ||
+              errorMessage.includes('No such setup intent') ||
+              errorMessage.includes('No such payment intent') ||
+              errorCode === 'resource_missing'
+            ) {
+              // Intent expired or missing - this is likely a backend issue
+              // The stripe-guardian service may be creating intents with too short expiration
+              console.error('Setup intent expired or missing:', {
+                errorMessage,
+                errorCode,
+                intentId: intentId || intentIdRef.current,
+                intentType,
+                timestamp: new Date().toISOString(),
+                note: 'This may indicate the backend is creating intents with too short expiration time'
+              });
+              
+              setIntentId(null);
+              intentIdRef.current = null;
+              setIsPaymentSheetReady(false);
+              
+              // Provide helpful error message
+              onError('Payment session expired too quickly. This may be a backend configuration issue. Please try again or contact support.');
+              return;
+            }
+            
+            // Check for authentication errors
+            if (errorCode === 'authentication_required' || errorMessage.includes('authentication')) {
+              onError('Payment authentication required. Please try again.');
+              return;
+            }
+            
+            // Generic error message
+            onError(`Payment failed: ${errorMessage || 'Unknown error occurred'}`);
           }
         } else {
           console.log('Payment completed successfully!');

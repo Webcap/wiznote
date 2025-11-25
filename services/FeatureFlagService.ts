@@ -212,33 +212,52 @@ export class FeatureFlagService {
       // Critical features should fall back to defaults so they continue working while flags load
       const criticalFlags: FeatureFlagKey[] = ['voice_recording', 'pdf_upload', 'ai_quiz', 'ai_flashcards'];
       if (criticalFlags.includes(flagKey)) {
-        log(`FeatureFlagService: ${flagKey} flag not found, falling back to DEFAULT_FEATURE_FLAGS`);
         const defaultFlag = DEFAULT_FEATURE_FLAGS[flagKey];
-        return defaultFlag?.enabled ?? false;
+        const fallbackEnabled = defaultFlag?.enabled ?? false;
+        console.log(`FeatureFlagService: ${flagKey} flag not found, falling back to DEFAULT_FEATURE_FLAGS. Default enabled:`, fallbackEnabled);
+        return fallbackEnabled;
       }
 
       return false;
     }
 
-    log(`FeatureFlagService: Checking ${flagKey} for user:`, user?.id, 'Flag data:', {
-      enabled: flag.enabled,
-      targetEnvironments: flag.targetEnvironments,
-      targetRoles: flag.targetRoles,
-      targetUsers: flag.targetUsers,
-      premiumOnly: flag.premiumOnly,
-      rolloutPercentage: flag.rolloutPercentage
-    });
+    // Always log for pdf_upload to debug issues
+    const shouldLogDetails = flagKey === 'pdf_upload' || enableFeatureFlagServiceLogs;
+    if (shouldLogDetails) {
+      console.log(`FeatureFlagService: Checking ${flagKey} for user:`, user?.id);
+      console.log(`FeatureFlagService: Flag data:`, {
+        enabled: flag.enabled,
+        targetEnvironments: flag.targetEnvironments,
+        targetRoles: flag.targetRoles,
+        targetUsers: flag.targetUsers,
+        premiumOnly: flag.premiumOnly,
+        rolloutPercentage: flag.rolloutPercentage
+      });
+      console.log(`FeatureFlagService: User data:`, {
+        id: user?.id,
+        role: user?.role,
+        premiumActive: user?.premium?.isActive,
+        premium: user?.premium,
+      });
+    }
 
     // Check if flag is globally enabled
     if (!flag.enabled) {
-      log(`FeatureFlagService: ${flagKey} - Flag not globally enabled`);
+      if (shouldLogDetails) {
+        console.log(`FeatureFlagService: ${flagKey} - Flag not globally enabled`);
+      }
       return false;
     }
 
     // Check environment targeting
     const currentEnv = this.getCurrentEnvironment();
-    if (flag.targetEnvironments && !flag.targetEnvironments.includes(currentEnv)) {
-      log(`FeatureFlagService: ${flagKey} - Environment mismatch. Current: ${currentEnv}, Allowed: ${flag.targetEnvironments}`);
+    if (shouldLogDetails) {
+      console.log(`FeatureFlagService: ${flagKey} - Current environment: ${currentEnv}, Target environments:`, flag.targetEnvironments);
+    }
+    if (flag.targetEnvironments && flag.targetEnvironments.length > 0 && !flag.targetEnvironments.includes(currentEnv)) {
+      if (shouldLogDetails) {
+        console.log(`FeatureFlagService: ${flagKey} - Environment mismatch. Current: ${currentEnv}, Allowed: ${flag.targetEnvironments}`);
+      }
       return false;
     }
 
@@ -257,21 +276,39 @@ export class FeatureFlagService {
     // Check user targeting
     if (user) {
       // Check specific user targeting - only if targetUsers is specified and not empty
-      if (flag.targetUsers && flag.targetUsers.length > 0 && !flag.targetUsers.includes(user.id)) {
-        log(`FeatureFlagService: ${flagKey} - User not in target users. User: ${user.id}, Allowed: ${flag.targetUsers}`);
-        return false;
+      if (flag.targetUsers && flag.targetUsers.length > 0) {
+        if (shouldLogDetails) {
+          console.log(`FeatureFlagService: ${flagKey} - Checking target users. User: ${user.id}, Allowed: ${flag.targetUsers}`);
+        }
+        if (!flag.targetUsers.includes(user.id)) {
+          if (shouldLogDetails) {
+            console.log(`FeatureFlagService: ${flagKey} - User not in target users. User: ${user.id}, Allowed: ${flag.targetUsers}`);
+          }
+          return false;
+        }
       }
 
       // Check role targeting
-      if (flag.targetRoles && flag.targetRoles.length > 0 && !flag.targetRoles.includes(user.role)) {
-        log(`FeatureFlagService: ${flagKey} - Role mismatch. User role: ${user.role}, Allowed roles: ${flag.targetRoles}`);
-        return false;
+      if (flag.targetRoles && flag.targetRoles.length > 0) {
+        if (shouldLogDetails) {
+          console.log(`FeatureFlagService: ${flagKey} - Checking target roles. User role: ${user.role}, Allowed roles: ${flag.targetRoles}`);
+        }
+        if (!flag.targetRoles.includes(user.role)) {
+          if (shouldLogDetails) {
+            console.log(`FeatureFlagService: ${flagKey} - Role mismatch. User role: ${user.role}, Allowed roles: ${flag.targetRoles}`);
+          }
+          return false;
+        }
       }
 
       // Check premium targeting
-      log(`FeatureFlagService: ${flagKey} - Checking premium targeting: flag.premiumOnly=${flag.premiumOnly}, user.premium?.isActive=${user.premium?.isActive}`);
+      if (shouldLogDetails) {
+        console.log(`FeatureFlagService: ${flagKey} - Checking premium targeting: flag.premiumOnly=${flag.premiumOnly}, user.premium?.isActive=${user.premium?.isActive}`);
+      }
       if (flag.premiumOnly && !user.premium?.isActive) {
-        log(`FeatureFlagService: ${flagKey} - Premium only feature, user not premium. User premium: ${user.premium?.isActive}`);
+        if (shouldLogDetails) {
+          console.log(`FeatureFlagService: ${flagKey} - Premium only feature, user not premium. User premium: ${user.premium?.isActive}`);
+        }
         return false;
       }
 
@@ -279,28 +316,41 @@ export class FeatureFlagService {
       if (flag.rolloutPercentage !== undefined && flag.rolloutPercentage !== null) {
         const userHash = this.hashUserId(user.id);
         const userPercentage = userHash % 100;
+        if (shouldLogDetails) {
+          console.log(`FeatureFlagService: ${flagKey} - Checking rollout percentage. User %: ${userPercentage}, Rollout %: ${flag.rolloutPercentage}`);
+        }
         if (userPercentage >= flag.rolloutPercentage) {
-          log(`FeatureFlagService: ${flagKey} - User not in rollout percentage. User %: ${userPercentage}, Rollout %: ${flag.rolloutPercentage}`);
+          if (shouldLogDetails) {
+            console.log(`FeatureFlagService: ${flagKey} - User not in rollout percentage. User %: ${userPercentage}, Rollout %: ${flag.rolloutPercentage}`);
+          }
           return false;
         }
       }
     } else if (!isAuthFeature) {
       // For non-auth features, if no user is provided but flag requires user targeting, return false
       if (flag.targetUsers && flag.targetUsers.length > 0) {
-        log(`FeatureFlagService: ${flagKey} - Feature requires specific users but no user provided`);
+        if (shouldLogDetails) {
+          console.log(`FeatureFlagService: ${flagKey} - Feature requires specific users but no user provided`);
+        }
         return false;
       }
       if (flag.targetRoles && flag.targetRoles.length > 0) {
-        log(`FeatureFlagService: ${flagKey} - Feature requires specific roles but no user provided`);
+        if (shouldLogDetails) {
+          console.log(`FeatureFlagService: ${flagKey} - Feature requires specific roles but no user provided`);
+        }
         return false;
       }
       if (flag.premiumOnly) {
-        log(`FeatureFlagService: ${flagKey} - Feature is premium-only but no user provided`);
+        if (shouldLogDetails) {
+          console.log(`FeatureFlagService: ${flagKey} - Feature is premium-only but no user provided`);
+        }
         return false;
       }
     }
 
-    log(`FeatureFlagService: ${flagKey} - All checks passed, feature is enabled`);
+    if (shouldLogDetails) {
+      console.log(`FeatureFlagService: ${flagKey} - All checks passed, feature is enabled`);
+    }
     return true;
   }
 

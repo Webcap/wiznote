@@ -412,10 +412,69 @@ export function useUnifiedFeatureLimits(): UnifiedFeatureLimitsData {
       )
       .subscribe();
 
+    // Also listen for local usage change events to update UI immediately after actions
+    const handleLocalUsageChange = async (evt: any) => {
+      try {
+        if (!user?.id) return;
+
+        const detail = evt?.detail || {};
+        if (detail.featureId) {
+          // Use the newUsage value from the event if available (most accurate)
+          // Otherwise fall back to optimistic update
+          if (typeof detail.newUsage === 'number') {
+            console.log(`useUnifiedFeatureLimits: Updating ${detail.featureId} usage to ${detail.newUsage} from event`);
+            setUsageData(prev => ({
+              ...prev,
+              [detail.featureId]: detail.newUsage
+            }));
+          } else if (typeof detail.amount === 'number') {
+            // Fallback to optimistic update if newUsage not available
+            console.log(`useUnifiedFeatureLimits: Optimistically updating ${detail.featureId} usage by ${detail.amount}`);
+            setUsageData(prev => ({
+              ...prev,
+              [detail.featureId]: Math.max(0, (prev?.[detail.featureId] || 0) + detail.amount)
+            }));
+          }
+        }
+
+        // Reconcile with server after a short delay to ensure consistency
+        // This is a safety net in case the event data was incorrect
+        setTimeout(async () => {
+          try {
+            const limits = await featureLimitService.getFeatureLimits();
+            const featureIds = Array.isArray(limits) ? limits.map(l => l.featureId) : Object.keys(limits);
+            await featureLimitService.initialize();
+            const newUsageData: Record<string, number> = {};
+            for (const featureId of featureIds) {
+              try {
+                const usage = await featureLimitService.getUserFeatureUsage(user.id, featureId, isPremium);
+                newUsageData[featureId] = usage?.currentPeriod?.usage || 0;
+              } catch {
+                newUsageData[featureId] = 0;
+              }
+            }
+            console.log('useUnifiedFeatureLimits: Reconcile complete, updating usage data:', newUsageData);
+            setUsageData(newUsageData);
+          } catch (reconcileError) {
+            console.warn('useUnifiedFeatureLimits: reconcile after featureUsageChanged failed:', reconcileError);
+          }
+        }, 1000); // Increased delay to 1 second to ensure database commit is complete
+      } catch (e) {
+        console.warn('useUnifiedFeatureLimits: featureUsageChanged handler failed:', e);
+      }
+    };
+
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('featureUsageChanged', handleLocalUsageChange as any);
+    }
+
     // Cleanup subscriptions
     return () => {
       featureLimitsChannel.unsubscribe();
       userUsageChannel.unsubscribe();
+      if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+        window.removeEventListener('featureUsageChanged', handleLocalUsageChange as any);
+      }
     };
   }, [isAuthenticated, user?.id, isPremium]);
 

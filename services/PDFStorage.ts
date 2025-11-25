@@ -110,16 +110,28 @@ export class PDFStorage {
   async uploadPDFFile(fileOrUri: File | Blob | string, userId: string, noteId: string, originalFilename?: string): Promise<string> {
     try {
       console.log('PDFStorage: Uploading PDF file');
+      console.log('PDFStorage: Received parameters:', {
+        fileOrUri: fileOrUri ? (typeof fileOrUri === 'string' ? fileOrUri : `File/Blob (${fileOrUri instanceof File ? fileOrUri.name : 'Blob'})`) : 'null/undefined',
+        userId: userId || 'null/undefined',
+        noteId: noteId || 'null/undefined',
+        noteIdType: typeof noteId,
+        originalFilename: originalFilename || 'not provided',
+      });
       
       // Validate input parameters
       if (!fileOrUri) {
+        console.error('PDFStorage: fileOrUri is missing');
         throw new Error('PDF file is required for upload');
       }
       if (!userId) {
+        console.error('PDFStorage: userId is missing');
         throw new Error('User ID is required for upload');
       }
-      if (!noteId) {
-        throw new Error('Note ID is required for upload');
+      if (!noteId || noteId === 'undefined' || noteId === 'null') {
+        console.error('PDFStorage: noteId is missing or invalid:', noteId);
+        console.error('PDFStorage: noteId type:', typeof noteId);
+        console.error('PDFStorage: noteId value:', JSON.stringify(noteId));
+        throw new Error(`Note ID is required for upload. Received: ${noteId} (type: ${typeof noteId})`);
       }
       
       let uploadContentType = NORMALIZED_PDF_MIME;
@@ -542,6 +554,8 @@ export class PDFStorage {
       generateTitle?: boolean;
       generateSummary?: boolean;
       extractKeyDetails?: boolean;
+      user?: any; // Add user parameter for feature flag check
+      userId?: string; // Add userId as alternative to user
     }
   ): Promise<{
     success: boolean;
@@ -554,12 +568,142 @@ export class PDFStorage {
   }> {
     try {
       console.log('PDFStorage: Processing PDF with full AI analysis');
+      console.log('PDFStorage: Options:', options);
+      console.log('PDFStorage: User provided:', !!options?.user);
+      console.log('PDFStorage: User object:', options?.user);
+      console.log('PDFStorage: UserId provided:', !!options?.userId);
+      
+      // Load user profile for feature flag check
+      let userForFlagCheck = options?.user;
+      
+      // If user is provided, validate it has the required fields
+      if (userForFlagCheck) {
+        console.log('PDFStorage: User object details:', {
+          id: userForFlagCheck.id,
+          role: userForFlagCheck.role,
+          premium: userForFlagCheck.premium,
+          hasRole: !!userForFlagCheck.role,
+          hasPremium: !!userForFlagCheck.premium,
+        });
+        
+        // If user doesn't have role or premium, try to load from database
+        if (!userForFlagCheck.role || !userForFlagCheck.premium) {
+          try {
+            const userId = userForFlagCheck.id || options?.userId;
+            if (userId) {
+              console.log('PDFStorage: Loading user profile for feature flag check (missing role/premium):', userId);
+              const { data: userProfile, error: profileError } = await supabase
+                .from('user_profiles')
+                .select('id, role, premium')
+                .eq('id', userId)
+                .maybeSingle();
+              
+              if (profileError) {
+                console.error('PDFStorage: Error loading user profile:', profileError);
+              } else if (userProfile) {
+                // Handle array response
+                const profile = Array.isArray(userProfile) ? userProfile[0] : userProfile;
+                if (profile && profile.id) {
+                  userForFlagCheck = {
+                    id: profile.id,
+                    role: profile.role || userForFlagCheck.role || 'user',
+                    premium: profile.premium || userForFlagCheck.premium || {},
+                  };
+                  console.log('PDFStorage: User profile loaded for feature flag check:', {
+                    id: userForFlagCheck.id,
+                    role: userForFlagCheck.role,
+                    premiumActive: userForFlagCheck.premium?.isActive,
+                  });
+                }
+              }
+            }
+          } catch (error) {
+            console.warn('PDFStorage: Failed to load user profile for feature flag check:', error);
+          }
+        } else {
+          console.log('PDFStorage: User object already has role and premium, using as-is');
+        }
+      } else if (options?.userId) {
+        // Load user profile if only userId is provided
+        try {
+          console.log('PDFStorage: Loading user profile from userId:', options.userId);
+          const { data: userProfile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('id, role, premium')
+            .eq('id', options.userId)
+            .maybeSingle();
+          
+          if (profileError) {
+            console.error('PDFStorage: Error loading user profile from userId:', profileError);
+          } else if (userProfile) {
+            // Handle array response
+            const profile = Array.isArray(userProfile) ? userProfile[0] : userProfile;
+            if (profile && profile.id) {
+              userForFlagCheck = {
+                id: profile.id,
+                role: profile.role || 'user',
+                premium: profile.premium || {},
+              };
+              console.log('PDFStorage: User profile loaded from userId:', {
+                id: userForFlagCheck.id,
+                role: userForFlagCheck.role,
+                premiumActive: userForFlagCheck.premium?.isActive,
+              });
+            }
+          }
+        } catch (error) {
+          console.warn('PDFStorage: Failed to load user profile from userId:', error);
+        }
+      } else {
+        // No user provided, try to get from session
+        try {
+          console.log('PDFStorage: No user provided, attempting to load from session...');
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          
+          if (session?.user) {
+            console.log('PDFStorage: Found session, loading user profile:', session.user.id);
+            const { data: userProfile, error: profileError } = await supabase
+              .from('user_profiles')
+              .select('id, role, premium')
+              .eq('id', session.user.id)
+              .maybeSingle();
+            
+            if (profileError) {
+              console.error('PDFStorage: Error loading user profile from session:', profileError);
+            } else if (userProfile) {
+              // Handle array response
+              const profile = Array.isArray(userProfile) ? userProfile[0] : userProfile;
+              if (profile && profile.id) {
+                userForFlagCheck = {
+                  id: profile.id,
+                  role: profile.role || 'user',
+                  premium: profile.premium || {},
+                };
+                console.log('PDFStorage: User profile loaded from session:', {
+                  id: userForFlagCheck.id,
+                  role: userForFlagCheck.role,
+                  premiumActive: userForFlagCheck.premium?.isActive,
+                });
+              }
+            }
+          } else {
+            console.log('PDFStorage: No session found');
+          }
+        } catch (error) {
+          console.warn('PDFStorage: Failed to load user from session:', error);
+        }
+      }
       
       // Import PDF processing service
       const { pdfProcessingService } = await import('./PDFProcessingService');
       
-      // Process with AI
-      const result = await pdfProcessingService.processPDF(fileOrUri, options);
+      // Process with AI - pass user for feature flag check
+      const result = await pdfProcessingService.processPDF(fileOrUri, {
+        ...options,
+        user: userForFlagCheck, // Pass user for feature flag check
+      });
       
       if (!result.success) {
         console.error('PDFStorage: AI processing failed:', result.error);
