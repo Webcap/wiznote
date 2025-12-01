@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.1] - 2025-12-01
+
+### ⚡ Performance
+
+#### Note Pagination & List Optimization
+- **Implemented note pagination** - `getNotesPaginated` in SupabaseNoteStorage fetches data in chunks
+  - Reduced memory footprint and initial load times for users with many notes
+  - Implemented infinite scrolling logic in `useNotes` hook
+- **Optimized FlatLists** - Enhanced performance for note lists on mobile
+  - Added `getItemLayout`, `removeClippedSubviews`, `windowSize` optimizations
+  - Smoother scrolling experience on long lists
+
+#### Caching & Data Fetching
+- **Query caching & deduplication** - New `QueryCache` and `QueryDeduplicator` utilities
+  - Prevents redundant network requests for the same data
+  - Intelligent cache invalidation on data updates
+- **Non-blocking feature flags** - `FeatureFlagService` now loads from cache first
+  - Eliminates app startup delay caused by waiting for network response
+  - Background syncing keeps flags up to date
+
+#### Resource Management
+- **Optimized Context Providers** - Reduced re-renders
+  - Memoized values in `SnackbarContext`, `PDFUploadContext`, and `AudioUploadContext`
+  - Prevents unnecessary updates to consuming components
+- **Memory Leak Fixes** - Fixed cleanup in useEffect hooks
+  - Resolved `setTimeout` memory leaks in feature limit checking
+
+### 🐛 Fixed
+
+#### Stability Improvements
+- **Crash Reporting** - Integrated Sentry for production error tracking
+  - Added `CrashReportingService` to abstract error handling
+  - Integrated with `ErrorBoundary` to capture and report crashes
+- **PDF Upload Fixes** - Resolved mobile upload failures
+  - Fixed `Blob` construction error by passing `Uint8Array` directly on mobile
+  - Improved error handling during upload process
+- **Database Query Fixes** - Fixed `PGRST116` errors
+  - Updated `SupabaseNoteStorage.updateNote` to handle 0-row updates gracefully
+  - Prevents crashes when AI features try to update non-existent/deleted notes
+- **Startup Issues** - Fixed circular dependency
+  - Resolved circular import between `FeatureFlagService` and `BetterAuthService`
+  - Eliminated white screen issue on app startup
+
+### 🔧 Technical
+
+- **Performance Monitoring** - Added `PerformanceMonitor` utility
+  - Tracks execution time of critical operations
+  - Helps identify future bottlenecks
+- **Dynamic Imports** - Implemented strategic dynamic imports
+  - Breaks circular dependencies
+  - Improves code splitting
+
+---
+
 ## [1.5.0] - 2025-11-03
 
 ### 🐛 Fixed

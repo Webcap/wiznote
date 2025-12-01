@@ -2,6 +2,7 @@ import React, { Component, ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { ThemedView } from './ThemedView';
 import { ThemedText } from './ThemedText';
+import { crashReportingService } from '../services/CrashReportingService';
 
 interface Props {
   children: ReactNode;
@@ -43,13 +44,24 @@ export class ErrorBoundary extends Component<Props, State> {
       errorInfo,
     });
 
+    // Report to crash reporting service
+    try {
+      crashReportingService.captureException(error, {
+        screen: 'ErrorBoundary',
+        action: 'componentDidCatch',
+        metadata: {
+          componentStack: errorInfo.componentStack,
+          platform: Platform.OS,
+        },
+      });
+    } catch (reportingError) {
+      console.error('ErrorBoundary: Failed to report error to crash service', reportingError);
+    }
+
     // Call custom error handler if provided
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
-
-    // In production, you might want to send this to a crash reporting service
-    // Example: crashlytics().recordError(error);
   }
 
   handleRetry = () => {

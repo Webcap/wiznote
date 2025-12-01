@@ -241,7 +241,8 @@ function PaymentSheetFormContent({
         returnURL: 'notez://payment-success',
       });
 
-      const initConfig = {
+      // Create init config with proper typing for both setup and payment intents
+      const initConfig: any = {
         merchantDisplayName: 'Wiznote',
         customerId: customer,
         customerEphemeralKeySecret: ephemeralKey,
@@ -399,7 +400,7 @@ function PaymentSheetFormContent({
       
       // Confirm payment and create subscription
       // Send both setupIntentId and paymentIntentId for backward compatibility
-      const requestBody = {
+      const requestBody: any = {
         planId,
         userId: user?.id,
         stripePriceId: stripePriceId,

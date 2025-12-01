@@ -707,6 +707,16 @@ export default function HomeScreen() {
                   contentContainerStyle={[styles.listContainer, { paddingBottom: 32 }]}
                   showsVerticalScrollIndicator={false}
                   refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                  removeClippedSubviews={true}
+                  maxToRenderPerBatch={10}
+                  updateCellsBatchingPeriod={50}
+                  initialNumToRender={10}
+                  windowSize={10}
+                  getItemLayout={(data, index) => ({
+                    length: 150, // Estimated average height
+                    offset: 150 * index,
+                    index,
+                  })}
                 />
               </>
             )}
@@ -760,6 +770,17 @@ export default function HomeScreen() {
                   contentContainerStyle={styles.listContainer}
                   showsVerticalScrollIndicator={false}
                   refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                  removeClippedSubviews={true}
+                  maxToRenderPerBatch={10}
+                  updateCellsBatchingPeriod={50}
+                  initialNumToRender={10}
+                  windowSize={10}
+                  getItemLayout={(data, index) => ({
+                    length: 150, // Estimated average height
+                    offset: 150 * index,
+                    index,
+                  })}
+                  onEndReachedThreshold={0.5}
                 />
               </>
             )}

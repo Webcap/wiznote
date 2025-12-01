@@ -252,11 +252,22 @@ export class PDFStorage {
       uploadContentType = normalizeMimeType(uploadContentType);
       console.log('PDFStorage: Using content type:', uploadContentType);
 
-      const uploadBody: BodyInit =
-        uploadFile ??
-        (typeof Blob !== 'undefined' && pdfData
-          ? new Blob([pdfData], { type: uploadContentType })
-          : pdfData ?? new Uint8Array());
+      let uploadBody: any;
+      
+      if (uploadFile) {
+        uploadBody = uploadFile;
+      } else if (pdfData) {
+        // On web, creating a Blob is preferred for correct mime type handling
+        if (Platform.OS === 'web' && typeof Blob !== 'undefined') {
+          uploadBody = new Blob([pdfData], { type: uploadContentType });
+        } else {
+          // On React Native/Mobile, pass the Uint8Array directly
+          // Creating a Blob from ArrayBuffer manually often fails in RN
+          uploadBody = pdfData;
+        }
+      } else {
+        uploadBody = new Uint8Array();
+      }
       
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage

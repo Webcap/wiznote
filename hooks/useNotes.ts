@@ -16,10 +16,17 @@ interface FilterOptions {
 export const useNotes = (userId: string, userEmail?: string | null) => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<'local' | 'syncing' | 'synced' | 'error'>('local');
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalNotes, setTotalNotes] = useState<number | undefined>(undefined);
   const { showSnackbar } = useSnackbar();
+  
+  // Pagination state
+  const pageSizeRef = useRef(50); // Default page size
+  const currentOffsetRef = useRef(0);
   
   // Real-time sync subscription
   const unsubscribeRef = useRef<(() => void) | null>(null);
@@ -131,8 +138,8 @@ export const useNotes = (userId: string, userEmail?: string | null) => {
     }
   }, [userId, userEmail, showSnackbar]);
 
-  // Load notes function that can be called manually
-  const loadNotes = useCallback(async () => {
+  // Load notes function that can be called manually (uses pagination for better performance)
+  const loadNotes = useCallback(async (reset: boolean = true) => {
     // Use the current userId if available, otherwise fall back to the last valid user ID
     const effectiveUserId = userId && userId !== '' ? userId : lastValidUserIdRef.current;
     
@@ -151,12 +158,18 @@ export const useNotes = (userId: string, userEmail?: string | null) => {
       console.log('useNotes: Using fallback user ID for mobile navigation protection:', effectiveUserId);
     }
 
-    setLoading(true);
+    if (reset) {
+      setLoading(true);
+      currentOffsetRef.current = 0;
+      setHasMore(true);
+    } else {
+      setLoadingMore(true);
+    }
     setError(null);
     setSyncStatus('local');
 
     try {
-      console.log('useNotes: Loading notes for user:', effectiveUserId);
+      console.log('useNotes: Loading notes for user:', effectiveUserId, `offset: ${currentOffsetRef.current}, limit: ${pageSizeRef.current}`);
       
       // Add timeout to prevent blocking - longer for mobile
       const timeoutMs = Platform.OS === 'web' ? 15000 : 30000;
@@ -164,24 +177,45 @@ export const useNotes = (userId: string, userEmail?: string | null) => {
         setTimeout(() => reject(new Error('Note loading timeout')), timeoutMs);
       });
       
-      // Load notes from Supabase with timeout
-      const notes = await Promise.race([
-        supabaseNoteStorage.getNotes(),
+      // Load notes from Supabase with pagination
+      const result = await Promise.race([
+        supabaseNoteStorage.getNotesPaginated(pageSizeRef.current, currentOffsetRef.current),
         timeoutPromise
-      ]) as Note[];
+      ]) as { notes: Note[]; hasMore: boolean; total?: number };
       
-      console.log('useNotes: Loaded notes:', notes.length);
-      console.log('useNotes: Notes details:', notes.map((n: Note) => ({ id: n.id, title: n.title, isArchived: n.isArchived })));
-      setNotes(notes);
-      setLoading(false);
+      console.log('useNotes: Loaded notes:', result.notes.length, 'hasMore:', result.hasMore, 'total:', result.total);
+      
+      if (reset) {
+        setNotes(result.notes);
+        setLoading(false);
+      } else {
+        setNotes(prevNotes => [...prevNotes, ...result.notes]);
+        setLoadingMore(false);
+      }
+      
+      setHasMore(result.hasMore);
+      setTotalNotes(result.total);
+      currentOffsetRef.current += result.notes.length;
       setSyncStatus('synced');
     } catch (error) {
       console.error('useNotes: Error loading notes:', error);
       setError('Failed to load notes');
-      setLoading(false);
+      if (reset) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
       setSyncStatus('error');
     }
   }, [userId, shouldUseFallback]);
+
+  // Load more notes for infinite scroll
+  const loadMoreNotes = useCallback(async () => {
+    if (!hasMore || loadingMore || loading) {
+      return;
+    }
+    await loadNotes(false);
+  }, [hasMore, loadingMore, loading, loadNotes]);
 
   // Set up real-time sync subscription
   const setupRealtimeSync = useCallback(() => {
@@ -705,9 +739,12 @@ export const useNotes = (userId: string, userEmail?: string | null) => {
   return {
     notes,
     loading,
+    loadingMore,
     error,
     syncStatus,
     isRealtimeActive,
+    hasMore,
+    totalNotes,
     createNote,
     updateNote,
     deleteNote,
@@ -723,5 +760,6 @@ export const useNotes = (userId: string, userEmail?: string | null) => {
     clearError,
     getFilteredNotes,
     refreshNotes,
+    loadMoreNotes,
   };
 }; 

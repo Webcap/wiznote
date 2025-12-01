@@ -3,7 +3,7 @@ import { DEFAULT_FEATURE_FLAGS } from '../constants/DefaultFeatureFlags';
 import { supabase } from '../lib/supabase';
 import { FeatureFlag, FeatureFlagKey } from '../types/FeatureFlags';
 import { User } from '../types/User';
-import { betterAuthService } from './BetterAuthService';
+// Note: BetterAuthService is dynamically imported in updateFeatureFlags to avoid circular dependency
 
 // Optional environment variable to control FeatureFlagService logging
 const enableFeatureFlagServiceLogs = process.env.EXPO_PUBLIC_FEATURE_FLAG_SERVICE_LOGS === 'true';
@@ -261,17 +261,8 @@ export class FeatureFlagService {
       return false;
     }
 
-    // Special handling for authentication features (like google_sign_in)
-    // These need to be checkable before user is authenticated
-    const isAuthFeature = flagKey === 'google_sign_in';
-    
-    // If this is an auth feature and no user is provided, skip user-specific targeting
-    // This allows checking the flag before sign-in
-    if (isAuthFeature && !user) {
-      log(`FeatureFlagService: ${flagKey} - Authentication feature checked without user, skipping user-specific targeting`);
-      // Only check global enabled state and environment - skip role/user/premium/rollout checks
-      return true;
-    }
+    // Note: google_sign_in is no longer a feature flag - it's controlled by system settings only
+    // This special handling is kept for backward compatibility but shouldn't be used
 
     // Check user targeting
     if (user) {
@@ -490,6 +481,8 @@ export class FeatureFlagService {
       let userRole: string | undefined;
       try {
         // Try to get user from BetterAuthService first (has cached role)
+        // Dynamic import to avoid circular dependency with BetterAuthService
+        const { betterAuthService } = await import('./BetterAuthService');
         const currentUser = await betterAuthService.getCurrentUser();
         if (currentUser?.role) {
           userRole = currentUser.role;

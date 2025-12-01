@@ -1,6 +1,47 @@
 {
   "versions": [
     {
+      "version": "1.5.1",
+      "date": "December 1, 2025",
+      "sections": [
+        {
+          "title": "Performance & Stability",
+          "emoji": "⚡",
+          "items": [
+            {
+              "title": "Faster Note Loading",
+              "description": "Implemented smart data loading for users with many notes",
+              "details": [
+                "Significantly reduced initial load times",
+                "Implemented pagination for seamless scrolling through large note libraries",
+                "Optimized data fetching to use less data"
+              ]
+            },
+            {
+              "title": "Smoother Experience",
+              "description": "Optimized app performance for better responsiveness",
+              "details": [
+                "Smoother scrolling in note lists on mobile devices",
+                "Reduced memory usage to prevent crashes",
+                "Faster app startup time with optimized initialization",
+                "Fixed freezing issues during heavy operations"
+              ]
+            },
+            {
+              "title": "Improved Reliability",
+              "description": "Enhanced error handling and crash prevention",
+              "details": [
+                "Integrated advanced crash reporting system",
+                "Fixed PDF upload issues on mobile devices",
+                "Resolved random crashes during app startup",
+                "Better handling of network connection issues"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "1.5.0",
       "date": "November 3, 2025",
       "sections": [
@@ -676,4 +717,3 @@
     }
   ]
 }
-

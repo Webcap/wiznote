@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, Dispatch, SetStateAction } from 'react';
+import React, { createContext, useContext, useState, ReactNode, Dispatch, SetStateAction, useMemo, useCallback } from 'react';
 
 interface AudioUploadState {
   fileName: string;
@@ -27,31 +27,33 @@ export function AudioUploadProvider({ children }: { children: ReactNode }) {
   const [uploadingAudio, setUploadingAudio] = useState<AudioUploadState | null>(null);
   const [onUploadComplete, setOnUploadComplete] = useState<(() => void) | null>(null);
 
-  const updateUploadProgress = (progress: number, statusMessage?: string) => {
+  const updateUploadProgress = useCallback((progress: number, statusMessage?: string) => {
     setUploadingAudio(prev => prev ? { 
       ...prev, 
       progress,
       statusMessage: statusMessage || prev.statusMessage
     } : null);
-  };
+  }, []);
 
-  const updateUploadStatus = (status: AudioUploadState['status'], statusMessage?: string) => {
+  const updateUploadStatus = useCallback((status: AudioUploadState['status'], statusMessage?: string) => {
     setUploadingAudio(prev => prev ? { 
       ...prev, 
       status,
       statusMessage: statusMessage || prev.statusMessage
     } : null);
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    uploadingAudio, 
+    setUploadingAudio,
+    updateUploadProgress,
+    updateUploadStatus,
+    onUploadComplete,
+    setOnUploadComplete,
+  }), [uploadingAudio, updateUploadProgress, updateUploadStatus, onUploadComplete]);
 
   return (
-    <AudioUploadContext.Provider value={{ 
-      uploadingAudio, 
-      setUploadingAudio,
-      updateUploadProgress,
-      updateUploadStatus,
-      onUploadComplete,
-      setOnUploadComplete,
-    }}>
+    <AudioUploadContext.Provider value={value}>
       {children}
     </AudioUploadContext.Provider>
   );

@@ -1,7 +1,7 @@
 {
   "name": "Wiznote",
   "main": "expo-router/entry",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "scripts": {
     "start": "expo start",
     "postinstall": "node scripts/postinstall.js",
@@ -55,6 +55,7 @@
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
     "@sendgrid/mail": "^8.1.6",
+    "@sentry/react-native": "^7.7.0",
     "@stripe/stripe-react-native": "^0.50.3",
     "@supabase/supabase-js": "^2.75.0",
     "@types/dompurify": "^3.0.5",

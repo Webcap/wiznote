@@ -3,6 +3,7 @@ import { Note, SharePermission, UpdateNoteData } from '../types/Note';
 import { validateNoteTitle, validateNoteContent, NoteIdSchema } from '../schemas/NoteSchema';
 import { sanitizeNoteTitle, sanitizeNoteContent, sanitizePlainText } from '../utils/sanitization';
 import { Platform } from 'react-native';
+import { queryCache } from '../utils/queryCache';
 
 export class SupabaseNoteStorage {
   private currentUser: string | null = null;
@@ -263,161 +264,215 @@ export class SupabaseNoteStorage {
     }
   }
 
+  /**
+   * Transform raw Supabase note data to Note format
+   */
+  private transformNote(note: any): Note {
+    try {
+      const title = this.extractTitle(note.title);
+      const createdAt = this.parseDate(note.created_at);
+      const updatedAt = this.parseDate(note.updated_at);
+      
+      // Validate the transformed note
+      if (isNaN(createdAt.getTime()) || isNaN(updatedAt.getTime())) {
+        console.warn('SupabaseNoteStorage: Invalid dates in note:', {
+          id: note.id,
+          created_at: note.created_at,
+          updated_at: note.updated_at,
+          createdAt: createdAt,
+          updatedAt: updatedAt
+        });
+      }
+      
+      return {
+        id: note.id,
+        userId: note.user_id,
+        title: title,
+        content: note.content || '',
+        contentHtml: note.content_html || null,
+        contentFormat: note.content_format || 'plain',
+        type: note.type || 'text',
+        tags: note.tags || [],
+        isPinned: note.is_pinned || false,
+        isArchived: note.is_archived || false,
+        isFavorite: note.is_favorite || false,
+        audioFiles: note.audio_files || [],
+        pdfFiles: note.pdf_files || [],
+        keyDetails: note.key_details || [],
+        summary: note.summary || null,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+      };
+    } catch (transformError) {
+      console.error('SupabaseNoteStorage: Error transforming note:', {
+        noteId: note.id,
+        error: transformError,
+        rawNote: {
+          id: note.id,
+          title: note.title,
+          updated_at: note.updated_at,
+          created_at: note.created_at
+        }
+      });
+      // Return a minimal valid note to prevent breaking the entire list
+      return {
+        id: note.id || `error_${Date.now()}`,
+        userId: note.user_id || this.currentUser || '',
+        title: this.extractTitle(note.title) || 'Error loading note',
+        content: note.content || '',
+        contentHtml: null,
+        contentFormat: 'plain',
+        type: 'text',
+        tags: [],
+        isPinned: false,
+        isArchived: false,
+        isFavorite: false,
+        audioFiles: [],
+        pdfFiles: [],
+        keyDetails: [],
+        summary: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
+  }
+
+  /**
+   * Transform array of raw Supabase notes to Note format
+   */
+  private transformNotes(notes: any[]): Note[] {
+    return (notes || []).map(note => this.transformNote(note));
+  }
+
+  /**
+   * Get notes with pagination support
+   * @param limit Maximum number of notes to fetch (default: 50)
+   * @param offset Number of notes to skip (default: 0)
+   * @param forceRefresh Force refresh from database (bypass cache)
+   * @returns Object with notes array and hasMore flag
+   */
+  async getNotesPaginated(limit: number = 50, offset: number = 0, forceRefresh: boolean = false): Promise<{ notes: Note[]; hasMore: boolean; total?: number }> {
+    if (!this.hasValidUser()) {
+      throw new Error('No user authenticated');
+    }
+
+    // Create cache key
+    const cacheKey = `notes_paginated_${this.currentUser}_${limit}_${offset}`;
+
+    // Use query cache with deduplication
+    return queryCache.getOrExecute(
+      cacheKey,
+      async () => {
+        try {
+          console.log('SupabaseNoteStorage: Fetching paginated notes for user:', this.currentUser, `limit: ${limit}, offset: ${offset}`);
+          
+          // Add timeout to prevent blocking - longer for mobile
+          const timeoutMs = Platform.OS === 'web' ? 20000 : 35000;
+          let timeoutId: ReturnType<typeof setTimeout> | null = null;
+          
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error('Supabase query timeout')), timeoutMs);
+          });
+          
+          // Fetch one extra to check if there are more
+          const queryLimit = limit + 1;
+          
+          // Optimize select to only fetch needed fields for list view
+          const queryPromise = supabase
+            .from('notes')
+            .select('id, user_id, title, content, content_html, content_format, type, tags, is_pinned, is_archived, is_favorite, audio_files, pdf_files, key_details, summary, created_at, updated_at', { count: 'exact' })
+            .eq('user_id', this.currentUser)
+            .order('updated_at', { ascending: false })
+            .range(offset, offset + queryLimit - 1);
+
+          let result: any;
+          try {
+            result = await Promise.race([
+              queryPromise,
+              timeoutPromise
+            ]);
+          } catch (raceError) {
+            // If timeout wins, clear it and throw
+            if (timeoutId) clearTimeout(timeoutId);
+            throw raceError;
+          }
+          
+          // Clear timeout if query completed first
+          if (timeoutId) clearTimeout(timeoutId);
+
+          // Check if result is a Supabase response
+          if (!result || typeof result !== 'object' || !('data' in result)) {
+            console.error('SupabaseNoteStorage: Invalid query result:', result);
+            throw new Error('Invalid response from Supabase');
+          }
+
+          const { data: notes, error, count } = result;
+
+          if (error) {
+            console.error('SupabaseNoteStorage: Query error:', error);
+            this.handleError(error, 'getNotesPaginated');
+          }
+
+          // Determine if there are more notes
+          const hasMore = notes && notes.length > limit;
+          // Take only the requested number of notes
+          const notesToReturn = notes ? notes.slice(0, limit) : [];
+
+          // Transform notes
+          const transformedNotes = this.transformNotes(notesToReturn);
+
+          console.log('SupabaseNoteStorage: Paginated notes - fetched:', transformedNotes.length, 'hasMore:', hasMore, 'total:', count);
+          
+          return {
+            notes: transformedNotes,
+            hasMore,
+            total: count
+          };
+        } catch (error) {
+          this.handleError(error, 'getNotesPaginated');
+          return { notes: [], hasMore: false };
+        }
+      },
+      {
+        ttl: 30 * 1000, // 30 seconds cache for notes (they change frequently)
+        forceRefresh,
+      }
+    );
+  }
+
+  /**
+   * Get all notes (backward compatibility - uses pagination internally for better performance)
+   */
   async getNotes(): Promise<Note[]> {
     if (!this.hasValidUser()) {
       throw new Error('No user authenticated');
     }
 
     try {
-      console.log('SupabaseNoteStorage: Fetching notes for user:', this.currentUser);
+      console.log('SupabaseNoteStorage: Fetching all notes for user:', this.currentUser);
       
-      // Add timeout to prevent blocking - longer for mobile
-      const timeoutMs = Platform.OS === 'web' ? 20000 : 35000;
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-      
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error('Supabase query timeout')), timeoutMs);
-      });
-      
-      const queryPromise = supabase
-        .from('notes')
-        .select('*')
-        .eq('user_id', this.currentUser)
-        .order('updated_at', { ascending: false });
+      // For backward compatibility, fetch all notes but use pagination for better performance
+      // Fetch in chunks to avoid timeout issues
+      const chunkSize = 100;
+      let offset = 0;
+      let allNotes: Note[] = [];
+      let hasMore = true;
 
-      let result: any;
-      try {
-        result = await Promise.race([
-          queryPromise,
-          timeoutPromise
-        ]);
-      } catch (raceError) {
-        // If timeout wins, clear it and throw
-        if (timeoutId) clearTimeout(timeoutId);
-        throw raceError;
-      }
-      
-      // Clear timeout if query completed first
-      if (timeoutId) clearTimeout(timeoutId);
+      while (hasMore) {
+        const result = await this.getNotesPaginated(chunkSize, offset);
+        allNotes = [...allNotes, ...result.notes];
+        hasMore = result.hasMore;
+        offset += chunkSize;
 
-      // Check if result is a Supabase response
-      if (!result || typeof result !== 'object' || !('data' in result)) {
-        console.error('SupabaseNoteStorage: Invalid query result:', result);
-        throw new Error('Invalid response from Supabase');
-      }
-
-      const { data: notes, error } = result;
-
-      if (error) {
-        console.error('SupabaseNoteStorage: Query error:', error);
-        this.handleError(error, 'getNotes');
-      }
-
-      // Log what we received with more detail
-      console.log('SupabaseNoteStorage: Received notes count:', notes?.length || 0);
-      if (notes && notes.length > 0) {
-        const firstNote = notes[0];
-        console.log('SupabaseNoteStorage: First note sample (raw):', {
-          id: firstNote.id,
-          title: firstNote.title,
-          titleType: typeof firstNote.title,
-          titleIsNull: firstNote.title === null,
-          updated_at: firstNote.updated_at,
-          updated_atType: typeof firstNote.updated_at,
-          updated_atIsNull: firstNote.updated_at === null,
-          created_at: firstNote.created_at,
-          hasContent: !!firstNote.content,
-          contentLength: firstNote.content?.length || 0
-        });
-      }
-
-      // Transform Supabase data to Note format
-      const transformedNotes: Note[] = (notes || []).map((note: any) => {
-        try {
-          const title = this.extractTitle(note.title);
-          const createdAt = this.parseDate(note.created_at);
-          const updatedAt = this.parseDate(note.updated_at);
-          
-          // Validate the transformed note
-          if (isNaN(createdAt.getTime()) || isNaN(updatedAt.getTime())) {
-            console.warn('SupabaseNoteStorage: Invalid dates in note:', {
-              id: note.id,
-              created_at: note.created_at,
-              updated_at: note.updated_at,
-              createdAt: createdAt,
-              updatedAt: updatedAt
-            });
-          }
-          
-          return {
-            id: note.id,
-            userId: note.user_id,
-            title: title,
-            content: note.content || '',
-            contentHtml: note.content_html || null,
-            contentFormat: note.content_format || 'plain',
-            type: note.type || 'text',
-            tags: note.tags || [],
-            isPinned: note.is_pinned || false,
-            isArchived: note.is_archived || false,
-            isFavorite: note.is_favorite || false,
-            audioFiles: note.audio_files || [],
-            pdfFiles: note.pdf_files || [],
-            keyDetails: note.key_details || [],
-            summary: note.summary || null,
-            createdAt: createdAt,
-            updatedAt: updatedAt,
-          };
-        } catch (transformError) {
-          console.error('SupabaseNoteStorage: Error transforming note:', {
-            noteId: note.id,
-            error: transformError,
-            rawNote: {
-              id: note.id,
-              title: note.title,
-              updated_at: note.updated_at,
-              created_at: note.created_at
-            }
-          });
-          // Return a minimal valid note to prevent breaking the entire list
-          return {
-            id: note.id || `error_${Date.now()}`,
-            userId: note.user_id || this.currentUser || '',
-            title: this.extractTitle(note.title) || 'Error loading note',
-            content: note.content || '',
-            contentHtml: null,
-            contentFormat: 'plain',
-            type: 'text',
-            tags: [],
-            isPinned: false,
-            isArchived: false,
-            isFavorite: false,
-            audioFiles: [],
-            pdfFiles: [],
-            keyDetails: [],
-            summary: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
+        // Safety limit to prevent infinite loops
+        if (offset > 10000) {
+          console.warn('SupabaseNoteStorage: Reached safety limit for note fetching');
+          break;
         }
-      });
-
-      // Log transformed notes sample
-      if (transformedNotes.length > 0) {
-        const firstTransformed = transformedNotes[0];
-        console.log('SupabaseNoteStorage: First note sample (transformed):', {
-          id: firstTransformed.id,
-          title: firstTransformed.title,
-          titleLength: firstTransformed.title.length,
-          createdAt: firstTransformed.createdAt,
-          updatedAt: firstTransformed.updatedAt,
-          createdAtValid: !isNaN(firstTransformed.createdAt.getTime()),
-          updatedAtValid: !isNaN(firstTransformed.updatedAt.getTime())
-        });
       }
 
-      console.log('SupabaseNoteStorage: Transformed notes count:', transformedNotes.length);
-      return transformedNotes;
+      console.log('SupabaseNoteStorage: Fetched all notes count:', allNotes.length);
+      return allNotes;
     } catch (error) {
       this.handleError(error, 'getNotes');
       return [];
@@ -808,6 +863,11 @@ export class SupabaseNoteStorage {
         throw error;
       }
       throw new Error(`Failed to create note: ${String(error)}`);
+    } finally {
+      // Invalidate notes cache when note is created
+      if (this.currentUser) {
+        queryCache.invalidatePattern(`notes_paginated_${this.currentUser}_.*`);
+      }
     }
   }
 
@@ -851,16 +911,31 @@ export class SupabaseNoteStorage {
       if (updates.keyDetails !== undefined) updateData.key_details = updates.keyDetails;
       if (updates.summary !== undefined) updateData.summary = updates.summary;
 
+      console.log('SupabaseNoteStorage.updateNote: Updating note:', {
+        noteId,
+        currentUser: this.currentUser,
+        updateKeys: Object.keys(updateData)
+      });
+
       const { data: note, error } = await supabase
         .from('notes')
         .update(updateData)
         .eq('id', noteId)
         .eq('user_id', this.currentUser)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
+        console.error('SupabaseNoteStorage.updateNote: Database error:', error);
         this.handleError(error, 'updateNote');
+      }
+
+      if (!note) {
+        console.error('SupabaseNoteStorage.updateNote: Note not found or not owned by user', {
+            noteId,
+            userId: this.currentUser
+        });
+        throw new Error(`Note not found or access denied: ${noteId}`);
       }
 
       // Transform Supabase data to Note format
@@ -886,6 +961,11 @@ export class SupabaseNoteStorage {
     } catch (error) {
       this.handleError(error, 'updateNote');
       throw error;
+    } finally {
+      // Invalidate notes cache when note is updated
+      if (this.currentUser) {
+        queryCache.invalidatePattern(`notes_paginated_${this.currentUser}_.*`);
+      }
     }
   }
 
@@ -907,6 +987,11 @@ export class SupabaseNoteStorage {
     } catch (error) {
       this.handleError(error, 'deleteNote');
       throw error;
+    } finally {
+      // Invalidate notes cache when note is deleted
+      if (this.currentUser) {
+        queryCache.invalidatePattern(`notes_paginated_${this.currentUser}_.*`);
+      }
     }
   }
 

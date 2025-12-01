@@ -126,7 +126,8 @@ export const useFeatureFlags = () => {
         console.warn('useFeatureFlags: Service not initialized, checking default behavior');
       }
       // For critical features, check defaults during initialization
-      if (flagKey === 'voice_recording' || flagKey === 'pdf_upload' || flagKey === 'ai_quiz' || flagKey === 'ai_flashcards') {
+      const criticalFlags = ['voice_recording', 'pdf_upload', 'ai_quiz', 'ai_flashcards'];
+      if (criticalFlags.includes(flagKey)) {
         const { DEFAULT_FEATURE_FLAGS } = require('../constants/DefaultFeatureFlags');
         return DEFAULT_FEATURE_FLAGS[flagKey]?.enabled || false;
       }
