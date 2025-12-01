@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useState, useMemo } from 'react';
 import { SnackbarType } from '../components/web/WebSnackbar';
 
 interface SnackbarContextType {
@@ -59,11 +59,11 @@ export const SnackbarProvider: React.FC<SnackbarProviderProps> = ({ children }) 
     }));
   }, []);
 
-  const value: SnackbarContextType = {
+  const value: SnackbarContextType = useMemo(() => ({
     showSnackbar,
     hideSnackbar,
     snackbar,
-  };
+  }), [showSnackbar, hideSnackbar, snackbar]);
 
   return (
     <SnackbarContext.Provider value={value}>

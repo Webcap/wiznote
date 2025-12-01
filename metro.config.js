@@ -1,8 +1,9 @@
-// Learn more https://docs.expo.dev/guides/customizing-metro
-const { getDefaultConfig } = require('expo/metro-config');
+const {
+  getSentryExpoConfig
+} = require("@sentry/react-native/metro");
 
 /** @type {import('expo/metro-config').MetroConfig} */
-const config = getDefaultConfig(__dirname);
+const config = getSentryExpoConfig(__dirname);
 
 // Add CSS as an asset type so Metro doesn't try to parse it as JavaScript
 // Also ensure platform-specific extensions are prioritized
@@ -20,4 +21,3 @@ config.resolver = {
 };
 
 module.exports = config;
-

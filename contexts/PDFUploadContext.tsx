@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, Dispatch, SetStateAction } from 'react';
+import React, { createContext, useContext, useState, ReactNode, Dispatch, SetStateAction, useMemo, useCallback } from 'react';
 
 interface PDFUploadState {
   fileName: string;
@@ -23,31 +23,33 @@ export function PDFUploadProvider({ children }: { children: ReactNode }) {
   const [uploadingPDF, setUploadingPDF] = useState<PDFUploadState | null>(null);
   const [onUploadComplete, setOnUploadComplete] = useState<(() => void) | null>(null);
 
-  const updateUploadProgress = (progress: number, statusMessage?: string) => {
+  const updateUploadProgress = useCallback((progress: number, statusMessage?: string) => {
     setUploadingPDF(prev => prev ? { 
       ...prev, 
       progress,
       statusMessage: statusMessage || prev.statusMessage
     } : null);
-  };
+  }, []);
 
-  const updateUploadStatus = (status: PDFUploadState['status'], statusMessage?: string) => {
+  const updateUploadStatus = useCallback((status: PDFUploadState['status'], statusMessage?: string) => {
     setUploadingPDF(prev => prev ? { 
       ...prev, 
       status,
       statusMessage: statusMessage || prev.statusMessage
     } : null);
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    uploadingPDF, 
+    setUploadingPDF,
+    updateUploadProgress,
+    updateUploadStatus,
+    onUploadComplete,
+    setOnUploadComplete,
+  }), [uploadingPDF, updateUploadProgress, updateUploadStatus, onUploadComplete]);
 
   return (
-    <PDFUploadContext.Provider value={{ 
-      uploadingPDF, 
-      setUploadingPDF,
-      updateUploadProgress,
-      updateUploadStatus,
-      onUploadComplete,
-      setOnUploadComplete,
-    }}>
+    <PDFUploadContext.Provider value={value}>
       {children}
     </PDFUploadContext.Provider>
   );

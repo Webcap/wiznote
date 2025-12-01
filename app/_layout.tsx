@@ -20,6 +20,7 @@ import { useColorScheme } from '../hooks/useColorScheme';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { featureFlagService } from '../services/FeatureFlagService';
+import { crashReportingService } from '../services/CrashReportingService';
 import { ThemeProvider as CustomThemeProvider, ThemeContext } from '../ThemeContext';
 import '../lib/i18n';
 
@@ -93,35 +94,71 @@ function AppContent() {
     }
   }, [isLoading, authTimeout, isInitializing, user]);
 
-  // Initialize feature flag service only after auth is determined
+  // Initialize crash reporting service
+  useEffect(() => {
+    const initializeCrashReporting = async () => {
+      try {
+        await crashReportingService.initialize({
+          environment: __DEV__ ? 'development' : 'production',
+          enableInDev: true,
+        });
+      } catch (error) {
+        console.error('Layout: Error initializing crash reporting:', error);
+      }
+    };
+    initializeCrashReporting();
+  }, []);
+
+  // Set user in crash reporting service when user changes
+  useEffect(() => {
+    if (user?.id) {
+      crashReportingService.setUser(user.id, user.email || null);
+    } else {
+      crashReportingService.clearUser();
+    }
+  }, [user?.id, user?.email]);
+
+  // Initialize feature flag service non-blocking (loads from cache immediately, refreshes in background)
   useEffect(() => {
     if (!isLoading) {
+      // Set error handler immediately (non-blocking)
+      featureFlagService.setErrorHandler((message, type) => {
+        if (Platform.OS === 'web') {
+          console.log('Feature flag error:', message, type);
+        }
+      });
+      
+      // Initialize in background - don't block rendering
       const initializeFeatureFlags = async () => {
         try {
-          console.log('Layout: Initializing feature flags...');
-          featureFlagService.setErrorHandler((message, type) => {
-            if (Platform.OS === 'web') {
-              console.log('Feature flag error:', message, type);
-            }
-          });
+          console.log('Layout: Initializing feature flags in background...');
+          
+          // Load from cache first (synchronous, fast)
+          // Then refresh from server in background if authenticated
+          const initPromise = featureFlagService.initialize(isAuthenticated);
           
           // Add timeout to prevent blocking
           const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Feature flag initialization timeout')), 5000);
+            setTimeout(() => reject(new Error('Feature flag initialization timeout')), 10000);
           });
           
-          // Pass authentication status to feature flag service
-          await Promise.race([
-            featureFlagService.initialize(isAuthenticated),
-            timeoutPromise
-          ]);
-          console.log('Layout: Feature flags initialized successfully');
+          // Race with timeout but don't block the app
+          Promise.race([initPromise, timeoutPromise]).then(() => {
+            console.log('Layout: Feature flags initialized successfully');
+          }).catch((error) => {
+            console.warn('Layout: Feature flag initialization timed out or failed (using cache):', error);
+            // App continues with cached flags
+          });
         } catch (error) {
           console.error('Layout: Error initializing feature flags:', error);
-          // Continue anyway, don't block the app
+          // Continue anyway, don't block the app - cached flags will be used
         }
       };
-      initializeFeatureFlags();
+      
+      // Start initialization in next tick to not block render
+      setTimeout(() => {
+        initializeFeatureFlags();
+      }, 0);
     }
   }, [isLoading, isAuthenticated]);
 

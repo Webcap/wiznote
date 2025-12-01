@@ -81,25 +81,47 @@ function AppContent() {
     };
   }, [router]);
 
-  // Initialize feature flag service only after auth is determined
+  // Initialize feature flag service non-blocking (loads from cache immediately, refreshes in background)
   useEffect(() => {
     if (!isLoading) {
+      // Set error handler immediately (non-blocking)
+      featureFlagService.setErrorHandler((message, type) => {
+        if (Platform.OS === 'web') {
+          console.log('Feature flag error:', message, type);
+        }
+      });
+      
+      // Initialize in background - don't block rendering
       const initializeFeatureFlags = async () => {
         try {
-          console.log('Layout: Initializing feature flags...');
-          featureFlagService.setErrorHandler((message, type) => {
-            if (Platform.OS === 'web') {
-              console.log('Feature flag error:', message, type);
-            }
+          console.log('Layout: Initializing feature flags in background...');
+          
+          // Load from cache first (synchronous, fast)
+          // Then refresh from server in background if authenticated
+          const initPromise = featureFlagService.initialize(isAuthenticated);
+          
+          // Add timeout to prevent blocking
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Feature flag initialization timeout')), 10000);
           });
-          // Pass authentication status to feature flag service
-          await featureFlagService.initialize(isAuthenticated);
-          console.log('Layout: Feature flags initialized successfully');
+          
+          // Race with timeout but don't block the app
+          Promise.race([initPromise, timeoutPromise]).then(() => {
+            console.log('Layout: Feature flags initialized successfully');
+          }).catch((error) => {
+            console.warn('Layout: Feature flag initialization timed out or failed (using cache):', error);
+            // App continues with cached flags
+          });
         } catch (error) {
           console.error('Layout: Error initializing feature flags:', error);
+          // Continue anyway, don't block the app - cached flags will be used
         }
       };
-      initializeFeatureFlags();
+      
+      // Start initialization in next tick to not block render
+      setTimeout(() => {
+        initializeFeatureFlags();
+      }, 0);
     }
   }, [isLoading, isAuthenticated]);
 

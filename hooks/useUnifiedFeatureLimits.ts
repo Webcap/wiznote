@@ -365,6 +365,9 @@ export function useUnifiedFeatureLimits(): UnifiedFeatureLimitsData {
   useEffect(() => {
     if (!isAuthenticated) return;
 
+    // Track timeouts for cleanup
+    const timeoutIds: ReturnType<typeof setTimeout>[] = [];
+
     // Subscribe to feature limits changes
     const featureLimitsChannel = supabase
       .channel('feature-limits-changes')
@@ -439,7 +442,7 @@ export function useUnifiedFeatureLimits(): UnifiedFeatureLimitsData {
 
         // Reconcile with server after a short delay to ensure consistency
         // This is a safety net in case the event data was incorrect
-        setTimeout(async () => {
+        const timeoutId = setTimeout(async () => {
           try {
             const limits = await featureLimitService.getFeatureLimits();
             const featureIds = Array.isArray(limits) ? limits.map(l => l.featureId) : Object.keys(limits);
@@ -459,6 +462,7 @@ export function useUnifiedFeatureLimits(): UnifiedFeatureLimitsData {
             console.warn('useUnifiedFeatureLimits: reconcile after featureUsageChanged failed:', reconcileError);
           }
         }, 1000); // Increased delay to 1 second to ensure database commit is complete
+        timeoutIds.push(timeoutId);
       } catch (e) {
         console.warn('useUnifiedFeatureLimits: featureUsageChanged handler failed:', e);
       }
@@ -468,10 +472,12 @@ export function useUnifiedFeatureLimits(): UnifiedFeatureLimitsData {
       window.addEventListener('featureUsageChanged', handleLocalUsageChange as any);
     }
 
-    // Cleanup subscriptions
+    // Cleanup subscriptions and timeouts
     return () => {
       featureLimitsChannel.unsubscribe();
       userUsageChannel.unsubscribe();
+      // Clear all pending timeouts
+      timeoutIds.forEach(id => clearTimeout(id));
       if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
         window.removeEventListener('featureUsageChanged', handleLocalUsageChange as any);
       }

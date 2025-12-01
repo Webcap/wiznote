@@ -1122,18 +1122,9 @@ export class BetterAuthService {
     try {
       console.log('Signing in with Google...');
       
-      // Check if Google Sign-In is enabled via both feature flag AND system settings
+      // Check if Google Sign-In is enabled via system settings only
+      // No feature flag check needed - auth features shouldn't require authentication to check
       try {
-        // Check feature flag (pass undefined for user since this is before/during authentication)
-        // The feature flag service handles auth features specially when no user is provided
-        const { featureFlagService } = require('./FeatureFlagService');
-        const featureFlagEnabled = featureFlagService.isFeatureEnabled('google_sign_in', undefined);
-        
-        if (!featureFlagEnabled) {
-          throw new Error('Google Sign-In is disabled by feature flag');
-        }
-        
-        // Check system setting (system setting can override feature flag)
         const { systemSettingsService } = require('./SystemSettingsService');
         const systemSettingEnabled = await systemSettingsService.isGoogleSignInEnabled();
         
@@ -1142,10 +1133,7 @@ export class BetterAuthService {
         }
       } catch (checkError) {
         // If it's a disable message, throw it
-        if (checkError instanceof Error && (
-          checkError.message.includes('disabled by feature flag') || 
-          checkError.message.includes('disabled by system settings')
-        )) {
+        if (checkError instanceof Error && checkError.message.includes('disabled by system settings')) {
           throw checkError;
         }
         // If we can't check settings, log but continue (fail open for better UX)

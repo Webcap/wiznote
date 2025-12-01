@@ -274,6 +274,16 @@ export default function SearchScreen() {
                 )}
                 contentContainerStyle={styles.listContainer}
                 showsVerticalScrollIndicator={false}
+                removeClippedSubviews={true}
+                maxToRenderPerBatch={10}
+                updateCellsBatchingPeriod={50}
+                initialNumToRender={10}
+                windowSize={10}
+                getItemLayout={(data, index) => ({
+                  length: 150, // Estimated average height
+                  offset: 150 * index,
+                  index,
+                })}
               />
             )}
           </View>
@@ -439,6 +449,16 @@ export default function SearchScreen() {
             )}
             contentContainerStyle={styles.listContainer}
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            updateCellsBatchingPeriod={50}
+            initialNumToRender={10}
+            windowSize={10}
+            getItemLayout={(data, index) => ({
+              length: 150, // Estimated average height
+              offset: 150 * index,
+              index,
+            })}
           />
         )}
       </View>

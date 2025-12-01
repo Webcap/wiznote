@@ -17,7 +17,6 @@ import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { useAuth } from '../../hooks/useAuth';
-import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { useThemeColor } from '../../hooks/useThemeColor';
@@ -37,34 +36,28 @@ export default function SignupScreen() {
 
   const { signUp, signInWithGoogle } = useAuth();
   const { showSnackbar } = useSnackbar();
-  const { isFeatureEnabled } = useFeatureFlags();
 
   // Set page title for web
   usePageTitle();
 
-  // Load Google Sign-In settings (both feature flag and system setting)
+  // Load Google Sign-In setting (system setting only - no feature flag needed for auth features)
   useEffect(() => {
     const loadGoogleSignInSettings = async () => {
       try {
-        // Check feature flag first
-        const featureFlagEnabled = isFeatureEnabled('google_sign_in');
-        
-        // Check system setting (system setting can override feature flag)
+        // Only check system setting - no feature flag needed since users aren't authenticated yet
         const systemSettingEnabled = await systemSettingsService.isGoogleSignInEnabled();
+        console.log('Signup: Google Sign-In system setting enabled:', systemSettingEnabled);
         
-        // Google Sign-In is enabled only if BOTH feature flag AND system setting allow it
-        // System setting takes precedence - if disabled in system settings, disable regardless of feature flag
-        const enabled = featureFlagEnabled && systemSettingEnabled;
-        
-        setGoogleSignInEnabled(enabled);
+        setGoogleSignInEnabled(systemSettingEnabled);
       } catch (error) {
         console.error('Error loading Google Sign-In settings:', error);
-        // Default to false if there's an error (more secure)
-        setGoogleSignInEnabled(false);
+        // Default to true if there's an error (better UX - show button, error will show if clicked)
+        console.warn('Signup: Defaulting Google Sign-In to enabled due to error');
+        setGoogleSignInEnabled(true);
       }
     };
     loadGoogleSignInSettings();
-  }, [isFeatureEnabled]);
+  }, []);
 
   const validateForm = () => {
     if (!email.trim()) {
@@ -193,26 +186,19 @@ export default function SignupScreen() {
   };
 
   const handleGoogleSignUp = async () => {
-    // Double-check both feature flag and system setting before proceeding
+    // Check system setting before proceeding (no feature flag check needed for auth features)
     if (!googleSignInEnabled) {
-      // Re-check to provide specific error message
+      // Re-check to provide error message
       try {
-        const featureFlagEnabled = isFeatureEnabled('google_sign_in');
         const systemSettingEnabled = await systemSettingsService.isGoogleSignInEnabled();
         
-        let message = t('auth.googleSignInDisabled');
-        if (!featureFlagEnabled && !systemSettingEnabled) {
-          message = 'Google Sign-In is disabled by feature flag and system settings';
-        } else if (!featureFlagEnabled) {
-          message = 'Google Sign-In is disabled by feature flag';
-        } else if (!systemSettingEnabled) {
-          message = t('auth.googleSignInDisabled'); // System setting message (already translated)
-        }
-        
-        if (Platform.OS === 'web') {
-          showSnackbar(message, 'error', 6000);
-        } else {
-          Alert.alert(t('signup.error'), message);
+        if (!systemSettingEnabled) {
+          const message = t('auth.googleSignInDisabled');
+          if (Platform.OS === 'web') {
+            showSnackbar(message, 'error', 6000);
+          } else {
+            Alert.alert(t('signup.error'), message);
+          }
         }
       } catch (error) {
         // Fallback to generic message
