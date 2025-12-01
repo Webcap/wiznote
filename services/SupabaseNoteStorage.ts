@@ -911,16 +911,31 @@ export class SupabaseNoteStorage {
       if (updates.keyDetails !== undefined) updateData.key_details = updates.keyDetails;
       if (updates.summary !== undefined) updateData.summary = updates.summary;
 
+      console.log('SupabaseNoteStorage.updateNote: Updating note:', {
+        noteId,
+        currentUser: this.currentUser,
+        updateKeys: Object.keys(updateData)
+      });
+
       const { data: note, error } = await supabase
         .from('notes')
         .update(updateData)
         .eq('id', noteId)
         .eq('user_id', this.currentUser)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
+        console.error('SupabaseNoteStorage.updateNote: Database error:', error);
         this.handleError(error, 'updateNote');
+      }
+
+      if (!note) {
+        console.error('SupabaseNoteStorage.updateNote: Note not found or not owned by user', {
+            noteId,
+            userId: this.currentUser
+        });
+        throw new Error(`Note not found or access denied: ${noteId}`);
       }
 
       // Transform Supabase data to Note format
