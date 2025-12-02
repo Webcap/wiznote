@@ -38,6 +38,22 @@
               ]
             }
           ]
+        },
+        {
+          "title": "Admin Tools",
+          "emoji": "🛠️",
+          "items": [
+            {
+              "title": "Fixed Bulk User Management",
+              "description": "Admins can now properly view and manage user profiles",
+              "details": [
+                "Resolved access permission issue for admin accounts",
+                "Fixed ability to view all user profiles in the dashboard",
+                "Fixed \"User object missing id field\" error in Support Dashboard",
+                "Improved reliability of bulk actions"
+              ]
+            }
+          ]
         }
       ]
     },

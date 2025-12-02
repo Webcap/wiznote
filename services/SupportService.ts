@@ -138,19 +138,27 @@ export class SupportService {
           console.log(`SupportService: Found user via RPC:`, user);
 
           // Now get the full profile
+          const userIdFromRpc = user.id || user.user_id;
+          
+          if (!userIdFromRpc) {
+             console.warn('SupportService: RPC returned user without ID:', user);
+             // Skip profile fetch if we don't have an ID, but continue to other search methods
+             throw new Error('RPC user missing ID');
+          }
+
           const { data: profile, error: profileError } = await supabase
             .from('user_profiles')
             .select('*')
-            .eq('id', user.id)
+            .eq('id', userIdFromRpc)
             .single();
 
           if (profileError) {
-            console.warn(`SupportService: Error fetching profile for user ${user.id}:`, profileError);
+            console.warn(`SupportService: Error fetching profile for user ${userIdFromRpc}:`, profileError);
             // If profile query failed but we have RPC user data, return basic profile
-            if (user.id) {
-              console.warn(`SupportService: Profile query failed, returning RPC data only for user ${user.id}`);
+            if (userIdFromRpc) {
+              console.warn(`SupportService: Profile query failed, returning RPC data only for user ${userIdFromRpc}`);
               return {
-                id: user.id,
+                id: userIdFromRpc,
                 email: user.email || 'Unknown',
                 displayName: user.display_name || 'Unknown User',
                 createdAt: new Date(),
@@ -163,27 +171,27 @@ export class SupportService {
               ? await this.enrichPremiumData(profile.premium)
               : { isActive: false, planName: 'Free', expiresAt: undefined };
 
-            // Use user.id from RPC as fallback if profile.id is missing
-            const userId = profile.id || user.id;
-            if (!userId) {
+            // Use userIdFromRpc as fallback if profile.id is missing
+            const finalUserId = profile.id || userIdFromRpc;
+            if (!finalUserId) {
               console.error('SupportService: Both profile.id and user.id are missing!', { profile, user });
               return null;
             }
 
             return {
-              id: userId,
+              id: finalUserId,
               email: user.email || profile.email || 'Unknown',
               displayName: profile.display_name || user.display_name || 'Unknown User',
               createdAt: new Date(profile.created_at || Date.now()),
               lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
               premium,
             };
-          } else if (user.id) {
+          } else if (userIdFromRpc) {
             // Profile doesn't exist but we have user data from RPC
             // Return a basic user profile with the RPC data
-            console.warn(`SupportService: Profile not found for user ${user.id}, returning RPC data only`);
+            console.warn(`SupportService: Profile not found for user ${userIdFromRpc}, returning RPC data only`);
             return {
-              id: user.id,
+              id: userIdFromRpc,
               email: user.email || 'Unknown',
               displayName: user.display_name || 'Unknown User',
               createdAt: new Date(),
@@ -241,9 +249,11 @@ export class SupportService {
               ? await this.enrichPremiumData(profile.premium)
               : { isActive: false, planName: 'Free', expiresAt: undefined };
 
+            const finalUserId = profile.id || query;
+
             return {
-              id: profile.id,
-              email: profile.email || profile.id,
+              id: finalUserId,
+              email: profile.email || finalUserId || 'Unknown',
               displayName: profile.display_name || 'Unknown User',
               createdAt: new Date(profile.created_at || Date.now()),
               lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
