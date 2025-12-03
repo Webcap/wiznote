@@ -1,5 +1,53 @@
 # WizNote - Release Notes
 
+## Version 1.5.1 - Performance & Stability Update
+**Release Date:** December 1, 2025
+
+### 📱 Google Play Store Release Notes (500 char limit)
+
+```
+Performance & Stability Update ⚡🚀
+
+⚡ Faster note loading & scrolling
+📱 Smoother experience on mobile
+🐛 Fixed PDF uploads & crashes
+🔄 Better offline data handling
+🛡️ Enhanced app stability
+🚀 Faster app startup
+
+Update now for a smoother experience! ✨
+```
+
+---
+
+### 📱 Full Release Notes
+
+**What's New:**
+
+**⚡ Performance Improvements**
+- **Faster Note Loading**: Implemented smart pagination for large note libraries
+- **Smoother Scrolling**: Optimized lists for better mobile performance
+- **Quick Startup**: Non-blocking initialization for instant app access
+- **Reduced Data Usage**: Efficient data fetching and caching
+
+**🐛 Bug Fixes & Stability**
+- **PDF Uploads**: Fixed upload issues on mobile devices
+- **Crash Prevention**: Enhanced error handling and reporting
+- **Reliability**: Resolved database connection and query errors
+- **Resource Management**: Fixed memory leaks for better stability
+
+**🔧 Technical Enhancements**
+- **Query Caching**: Smarter data management for offline support
+- **Optimized Contexts**: Reduced background processing
+- **Admin Tools Fixes**: Resolved issue with bulk user management view
+
+**🎯 User Experience**
+- ✅ **Faster**: Everything feels snappier and more responsive
+- ✅ **More Stable**: Fewer crashes and errors
+- ✅ **Smoother**: Better scrolling and transitions
+
+---
+
 ## Version 1.4.1 - Enhanced Note Management
 **Release Date:** October 26, 2025
 

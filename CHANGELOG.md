@@ -47,8 +47,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated `SupabaseNoteStorage.updateNote` to handle 0-row updates gracefully
   - Prevents crashes when AI features try to update non-existent/deleted notes
 - **Startup Issues** - Fixed circular dependency
-  - Resolved circular import between `FeatureFlagService` and `BetterAuthService`
   - Eliminated white screen issue on app startup
+  - Resolved circular import between `FeatureFlagService` and `BetterAuthService`
+
+#### Admin Tools
+- **Fixed Bulk User Management** - Resolved RLS recursion issue preventing admins from viewing profiles
+  - Updated RLS policies for `user_profiles` to use non-recursive helper function
+  - Admins can now properly view and manage all user accounts
+- **Fixed Support Dashboard User Search** - Resolved "User object missing id field" error
+  - Improved ID resolution logic in `SupportService` for RPC and direct searches
+  - Added robust fallback mechanisms when profile data is incomplete
 
 ### 🔧 Technical
 
