@@ -64,14 +64,21 @@ export function WebLayout({ children, sidebar, rightSidebar, header, scrollable 
               title={title || ''} 
               subtitle={subtitle}
               onMenuPress={toggleSidebar}
+              rightActions={header}
             />
           )}
-          {header && <View style={[styles.header, { borderBottomColor: borderColor, backgroundColor }]}>{header}</View>}
           
           {scrollable ? (
             <ScrollView 
               style={[styles.scrollContent, { backgroundColor }]}
-              contentContainerStyle={styles.scrollContentContainer}
+              contentContainerStyle={[
+                styles.scrollContentContainer,
+                Platform.OS === 'web' && {
+                  '@media (max-width: 768px)': {
+                    paddingHorizontal: 0,
+                  },
+                }
+              ]}
               showsVerticalScrollIndicator={true}
             >
               {children}
@@ -233,10 +240,13 @@ const styles = StyleSheet.create({
     padding: 24,
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        padding: 16,
+        paddingHorizontal: 0,
+        paddingVertical: 16,
+        width: '100%',
       },
       '@media (max-width: 480px)': {
-        padding: 12,
+        paddingHorizontal: 0,
+        paddingVertical: 12,
       },
     } : {}),
   },

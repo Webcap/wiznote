@@ -109,6 +109,7 @@ export function HamburgerMenu({ isOpen, onToggle, onClose, children }: Hamburger
             opacity: backdropOpacity,
           },
         ]}
+        pointerEvents={isOpen ? 'auto' : 'none'}
       >
         <TouchableOpacity
           style={StyleSheet.absoluteFill}

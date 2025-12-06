@@ -80,21 +80,32 @@ const styles = StyleSheet.create({
   content: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
   menuButton: {
     width: 44,
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    position: 'absolute',
+    left: 0,
   },
   titleContainer: {
     flex: 1,
-    minWidth: 0, // Allow shrinking
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 480px)': {
+        fontSize: 20,
+      },
+    } : {}),
   },
   subtitle: {
     fontSize: 13,

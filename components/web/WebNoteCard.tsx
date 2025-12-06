@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, TouchableOpacity, View, Pressable } from 'react-native';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { Note } from '../../types/Note';
 import { ThemedText } from '../ThemedText';
@@ -67,7 +67,7 @@ export function WebNoteCard({
   };
 
   return (
-    <TouchableOpacity
+    <Pressable
       style={[
         styles.container,
         { 
@@ -79,10 +79,8 @@ export function WebNoteCard({
       ]}
       onPress={onPress}
       onLongPress={onLongPress}
-      {...(Platform.OS === 'web' ? {
-        onMouseEnter: () => setIsHovered(true),
-        onMouseLeave: () => setIsHovered(false)
-      } : {})}
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
     >
       {/* Header */}
       <View style={styles.header}>
@@ -97,9 +95,12 @@ export function WebNoteCard({
           )}
         </View>
         
-        {/* Action Buttons */}
-        {(isHovered || isSelected || Platform.OS === 'web' && window.innerWidth < 768) && (
-          <View style={styles.actions}>
+        {/* Action Buttons - Always visible on mobile by checking window width if available, otherwise rely on hover */}
+        <View style={[
+          styles.actions, 
+          { opacity: (isHovered || isSelected) ? 1 : 0 },
+          // Add a class or style for mobile visibility handled via media queries in styles
+        ]}>
             {onToggleFavorite && (
               <TouchableOpacity style={styles.actionButton} onPress={onToggleFavorite}>
                 <Ionicons 
@@ -129,7 +130,6 @@ export function WebNoteCard({
               </TouchableOpacity>
             )}
           </View>
-        )}
       </View>
 
       {/* Content Preview */}
@@ -157,14 +157,14 @@ export function WebNoteCard({
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 6,
-    padding: 10,
+    borderRadius: 12,
+    padding: 16,
     ...(Platform.OS === 'web' ? {
       cursor: 'pointer',
       transition: 'all 0.2s ease',
@@ -174,17 +174,23 @@ const styles = StyleSheet.create({
     }),
     flexDirection: 'column',
     height: 140,
+    width: 300, // Default width for desktop grid
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        padding: 12,
+        padding: 16,
         height: 'auto',
-        minHeight: 100,
-        maxHeight: 140,
+        minHeight: 120,
+        width: '100%',
+        maxWidth: '100%',
+        marginHorizontal: 0,
+        borderRadius: 16,
+        marginBottom: 0,
       },
       '@media (max-width: 480px)': {
-        padding: 10,
-        minHeight: 90,
-        maxHeight: 130,
+        padding: 14,
+        marginHorizontal: 0,
+        minHeight: 110,
+        borderRadius: 14,
       },
     } : {}),
   },
@@ -216,12 +222,12 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 4,
     fontSize: 14,
+    fontWeight: '600',
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        fontSize: 13,
-      },
-      '@media (max-width: 480px)': {
-        fontSize: 12,
+        fontSize: 17,
+        fontWeight: '700',
+        lineHeight: 22,
       },
     } : {}),
   },
@@ -239,6 +245,11 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: 8,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        opacity: 1, // Always show actions on mobile
+      },
+    } : {}),
   },
   actionButton: {
     width: 32,
@@ -249,7 +260,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        width: 40,
+        width: 40, // Larger touch targets
         height: 40,
         borderRadius: 20,
       },
@@ -258,24 +269,21 @@ const styles = StyleSheet.create({
   preview: {
     fontSize: 11,
     lineHeight: 14,
-    marginBottom: 6,
+    marginBottom: 8,
     color: '#A0A0A0',
-    flex: 1, // Allow preview to take remaining space
-    overflow: 'hidden', // Prevent text overflow
+    flex: 1,
+    overflow: 'hidden',
     ...(Platform.OS === 'web' ? {
       WebkitLineClamp: 3,
       WebkitBoxOrient: 'vertical' as any,
     } : {}),
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        fontSize: 13,
-        lineHeight: 16,
-        WebkitLineClamp: 2,
-      },
-      '@media (max-width: 480px)': {
-        fontSize: 12,
-        lineHeight: 15,
-        WebkitLineClamp: 2,
+        fontSize: 15,
+        lineHeight: 22,
+        color: '#888888',
+        WebkitLineClamp: 3,
+        marginBottom: 10,
       },
     } : {}),
   },
@@ -288,6 +296,12 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 10,
     color: '#666666',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 13,
+        fontWeight: '500',
+      },
+    } : {}),
   },
   tags: {
     flexDirection: 'row',
@@ -304,6 +318,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '500',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 12, // Larger tag text
+      },
+    } : {}),
   },
   moreTags: {
     fontSize: 10,

@@ -339,74 +339,99 @@ export const NoteDetailStyles = StyleSheet.create({
   },
   // Web specific styles
   webHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 0,
-    paddingTop: 40,
-    paddingBottom: 30,
-    gap: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        flexDirection: 'column',
-        alignItems: 'stretch',
-        gap: 16,
-        paddingTop: 20,
-        paddingBottom: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
       },
       '@media (max-width: 480px)': {
-        paddingTop: 16,
-        paddingBottom: 16,
-        gap: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
       },
     } : {}),
   },
-  webBackButton: {
+  webHeaderTop: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    marginLeft: -24,
-    minWidth: 80,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    width: '100%',
+    gap: 12,
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        marginLeft: 0,
-        alignSelf: 'flex-start',
-        minWidth: 70,
+        gap: 10,
+        alignItems: 'center',
       },
     } : {}),
   },
-  webBackText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  webHeaderInfo: {
+  webHeaderTitleContainer: {
     flex: 1,
-    textAlign: 'center',
-    marginLeft: 40,
+    marginHorizontal: 12,
+    minWidth: 0,
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        marginLeft: 0,
-        textAlign: 'left',
+        marginHorizontal: 8,
       },
     } : {}),
   },
   webHeaderTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginBottom: 4,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 18,
+        marginBottom: 2,
+      },
+      '@media (max-width: 480px)': {
+        fontSize: 16,
+      },
+    } : {}),
   },
-  webHeaderDate: {
-    fontSize: 14,
-    color: '#A0A0A0',
-  },
-  webHeaderRight: {
+  webHeaderMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+    flexWrap: 'wrap',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        gap: 6,
+      },
+    } : {}),
+  },
+  webHeaderDate: {
+    fontSize: 13,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 12,
+      },
+    } : {}),
+  },
+  webBackButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+      },
+    } : {}),
+  },
+  webHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        gap: 6,
+      },
+    } : {}),
   },
   webNoteTypeBadge: {
     marginRight: 8,
@@ -452,6 +477,13 @@ export const NoteDetailStyles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.1)',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+      },
+    } : {}),
   },
   webArchiveButton: {
     width: 36,
@@ -460,23 +492,32 @@ export const NoteDetailStyles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.1)',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+      },
+    } : {}),
   },
   webContent: {
     flex: 1,
   },
   webContentContainer: {
     flexDirection: 'row',
-    padding: 20,
-    gap: 20,
+    padding: 24,
+    gap: 24,
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
         flexDirection: 'column',
-        padding: 16,
-        gap: 16,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        gap: 20,
       },
       '@media (max-width: 480px)': {
-        padding: 12,
-        gap: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        gap: 16,
       },
     } : {}),
   },
@@ -486,6 +527,7 @@ export const NoteDetailStyles = StyleSheet.create({
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
         maxWidth: '100%',
+        width: '100%',
       },
     } : {}),
   },
@@ -495,7 +537,8 @@ export const NoteDetailStyles = StyleSheet.create({
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
         width: '100%',
-        gap: 16,
+        gap: 20,
+        order: -1,
       },
     } : {}),
   },
@@ -504,21 +547,61 @@ export const NoteDetailStyles = StyleSheet.create({
   },
   webContentSection: {
     marginBottom: 24,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        marginBottom: 20,
+      },
+      '@media (max-width: 480px)': {
+        marginBottom: 16,
+      },
+    } : {}),
   },
   webSectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 12,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 17,
+        marginBottom: 10,
+      },
+      '@media (max-width: 480px)': {
+        fontSize: 16,
+        marginBottom: 8,
+      },
+    } : {}),
   },
   webContentText: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 12,
     padding: 16,
     minHeight: 120,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        borderRadius: 16,
+        padding: 16,
+        minHeight: 100,
+      },
+      '@media (max-width: 480px)': {
+        borderRadius: 14,
+        padding: 14,
+        minHeight: 80,
+      },
+    } : {}),
   },
   webContentTextInner: {
     fontSize: 16,
     lineHeight: 24,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 15,
+        lineHeight: 22,
+      },
+      '@media (max-width: 480px)': {
+        fontSize: 14,
+        lineHeight: 20,
+      },
+    } : {}),
   },
   webLoadingContainer: {
     flexDirection: 'row',
@@ -564,6 +647,17 @@ export const NoteDetailStyles = StyleSheet.create({
   },
   webActionGrid: {
     gap: 8,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+      },
+      '@media (max-width: 480px)': {
+        flexDirection: 'column',
+        gap: 8,
+      },
+    } : {}),
   },
   webActionButton: {
     flexDirection: 'row',
@@ -576,14 +670,31 @@ export const NoteDetailStyles = StyleSheet.create({
     minHeight: 44,
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        minHeight: 48,
+        flex: 1,
+        minWidth: '48%',
+        minHeight: 50,
         paddingVertical: 14,
+        paddingHorizontal: 14,
+        borderRadius: 12,
+      },
+      '@media (max-width: 480px)': {
+        flex: 1,
+        minWidth: '100%',
+        minHeight: 48,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
       },
     } : {}),
   },
   webActionButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 15,
+        fontWeight: '700',
+      },
+    } : {}),
   },
   webDetailsSection: {
     marginBottom: 24,

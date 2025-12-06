@@ -1211,6 +1211,8 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
   // Web layout
   return (
     <WebLayout
+      title={note.title || t('noteDetail.untitledNote')}
+      subtitle={formatDate(note.createdAt)}
       sidebar={
         <UserSidebar
           activePage="note"
@@ -1218,89 +1220,99 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
       }
       header={
         <View style={[styles.webHeader, { backgroundColor }]}>
-          <TouchableOpacity style={[styles.webBackButton, { backgroundColor: cardBackground }]} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color={textColor} />
-            <ThemedText style={[styles.webBackText, { color: textColor }]}>{t('noteDetail.back')}</ThemedText>
-          </TouchableOpacity>
-          <View style={styles.webHeaderInfo}>
-            <ThemedText style={[styles.webHeaderTitle, { color: textColor }]}>
-              {note.title || t('noteDetail.untitledNote')}
-            </ThemedText>
-            <ThemedText style={[styles.webHeaderDate, { color: mutedTextColor }]}>
-              {formatDate(note.createdAt)}
-            </ThemedText>
-          </View>
-          <View style={styles.webHeaderRight}>
-            <View style={styles.webNoteTypeBadge}>
-              {isPDFNote(note) ? (
-                <View style={[styles.webPDFNoteBadge, { backgroundColor: cardBackground }]}>
-                  <Ionicons name="document" size={16} color="#E74C3C" />
-                  <ThemedText style={[styles.webAudioNoteText, { color: '#E74C3C' }]}>{t('noteDetail.pdfNote')}</ThemedText>
+          <View style={styles.webHeaderTop}>
+            <TouchableOpacity 
+              style={[styles.webBackButton, { backgroundColor: cardBackground }]} 
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={20} color={textColor} />
+            </TouchableOpacity>
+            <View style={styles.webHeaderTitleContainer}>
+              <ThemedText style={[styles.webHeaderTitle, { color: textColor }]} numberOfLines={2}>
+                {note.title || t('noteDetail.untitledNote')}
+              </ThemedText>
+              <View style={styles.webHeaderMeta}>
+                <ThemedText style={[styles.webHeaderDate, { color: mutedTextColor }]}>
+                  {formatDate(note.createdAt)}
+                </ThemedText>
+                <View style={styles.webNoteTypeBadge}>
+                  {isPDFNote(note) ? (
+                    <View style={[styles.webPDFNoteBadge, { backgroundColor: cardBackground }]}>
+                      <Ionicons name="document" size={12} color="#E74C3C" />
+                      <ThemedText style={[styles.webAudioNoteText, { color: '#E74C3C' }]}>{t('noteDetail.pdfNote')}</ThemedText>
+                    </View>
+                  ) : isAudioNote(note) ? (
+                    <View style={[styles.webAudioNoteBadge, { backgroundColor: cardBackground }]}>
+                      <Ionicons name="musical-notes" size={12} color={accentColor} />
+                      <ThemedText style={[styles.webAudioNoteText, { color: accentColor }]}>{t('noteDetail.audioNote')}</ThemedText>
+                    </View>
+                  ) : (
+                    <View style={[styles.webTextNoteBadge, { backgroundColor: cardBackground }]}>
+                      <Ionicons name="document-text" size={12} color={accentColor} />
+                      <ThemedText style={[styles.webTextNoteText, { color: accentColor }]}>{t('noteDetail.textNote')}</ThemedText>
+                    </View>
+                  )}
                 </View>
-              ) : isAudioNote(note) ? (
-                <View style={[styles.webAudioNoteBadge, { backgroundColor: cardBackground }]}>
-                  <Ionicons name="musical-notes" size={16} color={accentColor} />
-                  <ThemedText style={[styles.webAudioNoteText, { color: accentColor }]}>{t('noteDetail.audioNote')}</ThemedText>
-                </View>
-              ) : (
-                <View style={[styles.webTextNoteBadge, { backgroundColor: cardBackground }]}>
-                  <Ionicons name="document-text" size={16} color={accentColor} />
-                  <ThemedText style={[styles.webTextNoteText, { color: accentColor }]}>{t('noteDetail.textNote')}</ThemedText>
-                </View>
-              )}
+              </View>
             </View>
-            <TouchableOpacity 
-              style={[
-                styles.webEditButton, 
-                { 
-                  backgroundColor: canEditNote(note) ? '#007AFF' : '#CCCCCC',
-                  opacity: canEditNote(note) ? 1 : 0.5
-                }
-              ]} 
-              onPress={() => canEditNote(note) ? router.push(`/create?noteId=${note.id}` as any) : null}
-              disabled={!canEditNote(note)}
-            >
-              <Ionicons name="create-outline" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[
-                styles.webArchiveButton, 
-                { 
-                  backgroundColor: canEditNote(note) ? cardBackground : '#CCCCCC',
-                  opacity: canEditNote(note) ? 1 : 0.5
-                }
-              ]} 
-              onPress={() => canEditNote(note) ? handleArchiveToggle() : null}
-              disabled={!canEditNote(note)}
-            >
-              <Ionicons 
-                name={note.isArchived ? 'archive' : 'archive-outline'} 
-                size={20} 
-                color={canEditNote(note) ? textColor : '#666666'} 
-              />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[
-                styles.webArchiveButton, 
-                { 
-                  backgroundColor: canEditNote(note) ? cardBackground : '#CCCCCC',
-                  opacity: canEditNote(note) ? 1 : 0.5
-                }
-              ]} 
-              onPress={() => canEditNote(note) ? handleDelete() : null}
-              disabled={!canEditNote(note)}
-            >
-              <Ionicons 
-                name="trash-outline" 
-                size={20} 
-                color={canEditNote(note) ? accentDangerColor : '#666666'} 
-              />
-            </TouchableOpacity>
+            <View style={styles.webHeaderActions}>
+              <TouchableOpacity 
+                style={[
+                  styles.webEditButton, 
+                  { 
+                    backgroundColor: canEditNote(note) ? '#007AFF' : '#CCCCCC',
+                    opacity: canEditNote(note) ? 1 : 0.5
+                  }
+                ]} 
+                onPress={() => canEditNote(note) ? router.push(`/create?noteId=${note.id}` as any) : null}
+                disabled={!canEditNote(note)}
+              >
+                <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.webArchiveButton, 
+                  { 
+                    backgroundColor: canEditNote(note) ? cardBackground : '#CCCCCC',
+                    opacity: canEditNote(note) ? 1 : 0.5
+                  }
+                ]} 
+                onPress={() => canEditNote(note) ? handleArchiveToggle() : null}
+                disabled={!canEditNote(note)}
+              >
+                <Ionicons 
+                  name={note.isArchived ? 'archive' : 'archive-outline'} 
+                  size={18} 
+                  color={canEditNote(note) ? textColor : '#666666'} 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.webArchiveButton, 
+                  { 
+                    backgroundColor: canEditNote(note) ? cardBackground : '#CCCCCC',
+                    opacity: canEditNote(note) ? 1 : 0.5
+                  }
+                ]} 
+                onPress={() => canEditNote(note) ? handleDelete() : null}
+                disabled={!canEditNote(note)}
+              >
+                <Ionicons 
+                  name="trash-outline" 
+                  size={18} 
+                  color={canEditNote(note) ? accentDangerColor : '#666666'} 
+                />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       }
+      scrollable={false}
     >
-      <ScrollView style={styles.webContent} contentContainerStyle={styles.webContentContainer}>
+      <ScrollView 
+        style={styles.webContent} 
+        contentContainerStyle={styles.webContentContainer}
+      >
         {/* Main Content Area */}
         <View style={styles.webMainContent}>
           {/* Audio Player for Audio Notes - Only show if there's exactly one audio file */}
@@ -1574,7 +1586,7 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
           )}
         </View>
 
-        {/* Sidebar with Actions and Details */}
+        {/* Sidebar with Actions and Details - Appears first on mobile */}
         <View style={styles.webSidebar}>
           {/* Action Buttons */}
           <View style={styles.webActionSection}>
