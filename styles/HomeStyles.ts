@@ -368,7 +368,13 @@ export const homeStyles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
-    gap: 5,
+    gap: 16,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        flexDirection: 'column',
+        gap: 12,
+      },
+    } : {}),
   },
   webNoteCardSkeleton: {
     width: 'calc(33.333% - 10px)',

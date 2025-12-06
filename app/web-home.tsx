@@ -16,7 +16,7 @@ export default function WebHomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { isFeatureEnabled } = useFeatureFlags();
-  const { notes, loading, deleteNote, toggleArchive, toggleFavorite } = useNotes(user?.id || '', user?.email || null);
+  const { notes, loading, deleteNote, toggleArchive, toggleFavorite, togglePin } = useNotes(user?.id || '', user?.email || null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -96,8 +96,8 @@ export default function WebHomeScreen() {
 
   return (
     <WebLayout
-      title="Home"
-      subtitle="Your Notes"
+      title="My Notes"
+      subtitle={filteredNotes.length > 0 ? `${filteredNotes.length} ${filteredNotes.length === 1 ? 'note' : 'notes'}` : undefined}
       sidebar={
         <UserSidebar
           activePage="home"
@@ -106,28 +106,18 @@ export default function WebHomeScreen() {
         />
       }
       header={
-        <View style={styles.header}>
-          <ThemedText type="title">My Notes</ThemedText>
-                     <View style={styles.headerActions}>
-             {/* Test button - should always show */}
-             <TouchableOpacity style={styles.testButton} onPress={() => alert('Test button clicked!')}>
-               <ThemedText style={styles.testButtonText}>TEST BUTTON</ThemedText>
-             </TouchableOpacity>
-             
-             {(forceShowButton || (user?.id && !user?.premium?.isActive && isFeatureEnabled('premium_features'))) && (
-               <TouchableOpacity style={styles.premiumButton} onPress={handleJoinPremium}>
-                 <Ionicons name="star" size={16} color="#FF8C00" />
-                 <ThemedText style={styles.premiumButtonText}>Join Premium</ThemedText>
-               </TouchableOpacity>
-             )}
-             <ThemedText style={styles.noteCount}>
-               {filteredNotes.length} {filteredNotes.length === 1 ? 'note' : 'notes'}
-             </ThemedText>
-           </View>
-        </View>
+        (forceShowButton || (user?.id && !user?.premium?.isActive && isFeatureEnabled('premium_features'))) ? (
+          <TouchableOpacity style={styles.premiumButton} onPress={handleJoinPremium}>
+            <Ionicons name="star" size={18} color="#FF8C00" />
+          </TouchableOpacity>
+        ) : null
       }
+      scrollable={false}
     >
-      <ScrollView style={styles.content}>
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={styles.scrollContentContainer}
+      >
         {loading ? (
           <View style={styles.loadingContainer}>
             <ThemedText>Loading notes...</ThemedText>
@@ -162,6 +152,7 @@ export default function WebHomeScreen() {
                 onDelete={() => handleDeleteNote(note)}
                 onArchive={() => handleArchiveNote(note)}
                 onToggleFavorite={() => toggleFavorite(note.id)}
+                onTogglePin={() => togglePin(note.id)}
                 isSelected={selectedNoteId === note.id}
               />
             ))}
@@ -174,43 +165,71 @@ export default function WebHomeScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
     paddingHorizontal: 24,
+    paddingVertical: 20,
+    gap: 8,
+    alignItems: 'center',
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        paddingHorizontal: 16,
-        flexDirection: 'column',
-        gap: 12,
-        alignItems: 'flex-start',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        gap: 6,
       },
       '@media (max-width: 480px)': {
-        paddingHorizontal: 12,
-        gap: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
       },
     } : {}),
   },
-  headerActions: {
+  headerTop: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
+    width: '100%',
+    gap: 12,
+    position: 'relative',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    textAlign: 'center',
+    flex: 1,
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
-        gap: 12,
-        flexWrap: 'wrap',
+        fontSize: 24,
       },
       '@media (max-width: 480px)': {
-        gap: 8,
+        fontSize: 22,
       },
     } : {}),
   },
   noteCount: {
     fontSize: 14,
     color: '#666666',
+    textAlign: 'center',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        fontSize: 13,
+      },
+    } : {}),
   },
   content: {
     flex: 1,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: '100%',
+      },
+    } : {}),
+  },
+  scrollContentContainer: {
+    flexGrow: 1,
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: '100%',
+        paddingHorizontal: 0,
+      },
+    } : {}),
   },
   loadingContainer: {
     flex: 1,
@@ -248,33 +267,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   premiumButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255, 140, 0, 0.1)',
     borderWidth: 1,
     borderColor: '#FF8C00',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    gap: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    right: 0,
     cursor: 'pointer',
-  },
-  premiumButtonText: {
-    color: '#FF8C00',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  testButton: {
-    backgroundColor: '#FF0000',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    cursor: 'pointer',
-  },
-  testButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+      },
+    } : {}),
   },
   notesGrid: {
     flexDirection: 'row',
@@ -282,17 +292,23 @@ const styles = StyleSheet.create({
     gap: 16,
     padding: 24,
     justifyContent: 'center',
-    maxWidth: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
         flexDirection: 'column',
-        gap: 12,
-        padding: 16,
+        gap: 16,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
         alignItems: 'stretch',
+        maxWidth: '100%',
+        width: '100%',
       },
       '@media (max-width: 480px)': {
-        gap: 10,
-        padding: 12,
+        gap: 14,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
       },
     } : {}),
   },
