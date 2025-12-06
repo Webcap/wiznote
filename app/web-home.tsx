@@ -16,7 +16,7 @@ export default function WebHomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { isFeatureEnabled } = useFeatureFlags();
-  const { notes, loading, deleteNote, toggleArchive, toggleFavorite } = useNotes(user?.id || '', user?.email || null);
+  const { notes, loading, deleteNote, toggleArchive, toggleFavorite, togglePin } = useNotes(user?.id || '', user?.email || null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -152,6 +152,7 @@ export default function WebHomeScreen() {
                 onDelete={() => handleDeleteNote(note)}
                 onArchive={() => handleArchiveNote(note)}
                 onToggleFavorite={() => toggleFavorite(note.id)}
+                onTogglePin={() => togglePin(note.id)}
                 isSelected={selectedNoteId === note.id}
               />
             ))}

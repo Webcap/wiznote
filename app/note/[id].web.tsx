@@ -144,7 +144,7 @@ export default function NoteDetailScreen() {
     }
   }, [note]);
   
-const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(user?.id || '', user?.email || null);
+const { notes, toggleArchive, togglePin, updateNote, deleteNote, refreshNotes } = useNotes(user?.id || '', user?.email || null);
 
   const ensureNoteShape = useCallback(
     (raw: Note | null | undefined): Note | null => {
@@ -1256,6 +1256,23 @@ const { notes, toggleArchive, updateNote, deleteNote, refreshNotes } = useNotes(
               </View>
             </View>
             <View style={styles.webHeaderActions}>
+              <TouchableOpacity 
+                style={[
+                  styles.webPinButton, 
+                  { 
+                    backgroundColor: canEditNote(note) ? cardBackground : '#CCCCCC',
+                    opacity: canEditNote(note) ? 1 : 0.5
+                  }
+                ]} 
+                onPress={() => canEditNote(note) ? togglePin(note.id) : null}
+                disabled={!canEditNote(note)}
+              >
+                <Ionicons 
+                  name={note.isPinned ? 'pin' : 'pin-outline'} 
+                  size={18} 
+                  color={canEditNote(note) ? (note.isPinned ? accentColor : textColor) : '#666666'} 
+                />
+              </TouchableOpacity>
               <TouchableOpacity 
                 style={[
                   styles.webEditButton, 

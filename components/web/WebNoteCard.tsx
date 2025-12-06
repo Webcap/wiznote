@@ -13,6 +13,7 @@ interface WebNoteCardProps {
   onDelete?: () => void;
   onArchive?: () => void;
   onToggleFavorite?: () => void;
+  onTogglePin?: () => void;
   isSelected?: boolean;
 }
 
@@ -24,6 +25,7 @@ export function WebNoteCard({
   onDelete, 
   onArchive,
   onToggleFavorite,
+  onTogglePin,
   isSelected = false 
 }: WebNoteCardProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -107,6 +109,15 @@ export function WebNoteCard({
                   name={note.isFavorite ? "star" : "star-outline"} 
                   size={16} 
                   color={note.isFavorite ? "#FFD700" : textColor}
+                />
+              </TouchableOpacity>
+            )}
+            {onTogglePin && (
+              <TouchableOpacity style={styles.actionButton} onPress={onTogglePin}>
+                <Ionicons 
+                  name={note.isPinned ? "pin" : "pin-outline"} 
+                  size={16} 
+                  color={note.isPinned ? accentColor : textColor}
                 />
               </TouchableOpacity>
             )}
@@ -248,6 +259,7 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web' ? {
       '@media (max-width: 768px)': {
         opacity: 1, // Always show actions on mobile
+        gap: 10,
       },
     } : {}),
   },

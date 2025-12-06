@@ -470,6 +470,21 @@ export const NoteDetailStyles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
+  webPinButton: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+      },
+    } : {}),
+  },
   webEditButton: {
     width: 36,
     height: 36,
