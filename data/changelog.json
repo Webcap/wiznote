@@ -1,6 +1,40 @@
 {
   "versions": [
     {
+      "version": "1.5.2",
+      "date": "December 12, 2025",
+      "sections": [
+        {
+          "title": "Critical Security Update",
+          "emoji": "🔒",
+          "items": [
+            {
+              "title": "Patched React2Shell vulnerability",
+              "description": "Updated React and dependencies to secure versions",
+              "details": [
+                "Fixed critical remote code execution vulnerability (CVE-2025-55182)",
+                "Updated React from 19.1.0 to 19.2.3 with security patches",
+                "Updated react-dom to match React version for compatibility",
+                "Updated expo-router to latest version with patched dependencies",
+                "Prevents unauthenticated remote code execution attacks",
+                "CVSS Score: 10.0 (Critical) - Immediate patching applied"
+              ]
+            },
+            {
+              "title": "Security improvements",
+              "description": "Enhanced application security posture",
+              "details": [
+                "Removed vulnerable code from dependency tree",
+                "Updated all transitive dependencies to secure versions",
+                "Future-proofed against potential RSC feature usage",
+                "Maintains full backward compatibility with existing code"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "1.5.1",
       "date": "December 1, 2025",
       "sections": [
