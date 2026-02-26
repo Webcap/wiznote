@@ -37,6 +37,15 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
   const [publicLink, setPublicLink] = useState<string>('');
   const [linkCopied, setLinkCopied] = useState(false);
 
+  // Fetch existing public link when note changes
+  useEffect(() => {
+    if (note?.id && user?.id) {
+      noteSharingService.getExistingPublicShare(note.id, user.id).then((existing) => {
+        if (existing) setPublicLink(existing.shareUrl);
+      });
+    }
+  }, [note?.id, user?.id]);
+
   const backgroundColor = useThemeColor({}, 'background');
   const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
   const textColor = useThemeColor({}, 'text');
@@ -159,13 +168,13 @@ export const ShareCard = ({ note, onClose, onShareSuccess }: ShareCardProps) => 
     showSnackbar(t('share.creatingPublicLink'), 'info', 2000);
     
     try {
-      const { shareUrl } = await noteSharingService.createPublicShare(
+      const { shareUrl, alreadyExisted } = await noteSharingService.createPublicShare(
         note.id, 
         user.id
       );
       
       setPublicLink(shareUrl);
-      showSnackbar(t('share.publicLinkCreated'), 'success', 3000);
+      showSnackbar(alreadyExisted ? t('share.publicLinkAlreadyExists') : t('share.publicLinkCreated'), 'success', 3000);
     } catch (error) {
       console.error('Error creating public link:', error);
       const errorMessage = error instanceof Error ? error.message : t('share.createPublicLinkFailed');

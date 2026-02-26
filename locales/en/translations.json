@@ -1317,6 +1317,7 @@
     "noteSharedEmailSuccess": "Note shared successfully with {{email}}!",
     "creatingPublicLink": "Creating public link...",
     "publicLinkCreated": "Public link created!",
+    "publicLinkAlreadyExists": "This note already has a public link.",
     "createPublicLinkFailed": "Failed to create public link.",
     "linkCopied": "Link copied to clipboard!",
     "copyLinkFailed": "Failed to copy link"

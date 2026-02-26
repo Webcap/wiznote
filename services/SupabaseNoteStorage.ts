@@ -17,7 +17,9 @@ export class SupabaseNoteStorage {
   constructor() {
     // Don't initialize real-time subscription in constructor
     // It will be initialized when setCurrentUser is called with a valid user ID
-    console.log('SupabaseNoteStorage: Service instance created (no real-time subscription initialized yet)');
+    if (__DEV__) {
+      console.log('SupabaseNoteStorage: Service instance created (no real-time subscription initialized yet)');
+    }
   }
 
   private initializeRealtimeSubscription() {

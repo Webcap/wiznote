@@ -300,9 +300,11 @@ export const UNIFIED_FEATURE_LIMITS: Record<string, UnifiedFeatureLimit> = {
   },
 };
 
-// Debug: Log the UNIFIED_FEATURE_LIMITS object
-console.log('UNIFIED_FEATURE_LIMITS keys:', Object.keys(UNIFIED_FEATURE_LIMITS));
-console.log('UNIFIED_FEATURE_LIMITS count:', Object.keys(UNIFIED_FEATURE_LIMITS).length);
+// Debug: Log the UNIFIED_FEATURE_LIMITS object (development only)
+if (__DEV__) {
+  console.log('UNIFIED_FEATURE_LIMITS keys:', Object.keys(UNIFIED_FEATURE_LIMITS));
+  console.log('UNIFIED_FEATURE_LIMITS count:', Object.keys(UNIFIED_FEATURE_LIMITS).length);
+}
 
 // Helper functions for working with unified limits
 export class UnifiedFeatureLimitManager {
@@ -318,8 +320,10 @@ export class UnifiedFeatureLimitManager {
    */
   static getAllFeatureLimits(): UnifiedFeatureLimit[] {
     const features = Object.values(UNIFIED_FEATURE_LIMITS);
-    console.log('UnifiedFeatureLimitManager: getAllFeatureLimits count=', features.length);
-    console.log('UnifiedFeatureLimitManager: getAllFeatureLimits IDs=', features.map(f => f.featureId).join(', '));
+    if (__DEV__) {
+      console.log('UnifiedFeatureLimitManager: getAllFeatureLimits count=', features.length);
+      console.log('UnifiedFeatureLimitManager: getAllFeatureLimits IDs=', features.map(f => f.featureId).join(', '));
+    }
     return features;
   }
   

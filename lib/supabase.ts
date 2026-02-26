@@ -63,11 +63,13 @@ const realtimeFallbackUrl = supabaseDirectHost
   ? `wss://${supabaseDirectHost}/realtime/v1`
   : null;
 
-// Debug: Log which key is being used (only show prefix for security)
-console.log('🔑 Supabase Key Type:', 
-  process.env.EXPO_PUBLIC_SUPABASE_KEY ? 'NEW Publishable Key (sb_publishable_...)' : 'LEGACY Anon Key (eyJ...)'
-);
-console.log('🔑 Key prefix:', supabaseAnonKey?.substring(0, 20) + '...');
+// Debug: Log which key is being used (only in development)
+if (__DEV__) {
+  console.log('🔑 Supabase Key Type:', 
+    process.env.EXPO_PUBLIC_SUPABASE_KEY ? 'NEW Publishable Key (sb_publishable_...)' : 'LEGACY Anon Key (eyJ...)'
+  );
+  console.log('🔑 Key prefix:', supabaseAnonKey?.substring(0, 20) + '...');
+}
 
 // Optional environment variable to control Supabase logging
 const enableSupabaseLogs = process.env.EXPO_PUBLIC_SUPABASE_LOGS === 'true';
