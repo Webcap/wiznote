@@ -67,24 +67,41 @@ exports.handler = async (event, context) => {
       },
     });
 
-    const defaultRedirectTo = redirectTo || process.env.EXPO_PUBLIC_WEB_URL
+    const defaultRedirectTo = redirectTo || (process.env.EXPO_PUBLIC_WEB_URL
       ? `${process.env.EXPO_PUBLIC_WEB_URL}/auth/callback`
-      : 'https://wiznote.app/auth/callback';
+      : 'https://wiznote.app/auth/callback');
 
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'signup',
-      email: email.trim().toLowerCase(),
-      password,
-      options: {
-        redirectTo: defaultRedirectTo,
-        data: {
-          display_name: displayName || '',
+    let linkData;
+    let linkError;
+    try {
+      const result = await supabaseAdmin.auth.admin.generateLink({
+        type: 'signup',
+        email: email.trim().toLowerCase(),
+        password,
+        options: {
+          redirectTo: defaultRedirectTo,
+          data: {
+            display_name: displayName || '',
+          },
         },
-      },
-    });
+      });
+      linkData = result.data;
+      linkError = result.error;
+    } catch (supabaseErr) {
+      console.error('Supabase generateLink threw:', supabaseErr);
+      const msg = supabaseErr?.message || 'Supabase error';
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        body: JSON.stringify({
+          error: msg.includes('401') ? 'Supabase auth failed (check service role key in Netlify)' : msg,
+        }),
+      };
+    }
 
-    if (linkError || !linkData?.properties?.action_link) {
-      console.error('Error generating signup link:', linkError);
+    const confirmationUrl = linkData?.properties?.action_link || linkData?.action_link;
+    if (linkError || !confirmationUrl) {
+      console.error('Error generating signup link:', linkError, linkData);
       const msg = linkError?.message || 'Failed to create account';
       if (msg.includes('already registered') || msg.includes('already exists')) {
         return {
@@ -93,14 +110,15 @@ exports.handler = async (event, context) => {
           body: JSON.stringify({ error: 'An account with this email already exists. Please sign in instead.' }),
         };
       }
+      const friendlyMsg = msg.includes('401') || linkError?.status === 401
+        ? 'Supabase auth failed (check SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY in Netlify)'
+        : msg;
       return {
         statusCode: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        body: JSON.stringify({ error: msg }),
+        body: JSON.stringify({ error: friendlyMsg }),
       };
     }
-
-    const confirmationUrl = linkData.properties.action_link;
 
     const BREVO_API_KEY = process.env.BREVO_API_KEY;
     if (!BREVO_API_KEY) {
@@ -146,7 +164,25 @@ exports.handler = async (event, context) => {
     sendSmtpEmail.htmlContent = emailHtml;
     sendSmtpEmail.textContent = `Verify your WizNote account by clicking: ${confirmationUrl}`;
 
-    await apiInstance.sendTransacEmail(sendSmtpEmail);
+    try {
+      await apiInstance.sendTransacEmail(sendSmtpEmail);
+    } catch (brevoErr) {
+      console.error('Brevo sendTransacEmail error:', brevoErr);
+      const brevoMsg = brevoErr?.response?.data?.message || brevoErr?.message || 'Email send failed';
+      let friendlyError = brevoMsg;
+      if (brevoErr?.response?.status === 401) {
+        if (brevoMsg.toLowerCase().includes('ip') || brevoMsg.toLowerCase().includes('unrecognised')) {
+          friendlyError = 'Brevo IP whitelist is blocking Netlify. Add Netlify IPs or disable IP restriction at https://app.brevo.com/security/authorised_ips';
+        } else {
+          friendlyError = 'Brevo API key invalid or expired (check BREVO_API_KEY in Netlify)';
+        }
+      }
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        body: JSON.stringify({ error: friendlyError }),
+      };
+    }
 
     return {
       statusCode: 200,
@@ -158,6 +194,20 @@ exports.handler = async (event, context) => {
     };
   } catch (error) {
     console.error('Signup confirmation error:', error);
+    let errorMessage = error instanceof Error ? error.message : 'An error occurred';
+    const errorDetails = error instanceof Error ? error.stack : String(error);
+    const brevoMsg = error?.response?.data?.message || '';
+    if (error?.response?.status === 401) {
+      if (brevoMsg.toLowerCase().includes('ip') || brevoMsg.toLowerCase().includes('unrecognised')) {
+        errorMessage = 'Brevo IP whitelist is blocking Netlify. Add Netlify IPs or disable IP restriction at https://app.brevo.com/security/authorised_ips';
+      } else if (error?.config?.url?.includes('brevo.com')) {
+        errorMessage = 'Brevo API key invalid or expired (check BREVO_API_KEY in Netlify)';
+      } else {
+        errorMessage = 'Authentication failed. Check SUPABASE_SERVICE_ROLE_KEY and BREVO_API_KEY in Netlify environment variables.';
+      }
+    } else if (errorMessage.includes('401')) {
+      errorMessage = 'Authentication failed. Check SUPABASE_SERVICE_ROLE_KEY and BREVO_API_KEY in Netlify environment variables.';
+    }
     return {
       statusCode: 500,
       headers: {
@@ -165,7 +215,8 @@ exports.handler = async (event, context) => {
         ...corsHeaders,
       },
       body: JSON.stringify({
-        error: error instanceof Error ? error.message : 'An error occurred',
+        error: errorMessage,
+        details: process.env.NODE_ENV !== 'production' ? errorDetails : undefined,
       }),
     };
   }

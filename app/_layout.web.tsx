@@ -118,6 +118,8 @@ function AppContent() {
         const isForgotPasswordPage = currentPath.startsWith('/forgot-password') || currentPath === 'forgot-password' || currentPath.includes('/forgot-password');
         const isResetPasswordPage = currentPath.startsWith('/reset-password') || currentPath === 'reset-password' || currentPath.includes('/reset-password');
         const isSignupPage = currentPath.startsWith('/signup') || currentPath === 'signup' || currentPath.includes('/signup');
+        const isLoginPage = currentPath.startsWith('/login') || currentPath === 'login' || currentPath.includes('/login');
+        const isVerifyEmailPage = currentPath.startsWith('/verify-email') || currentPath === 'verify-email' || currentPath.includes('/verify-email');
         const isIndexPage = currentPath === '/' || currentPath === '' || currentPath === '/index';
         
         // Check if current path is a valid authenticated route
@@ -129,7 +131,7 @@ function AppContent() {
         // Check if current path is a public route (accessible without authentication)
         const isVerifyDeletionPage = currentPath === '/verify-deletion' || currentPath.startsWith('/verify-deletion');
         // Note: isIndexPage is excluded from isPublicRoute when authenticated - let index page handle its own redirect
-        const isPublicRoute = isPrivacyPage || isTermsPage || isChangelogPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isSignupPage || isVerifyDeletionPage;
+        const isPublicRoute = isPrivacyPage || isTermsPage || isChangelogPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isSignupPage || isLoginPage || isVerifyEmailPage || isVerifyDeletionPage;
         
         console.log('Layout: Current path:', currentPath);
         console.log('Layout: Is payment page:', isPaymentPage);
