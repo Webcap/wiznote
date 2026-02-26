@@ -84,7 +84,7 @@ export async function transcribeAudioWithGemini(base64Audio: string, user?: any)
   
   try {
     // Use server-side API proxy instead of direct API call
-    const data = await callGeminiAPI('gemini-3-flash-preview:generateContent', {
+    const data = await callGeminiAPI('gemini-2.5-flash:generateContent', {
       contents: [
         {
           parts: [
@@ -186,7 +186,7 @@ export async function generateTitleWithGemini(transcript: string, user?: any): P
     console.log('GeminiAI: Request payload:', { prompt: prompt.substring(0, 100) + '...' });
     
     // Use server-side API proxy instead of direct API call
-    const data = await callGeminiAPI('gemini-3-flash-preview:generateContent', {
+    const data = await callGeminiAPI('gemini-2.5-flash:generateContent', {
       contents: [
         { parts: [{ text: prompt }] }
       ]
@@ -291,7 +291,7 @@ export async function extractKeyDetailsWithGemini(noteText: string, user?: any):
     const prompt = `Extract the 3-5 most important key details or facts from the following note. Return ONLY the bullet points, with no introduction or explanation.\n\nNote:\n${noteText}`;
     
     // Use server-side API proxy instead of direct API call
-    const data = await callGeminiAPI('gemini-3-flash-preview:generateContent', {
+    const data = await callGeminiAPI('gemini-2.5-flash:generateContent', {
       contents: [
         { parts: [{ text: prompt }] }
       ]
@@ -387,7 +387,7 @@ export async function generateSummaryWithGemini(noteText: string, user?: any): P
     const prompt = `Create a concise, well-written summary of the following note content. The summary should be 2-4 sentences that capture the main points and essence of the note. Return ONLY the summary text, no introduction or formatting.\n\nNote:\n${noteText}`;
     
     // Use server-side API proxy instead of direct API call
-    const data = await callGeminiAPI('gemini-3-flash-preview:generateContent', {
+    const data = await callGeminiAPI('gemini-2.5-flash:generateContent', {
       contents: [
         { parts: [{ text: prompt }] }
       ]
@@ -547,7 +547,7 @@ ${content}`;
     console.log('🔮 GeminiAI: Prompt length:', prompt.length);
     
     // Use server-side API proxy instead of direct API call
-    const data = await callGeminiAPI('gemini-3-flash-preview:generateContent', {
+    const data = await callGeminiAPI('gemini-2.5-flash:generateContent', {
       contents: [
         { parts: [{ text: prompt }] }
       ]
@@ -828,7 +828,7 @@ export async function processPDFWithGemini(
       console.log('GeminiAI: Extracting text from PDF...');
       
       // Use server-side API proxy instead of direct API call
-      const extractData = await callGeminiAPI('gemini-3-flash-preview:generateContent', {
+      const extractData = await callGeminiAPI('gemini-2.5-flash:generateContent', {
         contents: [{
           parts: [
             { inline_data: { mime_type: 'application/pdf', data: base64PDF } },
@@ -899,7 +899,7 @@ export async function extractTextFromPDFWithGemini(base64PDF: string): Promise<{
   
   try {
     // Use server-side API proxy instead of direct API call
-    const data = await callGeminiAPI('gemini-3-flash-preview:generateContent', {
+    const data = await callGeminiAPI('gemini-2.5-flash:generateContent', {
       contents: [{
         parts: [
           { inline_data: { mime_type: 'application/pdf', data: base64PDF } },
@@ -930,7 +930,7 @@ export async function extractTextFromPDFWithGemini(base64PDF: string): Promise<{
 export async function testGeminiConnection(): Promise<{ success: boolean; error?: string }> {
   try {
     // Use server-side API proxy instead of direct API call
-    await callGeminiAPI('gemini-3-flash-preview:generateContent', {
+    await callGeminiAPI('gemini-2.5-flash:generateContent', {
       contents: [
         { parts: [{ text: 'Hello, this is a test message. Please respond with "OK" if you can read this.' }] }
       ]
