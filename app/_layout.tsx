@@ -242,6 +242,8 @@ function AppContent() {
       const isForgotPasswordPage = currentPath.startsWith('/forgot-password') || currentPath === 'forgot-password' || currentPath.includes('/forgot-password');
       const isResetPasswordPage = currentPath.startsWith('/reset-password') || currentPath === 'reset-password' || currentPath.includes('/reset-password');
       const isSignupPage = currentPath.startsWith('/signup') || currentPath === 'signup' || currentPath.includes('/signup');
+      const isLoginPage = currentPath.startsWith('/login') || currentPath === 'login' || currentPath.includes('/login');
+      const isVerifyEmailPage = currentPath.startsWith('/verify-email') || currentPath === 'verify-email' || currentPath.includes('/verify-email');
       
       // Check if current path is a valid authenticated route
         const isValidAuthenticatedRoute = isNotePage || isCreatePage || isAdminPage || 
@@ -251,7 +253,7 @@ function AppContent() {
       
       // Check if current path is a public route (accessible without authentication)
       const isVerifyDeletionPage = currentPath === '/verify-deletion' || currentPath.startsWith('/verify-deletion');
-      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage || isChangelogPage || isFaqPage || isSignupPage || isVerifyDeletionPage;
+      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage || isChangelogPage || isFaqPage || isSignupPage || isLoginPage || isVerifyEmailPage || isVerifyDeletionPage;
       
       console.log('Layout: Current path:', currentPath);
       console.log('Layout: Is payment page:', isPaymentPage);

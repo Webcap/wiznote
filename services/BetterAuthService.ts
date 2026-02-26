@@ -730,7 +730,40 @@ export class BetterAuthService {
               'Unable to reach signup service. Please check your connection. If testing locally, deploy the app or run "netlify dev".'
             );
           }
-          throw fetchError;
+          // Custom flow failed (401, 500, etc.) - fall back to Supabase signUp
+          // This helps when Brevo/Supabase config in Netlify is misconfigured but Supabase SMTP works
+          console.warn('Custom signup failed, falling back to Supabase signUp:', fetchError instanceof Error ? fetchError.message : fetchError);
+          const { data: fallbackData, error: fallbackError } = await supabase.auth.signUp({
+            email: sanitizedEmail,
+            password: validatedCredentials.password,
+            options: {
+              data: {
+                display_name: validatedCredentials.displayName || '',
+              },
+              emailRedirectTo: redirectUrl,
+            },
+          });
+          if (fallbackError) {
+            const msg = fallbackError.message || '';
+            if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists')) {
+              // Custom flow may have created user (Brevo failed after Supabase generateLink)
+              throw new Error('Please check your email to verify your account before signing in.');
+            }
+            throw fallbackError;
+          }
+          if (!fallbackData?.user) {
+            throw new Error('No user returned from sign up');
+          }
+          try {
+            await this.createUserProfile(fallbackData.user);
+          } catch {
+            try {
+              await this.createMinimalUserProfile(fallbackData.user);
+            } catch {
+              // Profile creation is best-effort; DB trigger may have created it
+            }
+          }
+          throw new Error('Please check your email to verify your account before signing in.');
         }
       }
 

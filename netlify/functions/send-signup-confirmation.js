@@ -110,10 +110,13 @@ exports.handler = async (event, context) => {
           body: JSON.stringify({ error: 'An account with this email already exists. Please sign in instead.' }),
         };
       }
+      const friendlyMsg = msg.includes('401') || linkError?.status === 401
+        ? 'Supabase auth failed (check SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY in Netlify)'
+        : msg;
       return {
         statusCode: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        body: JSON.stringify({ error: msg }),
+        body: JSON.stringify({ error: friendlyMsg }),
       };
     }
 
@@ -165,13 +168,19 @@ exports.handler = async (event, context) => {
       await apiInstance.sendTransacEmail(sendSmtpEmail);
     } catch (brevoErr) {
       console.error('Brevo sendTransacEmail error:', brevoErr);
-      const msg = brevoErr?.message || 'Email send failed';
+      const brevoMsg = brevoErr?.response?.data?.message || brevoErr?.message || 'Email send failed';
+      let friendlyError = brevoMsg;
+      if (brevoErr?.response?.status === 401) {
+        if (brevoMsg.toLowerCase().includes('ip') || brevoMsg.toLowerCase().includes('unrecognised')) {
+          friendlyError = 'Brevo IP whitelist is blocking Netlify. Add Netlify IPs or disable IP restriction at https://app.brevo.com/security/authorised_ips';
+        } else {
+          friendlyError = 'Brevo API key invalid or expired (check BREVO_API_KEY in Netlify)';
+        }
+      }
       return {
         statusCode: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        body: JSON.stringify({
-          error: msg.includes('401') ? 'Brevo API key invalid or expired (check BREVO_API_KEY in Netlify)' : msg,
-        }),
+        body: JSON.stringify({ error: friendlyError }),
       };
     }
 
@@ -185,8 +194,20 @@ exports.handler = async (event, context) => {
     };
   } catch (error) {
     console.error('Signup confirmation error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+    let errorMessage = error instanceof Error ? error.message : 'An error occurred';
     const errorDetails = error instanceof Error ? error.stack : String(error);
+    const brevoMsg = error?.response?.data?.message || '';
+    if (error?.response?.status === 401) {
+      if (brevoMsg.toLowerCase().includes('ip') || brevoMsg.toLowerCase().includes('unrecognised')) {
+        errorMessage = 'Brevo IP whitelist is blocking Netlify. Add Netlify IPs or disable IP restriction at https://app.brevo.com/security/authorised_ips';
+      } else if (error?.config?.url?.includes('brevo.com')) {
+        errorMessage = 'Brevo API key invalid or expired (check BREVO_API_KEY in Netlify)';
+      } else {
+        errorMessage = 'Authentication failed. Check SUPABASE_SERVICE_ROLE_KEY and BREVO_API_KEY in Netlify environment variables.';
+      }
+    } else if (errorMessage.includes('401')) {
+      errorMessage = 'Authentication failed. Check SUPABASE_SERVICE_ROLE_KEY and BREVO_API_KEY in Netlify environment variables.';
+    }
     return {
       statusCode: 500,
       headers: {
