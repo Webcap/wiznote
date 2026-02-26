@@ -1,7 +1,7 @@
 export default {
   name: 'WizNote',
   slug: 'WizNote',
-  version: '1.2.1',
+  version: '1.5.3',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',

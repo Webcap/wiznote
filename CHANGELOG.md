@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.3] - 2025-02-25
+
+### 🐛 Bug Fixes
+
+#### AI Summary Usage Tracker
+- **Fixed usage counter staying at 1** - Usage now increments correctly (1, 2, 3...) when using AI summary multiple times
+  - Added atomic database increment RPC to fix race condition in usage recording
+  - Fixed reconcile logic that was overwriting usage with stale data
+  - Simple-usage page refresh now uses force refresh to bypass cache
+- **Added Regenerate button** - Regenerate AI summary inline with the usage tracker
+  - Allows multiple summary generations per note (each counts toward usage)
+  - Button appears next to the usage counter on note detail page
+
+#### Stripe & Payments
+- **Fixed invalid Stripe customer ID** - Recovery when stored customer doesn't exist in Stripe
+  - Handles test/live mode mismatch or deleted customers
+  - Automatically creates new customer and clears invalid ID from profile
+  - Applied to both create-checkout and create-paymentsheet endpoints
+
+### 🔧 Improvements
+
+#### Production
+- **Suppress console output in production web** - All console messages hidden in production builds
+  - Reduces noise and potential information exposure in browser console
+  - Development builds unchanged
+
+#### Stripe Guardian (separate project)
+- **CORS updates** - Added wiznote.app to allowed origins for Stripe API
+  - Shared CORS config with explicit allowed origins
+  - Fixes payment checkout CORS errors from wiznote.app
+
+### 📝 Technical
+
+- Added `database/increment-feature-usage.sql` - Run in Supabase SQL Editor for atomic usage increment
+- Changed `recordFeatureUsage` to use RPC when available, fallback to read-modify-write
+- Changed usage query from `.single()` to `.maybeSingle()` for robustness
+
+---
+
 ## [1.5.2] - 2025-01-XX
 
 ### 🔒 Security

@@ -33,6 +33,8 @@ const getAllowedOrigins = () => {
     'http://127.0.0.1:3000',
   ];
 
+  // Mobile dev: add LAN IP origins for physical device testing (e.g. http://192.168.1.25:8081)
+  // Set GEMINI_ALLOWED_ORIGINS in Netlify env for your dev machine's IP
   const shouldIncludeDevOrigins = process.env.NODE_ENV !== 'production';
 
   const allOrigins = [
@@ -211,7 +213,9 @@ exports.handler = async (event, context) => {
     const responseData = await response.json();
 
     if (!response.ok) {
-      console.error('Gemini API error:', response.status, responseData);
+      const geminiError = responseData.error || responseData;
+      const geminiMessage = geminiError?.message || geminiError?.error?.message || JSON.stringify(geminiError);
+      console.error('Gemini API error:', response.status, geminiMessage);
       return {
         statusCode: response.status,
         headers: {
@@ -219,8 +223,8 @@ exports.handler = async (event, context) => {
           ...corsHeaders,
         },
         body: JSON.stringify({
-          error: 'Gemini API request failed',
-          details: responseData.error || responseData,
+          error: geminiMessage || 'Gemini API request failed',
+          details: geminiError,
         }),
       };
     }

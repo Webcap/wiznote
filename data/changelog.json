@@ -1,6 +1,51 @@
 {
   "versions": [
     {
+      "version": "1.5.3",
+      "date": "February 25, 2025",
+      "sections": [
+        {
+          "title": "Bug Fixes",
+          "emoji": "🐛",
+          "items": [
+            {
+              "title": "Fixed AI summary usage counter",
+              "description": "Usage now increments correctly when using AI summary multiple times",
+              "details": [
+                "Fixed issue where usage counter stayed at 1 instead of incrementing",
+                "Added Regenerate button to generate new summaries (each counts toward usage)",
+                "Regenerate button appears inline with the usage tracker on note detail page",
+                "Simple-usage page now refreshes with latest data when you pull to refresh"
+              ]
+            },
+            {
+              "title": "Fixed payment checkout errors",
+              "description": "Improved handling of Stripe customer issues",
+              "details": [
+                "Fixed \"No such customer\" errors when signing up for subscription",
+                "Automatically recovers when stored customer ID is invalid (e.g. test/live mismatch)",
+                "Creates new customer and continues checkout seamlessly"
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Improvements",
+          "emoji": "✨",
+          "items": [
+            {
+              "title": "Cleaner production experience",
+              "description": "Reduced console noise in production",
+              "details": [
+                "Console messages are now hidden in production web builds",
+                "Development experience unchanged - full logging when developing"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "1.5.2",
       "date": "December 12, 2025",
       "sections": [

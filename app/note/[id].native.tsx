@@ -1153,7 +1153,7 @@ export default function NoteDetailScreen() {
             <View style={styles.summarySection}>
               <ThemedText style={[styles.summaryTitle, { color: textColor }]}>{t('noteDetail.summary')}</ThemedText>
               {user && (
-                <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                   {(() => {
                     try {
                       return <FeatureUsageInline featureId="ai_summaries" compact={true} onUpgradePress={() => router.push('/join-premium')} />;
@@ -1162,6 +1162,21 @@ export default function NoteDetailScreen() {
                       return null;
                     }
                   })()}
+                  {!note?.isSharedNote && combinedNoteContent.trim() && (summary || summaryLoading) && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSummary('');
+                        setSummaryGeneratedFor(null);
+                        setSummaryLoading(true);
+                        generateSummary(combinedNoteContent, note.id);
+                      }}
+                      disabled={summaryLoading}
+                    >
+                      <ThemedText style={{ color: summaryLoading ? mutedTextColor : accentColor, fontSize: 12, fontWeight: '600' }}>
+                        {t('noteDetail.regenerateSummary')}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
               {summaryLoading && (
@@ -1175,10 +1190,7 @@ export default function NoteDetailScreen() {
                       : summary}
                   </ThemedText>
                   {summary && summary.length > 800 && (
-                    <TouchableOpacity 
-                      onPress={() => setIsSummaryExpanded(!isSummaryExpanded)}
-                      style={{ marginTop: 8 }}
-                    >
+                    <TouchableOpacity onPress={() => setIsSummaryExpanded(!isSummaryExpanded)} style={{ marginTop: 8 }}>
                       <ThemedText style={{ color: accentColor, fontSize: 16, fontWeight: '600' }}>
                         {isSummaryExpanded ? t('noteDetail.seeLess') : t('noteDetail.seeMore')}
                       </ThemedText>
