@@ -45,6 +45,10 @@ export function sanitizeErrorForClient(error: unknown, isProduction: boolean = t
         return 'Too many requests. Please wait a moment and try again.';
       }
       
+      if (message.includes('Error sending confirmation email') || message.includes('confirmation email')) {
+        return 'We\'re having trouble sending the verification email. Please try again in a few minutes, or contact support if the issue persists.';
+      }
+      
       if (message.includes('database') || message.includes('SQL') || message.includes('query')) {
         return 'A database error occurred. Please try again later.';
       }

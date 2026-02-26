@@ -27,7 +27,8 @@ async function callGeminiAPI(endpoint: string, payload: any): Promise<any> {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `API request failed: ${response.status}`);
+      const msg = errorData.error || `API request failed: ${response.status}`;
+      throw new Error(msg);
     }
 
     const data = await response.json();
@@ -38,7 +39,9 @@ async function callGeminiAPI(endpoint: string, payload: any): Promise<any> {
     
     return data;
   } catch (error) {
-    console.error('Gemini API proxy error:', error);
+    const err = error instanceof Error ? error : new Error(String(error));
+    const isNetworkError = err.message?.includes('Network request failed') || err.message?.includes('Failed to fetch') || err.name === 'TypeError';
+    console.error('Gemini API proxy error:', isNetworkError ? `Network error - check device connectivity to ${getGeminiApiUrl()}` : err.message, err);
     throw error;
   }
 }

@@ -809,6 +809,7 @@
     "passwordsDoNotMatch": "Passwords do not match",
     "accountCreatedSuccessfully": "Account created successfully!",
     "failedToCreateAccount": "Failed to create account",
+    "confirmationEmailError": "We're having trouble sending the verification email. Please try again in a few minutes, or contact support if the issue persists.",
     "error": "Error"
   },
   "editProfile": {

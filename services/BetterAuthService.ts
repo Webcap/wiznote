@@ -689,8 +689,51 @@ export class BetterAuthService {
       
       // Determine redirect URL based on platform (use universal link for mobile)
       const redirectUrl = this.getAuthCallbackUrl();
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://wiznote.app';
 
-      // Use validated and sanitized credentials
+      // When email verification is required, use custom signup flow (Brevo) to bypass Supabase's failing built-in email
+      if (requireEmailVerification) {
+        try {
+          const signupResponse = await fetch(`${apiUrl}/.netlify/functions/send-signup-confirmation`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: sanitizedEmail,
+              password: validatedCredentials.password,
+              displayName: validatedCredentials.displayName || '',
+              redirectTo: redirectUrl,
+            }),
+          });
+
+          if (!signupResponse.ok) {
+            const errorData = await signupResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to create account');
+          }
+
+          try {
+            await logAuthEvent('auth.signup.success', undefined, sanitizedEmail, true, undefined, {
+              platform: Platform.OS,
+              method: 'custom_brevo',
+            });
+          } catch (logError) {
+            console.error('Failed to log signup success:', logError);
+          }
+
+          // User created via generateLink, profile created by DB trigger. Redirect to verify-email.
+          throw new Error('Please check your email to verify your account before signing in.');
+        } catch (fetchError) {
+          const isNetworkError = fetchError instanceof TypeError && fetchError.message === 'Failed to fetch';
+          if (isNetworkError) {
+            console.warn('Custom signup unreachable (network/CORS or function not deployed), falling back to Supabase signUp');
+            throw new Error(
+              'Unable to reach signup service. Please check your connection. If testing locally, deploy the app or run "netlify dev".'
+            );
+          }
+          throw fetchError;
+        }
+      }
+
+      // Email verification disabled: use standard Supabase signUp
       const { data, error } = await supabase.auth.signUp({
         email: sanitizedEmail,
         password: validatedCredentials.password,
