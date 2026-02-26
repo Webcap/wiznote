@@ -67,9 +67,9 @@ exports.handler = async (event, context) => {
       },
     });
 
-    const defaultRedirectTo = redirectTo || process.env.EXPO_PUBLIC_WEB_URL
+    const defaultRedirectTo = redirectTo || (process.env.EXPO_PUBLIC_WEB_URL
       ? `${process.env.EXPO_PUBLIC_WEB_URL}/auth/callback`
-      : 'https://wiznote.app/auth/callback';
+      : 'https://wiznote.app/auth/callback');
 
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'signup',
@@ -83,8 +83,9 @@ exports.handler = async (event, context) => {
       },
     });
 
-    if (linkError || !linkData?.properties?.action_link) {
-      console.error('Error generating signup link:', linkError);
+    const confirmationUrl = linkData?.properties?.action_link || linkData?.action_link;
+    if (linkError || !confirmationUrl) {
+      console.error('Error generating signup link:', linkError, linkData);
       const msg = linkError?.message || 'Failed to create account';
       if (msg.includes('already registered') || msg.includes('already exists')) {
         return {
@@ -99,8 +100,6 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({ error: msg }),
       };
     }
-
-    const confirmationUrl = linkData.properties.action_link;
 
     const BREVO_API_KEY = process.env.BREVO_API_KEY;
     if (!BREVO_API_KEY) {
@@ -158,6 +157,8 @@ exports.handler = async (event, context) => {
     };
   } catch (error) {
     console.error('Signup confirmation error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+    const errorDetails = error instanceof Error ? error.stack : String(error);
     return {
       statusCode: 500,
       headers: {
@@ -165,7 +166,8 @@ exports.handler = async (event, context) => {
         ...corsHeaders,
       },
       body: JSON.stringify({
-        error: error instanceof Error ? error.message : 'An error occurred',
+        error: errorMessage,
+        details: process.env.NODE_ENV !== 'production' ? errorDetails : undefined,
       }),
     };
   }

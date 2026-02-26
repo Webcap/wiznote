@@ -707,7 +707,8 @@ export class BetterAuthService {
 
           if (!signupResponse.ok) {
             const errorData = await signupResponse.json().catch(() => ({}));
-            throw new Error(errorData.error || 'Failed to create account');
+            const errMsg = errorData.error || errorData.message || `Failed to create account (${signupResponse.status})`;
+            throw new Error(errMsg);
           }
 
           try {
