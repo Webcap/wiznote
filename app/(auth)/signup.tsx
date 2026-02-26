@@ -33,6 +33,7 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [googleSignInEnabled, setGoogleSignInEnabled] = useState(true); // Default to true for better UX
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { signUp, signInWithGoogle } = useAuth();
   const { showSnackbar } = useSnackbar();
@@ -59,85 +60,71 @@ export default function SignupScreen() {
     loadGoogleSignInSettings();
   }, []);
 
-  const validateForm = () => {
+  const validateForm = (): string | null => {
+    setErrorMessage(null);
     if (!email.trim()) {
       const message = t('signup.pleaseEnterEmailAddress');
-      if (Platform.OS === 'web') {
-        showSnackbar(message, 'error', 4000);
-      } else {
-        Alert.alert(t('signup.error'), message);
-      }
-      return false;
+      setErrorMessage(message);
+      showSnackbar(message, 'error', 5000);
+      if (Platform.OS !== 'web') Alert.alert(t('signup.error'), message);
+      return message;
     }
 
     if (!email.includes('@')) {
       const message = t('signup.pleaseEnterValidEmailAddress');
-      if (Platform.OS === 'web') {
-        showSnackbar(message, 'error', 4000);
-      } else {
-        Alert.alert(t('signup.error'), message);
-      }
-      return false;
+      setErrorMessage(message);
+      showSnackbar(message, 'error', 5000);
+      if (Platform.OS !== 'web') Alert.alert(t('signup.error'), message);
+      return message;
     }
 
     if (!password) {
       const message = t('signup.pleaseEnterPassword');
-      if (Platform.OS === 'web') {
-        showSnackbar(message, 'error', 4000);
-      } else {
-        Alert.alert(t('signup.error'), message);
-      }
-      return false;
+      setErrorMessage(message);
+      showSnackbar(message, 'error', 5000);
+      if (Platform.OS !== 'web') Alert.alert(t('signup.error'), message);
+      return message;
     }
 
     if (password.length < 8) {
       const message = t('signup.passwordMinLength');
-      if (Platform.OS === 'web') {
-        showSnackbar(message, 'error', 4000);
-      } else {
-        Alert.alert(t('signup.error'), message);
-      }
-      return false;
+      setErrorMessage(message);
+      showSnackbar(message, 'error', 5000);
+      if (Platform.OS !== 'web') Alert.alert(t('signup.error'), message);
+      return message;
     }
 
-    // Check for at least one letter and one number
     if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
       const message = t('signup.passwordRequiresLetterAndNumber');
-      if (Platform.OS === 'web') {
-        showSnackbar(message, 'error', 4000);
-      } else {
-        Alert.alert(t('signup.error'), message);
-      }
-      return false;
+      setErrorMessage(message);
+      showSnackbar(message, 'error', 5000);
+      if (Platform.OS !== 'web') Alert.alert(t('signup.error'), message);
+      return message;
     }
 
-    // Check for at least one special character
     if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
       const message = t('signup.passwordRequiresSpecialCharacter');
-      if (Platform.OS === 'web') {
-        showSnackbar(message, 'error', 4000);
-      } else {
-        Alert.alert(t('signup.error'), message);
-      }
-      return false;
+      setErrorMessage(message);
+      showSnackbar(message, 'error', 5000);
+      if (Platform.OS !== 'web') Alert.alert(t('signup.error'), message);
+      return message;
     }
 
     if (password !== confirmPassword) {
       const message = t('signup.passwordsDoNotMatch');
-      if (Platform.OS === 'web') {
-        showSnackbar(message, 'error', 4000);
-      } else {
-        Alert.alert(t('signup.error'), message);
-      }
-      return false;
+      setErrorMessage(message);
+      showSnackbar(message, 'error', 5000);
+      if (Platform.OS !== 'web') Alert.alert(t('signup.error'), message);
+      return message;
     }
 
-    return true;
+    return null;
   };
 
   const handleSignUp = async () => {
-    if (!validateForm()) return;
+    if (validateForm() !== null) return;
 
+    setErrorMessage(null);
     setIsLoading(true);
     try {
       console.log('SignupScreen: Starting sign up process...');
@@ -158,11 +145,12 @@ export default function SignupScreen() {
       router.replace('/(tabs)');
     } catch (error) {
       console.error('SignupScreen: Sign up error:', error);
-      const errorMessage = error instanceof Error ? error.message : t('signup.failedToCreateAccount');
+      const errMsg = error instanceof Error ? error.message : t('signup.failedToCreateAccount');
+      setErrorMessage(errMsg);
       
       // Check if this is the email verification required message
-      if (errorMessage.includes('Please check your email to verify your account') || 
-          errorMessage.includes('verify your account before signing in')) {
+      if (errMsg.includes('Please check your email to verify your account') || 
+          errMsg.includes('verify your account before signing in')) {
         // This is expected when email verification is enabled
         console.log('SignupScreen: Email verification required - redirecting to verify-email screen');
         
@@ -173,12 +161,8 @@ export default function SignupScreen() {
         } as any);
         
       } else {
-        // This is an actual error
-        if (Platform.OS === 'web') {
-          showSnackbar(errorMessage, 'error', 6000);
-        } else {
-          Alert.alert(t('signup.error'), errorMessage);
-        }
+        showSnackbar(errMsg, 'error', 6000);
+        if (Platform.OS !== 'web') Alert.alert(t('signup.error'), errMsg);
       }
     } finally {
       setIsLoading(false);
@@ -374,7 +358,7 @@ export default function SignupScreen() {
                       placeholder={t('signup.enterYourPassword')}
                       placeholderTextColor={borderColor}
                       value={password}
-                      onChangeText={setPassword}
+                      onChangeText={(v) => { setPassword(v); setErrorMessage(null); }}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
                     />
@@ -403,7 +387,7 @@ export default function SignupScreen() {
                       placeholder={t('signup.confirmYourPassword')}
                       placeholderTextColor={borderColor}
                       value={confirmPassword}
-                      onChangeText={setConfirmPassword}
+                      onChangeText={(v) => { setConfirmPassword(v); setErrorMessage(null); }}
                       secureTextEntry={!showConfirmPassword}
                       autoCapitalize="none"
                     />
@@ -419,6 +403,14 @@ export default function SignupScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
+
+                {errorMessage && (
+                  <View style={{ marginBottom: 16, padding: 12, backgroundColor: 'rgba(255,107,107,0.15)', borderRadius: 8, borderWidth: 1, borderColor: '#FF6B6B' }}>
+                    <ThemedText style={{ color: '#FF6B6B', fontSize: 14, fontWeight: '500' }}>
+                      {errorMessage}
+                    </ThemedText>
+                  </View>
+                )}
 
                 {/* Sign Up Button */}
                 <TouchableOpacity
@@ -568,7 +560,7 @@ export default function SignupScreen() {
                   placeholder={t('signup.enterYourPassword')}
                   placeholderTextColor={borderColor}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={(v) => { setPassword(v); setErrorMessage(null); }}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                 />
@@ -593,7 +585,7 @@ export default function SignupScreen() {
                   placeholder={t('signup.confirmYourPassword')}
                   placeholderTextColor={borderColor}
                   value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                  onChangeText={(v) => { setConfirmPassword(v); setErrorMessage(null); }}
                   secureTextEntry={!showConfirmPassword}
                   autoCapitalize="none"
                 />
@@ -609,6 +601,13 @@ export default function SignupScreen() {
                 </TouchableOpacity>
               </View>
             </View>
+            {errorMessage && (
+              <View style={{ marginBottom: 16, padding: 12, backgroundColor: 'rgba(255,107,107,0.15)', borderRadius: 8, borderWidth: 1, borderColor: '#FF6B6B' }}>
+                <ThemedText style={{ color: '#FF6B6B', fontSize: 14, fontWeight: '500' }}>
+                  {errorMessage}
+                </ThemedText>
+              </View>
+            )}
             {/* Sign Up Button */}
             <TouchableOpacity
               style={[styles.signupButton, { backgroundColor: accentColor }, isLoading && styles.signupButtonDisabled]}

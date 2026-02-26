@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { RichTextViewer } from '../../components/RichTextViewer';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
@@ -59,6 +60,15 @@ export default function PublicShareScreen() {
       setError(null);
       
       const result = await noteSharingService.accessPublicShare(token);
+      if (__DEV__) {
+        const n = result.note;
+        console.log('[SharedScreen] Transformed note:', {
+          hasContent: !!(n.content && n.content.trim()),
+          hasContentHtml: !!(n.contentHtml && n.contentHtml.trim()),
+          contentFormat: n.contentFormat,
+          contentPreview: (n.content || n.contentHtml || '').substring(0, 80),
+        });
+      }
       setNote(result.note);
       setShareInfo(result.share);
       
@@ -70,14 +80,53 @@ export default function PublicShareScreen() {
     }
   };
 
-  const formatDate = (date: Date) => {
+  // Get displayable content: content, contentHtml, or audio/PDF transcriptions
+  const getDisplayContent = (n: Note): { html: boolean; text: string } => {
+    if (n.contentFormat === 'html' && n.contentHtml && n.contentHtml.trim().length > 0) {
+      return { html: true, text: n.contentHtml };
+    }
+    if (n.content && n.content.trim().length > 0) {
+      return { html: false, text: n.content };
+    }
+    if (n.contentHtml && n.contentHtml.trim().length > 0) {
+      const stripped = n.contentHtml
+        .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<\/?[^>]+(>|$)/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (stripped) return { html: false, text: stripped };
+    }
+    // Audio transcriptions
+    const parts: string[] = [];
+    if (n.audioFiles?.length) {
+      n.audioFiles.forEach((f: any) => {
+        if (f.transcription) parts.push(f.transcription);
+        if (f.aiTranscription) parts.push(f.aiTranscription);
+        if (f.userEditedTranscription) parts.push(f.userEditedTranscription);
+      });
+    }
+    // PDF extracted text
+    if (n.pdfFiles?.length) {
+      n.pdfFiles.forEach((f: any) => {
+        if (f.extractedText) parts.push(f.extractedText);
+      });
+    }
+    return { html: false, text: parts.join('\n\n').trim() };
+  };
+
+  const formatDate = (date: Date | string | null | undefined): string => {
+    const d = date ? new Date(date) : null;
+    if (!d || isNaN(d.getTime())) {
+      return '—';
+    }
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    }).format(new Date(date));
+    }).format(d);
   };
 
   if (loading) {
@@ -160,7 +209,7 @@ export default function PublicShareScreen() {
             </ThemedText>
             {shareInfo?.expires_at && (
               <ThemedText style={[styles.expiryText, { color: textMutedColor }]}>
-                Expires: {formatDate(new Date(shareInfo.expires_at))}
+                Expires: {formatDate(shareInfo.expires_at)}
               </ThemedText>
             )}
           </View>
@@ -210,9 +259,29 @@ export default function PublicShareScreen() {
 
           {/* Content */}
           <View style={styles.contentSection}>
-            <ThemedText style={[styles.contentText, { color: textColor }]}>
-              {note.content}
-            </ThemedText>
+            {(() => {
+              const { html, text } = getDisplayContent(note);
+              if (!text) {
+                return (
+                  <ThemedText style={[styles.contentText, { color: textMutedColor }]}>
+                    {t('noteDetail.noContentAvailable')}
+                  </ThemedText>
+                );
+              }
+              return html ? (
+                <RichTextViewer
+                  content={text}
+                  contentFormat="html"
+                  textStyle={{ color: textColor }}
+                  style={styles.contentText}
+                  compact
+                />
+              ) : (
+                <ThemedText style={[styles.contentText, { color: textColor }]}>
+                  {text}
+                </ThemedText>
+              );
+            })()}
           </View>
 
           {/* Key Details */}

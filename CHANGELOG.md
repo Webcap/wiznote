@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Bug Fixes
 
+#### Sign-Out Crash
+- **Fixed app crash on sign out** - Resolved `Property 'isAuthFeature' doesn't exist` error
+  - Defined missing `isAuthFeature` variable in `FeatureFlagService.isFeatureEnabled`
+  - App no longer crashes when user signs out and navigates to login
+
 #### AI Summary Usage Tracker
 - **Fixed usage counter staying at 1** - Usage now increments correctly (1, 2, 3...) when using AI summary multiple times
   - Added atomic database increment RPC to fix race condition in usage recording
@@ -27,6 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Applied to both create-checkout and create-paymentsheet endpoints
 
 ### 🔧 Improvements
+
+#### Search Notes
+- **Compact filter layout on mobile** - Reduced filter selector size and spacing
+  - Smaller padding, margins, and font sizes for filters on mobile
+  - Combined filters on shared rows: Note Type + Sort By + Order on one line
+  - Order filter changed to dropdown (same line as Sort By) for space efficiency
+- **Hideable filter section** - Users can collapse filters to see more note content
+  - Tap "Filters" header with chevron to expand/collapse
+  - Filters expanded by default; collapsed state maximizes note list visibility
+- **Added top padding** - Improved spacing at top of search page on mobile and web
 
 #### Production
 - **Suppress console output in production web** - All console messages hidden in production builds

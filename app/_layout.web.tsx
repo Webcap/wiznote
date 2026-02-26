@@ -283,6 +283,7 @@ function AppContent() {
                     <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
                     <Stack.Screen name="reset-password" options={{ headerShown: false }} />
                     <Stack.Screen name="admin" options={{ headerShown: false }} />
+                    <Stack.Screen name="shared/[token]" options={{ headerShown: false }} />
 
                     <Stack.Screen name="+not-found" />
                   </Stack>

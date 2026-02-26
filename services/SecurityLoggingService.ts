@@ -135,7 +135,9 @@ class SecurityLoggingService {
   private isProcessingQueue: boolean = false;
 
   private constructor() {
-    console.log('[SecurityLoggingService] Service initialized');
+    if (__DEV__) {
+      console.log('[SecurityLoggingService] Service initialized');
+    }
   }
 
   /**

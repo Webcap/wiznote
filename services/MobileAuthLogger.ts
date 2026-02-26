@@ -21,8 +21,10 @@ class MobileAuthLogger {
     const baseUrl = process.env.EXPO_PUBLIC_API_URL || 'https://wiznote.app';
     this.authLogEndpoint = `${baseUrl}/.netlify/functions/auth-log`;
     
-    console.log('[MobileAuthLogger] Initialized with endpoint:', this.authLogEndpoint);
-    console.log('[MobileAuthLogger] Platform:', Platform.OS);
+    if (__DEV__) {
+      console.log('[MobileAuthLogger] Initialized with endpoint:', this.authLogEndpoint);
+      console.log('[MobileAuthLogger] Platform:', Platform.OS);
+    }
   }
 
   public static getInstance(): MobileAuthLogger {

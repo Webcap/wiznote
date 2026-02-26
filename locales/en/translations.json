@@ -641,6 +641,8 @@
     "back": "Back",
     "searchNotesPlaceholder": "Search notes...",
     "filters": "Filters",
+    "showFilters": "Show filters",
+    "hideFilters": "Hide filters",
     "noteType": "Note Type",
     "all": "All",
     "text": "Text",
@@ -1317,6 +1319,7 @@
     "noteSharedEmailSuccess": "Note shared successfully with {{email}}!",
     "creatingPublicLink": "Creating public link...",
     "publicLinkCreated": "Public link created!",
+    "publicLinkAlreadyExists": "This note already has a public link.",
     "createPublicLinkFailed": "Failed to create public link.",
     "linkCopied": "Link copied to clipboard!",
     "copyLinkFailed": "Failed to copy link"

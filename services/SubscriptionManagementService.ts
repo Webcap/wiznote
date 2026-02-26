@@ -59,7 +59,9 @@ export class SubscriptionManagementService {
   private constructor() {
     // Get the Stripe Guardian API URL - automatically selects dev or prod based on environment
     this.stripeGuardianUrl = ApiConfig.WEBHOOK_BASE_URL;
-    console.log('SubscriptionManagementService: Using Stripe Guardian URL:', this.stripeGuardianUrl, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');
+    if (__DEV__) {
+      console.log('SubscriptionManagementService: Using Stripe Guardian URL:', this.stripeGuardianUrl, '(Environment:', ApiConfig.IS_DEVELOPMENT ? 'DEV' : 'PROD', ')');
+    }
   }
 
   public static getInstance(): SubscriptionManagementService {

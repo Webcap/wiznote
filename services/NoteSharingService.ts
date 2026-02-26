@@ -345,14 +345,53 @@ export class NoteSharingService {
   }
 
   /**
-   * Create a public share link
+   * Get existing public share link for a note (if one exists and is active)
+   */
+  async getExistingPublicShare(
+    noteId: string,
+    ownerId: string
+  ): Promise<{ shareToken: string; shareUrl: string } | null> {
+    try {
+      const { data: share, error } = await supabase
+        .from('note_shares')
+        .select('share_token')
+        .eq('note_id', noteId)
+        .eq('owner_id', ownerId)
+        .not('share_token', 'is', null)
+        .eq('is_active', true)
+        .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !share?.share_token) {
+        return null;
+      }
+
+      const baseUrl = typeof window !== 'undefined' && window.location
+        ? window.location.origin
+        : (process.env.EXPO_PUBLIC_WEB_URL || 'https://wiznote.app');
+      const shareUrl = `${baseUrl}/shared/${share.share_token}`;
+
+      return { shareToken: share.share_token, shareUrl };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Create a public share link (returns existing link if one already exists)
    */
   async createPublicShare(
     noteId: string, 
     ownerId: string, 
     expiresAt?: Date
-  ): Promise<{ shareToken: string; shareUrl: string }> {
+  ): Promise<{ shareToken: string; shareUrl: string; alreadyExisted?: boolean }> {
     try {
+      const existing = await this.getExistingPublicShare(noteId, ownerId);
+      if (existing) {
+        return { ...existing, alreadyExisted: true };
+      }
+
       const shareToken = this.generateShareToken();
       
       const { data: share, error } = await supabase
@@ -379,7 +418,7 @@ export class NoteSharingService {
       
       const shareUrl = `${baseUrl}/shared/${shareToken}`;
       
-      return { shareToken, shareUrl };
+      return { shareToken, shareUrl, alreadyExisted: false };
     } catch (error) {
       console.error('NoteSharingService: Error creating public share:', error);
       throw error;
@@ -420,19 +459,31 @@ export class NoteSharingService {
         throw new Error('Share not found or expired');
       }
 
-      console.log('✅ NoteSharingService: Share found:', share.id);
+      // PostgREST can return arrays; unwrap to get the row object
+      const shareRow = Array.isArray(share) && share.length > 0 ? share[0] : share;
+
+      if (__DEV__) {
+        const rawShare = shareRow as Record<string, unknown>;
+        console.log('✅ NoteSharingService: Share keys:', Object.keys(rawShare), 'note_id:', rawShare.note_id ?? rawShare.noteId);
+      }
 
       // Check if share has expired
-      if (share.expires_at && new Date(share.expires_at) < new Date()) {
+      if (shareRow.expires_at && new Date(shareRow.expires_at) < new Date()) {
         console.error('❌ NoteSharingService: Share has expired');
         throw new Error('Share has expired');
       }
 
       // Now get the note separately (with specific fields to avoid user table access)
+      // Include content_html and content_format for rich text notes
+      const noteId = (shareRow as Record<string, unknown>).note_id ?? (shareRow as { noteId?: string }).noteId;
+      if (!noteId) {
+        console.error('❌ NoteSharingService: Share has no note_id');
+        throw new Error('Invalid share');
+      }
       const { data: note, error: noteError } = await supabase
         .from('notes')
-        .select('id, title, content, tags, summary, key_details, audio_files, pdf_files, type, created_at, updated_at')
-        .eq('id', share.note_id)
+        .select('id, title, content, content_html, content_format, tags, summary, key_details, audio_files, pdf_files, type, created_at, updated_at')
+        .eq('id', noteId)
         .single();
 
       if (noteError) {
@@ -452,37 +503,60 @@ export class NoteSharingService {
         throw new Error('Note not found');
       }
 
-      console.log('✅ NoteSharingService: Note found:', note.id);
-
-      // Track access (don't fail if this errors)
-      try {
-        await this.trackShareAccess(share.id, 'viewed');
-      } catch (trackError) {
-        console.warn('Failed to track share access:', trackError);
+      // PostgREST can return arrays; unwrap to get the row object
+      const noteRow = Array.isArray(note) && note.length > 0 ? note[0] : note;
+      if (!noteRow || (typeof noteRow === 'object' && Object.keys(noteRow).length === 0)) {
+        console.error('❌ NoteSharingService: Note not found or empty');
+        throw new Error('Note not found');
       }
 
-      // Transform to Note type
+      if (__DEV__) {
+        const rawNote = noteRow as Record<string, unknown>;
+        const keys = Object.keys(rawNote);
+        const contentVal = rawNote.content ?? rawNote.content_html ?? rawNote.contentHtml;
+        const contentPreview = contentVal ? String(contentVal).substring(0, 100) : '(empty)';
+        console.log('✅ NoteSharingService: Note keys:', keys, 'contentPreview:', contentPreview);
+      }
+
+      // Track access (don't fail if this errors) - skip if share.id is missing
+      const shareId = (shareRow as Record<string, unknown>).id ?? shareRow.id;
+      if (shareId) {
+        try {
+          await this.trackShareAccess(String(shareId), 'viewed');
+        } catch (trackError) {
+          if (__DEV__) console.warn('Failed to track share access:', trackError);
+        }
+      }
+
+      // Transform to Note type - handle both snake_case and camelCase from Supabase
+      const rawNote = noteRow as Record<string, unknown>;
+      const content = (rawNote.content ?? rawNote.content_html ?? '') as string;
+      const contentHtml = (rawNote.content_html ?? rawNote.contentHtml ?? null) as string | null;
+      const contentFormat = (rawNote.content_format ?? rawNote.contentFormat ?? 'plain') as string;
+
       const transformedNote: Note = {
-        id: note.id,
-        title: note.title,
-        content: note.content,
-        userId: share.owner_id, // Use owner_id from share
-        tags: note.tags || [],
+        id: (rawNote.id ?? noteRow.id) as string,
+        title: (rawNote.title ?? noteRow.title) as string,
+        content: content || '',
+        contentHtml: contentHtml || undefined,
+        contentFormat: (contentFormat === 'html' ? 'html' : 'plain') as 'plain' | 'html',
+        userId: ((shareRow as Record<string, unknown>).owner_id ?? shareRow.owner_id) as string,
+        tags: (rawNote.tags ?? []) as string[],
         isPinned: false,
         isFavorite: false,
         isArchived: false,
-        audioFiles: note.audio_files || [],
-        pdfFiles: note.pdf_files || [],
-        type: note.type || 'text',
-        keyDetails: note.key_details || [],
-        summary: note.summary || null,
-        createdAt: new Date(note.created_at),
-        updatedAt: new Date(note.updated_at),
+        audioFiles: (rawNote.audio_files ?? rawNote.audioFiles ?? []) as any[],
+        pdfFiles: (rawNote.pdf_files ?? rawNote.pdfFiles ?? []) as any[],
+        type: (rawNote.type ?? 'text') as string,
+        keyDetails: (rawNote.key_details ?? rawNote.keyDetails ?? []) as string[],
+        summary: (rawNote.summary ?? null) as string | null,
+        createdAt: new Date((rawNote.created_at ?? rawNote.createdAt) as string),
+        updatedAt: new Date((rawNote.updated_at ?? rawNote.updatedAt) as string),
       };
 
       return {
         note: transformedNote,
-        share: share as NoteShare,
+        share: shareRow as NoteShare,
       };
     } catch (error) {
       console.error('❌ NoteSharingService: Error accessing public share:', error);
@@ -506,6 +580,7 @@ export class NoteSharingService {
    * Track share access
    */
   private async trackShareAccess(shareId: string, action: 'viewed' | 'edited' | 'commented'): Promise<void> {
+    if (!shareId) return;
     try {
       const { error } = await supabase
         .from('shared_note_access')
@@ -515,11 +590,11 @@ export class NoteSharingService {
           accessed_at: new Date().toISOString(),
         });
 
-      if (error) {
-        console.error('NoteSharingService: Error tracking share access:', error);
+      if (error && __DEV__) {
+        console.warn('NoteSharingService: Error tracking share access:', error);
       }
     } catch (error) {
-      console.error('NoteSharingService: Error tracking share access:', error);
+      if (__DEV__) console.warn('NoteSharingService: Error tracking share access:', error);
     }
   }
 

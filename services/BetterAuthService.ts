@@ -1842,7 +1842,9 @@ export class BetterAuthService {
         document.addEventListener('visibilitychange', debouncedVisibilityHandler);
       }
       
-      console.log('BetterAuthService: Web page visibility handling set up with optimizations');
+      if (__DEV__) {
+        console.log('BetterAuthService: Web page visibility handling set up with optimizations');
+      }
     } catch (error) {
       console.error('Error setting up web page visibility handling:', error);
     }
