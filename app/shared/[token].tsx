@@ -274,6 +274,7 @@ export default function PublicShareScreen() {
                   contentFormat="html"
                   textStyle={{ color: textColor }}
                   style={styles.contentText}
+                  compact
                 />
               ) : (
                 <ThemedText style={[styles.contentText, { color: textColor }]}>

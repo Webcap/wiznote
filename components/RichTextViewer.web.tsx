@@ -7,18 +7,23 @@ interface RichTextViewerProps {
   contentFormat?: 'plain' | 'html';
   style?: any;
   textStyle?: any;
+  /** Use tighter spacing (e.g. for shared note view) */
+  compact?: boolean;
 }
 
 const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
   content,
   contentFormat = 'plain',
   style,
-  textStyle
+  textStyle,
+  compact = false,
 }) => {
   const colorAppliedRef = useRef<string | null>(null);
   // Sanitize HTML content to prevent XSS attacks
   const sanitizedContent = useMemo(() => {
     if (!content) return '';
+    
+    let html: string;
     
     // If content format is plain, convert markdown-like formatting to HTML
     if (contentFormat === 'plain') {
@@ -76,12 +81,25 @@ const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
         });
       }
       
-      return sanitizeNoteContent(html);
+      html = sanitizeNoteContent(html);
+    } else {
+      // For HTML content, use the robust sanitization utility
+      html = sanitizeNoteContent(content);
     }
-    
-    // For HTML content, use the robust sanitization utility
-    return sanitizeNoteContent(content);
-  }, [content, contentFormat]);
+
+    // Compact mode: collapse block structure to eliminate line gaps (shared notes)
+    if (compact && html) {
+      // Remove empty paragraphs
+      html = html.replace(/<p>\s*<br\s*\/?>\s*<\/p>/gi, '');
+      html = html.replace(/<p>\s*<\/p>/gi, '');
+      // Merge consecutive paragraphs into one block with <br> between lines
+      html = html.replace(/<\/p>\s*<p>/gi, '<br>');
+      // Merge consecutive divs that wrap single blocks (e.g. <div><p>A</p></div><div><p>B</p></div>)
+      html = html.replace(/<\/div>\s*<div>/gi, '<br>');
+    }
+
+    return html;
+  }, [content, contentFormat, compact]);
 
   // Inject CSS styles for rich text rendering
   useEffect(() => {
@@ -94,13 +112,21 @@ const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
         existingStyle.id = styleId;
         existingStyle.textContent = `
           .rich-text-viewer {
-            line-height: 1.2;
+            line-height: 1.35;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             word-wrap: break-word;
             overflow-wrap: break-word;
             background-color: transparent !important;
             margin: 0 !important;
             padding: 0 !important;
+          }
+
+          /* Compact: minimal margins on all block elements */
+          .rich-text-viewer > *:first-child {
+            margin-top: 0 !important;
+          }
+          .rich-text-viewer > *:last-child {
+            margin-bottom: 0 !important;
           }
           
           .rich-text-viewer,
@@ -175,43 +201,43 @@ const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
           .rich-text-viewer h2 {
             font-size: 1.5rem;
             font-weight: 600;
-            margin: 0.4rem 0 0.2rem 0;
-            line-height: 1.2;
+            margin: 0.35em 0 0.15em 0 !important;
+            line-height: 1.25;
             color: inherit !important;
             border-bottom: 1px solid currentColor;
             border-bottom-opacity: 0.15;
-            padding-bottom: 0.25rem;
+            padding-bottom: 0.2rem;
           }
           
           .rich-text-viewer h3 {
             font-size: 1.25rem;
             font-weight: 600;
-            margin: 0.3rem 0 0.15rem 0;
-            line-height: 1.2;
+            margin: 0.3em 0 0.12em 0 !important;
+            line-height: 1.25;
             color: inherit !important;
           }
           
           .rich-text-viewer h4 {
             font-size: 1.125rem;
             font-weight: 600;
-            margin: 0.875rem 0 0.5rem 0;
-            line-height: 1.4;
+            margin: 0.25em 0 0.1em 0 !important;
+            line-height: 1.3;
             color: inherit !important;
           }
           
           .rich-text-viewer h5 {
             font-size: 1rem;
             font-weight: 600;
-            margin: 0.75rem 0 0.5rem 0;
-            line-height: 1.4;
+            margin: 0.2em 0 0.08em 0 !important;
+            line-height: 1.3;
             color: inherit !important;
           }
           
           .rich-text-viewer h6 {
             font-size: 0.875rem;
             font-weight: 600;
-            margin: 0.75rem 0 0.5rem 0;
-            line-height: 1.4;
+            margin: 0.2em 0 0.08em 0 !important;
+            line-height: 1.3;
             color: inherit !important;
             text-transform: uppercase;
             letter-spacing: 0.05em;
@@ -220,14 +246,31 @@ const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
           .rich-text-viewer p {
             margin: 0 !important;
             padding: 0 !important;
-            line-height: 1.2;
+            line-height: 1.4 !important;
             color: inherit !important;
+          }
+
+          /* Collapse empty paragraphs to avoid big gaps */
+          .rich-text-viewer p:empty {
+            display: none !important;
+          }
+
+          /* Compact spacing for paragraphs that only contain <br> (common editor output) */
+          .rich-text-viewer p:has(> br:only-child) {
+            margin: 0 0 0.2em 0 !important;
+            padding: 0 !important;
+            line-height: 0 !important;
+            min-height: 0 !important;
+          }
+
+          .rich-text-viewer p:has(> br:only-child) br {
+            display: none !important;
           }
 
           /* Compact spacer for intentional blank lines */
           .rich-text-viewer .rtv-spacer {
             display: block;
-            height: 0.5rem;
+            height: 0.3rem;
             margin: 0;
             padding: 0;
           }
@@ -247,7 +290,7 @@ const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
           }
           
           .rich-text-viewer ul, .rich-text-viewer ol {
-            margin: 0.75rem 0;
+            margin: 0.25em 0 !important;
             padding-left: 1.5rem;
             color: inherit !important;
           }
@@ -261,9 +304,18 @@ const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
           }
           
           .rich-text-viewer li {
-            margin: 0.25rem 0;
-            line-height: 1.5;
+            margin: 0.08em 0 !important;
+            line-height: 1.4;
             color: inherit !important;
+          }
+
+          .rich-text-viewer img {
+            margin: 0.2em 0 !important;
+            padding: 0 !important;
+            max-width: 100%;
+            height: auto;
+            display: block;
+            vertical-align: middle;
           }
           
           .rich-text-viewer strong, .rich-text-viewer b {
@@ -331,10 +383,10 @@ const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
           
           .rich-text-viewer pre {
             background-color: rgba(106, 90, 205, 0.05);
-            padding: 1rem;
+            padding: 0.75rem;
             border-radius: 0.5rem;
             overflow-x: auto;
-            margin: 1rem 0;
+            margin: 0.35em 0 !important;
             border: 1px solid rgba(106, 90, 205, 0.15);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
           }
@@ -349,8 +401,8 @@ const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
           }
           
           .rich-text-viewer blockquote {
-            margin: 1rem 0;
-            padding: 0.75rem 1rem;
+            margin: 0.35em 0 !important;
+            padding: 0.5rem 0.75rem;
             border-left: 4px solid #6A5ACD;
             background-color: rgba(106, 90, 205, 0.05);
             border-radius: 0 0.5rem 0.5rem 0;
@@ -364,20 +416,20 @@ const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
           }
           
           .rich-text-viewer blockquote p:not(:last-child) {
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.25rem;
           }
           
           .rich-text-viewer hr {
             border: none;
             height: 2px;
             background: linear-gradient(to right, transparent, rgba(106, 90, 205, 0.3), transparent);
-            margin: 1.5rem 0;
+            margin: 0.5em 0 !important;
           }
           
           .rich-text-viewer table {
             width: 100%;
             border-collapse: collapse;
-            margin: 1rem 0;
+            margin: 0.35em 0 !important;
             border-radius: 0.5rem;
             overflow: hidden;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -401,12 +453,45 @@ const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
           }
           
           .rich-text-viewer br {
-            content: '' !important;
             display: block !important;
-            margin-top: -0.5em !important;
-            margin-bottom: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
             height: 0 !important;
             line-height: 0 !important;
+            content: '' !important;
+          }
+
+          /* Compact mode: minimal spacing for shared/public views */
+          .rich-text-viewer.rich-text-viewer-compact {
+            line-height: 1.3 !important;
+          }
+          .rich-text-viewer.rich-text-viewer-compact p,
+          .rich-text-viewer.rich-text-viewer-compact div,
+          .rich-text-viewer.rich-text-viewer-compact h2,
+          .rich-text-viewer.rich-text-viewer-compact h3,
+          .rich-text-viewer.rich-text-viewer-compact h4,
+          .rich-text-viewer.rich-text-viewer-compact h5,
+          .rich-text-viewer.rich-text-viewer-compact h6 {
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1.35 !important;
+          }
+          .rich-text-viewer.rich-text-viewer-compact p + p,
+          .rich-text-viewer.rich-text-viewer-compact div + div,
+          .rich-text-viewer.rich-text-viewer-compact * + p,
+          .rich-text-viewer.rich-text-viewer-compact * + div {
+            margin-top: 0 !important;
+          }
+          .rich-text-viewer.rich-text-viewer-compact ul,
+          .rich-text-viewer.rich-text-viewer-compact ol {
+            margin: 0.15em 0 !important;
+          }
+          .rich-text-viewer.rich-text-viewer-compact li {
+            margin: 0 !important;
+            line-height: 1.35 !important;
+          }
+          .rich-text-viewer.rich-text-viewer-compact img {
+            margin: 0.1em 0 !important;
           }
           
           /* Dark mode support */
@@ -478,10 +563,11 @@ const RichTextViewerComponent: React.FC<RichTextViewerProps> = ({
     return (
       <View style={[styles.container, style]}>
         <div
-          className="rich-text-viewer"
+          className={`rich-text-viewer${compact ? ' rich-text-viewer-compact' : ''}`}
           dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           style={{
             ...styles.htmlContent,
+            ...(compact && { lineHeight: 20, padding: 12 }),
             color: themeColor,
             backgroundColor: 'transparent',
             // Force color on all child elements
@@ -558,7 +644,7 @@ const styles = StyleSheet.create({
   },
   htmlContent: {
     fontSize: 16,
-    lineHeight: 24,
+    lineHeight: 20,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     color: 'inherit',
     padding: 16,
@@ -577,6 +663,7 @@ export const RichTextViewer = memo(RichTextViewerComponent, (prevProps, nextProp
   return (
     prevProps.content === nextProps.content &&
     prevProps.contentFormat === nextProps.contentFormat &&
+    prevProps.compact === nextProps.compact &&
     JSON.stringify(prevProps.textStyle) === JSON.stringify(nextProps.textStyle)
   );
 });
