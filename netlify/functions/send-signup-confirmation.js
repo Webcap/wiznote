@@ -71,17 +71,33 @@ exports.handler = async (event, context) => {
       ? `${process.env.EXPO_PUBLIC_WEB_URL}/auth/callback`
       : 'https://wiznote.app/auth/callback');
 
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'signup',
-      email: email.trim().toLowerCase(),
-      password,
-      options: {
-        redirectTo: defaultRedirectTo,
-        data: {
-          display_name: displayName || '',
+    let linkData;
+    let linkError;
+    try {
+      const result = await supabaseAdmin.auth.admin.generateLink({
+        type: 'signup',
+        email: email.trim().toLowerCase(),
+        password,
+        options: {
+          redirectTo: defaultRedirectTo,
+          data: {
+            display_name: displayName || '',
+          },
         },
-      },
-    });
+      });
+      linkData = result.data;
+      linkError = result.error;
+    } catch (supabaseErr) {
+      console.error('Supabase generateLink threw:', supabaseErr);
+      const msg = supabaseErr?.message || 'Supabase error';
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        body: JSON.stringify({
+          error: msg.includes('401') ? 'Supabase auth failed (check service role key in Netlify)' : msg,
+        }),
+      };
+    }
 
     const confirmationUrl = linkData?.properties?.action_link || linkData?.action_link;
     if (linkError || !confirmationUrl) {
@@ -145,7 +161,19 @@ exports.handler = async (event, context) => {
     sendSmtpEmail.htmlContent = emailHtml;
     sendSmtpEmail.textContent = `Verify your WizNote account by clicking: ${confirmationUrl}`;
 
-    await apiInstance.sendTransacEmail(sendSmtpEmail);
+    try {
+      await apiInstance.sendTransacEmail(sendSmtpEmail);
+    } catch (brevoErr) {
+      console.error('Brevo sendTransacEmail error:', brevoErr);
+      const msg = brevoErr?.message || 'Email send failed';
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        body: JSON.stringify({
+          error: msg.includes('401') ? 'Brevo API key invalid or expired (check BREVO_API_KEY in Netlify)' : msg,
+        }),
+      };
+    }
 
     return {
       statusCode: 200,
