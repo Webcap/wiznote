@@ -14,7 +14,7 @@ import { UserSidebar } from '../components/web/UserSidebar';
 import { WebLayout } from '../components/web/WebLayout';
 
 export default function SimpleUsageScreen() {
-  const { trackedFeatures, loading, refreshLimits } = useUnifiedFeatureLimits();
+  const { trackedFeatures, loading, refreshLimits, forceRefresh } = useUnifiedFeatureLimits();
   const router = useRouter();
   
   // Theme colors
@@ -25,9 +25,9 @@ export default function SimpleUsageScreen() {
   const accentColor = useThemeColor({}, 'accentPrimary');
 
   const onRefresh = React.useCallback(async () => {
-    // Use the new refresh function to reload limits and usage data
-    await refreshLimits();
-  }, [refreshLimits]);
+    // Force refresh to bypass cache and get latest usage from DB
+    await forceRefresh();
+  }, [forceRefresh]);
 
   const handleBack = () => {
     router.back();

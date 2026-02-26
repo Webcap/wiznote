@@ -570,26 +570,46 @@ export class FeatureLimitService {
         return;
       }
 
+      // Try atomic RPC first (fixes "stays at 1" race condition) - run database/increment-feature-usage.sql
+      const { data: rpcData, error: rpcError } = await supabase
+        .rpc('increment_feature_usage', {
+          p_user_id: userId,
+          p_feature_id: featureId,
+          p_amount: Math.floor(amount),
+          p_usage_type: usageType,
+        });
+
+      if (!rpcError && rpcData) {
+        const result = rpcData as { usage_count?: number; usage_duration?: number; usage_storage?: number };
+        const actualNewCount = result.usage_count ?? 0;
+        const actualNewDuration = result.usage_duration ?? 0;
+        const actualNewStorage = result.usage_storage ?? 0;
+        let actualNewUsage = actualNewCount;
+        if (usageType === 'duration') actualNewUsage = actualNewDuration;
+        else if (usageType === 'storage') actualNewUsage = actualNewStorage;
+
+        console.log(`FeatureLimitService: Atomic RPC recorded usage for ${featureId}: ${actualNewUsage}`);
+        this.dispatchUsageChanged(userId, featureId, amount, usageType, actualNewUsage, actualNewCount, actualNewDuration, actualNewStorage);
+        return;
+      }
+
+      // Fallback: read-modify-write (can have race condition)
       const now = new Date();
       const period = isPremium ? limit.premiumUserPeriod : limit.freeUserPeriod;
       const periodStart = this.getPeriodStart(period, now);
       const periodEnd = this.getPeriodEnd(period, now);
 
-      // Get current usage values from database
       const { data: existingUsage } = await supabase
         .from('user_feature_usage')
         .select('usage_count, usage_duration, usage_storage, current_period_end')
         .eq('user_id', userId)
         .eq('feature_id', featureId)
-        .single();
+        .maybeSingle();
 
-      // Check if the period has expired - if so, reset usage
       const periodExpired = existingUsage?.current_period_end 
         ? new Date(existingUsage.current_period_end) < now
-        : true; // If no existing usage, treat as new period
+        : true;
 
-      // Calculate new usage values
-      // If period expired, start fresh; otherwise add to existing
       const currentCount = periodExpired ? 0 : (existingUsage?.usage_count || 0);
       const currentDuration = periodExpired ? 0 : (existingUsage?.usage_duration || 0);
       const currentStorage = periodExpired ? 0 : (existingUsage?.usage_storage || 0);
@@ -598,24 +618,12 @@ export class FeatureLimitService {
       let newDuration = currentDuration;
       let newStorage = currentStorage;
 
-      // Update the appropriate usage field based on usageType
       switch (usageType) {
-        case 'count':
-          newCount = currentCount + amount;
-          break;
-        case 'duration':
-          newDuration = currentDuration + amount;
-          break;
-        case 'storage':
-          newStorage = currentStorage + amount;
-          break;
+        case 'count': newCount = currentCount + amount; break;
+        case 'duration': newDuration = currentDuration + amount; break;
+        case 'storage': newStorage = currentStorage + amount; break;
       }
 
-      if (periodExpired && existingUsage) {
-        console.log(`FeatureLimitService: Period expired for ${featureId}, resetting usage from ${existingUsage.usage_count} to ${newCount}`);
-      }
-
-      // Update or create usage record
       const upsertData = {
         user_id: userId,
         feature_id: featureId,
@@ -627,18 +635,6 @@ export class FeatureLimitService {
         period_type: period,
         last_used_at: now.toISOString(),
       };
-
-      console.log(`FeatureLimitService: Recording usage for ${featureId}:`, {
-        userId,
-        featureId,
-        amount,
-        usageType,
-        periodExpired,
-        previousCount: existingUsage?.usage_count || 0,
-        newCount,
-        periodStart: periodStart.toISOString(),
-        periodEnd: periodEnd.toISOString(),
-      });
 
       const { error, data } = await supabase
         .from('user_feature_usage')
@@ -680,33 +676,7 @@ export class FeatureLimitService {
       }
 
       console.log(`FeatureLimitService: Successfully recorded usage for ${featureId}: ${amount} ${usageType} (new total: ${actualNewCount} count, ${actualNewDuration} duration, ${actualNewStorage} storage)`);
-      
-      if (updatedRecord) {
-        console.log(`FeatureLimitService: Updated record:`, updatedRecord);
-      }
-
-      // Notify app listeners that usage changed so UIs can refresh immediately
-      // Include the new total usage in the event so UI can update optimistically without re-querying
-      try {
-        if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-          window.dispatchEvent(new CustomEvent('featureUsageChanged', {
-            detail: { 
-              userId, 
-              featureId, 
-              amount, 
-              usageType, 
-              newUsage: actualNewUsage, // Include the new total usage
-              newCount: actualNewCount,
-              newDuration: actualNewDuration,
-              newStorage: actualNewStorage,
-              timestamp: Date.now() 
-            }
-          }));
-        }
-      } catch (emitError) {
-        // Non-fatal: logging only
-        console.warn('FeatureLimitService: Failed to dispatch featureUsageChanged event:', emitError);
-      }
+      this.dispatchUsageChanged(userId, featureId, amount, usageType, actualNewUsage, actualNewCount, actualNewDuration, actualNewStorage);
     } catch (error) {
       console.error('FeatureLimitService: Error recording usage:', {
         error,
@@ -919,6 +889,37 @@ export class FeatureLimitService {
   }
 
   // Helper methods
+  private dispatchUsageChanged(
+    userId: string,
+    featureId: string,
+    amount: number,
+    usageType: string,
+    actualNewUsage: number,
+    actualNewCount: number,
+    actualNewDuration: number,
+    actualNewStorage: number
+  ): void {
+    try {
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('featureUsageChanged', {
+          detail: {
+            userId,
+            featureId,
+            amount,
+            usageType,
+            newUsage: actualNewUsage,
+            newCount: actualNewCount,
+            newDuration: actualNewDuration,
+            newStorage: actualNewStorage,
+            timestamp: Date.now(),
+          },
+        }));
+      }
+    } catch (emitError) {
+      console.warn('FeatureLimitService: Failed to dispatch featureUsageChanged event:', emitError);
+    }
+  }
+
   private getPeriodStart(period: 'daily' | 'weekly' | 'monthly', date: Date): Date {
     const start = new Date(date);
     start.setHours(0, 0, 0, 0);

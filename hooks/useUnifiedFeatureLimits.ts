@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     featureLimitManager,
     UnifiedFeatureLimit
@@ -75,6 +75,7 @@ export function useUnifiedFeatureLimits(): UnifiedFeatureLimitsData {
   const [usageData, setUsageData] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const lastEventByFeature = useRef<Record<string, { usage: number; timestamp: number }>>({});
   
   // Get user's premium status
   const isPremium = useMemo(() => {
@@ -425,43 +426,51 @@ export function useUnifiedFeatureLimits(): UnifiedFeatureLimitsData {
           // Use the newUsage value from the event if available (most accurate)
           // Otherwise fall back to optimistic update
           if (typeof detail.newUsage === 'number') {
-            console.log(`useUnifiedFeatureLimits: Updating ${detail.featureId} usage to ${detail.newUsage} from event`);
-            setUsageData(prev => ({
-              ...prev,
-              [detail.featureId]: detail.newUsage
-            }));
+            lastEventByFeature.current[detail.featureId] = { usage: detail.newUsage, timestamp: Date.now() };
+            setUsageData(prev => ({ ...prev, [detail.featureId]: detail.newUsage }));
           } else if (typeof detail.amount === 'number') {
-            // Fallback to optimistic update if newUsage not available
-            console.log(`useUnifiedFeatureLimits: Optimistically updating ${detail.featureId} usage by ${detail.amount}`);
-            setUsageData(prev => ({
-              ...prev,
-              [detail.featureId]: Math.max(0, (prev?.[detail.featureId] || 0) + detail.amount)
-            }));
+            setUsageData(prev => {
+              const next = Math.max(0, (prev?.[detail.featureId] || 0) + detail.amount);
+              lastEventByFeature.current[detail.featureId] = { usage: next, timestamp: Date.now() };
+              return { ...prev, [detail.featureId]: next };
+            });
           }
         }
 
         // Reconcile with server after a short delay to ensure consistency
-        // This is a safety net in case the event data was incorrect
+        // Don't overwrite with stale data if we just received an event (avoids "stops at 1" bug)
         const timeoutId = setTimeout(async () => {
           try {
             const limits = await featureLimitService.getFeatureLimits();
             const featureIds = Array.isArray(limits) ? limits.map(l => l.featureId) : Object.keys(limits);
             await featureLimitService.initialize();
-            const newUsageData: Record<string, number> = {};
+            const serverUsageData: Record<string, number> = {};
             for (const featureId of featureIds) {
               try {
                 const usage = await featureLimitService.getUserFeatureUsage(user.id, featureId, isPremium);
-                newUsageData[featureId] = usage?.currentPeriod?.usage || 0;
+                serverUsageData[featureId] = usage?.currentPeriod?.usage || 0;
               } catch {
-                newUsageData[featureId] = 0;
+                serverUsageData[featureId] = 0;
               }
             }
-            console.log('useUnifiedFeatureLimits: Reconcile complete, updating usage data:', newUsageData);
-            setUsageData(newUsageData);
+            const RECONCILE_GRACE_MS = 3000; // Don't overwrite event data within 3s
+            setUsageData(prev => {
+              const merged: Record<string, number> = { ...prev };
+              for (const [fid, serverVal] of Object.entries(serverUsageData)) {
+                const lastEvt = lastEventByFeature.current[fid];
+                const currentVal = merged[fid] ?? 0;
+                if (lastEvt && (Date.now() - lastEvt.timestamp) < RECONCILE_GRACE_MS && lastEvt.usage > serverVal) {
+                  merged[fid] = lastEvt.usage; // Keep event value - server may be stale
+                } else {
+                  merged[fid] = serverVal;
+                }
+              }
+              return merged;
+            });
           } catch (reconcileError) {
             console.warn('useUnifiedFeatureLimits: reconcile after featureUsageChanged failed:', reconcileError);
           }
-        }, 1000); // Increased delay to 1 second to ensure database commit is complete
+        }, 1500);
         timeoutIds.push(timeoutId);
       } catch (e) {
         console.warn('useUnifiedFeatureLimits: featureUsageChanged handler failed:', e);

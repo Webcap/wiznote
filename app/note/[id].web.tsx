@@ -1384,7 +1384,7 @@ const { notes, toggleArchive, togglePin, updateNote, deleteNote, refreshNotes } 
             <View style={styles.webContentSection}>
               <ThemedText style={[styles.webSectionTitle, { color: textColor }]}>{t('noteDetail.summary')}</ThemedText>
               {user && (
-                <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                   {(() => {
                     try {
                       return <FeatureUsageInline featureId="ai_summaries" compact={true} onUpgradePress={() => router.push('/join-premium')} />;
@@ -1393,6 +1393,21 @@ const { notes, toggleArchive, togglePin, updateNote, deleteNote, refreshNotes } 
                       return null;
                     }
                   })()}
+                  {!note?.isSharedNote && combinedNoteContent.trim() && (summary || summaryLoading) && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSummary('');
+                        setSummaryGeneratedFor(null);
+                        setSummaryLoading(true);
+                        generateSummary(combinedNoteContent, note.id);
+                      }}
+                      disabled={summaryLoading}
+                    >
+                      <ThemedText style={{ color: summaryLoading ? mutedTextColor : accentColor, fontSize: 12, fontWeight: '600' }}>
+                        {t('noteDetail.regenerateSummary')}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
               {summaryLoading && (
@@ -1411,10 +1426,7 @@ const { notes, toggleArchive, togglePin, updateNote, deleteNote, refreshNotes } 
                     </ThemedText>
                   </View>
                   {summary && summary.length > 800 && (
-                    <TouchableOpacity 
-                      onPress={() => setIsSummaryExpanded(!isSummaryExpanded)}
-                      style={{ marginTop: 8 }}
-                    >
+                    <TouchableOpacity onPress={() => setIsSummaryExpanded(!isSummaryExpanded)} style={{ marginTop: 8 }}>
                       <ThemedText style={{ color: accentColor, fontSize: 16, fontWeight: '600' }}>
                         {isSummaryExpanded ? t('noteDetail.seeLess') : t('noteDetail.seeMore')}
                       </ThemedText>
