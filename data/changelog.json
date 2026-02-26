@@ -9,6 +9,14 @@
           "emoji": "🐛",
           "items": [
             {
+              "title": "Fixed app crash on sign out",
+              "description": "App no longer crashes when signing out",
+              "details": [
+                "Resolved error that occurred when navigating to login after sign out",
+                "Fixed feature flag check that failed when user session was cleared"
+              ]
+            },
+            {
               "title": "Fixed AI summary usage counter",
               "description": "Usage now increments correctly when using AI summary multiple times",
               "details": [
@@ -33,6 +41,17 @@
           "title": "Improvements",
           "emoji": "✨",
           "items": [
+            {
+              "title": "Search Notes - Compact filters",
+              "description": "More space for your notes with streamlined filter layout",
+              "details": [
+                "Smaller, more compact filter controls on mobile",
+                "Note Type, Sort By, and Order now share rows for efficiency",
+                "Order changed to dropdown for cleaner layout",
+                "Tap Filters header to hide/show filters and maximize note list space",
+                "Added comfortable padding at top of search page"
+              ]
+            },
             {
               "title": "Cleaner production experience",
               "description": "Reduced console noise in production",

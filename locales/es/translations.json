@@ -640,6 +640,8 @@
     "back": "Atrás",
     "searchNotesPlaceholder": "Buscar notas...",
     "filters": "Filtros",
+    "showFilters": "Mostrar filtros",
+    "hideFilters": "Ocultar filtros",
     "noteType": "Tipo de Nota",
     "all": "Todo",
     "text": "Texto",

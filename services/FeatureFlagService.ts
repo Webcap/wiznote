@@ -262,7 +262,7 @@ export class FeatureFlagService {
     }
 
     // Note: google_sign_in is no longer a feature flag - it's controlled by system settings only
-    // This special handling is kept for backward compatibility but shouldn't be used
+    const isAuthFeature = flagKey === 'google_sign_in';
 
     // Check user targeting
     if (user) {
