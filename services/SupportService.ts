@@ -8,6 +8,8 @@ export interface UserProfile {
   displayName?: string;
   createdAt: Date;
   lastActive: Date;
+  lastLoginAt?: Date;
+  notesCount?: number;
   premium?: {
     isActive: boolean;
     planName: string;
@@ -95,6 +97,27 @@ export class SupportService {
   }
 
   /**
+   * Get notes count for a user
+   */
+  private async getNotesCount(userId: string): Promise<number> {
+    try {
+      const { count, error } = await supabase
+        .from('notes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+
+      if (error) {
+        console.warn('SupportService: Error fetching notes count:', error);
+        return 0;
+      }
+      return count ?? 0;
+    } catch (err) {
+      console.warn('SupportService: Error in getNotesCount:', err);
+      return 0;
+    }
+  }
+
+  /**
    * Enrich premium data with plan name from premium_plans table
    */
   private async enrichPremiumData(premium: any): Promise<{ isActive: boolean; planName: string; expiresAt?: Date }> {
@@ -157,12 +180,15 @@ export class SupportService {
             // If profile query failed but we have RPC user data, return basic profile
             if (userIdFromRpc) {
               console.warn(`SupportService: Profile query failed, returning RPC data only for user ${userIdFromRpc}`);
+              const notesCount = await this.getNotesCount(userIdFromRpc);
               return {
                 id: userIdFromRpc,
                 email: user.email || 'Unknown',
                 displayName: user.display_name || 'Unknown User',
                 createdAt: new Date(),
                 lastActive: new Date(),
+                lastLoginAt: undefined,
+                notesCount,
                 premium: { isActive: false, planName: 'Free', expiresAt: undefined },
               };
             }
@@ -178,24 +204,31 @@ export class SupportService {
               return null;
             }
 
+            const lastLoginAt = profile.last_login_at ? new Date(profile.last_login_at) : undefined;
+            const notesCount = await this.getNotesCount(finalUserId);
             return {
               id: finalUserId,
               email: user.email || profile.email || 'Unknown',
               displayName: profile.display_name || user.display_name || 'Unknown User',
               createdAt: new Date(profile.created_at || Date.now()),
               lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
+              lastLoginAt,
+              notesCount,
               premium,
             };
           } else if (userIdFromRpc) {
             // Profile doesn't exist but we have user data from RPC
             // Return a basic user profile with the RPC data
             console.warn(`SupportService: Profile not found for user ${userIdFromRpc}, returning RPC data only`);
+            const notesCount = await this.getNotesCount(userIdFromRpc);
             return {
               id: userIdFromRpc,
               email: user.email || 'Unknown',
               displayName: user.display_name || 'Unknown User',
               createdAt: new Date(),
               lastActive: new Date(),
+              lastLoginAt: undefined,
+              notesCount,
               premium: { isActive: false, planName: 'Free', expiresAt: undefined },
             };
           }
@@ -220,6 +253,8 @@ export class SupportService {
             const premium = profile.premium 
               ? await this.enrichPremiumData(profile.premium)
               : { isActive: false, planName: 'Free', expiresAt: undefined };
+            const lastLoginAt = profile.last_login_at ? new Date(profile.last_login_at) : undefined;
+            const notesCount = await this.getNotesCount(profile.id);
 
             return {
               id: profile.id,
@@ -227,6 +262,8 @@ export class SupportService {
               displayName: profile.display_name || query.split('@')[0],
               createdAt: new Date(profile.created_at || Date.now()),
               lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
+              lastLoginAt,
+              notesCount,
               premium,
             };
           }
@@ -250,6 +287,8 @@ export class SupportService {
               : { isActive: false, planName: 'Free', expiresAt: undefined };
 
             const finalUserId = profile.id || query;
+            const lastLoginAt = profile.last_login_at ? new Date(profile.last_login_at) : undefined;
+            const notesCount = await this.getNotesCount(finalUserId);
 
             return {
               id: finalUserId,
@@ -257,6 +296,8 @@ export class SupportService {
               displayName: profile.display_name || 'Unknown User',
               createdAt: new Date(profile.created_at || Date.now()),
               lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
+              lastLoginAt,
+              notesCount,
               premium,
             };
           }
@@ -278,13 +319,17 @@ export class SupportService {
           const premium = profile.premium 
             ? await this.enrichPremiumData(profile.premium)
             : { isActive: false, planName: 'Free', expiresAt: undefined };
+          const lastLoginAt = profile.last_login_at ? new Date(profile.last_login_at) : undefined;
+          const notesCount = await this.getNotesCount(profile.id);
 
           return {
             id: profile.id,
-            email: profile.id, // Use ID as email since we can't get real email
+            email: profile.email || profile.id, // Use ID as email fallback if email missing
             displayName: profile.display_name || 'Unknown User',
             createdAt: new Date(profile.created_at || Date.now()),
             lastActive: new Date(profile.last_login_at || profile.created_at || Date.now()),
+            lastLoginAt,
+            notesCount,
             premium,
           };
         }
