@@ -537,23 +537,28 @@ export class AudioUtils {
   }
 
   /**
-   * Extract file path from Supabase signed or public URL
+   * Extract file path from Supabase signed or public URL, or return path if already a storage path
    */
-  private static extractSupabaseFilePath(url: string): string | null {
+  private static extractSupabaseFilePath(urlOrPath: string): string | null {
     try {
+      // Already a storage path (userId/noteId/audio_xxx.mp3) - no URL
+      if (!urlOrPath.includes('http') && !urlOrPath.startsWith('blob:')) {
+        return urlOrPath;
+      }
+      
       // Handle signed URLs: /storage/v1/object/sign/audio-files/path/to/file?token=...
-      const signedMatch = url.match(/\/storage\/v1\/object\/sign\/audio-files\/(.+?)(\?|$)/);
+      const signedMatch = urlOrPath.match(/\/storage\/v1\/object\/sign\/audio-files\/(.+?)(\?|$)/);
       if (signedMatch && signedMatch[1]) {
         return signedMatch[1].split('?')[0]; // Remove query params
       }
       
       // Handle public URLs: /storage/v1/object/public/audio-files/path/to/file
-      const publicMatch = url.match(/\/storage\/v1\/object\/public\/audio-files\/(.+?)$/);
+      const publicMatch = urlOrPath.match(/\/storage\/v1\/object\/public\/audio-files\/(.+?)$/);
       if (publicMatch && publicMatch[1]) {
         return publicMatch[1];
       }
       
-      console.warn('[AudioUtils] Could not extract file path from URL:', url);
+      console.warn('[AudioUtils] Could not extract file path from URL:', urlOrPath);
       return null;
     } catch (error) {
       console.error('[AudioUtils] Error extracting file path:', error);
@@ -572,12 +577,19 @@ export class AudioUtils {
       
       let finalUri = uri;
       
-      // If it's a remote URL (starts with http/https), we need to handle authentication
-      if (uri.startsWith('http://') || uri.startsWith('https://')) {
-        console.log('[AudioUtils] Detected remote URL, handling authentication...');
+      // If it's a storage path (userId/noteId/audio_xxx.mp3) or remote URL, get signed URL for Supabase
+      const isStoragePath = !uri.startsWith('http') && !uri.startsWith('blob:');
+      const isSupabaseUrl = uri.includes('supabase.co');
+      
+      if (isStoragePath || (uri.startsWith('http://') || uri.startsWith('https://'))) {
+        if (isStoragePath) {
+          console.log('[AudioUtils] Detected storage path, getting signed URL...');
+        } else {
+          console.log('[AudioUtils] Detected remote URL, handling authentication...');
+        }
         
-        // For Supabase URLs, we need to get a fresh signed URL
-        if (uri.includes('supabase.co')) {
+        // For Supabase storage paths or URLs, we need to get a fresh signed URL
+        if (isStoragePath || isSupabaseUrl) {
           try {
             // Always get a fresh signed URL for audio playback
             // This ensures the URL is valid and not expired
@@ -1031,6 +1043,18 @@ export class AudioUtils {
   static async getBase64FromUrl(url: string): Promise<string> {
     try {
       console.log('[AudioUtils] Converting audio to base64 from URL:', url);
+      
+      // If it's a storage path (userId/noteId/audio_xxx.mp3), get signed URL first
+      if (!url.startsWith('http') && !url.startsWith('blob:')) {
+        const { supabase } = await import('../lib/supabase');
+        const { data, error } = await supabase.storage
+          .from('audio-files')
+          .createSignedUrl(url, 3600);
+        if (error || !data?.signedUrl) {
+          throw new Error(`Failed to get signed URL: ${error?.message || 'Unknown'}`);
+        }
+        url = data.signedUrl;
+      }
       
       // Check if it's a remote URL (starts with http/https)
       if (url.startsWith('http://') || url.startsWith('https://')) {

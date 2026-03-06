@@ -66,7 +66,8 @@ export const NoteTypeSchema = z.enum(['text', 'pdf', 'audio'], {
  */
 export const NoteMetadataSchema = z
   .object({
-    audioUrl: z.string().url().optional(),
+    // Storage path (userId/noteId/audio_xxx.mp3) or full Supabase URL
+    audioUrl: z.string().min(1).optional(),
     audioDuration: z.number().positive().optional(),
     audioFormat: z.string().optional(),
     pdfUrl: z.string().url().optional(),

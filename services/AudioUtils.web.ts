@@ -74,28 +74,48 @@ export class AudioUtils {
   }
 
   /**
-   * Extract file path from Supabase signed or public URL
+   * Extract file path from Supabase signed or public URL, or return path if already a storage path
    */
-  private static extractSupabaseFilePath(url: string): string | null {
+  private static extractSupabaseFilePath(urlOrPath: string): string | null {
     try {
+      // Already a storage path (userId/noteId/audio_xxx.mp3) - no URL
+      if (!urlOrPath.includes('http') && !urlOrPath.startsWith('blob:')) {
+        return urlOrPath;
+      }
+      
       // Handle signed URLs: /storage/v1/object/sign/audio-files/path/to/file?token=...
-      const signedMatch = url.match(/\/storage\/v1\/object\/sign\/audio-files\/(.+?)(\?|$)/);
+      const signedMatch = urlOrPath.match(/\/storage\/v1\/object\/sign\/audio-files\/(.+?)(\?|$)/);
       if (signedMatch && signedMatch[1]) {
         return signedMatch[1].split('?')[0]; // Remove query params
       }
       
       // Handle public URLs: /storage/v1/object/public/audio-files/path/to/file
-      const publicMatch = url.match(/\/storage\/v1\/object\/public\/audio-files\/(.+?)$/);
+      const publicMatch = urlOrPath.match(/\/storage\/v1\/object\/public\/audio-files\/(.+?)$/);
       if (publicMatch && publicMatch[1]) {
         return publicMatch[1];
       }
       
-      console.warn('[AudioUtils Web] Could not extract file path from URL:', url);
+      console.warn('[AudioUtils Web] Could not extract file path from URL:', urlOrPath);
       return null;
     } catch (error) {
       console.error('[AudioUtils Web] Error extracting file path:', error);
       return null;
     }
+  }
+
+  /**
+   * Fallback: fetch audio and create blob URL (bypasses CSP/CORS issues with direct URL loading)
+   * Uses fetch (connect-src) then plays from blob URL (media-src blob:)
+   */
+  private static async createWebAudioHandlerViaFetch(uri: string): Promise<{ sound: any }> {
+    console.log('[AudioUtils Web] Fetch-then-blob fallback for:', uri);
+    const response = await fetch(uri, { method: 'GET', credentials: 'omit' });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch audio: ${response.status} ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    return this.createWebAudioHandler(blobUrl);
   }
 
   /**
@@ -110,8 +130,9 @@ export class AudioUtils {
         
         // Enhanced cross-origin handling
         if (uri.includes('supabase.co')) {
-          // For Supabase URLs, don't set crossOrigin to avoid CORS issues
-          console.log('[AudioUtils Web] Supabase URL detected, skipping crossOrigin');
+          // For Supabase URLs, try anonymous CORS - required for cross-origin media in many browsers
+          audio.crossOrigin = 'anonymous';
+          console.log('[AudioUtils Web] Supabase URL detected, setting crossOrigin anonymous');
         } else if (uri.startsWith('blob:')) {
           // For blob URLs, no crossOrigin needed
           console.log('[AudioUtils Web] Blob URL detected, skipping crossOrigin');
@@ -263,14 +284,17 @@ export class AudioUtils {
       
       let finalUri = uri;
       
-      // If it's a Supabase URL, get a fresh signed URL with retry logic
-      if (uri.includes('supabase.co')) {
+      // If it's a storage path (userId/noteId/audio_xxx.mp3) or Supabase URL, get a fresh signed URL
+      const isStoragePath = !uri.includes('http') && !uri.startsWith('blob:');
+      const isSupabaseUrl = uri.includes('supabase.co');
+      
+      if (isStoragePath || isSupabaseUrl) {
         try {
           console.log('[AudioUtils Web] Generating fresh signed URL for playback...');
           
           const { supabase } = await import('../lib/supabase');
           
-          // Extract the file path from the URL
+          // Extract the file path (from URL or use as-is if already a path)
           const filePath = this.extractSupabaseFilePath(uri);
           
           if (!filePath) {
@@ -328,7 +352,22 @@ export class AudioUtils {
       
       // Use HTML5 Audio for web playback (better compatibility with Supabase signed URLs)
       console.log('[AudioUtils Web] Using HTML5 Audio for web playback');
-      return await this.createWebAudioHandler(finalUri);
+      try {
+        return await this.createWebAudioHandler(finalUri);
+      } catch (directError) {
+        const errMsg = directError instanceof Error ? directError.message : String(directError);
+        // For Supabase URLs: SRC_NOT_SUPPORTED/CORS/CSP often block direct loading - try fetch-then-blob
+        if (finalUri.includes('supabase.co') && (
+          errMsg.includes('SRC_NOT_SUPPORTED') ||
+          errMsg.includes('not supported') ||
+          errMsg.includes('inaccessible') ||
+          errMsg.includes('corrupted')
+        )) {
+          console.warn('[AudioUtils Web] Direct load failed, trying fetch-then-blob fallback:', errMsg);
+          return await this.createWebAudioHandlerViaFetch(finalUri);
+        }
+        throw directError;
+      }
       
     } catch (error) {
       console.error('[AudioUtils Web] Error creating sound object:', error);
@@ -391,11 +430,12 @@ export class AudioUtils {
           throw new Error(`Blob URL no longer accessible. Recording may have been cleared. ${blobError instanceof Error ? blobError.message : ''}`);
         }
       } else {
-        // For remote URLs (Supabase storage), get fresh signed URL and fetch
-        console.log('[AudioUtils Web] Processing remote audio URL...');
+        // For remote URLs or storage paths (Supabase storage), get fresh signed URL and fetch
+        console.log('[AudioUtils Web] Processing remote audio URL or storage path...');
         
-        // If it's a Supabase URL, get a fresh signed URL
-        if (uri.includes('supabase.co')) {
+        // If it's a Supabase URL or storage path, get a fresh signed URL
+        const needsSignedUrl = uri.includes('supabase.co') || (!uri.includes('http') && !uri.startsWith('blob:'));
+        if (needsSignedUrl) {
           try {
             console.log('[AudioUtils Web] Getting fresh signed URL for download...');
             

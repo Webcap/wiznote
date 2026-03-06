@@ -27,6 +27,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [sound, setSound] = useState<any | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
   const [isRetryingTranscription, setIsRetryingTranscription] = useState(false);
@@ -59,6 +60,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const loadAudio = async () => {
     try {
       setIsLoading(true);
+      setLoadError(false);
       
       // Validate audioFile before processing
       if (!audioFile || !audioFile.filename) {
@@ -219,8 +221,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           try {
             let retryStatus: any;
             
-            // Use the sound state variable instead of newSound
-            const currentSound = sound;
+            // Use newSound from loadAudio closure (state may not have updated yet)
+            const currentSound = newSound;
             if (!currentSound) {
               console.warn('[AudioPlayer] No sound object available for retry check');
               return false;
@@ -299,6 +301,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         }
       }
       
+      setLoadError(true);
       Alert.alert('Audio Loading Error', errorMessage);
     } finally {
       setIsLoading(false);
@@ -742,19 +745,33 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
       {/* Audio Controls */}
       <View style={styles.controlsContainer}>
-        <TouchableOpacity
-          style={[styles.playButton, isPlaying && styles.playButtonActive]}
-          onPress={handlePlayPause}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <LoadingSpinner size={20} color="#FFFFFF" />
-          ) : isPlaying ? (
-            <Ionicons name="pause" size={24} color="#FFFFFF" />
-          ) : (
-            <Ionicons name="play" size={24} color="#FFFFFF" />
-          )}
-        </TouchableOpacity>
+        {loadError ? (
+          <TouchableOpacity
+            style={[styles.playButton]}
+            onPress={loadAudio}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <LoadingSpinner size={20} color="#FFFFFF" />
+            ) : (
+              <Ionicons name="refresh" size={24} color="#FFFFFF" />
+            )}
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.playButton, isPlaying && styles.playButtonActive, (!sound || isLoading) && styles.playButtonDisabled]}
+            onPress={handlePlayPause}
+            disabled={isLoading || !sound}
+          >
+            {isLoading ? (
+              <LoadingSpinner size={20} color="#FFFFFF" />
+            ) : isPlaying ? (
+              <Ionicons name="pause" size={24} color="#FFFFFF" />
+            ) : (
+              <Ionicons name="play" size={24} color="#FFFFFF" />
+            )}
+          </TouchableOpacity>
+        )}
 
         <View style={styles.progressContainer}>
           <View style={[styles.progressBar, isPlaying && styles.progressBarActive]}>
@@ -836,6 +853,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#8A7AED',
     boxShadow: '0px 2px 4px rgba(106, 90, 205, 0.5)',
     elevation: 4,
+  },
+  playButtonDisabled: {
+    opacity: 0.5,
   },
   progressContainer: {
     flex: 1,

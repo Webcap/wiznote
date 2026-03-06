@@ -522,27 +522,11 @@ export class AudioStorage {
         throw error;
       }
 
-      // For private buckets, we use the storage path directly
-      // The app will generate signed URLs when needed for downloads
-      const storagePath = `${this.bucketName}/${fileName}`;
-      
-      // Create a signed URL that expires in 1 year (for long-term access)
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from(this.bucketName)
-        .createSignedUrl(fileName, 365 * 24 * 60 * 60); // 1 year in seconds
-
-      if (signedUrlError) {
-        console.error('AudioStorage: Error creating signed URL:', signedUrlError);
-        // Fallback: return public URL (may not work for private buckets but better than nothing)
-        const { data: publicUrlData } = supabase.storage
-          .from(this.bucketName)
-          .getPublicUrl(fileName);
-        console.log('AudioStorage: Using public URL as fallback:', publicUrlData.publicUrl);
-        return publicUrlData.publicUrl;
-      }
-
-      console.log('AudioStorage: Audio file uploaded successfully with signed URL');
-      return signedUrlData.signedUrl;
+      // Return the storage path (userId/noteId/audio_xxx.mp3) - NOT a signed URL
+      // The app generates fresh signed URLs when needed for playback (avoids blob:localhost fallback)
+      // Storing the path ensures we always load from Supabase, not from blob URLs
+      console.log('AudioStorage: Audio file uploaded successfully, returning storage path:', fileName);
+      return fileName;
     } catch (error) {
       console.error('AudioStorage: Error uploading audio file:', error);
       
