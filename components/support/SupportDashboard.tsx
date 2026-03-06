@@ -389,7 +389,14 @@ export default function SupportDashboard({ supportAgentId }: SupportDashboardPro
               Created: {selectedUser.createdAt.toLocaleDateString()}
             </Text>
             <Text style={[styles.userInfo, { color: textSecondary }]}>
-              Last Active: {selectedUser.lastActive.toLocaleDateString()}
+              Notes: {selectedUser.notesCount ?? '—'}
+            </Text>
+            <Text style={[styles.userInfo, { color: textSecondary }]}>
+              Last Login: {selectedUser.lastLoginAt
+                ? selectedUser.lastLoginAt.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+                : selectedUser.lastActive
+                  ? selectedUser.lastActive.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+                  : '—'}
             </Text>
           </View>
 

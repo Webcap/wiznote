@@ -16,11 +16,13 @@ import { WebLayout } from '../components/web/WebLayout';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { supabase } from '../lib/supabase';
 import { featureLimitService } from '../services/FeatureLimitService';
 import { subscriptionManagementService, BillingHistoryItem } from '../services/SubscriptionManagementService';
 import { User, UserRole } from '../types/User';
 
 interface UserWithStats extends User {
+  notesCount?: number;
   usageStats?: {
     totalUsage: number;
     featuresUsed: number;
@@ -116,6 +118,18 @@ export default function UserManagementScreen() {
       const enhancedUsers: UserWithStats[] = await Promise.all(
         allUsers.map(async (user) => {
           try {
+            // Get notes count
+            let notesCount = 0;
+            try {
+              const { count, error } = await supabase
+                .from('notes')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id);
+              if (!error) notesCount = count ?? 0;
+            } catch {
+              // ignore
+            }
+
             // Get usage stats
             const usageData = await featureLimitService.getUserFeatureUsageSummary(user.id, false);
             const totalUsage = usageData.reduce((sum: number, feature: any) => 
@@ -125,6 +139,7 @@ export default function UserManagementScreen() {
 
             return {
               ...user,
+              notesCount,
               usageStats: {
                 totalUsage,
                 featuresUsed,
@@ -749,8 +764,14 @@ export default function UserManagementScreen() {
                           Joined: {new Date(user.createdAt).toLocaleDateString()}
                         </ThemedText>
                         <ThemedText style={styles.userMetaText}>
-                          Last active: {user.usageStats?.lastActive ? 
-                            new Date(user.usageStats.lastActive).toLocaleDateString() : 'Never'}
+                          Notes: {user.notesCount ?? '—'}
+                        </ThemedText>
+                        <ThemedText style={styles.userMetaText}>
+                          Last Login: {user.lastLoginAt
+                            ? new Date(user.lastLoginAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+                            : user.usageStats?.lastActive
+                              ? new Date(user.usageStats.lastActive).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+                              : 'Never'}
                         </ThemedText>
                       </View>
                     </View>
@@ -963,6 +984,29 @@ export default function UserManagementScreen() {
                       </View>
                     </View>
                     
+                    {/* User Info */}
+                    <View style={styles.usageSection}>
+                      <ThemedText style={styles.actionsTitle}>User Info:</ThemedText>
+                      <View style={styles.usageStats}>
+                        <View style={styles.usageStat}>
+                          <ThemedText style={styles.usageStatLabel}>Notes:</ThemedText>
+                          <ThemedText style={styles.usageStatValue}>
+                            {user.notesCount ?? '—'}
+                          </ThemedText>
+                        </View>
+                        <View style={styles.usageStat}>
+                          <ThemedText style={styles.usageStatLabel}>Last Login:</ThemedText>
+                          <ThemedText style={styles.usageStatValue}>
+                            {user.lastLoginAt
+                              ? new Date(user.lastLoginAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+                              : user.usageStats?.lastActive
+                                ? new Date(user.usageStats.lastActive).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+                                : 'Never'}
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </View>
+
                     {/* Usage Management */}
                     <View style={styles.usageSection}>
                       <ThemedText style={styles.actionsTitle}>Usage Management:</ThemedText>
