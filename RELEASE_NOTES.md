@@ -1,5 +1,79 @@
 # WizNote - Release Notes
 
+## Version 1.5.3 - Bug Fixes & Improvements
+**Release Date:** February 25, 2025
+
+### 📱 Google Play Store Release Notes (500 char limit)
+
+```
+Bug Fixes & Improvements 🐛✨
+
+🐛 Fixed app crash on sign out
+📊 AI summary usage counter now increments correctly
+🔄 Added Regenerate button for AI summaries
+💳 Fixed payment checkout with invalid Stripe customer
+🔍 Compact search filters - more space for notes
+📱 Hideable filter section on search page
+🔇 Cleaner production - no console noise
+
+Update for a smoother experience! ✨
+```
+
+---
+
+### 📱 Full Release Notes
+
+**What's New:**
+
+**🐛 Bug Fixes**
+
+**Sign-Out Crash**
+- **Fixed app crash on sign out** - App no longer crashes when signing out
+  - Resolved `Property 'isAuthFeature' doesn't exist` error
+  - Defined missing `isAuthFeature` variable in feature flag service
+  - App no longer crashes when user signs out and navigates to login
+
+**AI Summary Usage Tracker**
+- **Fixed usage counter staying at 1** - Usage now increments correctly (1, 2, 3...) when using AI summary multiple times
+  - Added atomic database increment RPC to fix race condition in usage recording
+  - Fixed reconcile logic that was overwriting usage with stale data
+  - Simple-usage page refresh now uses force refresh to bypass cache
+- **Added Regenerate button** - Regenerate AI summary inline with the usage tracker
+  - Allows multiple summary generations per note (each counts toward usage)
+  - Button appears next to the usage counter on note detail page
+
+**Stripe & Payments**
+- **Fixed invalid Stripe customer ID** - Recovery when stored customer doesn't exist in Stripe
+  - Handles test/live mode mismatch or deleted customers
+  - Automatically creates new customer and clears invalid ID from profile
+  - Applied to both create-checkout and create-paymentsheet endpoints
+
+**✨ Improvements**
+
+**Search Notes**
+- **Compact filter layout on mobile** - Reduced filter selector size and spacing
+  - Smaller padding, margins, and font sizes for filters on mobile
+  - Combined filters on shared rows: Note Type + Sort By + Order on one line
+  - Order filter changed to dropdown (same line as Sort By) for space efficiency
+- **Hideable filter section** - Users can collapse filters to see more note content
+  - Tap "Filters" header with chevron to expand/collapse
+  - Filters expanded by default; collapsed state maximizes note list visibility
+- **Added top padding** - Improved spacing at top of search page on mobile and web
+
+**Production**
+- **Suppress console output in production web** - All console messages hidden in production builds
+  - Reduces noise and potential information exposure in browser console
+  - Development builds unchanged
+
+**🎯 User Experience**
+- ✅ **No more sign-out crashes** - App handles logout gracefully
+- ✅ **Accurate AI usage** - Usage counter reflects actual usage
+- ✅ **Reliable payments** - Checkout recovers from customer ID issues
+- ✅ **More note space** - Compact, hideable filters on search
+- ✅ **Cleaner production** - No console noise for end users
+
+---
+
 ## Version 1.5.1 - Performance & Stability Update
 **Release Date:** December 1, 2025
 
