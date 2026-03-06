@@ -173,7 +173,7 @@ export default function AdminPromotionsScreen() {
       setLoading(true);
       const allPromotions = await PromotionService.getPromotions({
         includeExpired: true,
-        orderBy: 'priority',
+        orderBy: 'createdAt',
         orderDirection: 'desc'
       });
       setPromotions(allPromotions);
