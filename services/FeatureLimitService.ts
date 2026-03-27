@@ -3,18 +3,11 @@ import { UNIFIED_FEATURE_LIMITS, UnifiedFeatureLimit } from '../constants/Unifie
 import { supabase } from '../lib/supabase';
 import { FeatureLimit, FeatureLimitCheck, UserFeatureUsage } from '../types/FeatureLimits';
 
-// Cross-platform UUID generation
-const generateUUID = (): string => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  // Fallback for environments without crypto.randomUUID
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-};
+export interface UsageHistoryRecord {
+  date: string;
+  usageCount: number;
+  featureId: string;
+}
 
 export class FeatureLimitService {
   private static instance: FeatureLimitService;
@@ -366,6 +359,29 @@ export class FeatureLimitService {
       const limit = this.limits[featureId];
       if (!limit) return null;
 
+      // Fetch user restrictions for AI features
+      let multiplier = 1.0;
+      if (limit.category === 'ai') {
+        try {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('is_restricted, custom_ai_limit_multiplier')
+            .eq('id', userId)
+            .maybeSingle();
+          
+          if (profile) {
+            if (profile.is_restricted) {
+              multiplier = 0.5; // Default restriction is 50%
+            }
+            if (profile.custom_ai_limit_multiplier !== undefined && profile.custom_ai_limit_multiplier !== null) {
+              multiplier = profile.custom_ai_limit_multiplier;
+            }
+          }
+        } catch (profileError) {
+          console.warn('FeatureLimitService: Error fetching user profile for restrictions:', profileError);
+        }
+      }
+
       // Calculate usage based on the feature's limit type
       let usage: number;
       const limitType = isPremium ? limit.premiumUserLimitType : limit.freeUserLimitType;
@@ -384,7 +400,13 @@ export class FeatureLimitService {
           usage = usageRecord.usage_count + usageRecord.usage_duration + usageRecord.usage_storage; // Fallback
       }
       
-      const userLimit = isPremium ? limit.premiumUserLimit : limit.freeUserLimit;
+      let userLimit = isPremium ? limit.premiumUserLimit : limit.freeUserLimit;
+      
+      // Apply multiplier to the limit if applicable
+      if (userLimit !== 'unlimited' && multiplier !== 1.0) {
+        userLimit = Math.floor(userLimit * multiplier);
+      }
+      
       const remaining = userLimit === 'unlimited' ? 'unlimited' : Math.max(0, userLimit - usage);
 
       return {
@@ -804,6 +826,67 @@ export class FeatureLimitService {
     }
   }
 
+  /**
+   * Update user restriction status (Admin only)
+   */
+  async updateUserRestriction(
+    userId: string, 
+    isRestricted: boolean, 
+    reason?: string,
+    multiplier?: number
+  ): Promise<void> {
+    try {
+      const updateData: any = {
+        is_restricted: isRestricted,
+        restriction_reason: reason || null,
+      };
+      
+      if (multiplier !== undefined) {
+        updateData.custom_ai_limit_multiplier = multiplier;
+      }
+
+      const { error } = await supabase
+        .from('user_profiles')
+        .update(updateData)
+        .eq('id', userId);
+
+      if (error) throw error;
+      
+      console.log(`FeatureLimitService: Updated restriction for user ${userId}: ${isRestricted}`);
+    } catch (error) {
+      console.error('FeatureLimitService: Error updating user restriction:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user restriction details
+   */
+  async getUserRestrictions(userId: string): Promise<{
+    isRestricted: boolean;
+    reason: string | null;
+    multiplier: number;
+  }> {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('is_restricted, restriction_reason, custom_ai_limit_multiplier')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      return {
+        isRestricted: data?.is_restricted || false,
+        reason: data?.restriction_reason || null,
+        multiplier: data?.custom_ai_limit_multiplier || 1.0,
+      };
+    } catch (error) {
+      console.error('FeatureLimitService: Error fetching user restrictions:', error);
+      return { isRestricted: false, reason: null, multiplier: 1.0 };
+    }
+  }
+
   // Get feature usage stats
   async getFeatureUsageStats(featureId: string, period: 'daily' | 'weekly' | 'monthly' = 'monthly'): Promise<{
     totalUsers: number;
@@ -873,6 +956,119 @@ export class FeatureLimitService {
         freeUsers: 0,
         topUsers: [],
       };
+    }
+  }
+
+  /**
+   * Get top AI users across all features (Admin only)
+   */
+  async getTopAIUsers(limit: number = 10): Promise<Array<{
+    userId: string;
+    totalUsage: number;
+    displayName: string | null;
+    email: string | null;
+    isPremium: boolean;
+  }>> {
+    try {
+      // Query usage for all AI features
+      const { data, error } = await supabase
+        .from('user_feature_usage')
+        .select(`
+          user_id,
+          usage_count,
+          user_profiles!inner(display_name, email, premium)
+        `)
+        .ilike('feature_id', 'ai_%')
+        .order('usage_count', { ascending: false });
+
+      if (error) throw error;
+
+      // Aggregate by user
+      const userMap = new Map<string, any>();
+      data?.forEach(record => {
+        const userId = record.user_id;
+        const profile = record.user_profiles as any; // Cast to bypass array-type lint error
+        
+        const existing = userMap.get(userId) || {
+          userId,
+          totalUsage: 0,
+          displayName: profile?.display_name,
+          email: profile?.email,
+          isPremium: profile?.premium?.isActive || false,
+        };
+        
+        userMap.set(userId, {
+          ...existing,
+          totalUsage: existing.totalUsage + (record.usage_count || 0),
+        });
+      });
+
+      return Array.from(userMap.values())
+        .sort((a, b) => b.totalUsage - a.totalUsage)
+        .slice(0, limit);
+    } catch (error) {
+      console.error('FeatureLimitService: Error getting top AI users:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all restricted users (Admin only)
+   */
+  async getRestrictedUsers(): Promise<Array<{
+    userId: string;
+    displayName: string | null;
+    email: string | null;
+    reason: string | null;
+    multiplier: number;
+  }>> {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('id, display_name, email, restriction_reason, custom_ai_limit_multiplier')
+        .eq('is_restricted', true);
+
+      if (error) throw error;
+
+      return data?.map(user => ({
+        userId: user.id,
+        displayName: user.display_name,
+        email: user.email,
+        reason: user.restriction_reason,
+        multiplier: user.custom_ai_limit_multiplier || 1.0,
+      })) || [];
+    } catch (error) {
+      console.error('FeatureLimitService: Error getting restricted users:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get 30-day usage history for a user (Admin only)
+   */
+  async getUsageHistory(userId: string, days: number = 30): Promise<UsageHistoryRecord[]> {
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      const startDateStr = startDate.toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('user_feature_usage_daily')
+        .select('usage_date, usage_count, feature_id')
+        .eq('user_id', userId)
+        .gte('usage_date', startDateStr)
+        .order('usage_date', { ascending: false });
+
+      if (error) throw error;
+
+      return data?.map(item => ({
+        date: item.usage_date,
+        usageCount: item.usage_count,
+        featureId: item.feature_id,
+      })) || [];
+    } catch (error) {
+      console.error('FeatureLimitService: Error getting usage history:', error);
+      return [];
     }
   }
 
