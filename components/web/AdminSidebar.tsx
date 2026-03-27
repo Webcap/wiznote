@@ -177,6 +177,14 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
       roles: ['admin'] as UserRole[],
     },
     {
+      id: 'user-ai-usage',
+      label: 'User AI Usage',
+      icon: 'person-circle' as const,
+      onPress: () => router.push('/admin/user-ai-usage'),
+      isActive: activePage === 'user-ai-usage',
+      roles: ['admin'] as UserRole[],
+    },
+    {
       id: 'analytics',
       label: 'Feature Analytics',
       icon: 'analytics' as const,

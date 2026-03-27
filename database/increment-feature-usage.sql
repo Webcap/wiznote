@@ -66,6 +66,16 @@ BEGIN
     last_used_at = NOW()
   RETURNING * INTO v_row;
 
+  -- Track daily usage history (only for count-based features for now)
+  IF p_usage_type = 'count' THEN
+    INSERT INTO public.user_feature_usage_daily (user_id, feature_id, usage_date, usage_count)
+    VALUES (p_user_id, p_feature_id, CURRENT_DATE, p_amount)
+    ON CONFLICT (user_id, feature_id, usage_date) 
+    DO UPDATE SET 
+      usage_count = user_feature_usage_daily.usage_count + p_amount,
+      last_updated_at = NOW();
+  END IF;
+
   RETURN jsonb_build_object(
     'usage_count', v_row.usage_count,
     'usage_duration', v_row.usage_duration,
