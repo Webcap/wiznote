@@ -57,10 +57,23 @@ Check:
 ### Error: "permission denied for table"
 This means RLS policies might not be set up correctly. Re-run the migration SQL to ensure all policies are created.
 
-## Need Help?
+## Security Hardening
 
-If you encounter any issues:
-1. Check the browser console for detailed error messages
-2. Check the Supabase logs in your dashboard
-3. Verify your `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are correct in your `.env` file
+### 🔒 Resolve Critical Security Issues
+
+The `resolve-critical-security-issues.sql` script is a consolidated fix for critical security vulnerabilities identified in the Supabase project:
+
+1.  **Publicly Accessible Tables (`rls_disabled_in_public`)**: Automatically enables Row-Level Security (RLS) on **all** tables in the `public` schema and applies lockdown policies to internal tables like `email_notifications_queue`.
+2.  **Exposed User Data (`auth_users_exposed`)**: Refactors the `search_users_by_email_or_name` function to provide **Tiered Access**. Regular users can no longer harvest the entire user database, while admins and core features like note sharing remain functional.
+
+#### How to Apply:
+
+1.  Open your [Supabase Dashboard](https://supabase.com/dashboard)
+2.  Go to the **SQL Editor**
+3.  Click **New query**
+4.  Copy the contents of `resolve-critical-security-issues.sql` and click **Run**
+5.  Verify that the output shows `🎉 ALL TABLES SECURED!`
+
+## Need Help?
+...
 
