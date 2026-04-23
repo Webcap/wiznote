@@ -22,6 +22,8 @@ import { AudioUtils } from '../services/AudioUtils';
 import { supabaseNoteStorage } from '../services/SupabaseNoteStorage';
 import { useAudioUpload } from '../contexts/AudioUploadContext';
 import { useTranslation } from '../hooks/useTranslation';
+import { featureFlagService } from '../services/FeatureFlagService';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 
 // Import web components
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -31,6 +33,8 @@ import { WebLayout } from '../components/web/WebLayout';
 export default function CreateAudioNoteScreen() {
   const { t } = useTranslation();
   const { user, isLoading: authLoading } = useAuth();
+  const { settings, loading: settingsLoading } = useSystemSettings();
+  const isSunsetMode = settings?.sunsetModeEnabled ?? false;
   const { canUseFeature, isPremium: hookIsPremium } = useFeatureLimits();
   const { setUploadingAudio, updateUploadProgress, updateUploadStatus, onUploadComplete } = useAudioUpload();
   
@@ -57,6 +61,14 @@ export default function CreateAudioNoteScreen() {
   const [sessionLimit, setSessionLimit] = useState<number | 'unlimited' | null>(null);
 
   const userId = user?.id || '';
+  const accentPrimary = useThemeColor({}, 'accentPrimary');
+  const accentDanger = useThemeColor({}, 'accentDanger');
+
+  const shutdownDateStr = settings?.sunsetShutdownDate.toLocaleDateString(undefined, { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  }) || 'May 23, 2026';
 
   // Helper function to format usage display
   const formatUsageDisplay = () => {
@@ -100,7 +112,6 @@ export default function CreateAudioNoteScreen() {
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const textSecondaryColor = useThemeColor({}, 'textSecondary');
-  const accentPrimary = useThemeColor({}, 'accentPrimary');
   const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
   const backgroundTertiary = useThemeColor({}, 'backgroundTertiary');
 
@@ -702,7 +713,23 @@ export default function CreateAudioNoteScreen() {
     return (
       <WebLayout sidebar={<UserSidebar />}>
         <ThemedView style={styles.webContainer}>
-          {/* Header */}
+          {isSunsetMode ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+              <Ionicons name="warning-outline" size={64} color="#856404" />
+              <ThemedText style={{ fontSize: 24, fontWeight: 'bold', marginTop: 24, color: '#856404' }}>Audio Recording Disabled</ThemedText>
+              <ThemedText style={{ fontSize: 16, marginTop: 16, textAlign: 'center', maxWidth: 400, color: '#856404' }}>
+                WizNote is sunsetting on <ThemedText style={{ fontWeight: 'bold' }}>{shutdownDateStr}</ThemedText>. New audio note creation is currently disabled.
+              </ThemedText>
+              <TouchableOpacity 
+                style={{ marginTop: 32, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, backgroundColor: '#6A5ACD' }}
+                onPress={() => router.replace('/(tabs)')}
+              >
+                <ThemedText style={{ color: '#FFF', fontWeight: 'bold' }}>Go to My Notes</ThemedText>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              {/* Header */}
           <ThemedView style={styles.webHeader}>
             <View style={styles.webHeaderLeft}>
               <TouchableOpacity 
@@ -887,17 +914,34 @@ export default function CreateAudioNoteScreen() {
               )}
             </ThemedView>
           </View>
-        </ThemedView>
-      </WebLayout>
+        </>
+      )}
+    </ThemedView>
+  </WebLayout>
     );
   }
 
   // Mobile layout
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: backgroundTertiary }]}>
+    <ThemedView style={[styles.container, { backgroundColor }]}>
+      {isSunsetMode ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Ionicons name="warning-outline" size={64} color="#856404" />
+          <ThemedText style={{ fontSize: 22, fontWeight: 'bold', marginTop: 24, textAlign: 'center', color: '#856404' }}>Audio Recording Disabled</ThemedText>
+          <ThemedText style={{ fontSize: 16, marginTop: 16, textAlign: 'center', color: '#856404' }}>
+            WizNote is sunsetting on <ThemedText style={{ fontWeight: 'bold' }}>{shutdownDateStr}</ThemedText>. New audio note creation is currently disabled.
+          </ThemedText>
+          <TouchableOpacity 
+            style={{ marginTop: 32, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, backgroundColor: '#6A5ACD' }}
+            onPress={() => router.replace('/(tabs)')}
+          >
+            <ThemedText style={{ color: '#FFF', fontWeight: 'bold' }}>Go to My Notes</ThemedText>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          {/* Header */}
+          <View style={[styles.header, { borderBottomColor: backgroundTertiary }]}>
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => router.back()}
@@ -1066,7 +1110,8 @@ export default function CreateAudioNoteScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
+        </ScrollView>
+      )}
     </ThemedView>
   );
 }

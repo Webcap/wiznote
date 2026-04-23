@@ -1,17 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { Image, Platform, ScrollView, TouchableOpacity, View, Dimensions } from 'react-native';
+import { Image, Platform, ScrollView, TouchableOpacity, View, Dimensions, ImageStyle, StyleSheet } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { useTranslation } from '../hooks/useTranslation';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 import { LanguageSelector } from './LanguageSelector';
 import { styles } from './LandingPage.styles';
 
 export default function LandingPage() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { settings } = useSystemSettings();
   const backgroundColor = useThemeColor({}, 'background');
   const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
   const textColor = useThemeColor({}, 'text');
@@ -40,8 +42,36 @@ export default function LandingPage() {
     return null;
   }
 
+  const isSunsetMode = settings?.sunsetModeEnabled ?? false;
+  const showLandingBanner = settings?.landingSunsetBannerEnabled ?? false;
+  const shutdownDateStr = settings?.sunsetShutdownDate 
+    ? new Date(settings.sunsetShutdownDate).toLocaleDateString(undefined, { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      })
+    : '';
+
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
+      {isSunsetMode && showLandingBanner && (
+        <View style={landingStyles.banner}>
+          <View style={landingStyles.bannerContent}>
+            <Ionicons name="warning" size={20} color="#856404" style={{ marginRight: 8 }} />
+            <ThemedText style={landingStyles.bannerText}>
+              WizNote is sunsetting on <ThemedText style={[landingStyles.bannerText, { fontWeight: 'bold' }]}>{shutdownDateStr}</ThemedText>. 
+              Please export your data before then.
+            </ThemedText>
+            <TouchableOpacity 
+              style={landingStyles.bannerButton}
+              onPress={() => router.push('/sunset-info')}
+            >
+              <ThemedText style={landingStyles.bannerButtonText}>Learn More</ThemedText>
+              <Ionicons name="chevron-forward" size={16} color="#856404" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Navigation Header */}
         <View style={[styles.header, { backgroundColor: backgroundSecondary }]}>
@@ -49,7 +79,7 @@ export default function LandingPage() {
             <View style={styles.logo}>
               <Image
                 source={require('../assets/images/WiznoteLogoNov25.png')}
-                style={styles.logoImage}
+                style={styles.logoImage as ImageStyle}
                 resizeMode="contain"
               />
               <ThemedText style={[styles.logoText, { color: textColor }]}>WizNote</ThemedText>
@@ -85,12 +115,12 @@ export default function LandingPage() {
             
             {/* Title */}
             <ThemedText style={[styles.heroTitleMobile, { color: textColor }]}>
-              {t('landing.heroTitle')}
+              {settings?.landingHeaderTitle || t('landing.heroTitle')}
             </ThemedText>
             
             {/* Subtitle */}
             <ThemedText style={[styles.heroSubtitleMobile, { color: textSecondaryColor }]}>
-              {t('landing.heroSubtitle')}
+              {settings?.landingHeaderSubtitle || t('landing.heroSubtitle')}
             </ThemedText>
 
             {/* CTA Buttons */}
@@ -126,11 +156,11 @@ export default function LandingPage() {
               </View>
               
               <ThemedText style={[styles.heroTitle, { color: textColor }]}>
-                {t('landing.heroTitle').replace('.', '.\n')}
+                {(settings?.landingHeaderTitle || t('landing.heroTitle')).replace('.', '.\n')}
               </ThemedText>
               
               <ThemedText style={[styles.heroSubtitle, { color: textSecondaryColor }]}>
-                {t('landing.heroSubtitle')}
+                {settings?.landingHeaderSubtitle || t('landing.heroSubtitle')}
               </ThemedText>
 
               <View style={styles.heroButtons}>
@@ -589,5 +619,46 @@ export default function LandingPage() {
     </ThemedView>
   );
 }
+
+const landingStyles = StyleSheet.create({
+  banner: {
+    backgroundColor: '#FFF3CD',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFEEBA',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    zIndex: 1000,
+    width: '100%',
+  },
+  bannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  bannerText: {
+    color: '#856404',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  bannerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(133, 100, 4, 0.1)',
+    borderRadius: 20,
+  },
+  bannerButtonText: {
+    color: '#856404',
+    fontSize: 13,
+    fontWeight: '600',
+    marginRight: 4,
+  },
+});
 
 

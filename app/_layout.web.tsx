@@ -12,6 +12,7 @@ import { OfflineIndicator } from '../components/OfflineIndicator';
 import { ThemedView } from '../components/ThemedView';
 import { WebSnackbar } from '../components/web/WebSnackbar';
 import { SmartAppBanner } from '../components/web/SmartAppBanner';
+import { SunsetBanner } from '../components/SunsetBanner';
 import { SnackbarProvider, useSnackbar } from '../contexts/SnackbarContext';
 import { PDFUploadProvider } from '../contexts/PDFUploadContext';
 import { AudioUploadProvider } from '../contexts/AudioUploadContext';
@@ -237,6 +238,7 @@ function AppContent() {
                       buttonColor="#6A5ACD"
                       showOnTablets={false}
                     />
+                    <SunsetBanner />
                     <Stack>
                     <Stack.Screen name="index" options={{ headerShown: false }} />
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -284,6 +286,7 @@ function AppContent() {
                     <Stack.Screen name="reset-password" options={{ headerShown: false }} />
                     <Stack.Screen name="admin" options={{ headerShown: false }} />
                     <Stack.Screen name="shared/[token]" options={{ headerShown: false }} />
+                    <Stack.Screen name="sunset-info" options={{ headerShown: false }} />
 
                     <Stack.Screen name="+not-found" />
                   </Stack>

@@ -14,6 +14,7 @@ import { useLazyData } from '../../hooks/useLazyData';
 import { useNotes } from '../../hooks/useNotes';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { usePDFUpload } from '../../contexts/PDFUploadContext';
 import { useAudioUpload } from '../../contexts/AudioUploadContext';
@@ -31,6 +32,7 @@ import { UploadingNoteCard } from '../../components/UploadingNoteCard';
 import { homeStyles as styles } from '../../styles/HomeStyles';
 import { audioStorage } from '../../services/AudioStorage';
 import { AudioUtils } from '../../services/AudioUtils';
+import { DashboardSunsetBanner } from '../../components/DashboardSunsetBanner';
 
 // Audio upload configuration
 const AUDIO_CONFIG = {
@@ -46,6 +48,8 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { isFeatureEnabled } = useFeatureFlags();
+  const { settings } = useSystemSettings();
+  const isSunsetMode = settings?.sunsetModeEnabled;
   const { showSnackbar } = useSnackbar();
   const { uploadingPDF, setUploadingPDF, setOnUploadComplete: setPDFUploadComplete } = usePDFUpload();
   const { uploadingAudio, setUploadingAudio, setOnUploadComplete: setAudioUploadComplete } = useAudioUpload();
@@ -204,6 +208,11 @@ export default function HomeScreen() {
   const handleCreatePDFNote = useCallback(async () => {
     if (!isFeatureEnabled('pdf_upload')) {
       showSnackbar(t('home.pdfUploadNotAvailable'), 'error');
+      setShowCreateOptions(false);
+      return;
+    }
+    if (isSunsetMode) {
+      showSnackbar(t('home.newUploadsDisabled'), 'warning');
       setShowCreateOptions(false);
       return;
     }
@@ -373,10 +382,14 @@ export default function HomeScreen() {
 
   const handleUploadAudioNote = useCallback(async () => {
     setShowCreateOptions(false);
+    if (isSunsetMode) {
+      showSnackbar(t('home.newUploadsDisabled'), 'warning');
+      return;
+    }
     if (audioInputRef.current) {
       audioInputRef.current.click();
     }
-  }, []);
+  }, [isSunsetMode, showSnackbar, t]);
 
   const handleAudioFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -616,6 +629,7 @@ export default function HomeScreen() {
       )}
     >
       <View style={styles.webContent}>
+        <DashboardSunsetBanner />
         {loading ? (
           <View style={styles.webLoadingContainer}>
             <LoadingSpinner size={50} />
@@ -729,21 +743,23 @@ export default function HomeScreen() {
         onPDFNote={handleCreatePDFNote}
         isVoiceRecordingEnabled={isFeatureEnabled('voice_recording')}
         isPDFUploadEnabled={isFeatureEnabled('pdf_upload')}
+        isSunsetMode={isSunsetMode}
         testID="create-options-sheet"
       />
     </WebLayout>
   );
 }
 
-const CreateOptionsSheet = ({ 
-  visible, 
-  onClose, 
-  onTextNote, 
+const CreateOptionsSheet = ({
+  visible,
+  onClose,
+  onTextNote,
   onAudioNote,
   onUploadAudio,
   onPDFNote,
   isVoiceRecordingEnabled,
   isPDFUploadEnabled,
+  isSunsetMode,
   testID
 }: {
   visible: boolean;
@@ -754,6 +770,7 @@ const CreateOptionsSheet = ({
   onPDFNote: () => void;
   isVoiceRecordingEnabled: boolean;
   isPDFUploadEnabled: boolean;
+  isSunsetMode?: boolean;
   testID?: string;
 }) => {
   const { t } = useTranslation();
@@ -825,15 +842,19 @@ const CreateOptionsSheet = ({
             <ThemedText style={styles.bottomSheetTitle}>{t('home.createNote')}</ThemedText>
             <ThemedText style={styles.bottomSheetSubtitle}>{t('home.chooseNoteType')}</ThemedText>
             <View style={styles.createOptions}>
-              <TouchableOpacity 
-                style={[styles.createOption, { backgroundColor: optionBg }]} 
-                onPress={onTextNote} 
+              <TouchableOpacity
+                style={[
+                  styles.createOption,
+                  { backgroundColor: optionBg },
+                  isSunsetMode && { opacity: 0.5 }
+                ]}
+                onPress={isSunsetMode ? undefined : onTextNote}
                 testID="text-note-button"
-                activeOpacity={0.7}
+                activeOpacity={isSunsetMode ? 1 : 0.7}
                 delayPressIn={0}
               >
                 <View style={styles.createOptionIcon}>
-                  <Ionicons name="document-text" size={24} color="#6A5ACD" />
+                  <Ionicons name="document-text" size={24} color={isSunsetMode ? '#999' : '#6A5ACD'} />
                 </View>
                 <View style={styles.createOptionContent}>
                   <ThemedText style={styles.createOptionTitle}>{t('home.textNote')}</ThemedText>
@@ -843,15 +864,19 @@ const CreateOptionsSheet = ({
               </TouchableOpacity>
 
               {isVoiceRecordingEnabled && (
-                <TouchableOpacity 
-                  style={[styles.createOption, { backgroundColor: optionBg }]} 
-                  onPress={onAudioNote} 
+                <TouchableOpacity
+                  style={[
+                    styles.createOption,
+                    { backgroundColor: optionBg },
+                    isSunsetMode && { opacity: 0.5 }
+                  ]}
+                  onPress={isSunsetMode ? undefined : onAudioNote}
                   testID="audio-note-button"
-                  activeOpacity={0.7}
+                  activeOpacity={isSunsetMode ? 1 : 0.7}
                   delayPressIn={0}
                 >
                   <View style={styles.createOptionIcon}>
-                    <Ionicons name="mic" size={24} color="#6A5ACD" />
+                    <Ionicons name="mic" size={24} color={isSunsetMode ? '#999' : '#6A5ACD'} />
                   </View>
                   <View style={styles.createOptionContent}>
                     <ThemedText style={styles.createOptionTitle}>{t('home.audioNote')}</ThemedText>
@@ -862,15 +887,19 @@ const CreateOptionsSheet = ({
               )}
 
               {onUploadAudio && (
-                <TouchableOpacity 
-                  style={[styles.createOption, { backgroundColor: optionBg }]} 
-                  onPress={onUploadAudio} 
+                <TouchableOpacity
+                  style={[
+                    styles.createOption,
+                    { backgroundColor: optionBg },
+                    isSunsetMode && { opacity: 0.5 }
+                  ]}
+                  onPress={isSunsetMode ? undefined : onUploadAudio}
                   testID="upload-audio-button"
-                  activeOpacity={0.7}
+                  activeOpacity={isSunsetMode ? 1 : 0.7}
                   delayPressIn={0}
                 >
                   <View style={styles.createOptionIcon}>
-                    <Ionicons name="cloud-upload" size={24} color="#6A5ACD" />
+                    <Ionicons name="cloud-upload" size={24} color={isSunsetMode ? '#999' : '#6A5ACD'} />
                   </View>
                   <View style={styles.createOptionContent}>
                     <ThemedText style={styles.createOptionTitle}>{t('sidebar.uploadAudio')}</ThemedText>
@@ -881,15 +910,19 @@ const CreateOptionsSheet = ({
               )}
 
               {isPDFUploadEnabled && (
-                <TouchableOpacity 
-                  style={[styles.createOption, { backgroundColor: optionBg }]} 
-                  onPress={onPDFNote} 
+                <TouchableOpacity
+                  style={[
+                    styles.createOption,
+                    { backgroundColor: optionBg },
+                    isSunsetMode && { opacity: 0.5 }
+                  ]}
+                  onPress={isSunsetMode ? undefined : onPDFNote}
                   testID="pdf-note-button"
-                  activeOpacity={0.7}
+                  activeOpacity={isSunsetMode ? 1 : 0.7}
                   delayPressIn={0}
                 >
                   <View style={styles.createOptionIcon}>
-                    <Ionicons name="document" size={24} color="#E74C3C" />
+                    <Ionicons name="document" size={24} color={isSunsetMode ? '#999' : '#E74C3C'} />
                   </View>
                   <View style={styles.createOptionContent}>
                     <ThemedText style={styles.createOptionTitle}>{t('home.uploadPDF')}</ThemedText>

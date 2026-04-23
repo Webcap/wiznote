@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { AudioFile } from '../types/Note';
 
+import { systemSettingsService } from './SystemSettingsService';
+
 export class AudioStorage {
   private bucketName = 'audio-files';
 
@@ -65,6 +67,12 @@ export class AudioStorage {
 
   // Upload audio file to Supabase Storage
   async uploadAudioFile(audioUri: string, userId: string, noteId: string, audioBlob?: Blob): Promise<string> {
+    // Check if Sunset Mode is enabled
+    const settings = systemSettingsService.getSettingsSync();
+    if (settings?.sunsetModeEnabled) {
+      throw new Error('New uploads are disabled as the platform is being decommissioned. You can still export your existing data from Settings.');
+    }
+
     try {
       console.log('AudioStorage: Uploading audio file:', audioUri);
       console.log('AudioStorage: Has blob?', !!audioBlob);

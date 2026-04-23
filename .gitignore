@@ -46,3 +46,4 @@ yarn-error.*
 
 # Local Netlify folder
 .netlify
+.openclaude-profile.json

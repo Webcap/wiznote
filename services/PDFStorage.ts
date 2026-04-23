@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { PDFFile } from '../types/Note';
 import { PDF_CONFIG } from '../constants/PDFConfig';
 import { safeValidateFile, sanitizeFilename, isAllowedMimeType } from '../schemas/FileSchema';
+import { systemSettingsService } from './SystemSettingsService';
 
 const NORMALIZED_PDF_MIME = 'application/pdf';
 
@@ -108,6 +109,12 @@ export class PDFStorage {
 
   // Upload PDF file to Supabase Storage
   async uploadPDFFile(fileOrUri: File | Blob | string, userId: string, noteId: string, originalFilename?: string): Promise<string> {
+    // Check if Sunset Mode is enabled
+    const settings = systemSettingsService.getSettingsSync();
+    if (settings?.sunsetModeEnabled) {
+      throw new Error('New uploads are disabled as the platform is being decommissioned. You can still export your existing data from Settings.');
+    }
+
     try {
       console.log('PDFStorage: Uploading PDF file');
       console.log('PDFStorage: Received parameters:', {
@@ -233,15 +240,15 @@ export class PDFStorage {
           const file = fileOrUri;
           if (normalizeMimeType(file.type) !== uploadContentType) {
             const arrayBuffer = await file.arrayBuffer();
-            pdfData = new Uint8Array(arrayBuffer);
-            uploadFile = new File([pdfData], file.name, { type: uploadContentType });
+            // Pass the ArrayBuffer directly to avoid Uint8Array typing issues
+            uploadFile = new File([arrayBuffer], file.name, { type: uploadContentType });
           } else {
             uploadFile = file;
           }
         } else {
           const arrayBuffer = await fileOrUri.arrayBuffer();
-          pdfData = new Uint8Array(arrayBuffer);
-          uploadFile = new Blob([pdfData], { type: uploadContentType });
+          // Pass the ArrayBuffer directly
+          uploadFile = new Blob([arrayBuffer], { type: uploadContentType });
         }
       }
 
@@ -259,7 +266,8 @@ export class PDFStorage {
       } else if (pdfData) {
         // On web, creating a Blob is preferred for correct mime type handling
         if (Platform.OS === 'web' && typeof Blob !== 'undefined') {
-          uploadBody = new Blob([pdfData], { type: uploadContentType });
+          // Use the buffer directly
+          uploadBody = new Blob([pdfData.buffer as ArrayBuffer], { type: uploadContentType });
         } else {
           // On React Native/Mobile, pass the Uint8Array directly
           // Creating a Blob from ArrayBuffer manually often fails in RN

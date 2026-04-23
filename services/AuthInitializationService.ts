@@ -154,6 +154,28 @@ export class AuthInitializationService {
       let userProfile = await this.loadUserProfile(supabaseUser.id);
 
       if (!userProfile) {
+        // Check if sunset mode is enabled to block new registrations
+        try {
+          const { systemSettingsService } = require('./SystemSettingsService');
+          const settings = await systemSettingsService.getSettings();
+          if (settings && settings.sunsetModeEnabled) {
+            console.log('AuthInitializationService: Blocking new registration due to sunset mode');
+            return {
+              success: false,
+              user: null,
+              error: 'New registrations are disabled as WizNote is sunsetting.',
+              progress: {
+                stage: 'profile',
+                progress: 0,
+                message: 'Registrations disabled',
+                error: 'New registrations are disabled. Only existing users can sign in.',
+              },
+            };
+          }
+        } catch (settingsError) {
+          console.warn('AuthInitializationService: Could not check sunset mode settings:', settingsError);
+        }
+
         // Profile doesn't exist - try to create it (for new Google OAuth users)
         console.log('AuthInitializationService: No profile found, attempting to create profile for new user');
         try {

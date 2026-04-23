@@ -22,6 +22,7 @@ import { useThemeColor } from '../../hooks/useThemeColor';
 import { useTranslation } from '../../hooks/useTranslation';
 import { loginStyles } from '../../styles/LoginStyles';
 import { systemSettingsService } from '../../services/SystemSettingsService';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -34,6 +35,7 @@ export default function LoginScreen() {
 
   const { signIn, signInWithGoogle } = useAuth();
   const { showSnackbar } = useSnackbar();
+  const { settings } = useSystemSettings();
 
   // Set page title for web
   usePageTitle();
@@ -272,9 +274,11 @@ export default function LoginScreen() {
                 {/* Form Section */}
                 <View style={[loginStyles.webMobileFormCard, { backgroundColor: cardBg }]}>
                   <View style={loginStyles.webMobileFormHeader}>
-                    <ThemedText style={[loginStyles.webMobileFormTitle, { color: textColor }]}>{t('auth.welcomeBack')}</ThemedText>
+                    <ThemedText style={[loginStyles.webMobileFormTitle, { color: textColor }]}>
+                      {settings?.loginHeaderTitle || t('auth.welcomeBack')}
+                    </ThemedText>
                     <ThemedText style={[loginStyles.webMobileFormSubtitle, { color: textSecondaryColor }]}>
-                      {t('auth.signInToContinue')}
+                      {settings?.loginHeaderSubtitle || t('auth.signInToContinue')}
                     </ThemedText>
                   </View>
 
@@ -542,9 +546,11 @@ export default function LoginScreen() {
                 <View style={loginStyles.webRightPanel}>
                   <View style={loginStyles.webFormContainer}>
                     <View style={loginStyles.webFormHeader}>
-                      <ThemedText style={[loginStyles.webFormTitle, { color: textColor }]}>{t('auth.welcomeBack')}</ThemedText>
+                      <ThemedText style={[loginStyles.webFormTitle, { color: textColor }]}>
+                        {settings?.loginHeaderTitle || t('auth.welcomeBack')}
+                      </ThemedText>
                       <ThemedText style={[loginStyles.webFormSubtitle, { color: textSecondaryColor }]}>
-                        {t('auth.signInToContinue')}
+                        {settings?.loginHeaderSubtitle || t('auth.signInToContinue')}
                       </ThemedText>
                     </View>
 
@@ -716,9 +722,11 @@ export default function LoginScreen() {
                 resizeMode="contain"
               />
             </View>
-            <ThemedText style={[loginStyles.title, { color: textColor }]}>{t('auth.welcomeBack')}</ThemedText>
+            <ThemedText style={[loginStyles.title, { color: textColor }]}>
+              {settings?.loginHeaderTitle || t('auth.welcomeBack')}
+            </ThemedText>
             <ThemedText style={[loginStyles.subtitle, { color: textSecondaryColor }]}>
-              {t('auth.signInToContinue')}
+              {settings?.loginHeaderSubtitle || t('auth.signInToContinue')}
             </ThemedText>
           </View>
 

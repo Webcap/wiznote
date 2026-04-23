@@ -40,5 +40,5 @@ export type FeatureFlagKey =
   | 'ai_flashcards'
   | 'ai_chat'
   | 'ai_write_essay'
-  | 'google_sign_in'
+  | 'google_sign_in';
  

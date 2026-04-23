@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
+  View,
   ScrollView,
   Switch,
   TextInput,
@@ -206,6 +207,13 @@ export default function SystemSettingsScreen() {
         maintenanceMode: settings.maintenanceMode,
         newUserRegistrationEnabled: settings.newUserRegistrationEnabled,
         googleSignInEnabled: settings.googleSignInEnabled,
+        sunsetModeEnabled: settings.sunsetModeEnabled,
+        sunsetShutdownDate: settings.sunsetShutdownDate,
+        landingSunsetBannerEnabled: settings.landingSunsetBannerEnabled,
+        landingHeaderTitle: settings.landingHeaderTitle,
+        landingHeaderSubtitle: settings.landingHeaderSubtitle,
+        loginHeaderTitle: settings.loginHeaderTitle,
+        loginHeaderSubtitle: settings.loginHeaderSubtitle,
       };
       
       console.log('SystemSettingsScreen: Updates to save (before sending):', {
@@ -285,7 +293,17 @@ export default function SystemSettingsScreen() {
     value: SystemSettings[K]
   ) => {
     if (settings) {
-      setSettings({ ...settings, [key]: value });
+      let newSettings = { ...settings, [key]: value };
+      
+      // If turning off sunset mode, also turn off dependent settings
+      if (key === 'sunsetModeEnabled' && value === false) {
+        newSettings = {
+          ...newSettings,
+          landingSunsetBannerEnabled: false,
+        };
+      }
+      
+      setSettings(newSettings);
       setHasChanges(true);
     }
   };
@@ -325,7 +343,7 @@ export default function SystemSettingsScreen() {
           <ThemedText style={styles.errorText}>Failed to load settings</ThemedText>
           <TouchableOpacity 
             style={[styles.button, styles.primaryButton, { backgroundColor: accentPrimary }]} 
-            onPress={loadSettings}
+            onPress={() => loadSettings()}
           >
             <ThemedText style={styles.buttonTextWhite}>Retry</ThemedText>
           </TouchableOpacity>
@@ -525,6 +543,44 @@ export default function SystemSettingsScreen() {
         />
         </ThemedView>
 
+        {/* Sunsetting Section */}
+        <ThemedView style={[styles.section, { backgroundColor: cardBg }]}>
+          <ThemedText style={styles.sectionTitle}>🌅 Sunsetting</ThemedText>
+
+          <SettingToggle
+            key={`sunset-mode-${settings.sunsetModeEnabled}`}
+            label="Sunset Mode Active"
+            description="Enable platform-wide decommissioning (show notices, block new notes/signups)"
+            value={settings.sunsetModeEnabled}
+            onChange={(value) => updateSetting('sunsetModeEnabled', value)}
+            warning={settings.sunsetModeEnabled}
+          />
+
+          <SettingToggle
+            key={`sunset-banner-${settings.landingSunsetBannerEnabled}`}
+            label="Landing Page Banner"
+            description="Show a prominent sunsetting notice on the public landing page"
+            value={settings.landingSunsetBannerEnabled}
+            onChange={(value) => updateSetting('landingSunsetBannerEnabled', value)}
+            disabled={!settings.sunsetModeEnabled}
+          />
+
+          <View style={{ marginTop: 10, opacity: settings.sunsetModeEnabled ? 1 : 0.5 }}>
+            <SettingText
+              label="Shutdown Date"
+              description="Target date for final platform shutdown (YYYY-MM-DD)"
+              value={settings.sunsetShutdownDate.toISOString().split('T')[0]}
+              onChange={(value) => {
+                const date = new Date(value);
+                if (!isNaN(date.getTime())) {
+                  updateSetting('sunsetShutdownDate', date);
+                }
+              }}
+              disabled={!settings.sunsetModeEnabled}
+            />
+          </View>
+        </ThemedView>
+
         {/* Action Buttons */}
         <ThemedView style={styles.actions}>
           <TouchableOpacity
@@ -557,7 +613,7 @@ export default function SystemSettingsScreen() {
           {hasChanges && (
             <TouchableOpacity
               style={[styles.button, styles.secondaryButton, { borderColor: textSecondary }]}
-              onPress={loadSettings}
+              onPress={() => loadSettings()}
             >
               <ThemedText style={[styles.buttonText, { color: textSecondary }]}>
                 Discard Changes
@@ -609,6 +665,7 @@ interface SettingToggleProps {
   onChange: (value: boolean) => void;
   warning?: boolean;
   indent?: boolean;
+  disabled?: boolean;
 }
 
 function SettingToggle({
@@ -618,6 +675,7 @@ function SettingToggle({
   onChange,
   warning,
   indent,
+  disabled,
 }: SettingToggleProps) {
   const textColor = useThemeColor({}, 'text');
   const textSecondary = useThemeColor({}, 'textSecondary');
@@ -626,7 +684,7 @@ function SettingToggle({
   const backgroundTertiary = useThemeColor({}, 'backgroundTertiary');
 
   return (
-    <ThemedView style={[styles.setting, indent && styles.settingIndent]}>
+    <ThemedView style={[styles.setting, indent && styles.settingIndent, disabled && { opacity: 0.5 }]}>
       <ThemedView style={styles.settingInfo}>
         <ThemedText style={[styles.settingLabel, warning && { color: accentDanger }]}>
           {label}
@@ -642,6 +700,7 @@ function SettingToggle({
         onValueChange={onChange}
         trackColor={{ false: '#767577', true: accentSuccess }}
         thumbColor={Platform.OS === 'ios' ? '#fff' : value ? '#fff' : '#f4f3f4'}
+        disabled={disabled}
       />
     </ThemedView>
   );
@@ -691,6 +750,49 @@ function SettingNumber({
         onChangeText={handleChange}
         keyboardType="number-pad"
         maxLength={3}
+      />
+    </ThemedView>
+  );
+}
+
+interface SettingTextProps {
+  label: string;
+  description: string;
+  value: string;
+  onChange: (value: string) => void;
+  indent?: boolean;
+  disabled?: boolean;
+}
+
+function SettingText({
+  label,
+  description,
+  value,
+  onChange,
+  indent,
+  disabled,
+}: SettingTextProps) {
+  const textColor = useThemeColor({}, 'text');
+  const textSecondary = useThemeColor({}, 'textSecondary');
+  const backgroundTertiary = useThemeColor({}, 'backgroundTertiary');
+
+  return (
+    <ThemedView style={[styles.setting, indent && styles.settingIndent]}>
+      <ThemedView style={styles.settingInfo}>
+        <ThemedText style={styles.settingLabel}>{label}</ThemedText>
+        <ThemedText style={[styles.settingDescription, { color: textSecondary }]}>
+          {description}
+        </ThemedText>
+      </ThemedView>
+      <TextInput
+        style={[
+          styles.textInput, 
+          { backgroundColor: backgroundTertiary, color: textColor },
+          disabled && { opacity: 0.5 }
+        ]}
+        value={value}
+        onChangeText={onChange}
+        editable={!disabled}
       />
     </ThemedView>
   );
@@ -774,6 +876,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
   },
+  textInput: {
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    fontSize: 16,
+    minWidth: 150,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
   actions: {
     padding: 20,
     gap: 12,
@@ -791,6 +902,17 @@ const styles = StyleSheet.create({
   secondaryButton: {
     borderWidth: 2,
     // borderColor set dynamically
+  },
+  smallButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignSelf: 'flex-start' as const,
+  },
+  smallButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
   },
   buttonText: {
     fontSize: 16,
