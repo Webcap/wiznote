@@ -9,6 +9,7 @@ import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { ThemePreference } from '../../ThemeContext';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { featureFlagService } from '../../services/FeatureFlagService';
 import { featureCacheService } from '../../services/FeatureCacheService';
 import { useSnackbar } from '../../contexts/SnackbarContext';
@@ -20,6 +21,7 @@ import { AudioImportTest } from '../AudioImportTest';
 import { AudioModuleDebug } from '../AudioModuleDebug';
 import { PermissionTest } from '../PermissionTest';
 import { getAppVersion } from '../../utils/appVersion';
+import { exportService } from '../../services/ExportService';
 
 interface SettingsMobileProps {
   user: any;
@@ -70,6 +72,7 @@ export function SettingsMobile({
   const { showSnackbar } = useSnackbar();
   const { language, changeLanguage } = useLanguage();
   const { t, i18n: i18nInstance } = useTranslation();
+  const { settings } = useSystemSettings();
   const iconColor = useThemeColor({}, 'text');
   const cardBg = useThemeColor({}, 'backgroundSecondary');
   const cardText = useThemeColor({}, 'text');
@@ -79,6 +82,7 @@ export function SettingsMobile({
   
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   
   // Language configuration with flags - using PNG for better mobile compatibility
   const languages = [
@@ -169,6 +173,24 @@ export function SettingsMobile({
     }
   };
 
+  const handleExport = async () => {
+    if (isExporting) return;
+    
+    setIsExporting(true);
+    try {
+      showSnackbar(t('common.processing'), 'info');
+      const success = await exportService.exportAllData();
+      if (success) {
+        // Sharing dialog will handle the rest on mobile
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      Alert.alert(t('common.error'), `Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <ThemedView style={styles.container}>
@@ -243,7 +265,9 @@ export function SettingsMobile({
                     ? `${subscriptionDetails.planName}${subscriptionDetails.planInterval ? ` (${subscriptionDetails.planInterval})` : ''}` 
                     : `${user?.premium?.type || 'Premium'}`
                 ) : (
-                  t('settings.upgradeToUnlock')
+                  settings?.sunsetModeEnabled 
+                    ? "Premium purchases are currently disabled."
+                    : t('settings.upgradeToUnlock')
                 )}
               </ThemedText>
             </View>
@@ -542,6 +566,25 @@ export function SettingsMobile({
             <ThemedText style={styles.actionButtonText}>{t('settings.usageStatistics')}</ThemedText>
             <Ionicons name="chevron-forward" size={20} color={borderColor} />
           </TouchableOpacity>
+          {featureFlagService.isFeatureEnabled('note_export') && (
+            <TouchableOpacity 
+              style={[styles.actionButton, isExporting && { opacity: 0.7 }]}
+              onPress={handleExport}
+              disabled={isExporting}
+            >
+              <Ionicons name="download" size={20} color={isExporting ? textSecondary : iconColor} />
+              <ThemedText style={[styles.actionButtonText, isExporting && { color: textSecondary }]}>
+                {isExporting ? 'Exporting...' : 'Export All Data (JSON)'}
+              </ThemedText>
+              {isExporting ? (
+                <View style={{ marginLeft: 10 }}>
+                  <Ionicons name="sync" size={20} color={textSecondary} />
+                </View>
+              ) : (
+                <Ionicons name="chevron-forward" size={20} color={borderColor} />
+              )}
+            </TouchableOpacity>
+          )}
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => router.push('/archived')}

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { PDFFile } from '../types/Note';
 import { PDF_CONFIG } from '../constants/PDFConfig';
 import { safeValidateFile, sanitizeFilename, isAllowedMimeType } from '../schemas/FileSchema';
+import { systemSettingsService } from './SystemSettingsService';
 
 const NORMALIZED_PDF_MIME = 'application/pdf';
 
@@ -108,6 +109,12 @@ export class PDFStorage {
 
   // Upload PDF file to Supabase Storage
   async uploadPDFFile(fileOrUri: File | Blob | string, userId: string, noteId: string, originalFilename?: string): Promise<string> {
+    // Check if Sunset Mode is enabled
+    const settings = systemSettingsService.getSettingsSync();
+    if (settings?.sunsetModeEnabled) {
+      throw new Error('New uploads are disabled as the platform is being decommissioned. You can still export your existing data from Settings.');
+    }
+
     try {
       console.log('PDFStorage: Uploading PDF file');
       console.log('PDFStorage: Received parameters:', {

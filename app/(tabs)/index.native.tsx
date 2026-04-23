@@ -18,6 +18,7 @@ import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { useNotes } from '../../hooks/useNotes';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { usePDFUpload } from '../../contexts/PDFUploadContext';
 import { useAudioUpload } from '../../contexts/AudioUploadContext';
@@ -31,6 +32,7 @@ import { PDF_CONFIG } from '../../constants/PDFConfig';
 import { SyncStatusIndicator } from '../../components/SyncStatusIndicator';
 import { homeStyles as styles } from '../../styles/HomeStyles';
 import { audioStorage } from '../../services/AudioStorage';
+import { DashboardSunsetBanner } from '../../components/DashboardSunsetBanner';
 
 // Audio upload configuration
 const AUDIO_CONFIG = {
@@ -46,6 +48,8 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const { user, isAuthenticated, isAdmin, isLoading: authLoading } = useAuth();
   const { isFeatureEnabled } = useFeatureFlags();
+  const { settings } = useSystemSettings();
+  const isSunsetMode = settings?.sunsetModeEnabled;
   const { showSnackbar } = useSnackbar();
   const { uploadingPDF, setUploadingPDF, setOnUploadComplete: setPDFUploadComplete } = usePDFUpload();
   const { uploadingAudio, setUploadingAudio, setOnUploadComplete: setAudioUploadComplete } = useAudioUpload();
@@ -238,6 +242,11 @@ export default function HomeScreen() {
   }, [router]);
 
   const handleCreateAudioNote = useCallback(async () => {
+    if (isSunsetMode) {
+      Alert.alert(t('common.notice'), t('home.newUploadsDisabled'));
+      setShowCreateOptions(false);
+      return;
+    }
     try {
       const permission = await AudioUtils.requestPermissions();
       if (permission.status === 'granted') {
@@ -293,6 +302,11 @@ export default function HomeScreen() {
   const handleCreatePDFNote = useCallback(async () => {
     if (!isFeatureEnabled('pdf_upload')) {
       showSnackbar(t('home.pdfUploadNotAvailable'), 'error');
+      setShowCreateOptions(false);
+      return;
+    }
+    if (isSunsetMode) {
+      Alert.alert(t('common.notice'), t('home.newUploadsDisabled'));
       setShowCreateOptions(false);
       return;
     }
@@ -654,6 +668,7 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.notesSection}>
+        <DashboardSunsetBanner />
         <View style={styles.notesSectionHeader}>
           <ThemedText style={styles.sectionTitle}>{t('home.recentNotes')}</ThemedText>
           <View style={styles.sortOrderContainer}>

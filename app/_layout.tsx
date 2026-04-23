@@ -10,6 +10,7 @@ import { AuthLoadingScreen } from '../components/AuthLoadingScreen';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { OfflineIndicator } from '../components/OfflineIndicator';
 import { ThemedView } from '../components/ThemedView';
+import { SunsetBanner } from '../components/SunsetBanner';
 import { WebSnackbar } from '../components/web/WebSnackbar';
 import { SnackbarProvider, useSnackbar } from '../contexts/SnackbarContext';
 import { PDFUploadProvider } from '../contexts/PDFUploadContext';
@@ -20,6 +21,7 @@ import { useColorScheme } from '../hooks/useColorScheme';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { featureFlagService } from '../services/FeatureFlagService';
+import { SystemSettingsService } from '../services/SystemSettingsService';
 import { crashReportingService } from '../services/CrashReportingService';
 import { ThemeProvider as CustomThemeProvider, ThemeContext } from '../ThemeContext';
 import '../lib/i18n';
@@ -137,16 +139,19 @@ function AppContent() {
           // Then refresh from server in background if authenticated
           const initPromise = featureFlagService.initialize(isAuthenticated);
           
+          // Also initialize system settings in background
+          const systemSettingsPromise = SystemSettingsService.getInstance().getSettings(true);
+          
           // Add timeout to prevent blocking
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => reject(new Error('Feature flag initialization timeout')), 10000);
           });
           
           // Race with timeout but don't block the app
-          Promise.race([initPromise, timeoutPromise]).then(() => {
-            console.log('Layout: Feature flags initialized successfully');
+          Promise.race([initPromise, systemSettingsPromise, timeoutPromise]).then(() => {
+            console.log('Layout: Feature flags and system settings initialized successfully');
           }).catch((error) => {
-            console.warn('Layout: Feature flag initialization timed out or failed (using cache):', error);
+            console.warn('Layout: Feature flag or system settings initialization timed out or failed:', error);
             // App continues with cached flags
           });
         } catch (error) {
@@ -367,6 +372,7 @@ function AppContent() {
                     margin: 0,
                     padding: 0
                   }}>
+                    <SunsetBanner />
                     <Stack>
                       <Stack.Screen name="index" options={{ headerShown: false }} />
                       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

@@ -14,6 +14,7 @@ import { useLazyData } from '../../hooks/useLazyData';
 import { useNotes } from '../../hooks/useNotes';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { usePDFUpload } from '../../contexts/PDFUploadContext';
 import { useAudioUpload } from '../../contexts/AudioUploadContext';
@@ -31,6 +32,7 @@ import { UploadingNoteCard } from '../../components/UploadingNoteCard';
 import { homeStyles as styles } from '../../styles/HomeStyles';
 import { audioStorage } from '../../services/AudioStorage';
 import { AudioUtils } from '../../services/AudioUtils';
+import { DashboardSunsetBanner } from '../../components/DashboardSunsetBanner';
 
 // Audio upload configuration
 const AUDIO_CONFIG = {
@@ -46,6 +48,8 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { isFeatureEnabled } = useFeatureFlags();
+  const { settings } = useSystemSettings();
+  const isSunsetMode = settings?.sunsetModeEnabled;
   const { showSnackbar } = useSnackbar();
   const { uploadingPDF, setUploadingPDF, setOnUploadComplete: setPDFUploadComplete } = usePDFUpload();
   const { uploadingAudio, setUploadingAudio, setOnUploadComplete: setAudioUploadComplete } = useAudioUpload();
@@ -204,6 +208,11 @@ export default function HomeScreen() {
   const handleCreatePDFNote = useCallback(async () => {
     if (!isFeatureEnabled('pdf_upload')) {
       showSnackbar(t('home.pdfUploadNotAvailable'), 'error');
+      setShowCreateOptions(false);
+      return;
+    }
+    if (isSunsetMode) {
+      showSnackbar(t('home.newUploadsDisabled'), 'warning');
       setShowCreateOptions(false);
       return;
     }
@@ -373,10 +382,14 @@ export default function HomeScreen() {
 
   const handleUploadAudioNote = useCallback(async () => {
     setShowCreateOptions(false);
+    if (isSunsetMode) {
+      showSnackbar(t('home.newUploadsDisabled'), 'warning');
+      return;
+    }
     if (audioInputRef.current) {
       audioInputRef.current.click();
     }
-  }, []);
+  }, [isSunsetMode, showSnackbar, t]);
 
   const handleAudioFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -616,6 +629,7 @@ export default function HomeScreen() {
       )}
     >
       <View style={styles.webContent}>
+        <DashboardSunsetBanner />
         {loading ? (
           <View style={styles.webLoadingContainer}>
             <LoadingSpinner size={50} />

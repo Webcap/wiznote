@@ -26,6 +26,9 @@ export interface SystemSettings {
   maintenanceMode: boolean;
   newUserRegistrationEnabled: boolean;
   googleSignInEnabled: boolean;
+  // Sunsetting Settings
+  sunsetModeEnabled: boolean;
+  sunsetShutdownDate: Date;
   // Audit
   updatedBy: string | null;
   updatedAt: Date;
@@ -66,9 +69,11 @@ export interface UpdateSystemSettingsParams {
   maintenanceMode?: boolean;
   newUserRegistrationEnabled?: boolean;
   googleSignInEnabled?: boolean;
+  sunsetModeEnabled?: boolean;
+  sunsetShutdownDate?: Date;
 }
 
-class SystemSettingsService {
+export class SystemSettingsService {
   private static instance: SystemSettingsService;
   private cachedSettings: SystemSettings | null = null;
   private cacheTimestamp: number = 0;
@@ -76,7 +81,8 @@ class SystemSettingsService {
 
   private constructor() {}
 
-  static getInstance(): SystemSettingsService {
+  public static getInstance(): SystemSettingsService {
+    if (__DEV__) console.log('SystemSettingsService: Getting instance...');
     if (!SystemSettingsService.instance) {
       SystemSettingsService.instance = new SystemSettingsService();
     }
@@ -84,9 +90,17 @@ class SystemSettingsService {
   }
 
   /**
+   * Get current system settings synchronously (from cache)
+   */
+  getSettingsSync(): SystemSettings | null {
+    return this.cachedSettings;
+  }
+
+  /**
    * Get current system settings (with caching)
    */
   async getSettings(forceRefresh: boolean = false): Promise<SystemSettings> {
+    if (__DEV__) console.log('SystemSettingsService: getSettings called (forceRefresh:', forceRefresh, ')');
     const now = Date.now();
     
     // Return cached settings if still valid (unless force refresh)
@@ -96,16 +110,22 @@ class SystemSettingsService {
     }
 
     try {
-      console.log('SystemSettingsService: Fetching settings from database (forceRefresh:', forceRefresh, ')');
-
-      // Query the database - try multiple approaches to ensure we get the field
+      if (__DEV__) console.log('SystemSettingsService: Starting database fetch...');
+      
       let { data, error } = await supabase
         .from('system_settings')
         .select('*')
         .eq('id', 'default')
         .single();
-      
-      // CRITICAL: Normalize data - Supabase sometimes returns an array even with .single()
+
+      if (error) {
+        if (__DEV__) console.error('SystemSettingsService: Fetch error:', error);
+        
+        if (error.code === 'PGRST116') {
+          // Normalize data - Supabase sometimes returns an array even with .single()
+        }
+      }
+
       // If data is an array, extract the first element
       if (!error && data && Array.isArray(data)) {
         console.warn('SystemSettingsService: ⚠️ Query returned array instead of object, extracting first element');
@@ -117,30 +137,40 @@ class SystemSettingsService {
         }
       }
       
-      // If google_sign_in_enabled is missing, try a direct query for just that field
-      if (!error && data && typeof data === 'object' && data !== null && data.google_sign_in_enabled === undefined) {
+      // If new columns are missing, try a direct query for those specific fields
+      if (!error && data && typeof data === 'object' && data !== null && 
+          (data.google_sign_in_enabled === undefined || data.sunset_mode_enabled === undefined)) {
         if (__DEV__) {
-          console.warn('SystemSettingsService: google_sign_in_enabled field missing, attempting direct query');
+          console.warn('SystemSettingsService: New columns (google_sign_in or sunset_mode) missing, attempting direct query');
         }
         
-        // Fallback: Try selecting just that field
-        const { data: directField, error: directError } = await supabase
+        // Fallback: Try selecting the specific fields explicitly
+        const { data: directFields, error: directError } = await supabase
           .from('system_settings')
-          .select('google_sign_in_enabled')
+          .select('google_sign_in_enabled, sunset_mode_enabled, sunset_shutdown_date')
           .eq('id', 'default')
           .single();
         
-        // Normalize directField if it's an array
-        const normalizedDirectField = Array.isArray(directField) ? directField[0] : directField;
+        // Normalize directFields if it's an array
+        const normalizedFields: any = Array.isArray(directFields) ? directFields[0] : directFields;
         
-        if (!directError && normalizedDirectField && normalizedDirectField.google_sign_in_enabled !== undefined) {
-          data.google_sign_in_enabled = normalizedDirectField.google_sign_in_enabled;
+        if (!directError && normalizedFields) {
+          if (normalizedFields.google_sign_in_enabled !== undefined) {
+            data.google_sign_in_enabled = normalizedFields.google_sign_in_enabled;
+          }
+          if (normalizedFields.sunset_mode_enabled !== undefined) {
+            data.sunset_mode_enabled = normalizedFields.sunset_mode_enabled;
+          }
+          if (normalizedFields.sunset_shutdown_date !== undefined) {
+            data.sunset_shutdown_date = normalizedFields.sunset_shutdown_date;
+          }
         } else {
           if (__DEV__) {
-            console.warn('SystemSettingsService: Column google_sign_in_enabled may not exist in database');
+            console.warn('SystemSettingsService: Direct query for new columns failed or returned no results');
           }
-          // Set it to null so we can handle it explicitly
-          data.google_sign_in_enabled = null;
+          // Set to null so they can be handled by defaults in the mapping logic
+          if (data.google_sign_in_enabled === undefined) data.google_sign_in_enabled = null;
+          if (data.sunset_mode_enabled === undefined) data.sunset_mode_enabled = null;
         }
       }
 
@@ -164,85 +194,38 @@ class SystemSettingsService {
         }
       }
 
-      // Helper function to safely get boolean values (preserves false, uses default for null/undefined)
-      // Handles: boolean, string "true"/"false", null, undefined
-      const getBoolean = (value: any, defaultValue: boolean, fieldName?: string): boolean => {
-        // Explicitly check for null and undefined first
-        if (value === null || value === undefined) {
-          if (fieldName === 'google_sign_in_enabled') {
-            console.log(`SystemSettingsService: getBoolean(${fieldName}) - value is null/undefined, using default: ${defaultValue}`);
-          }
-          return defaultValue;
-        }
-        
-        // Handle actual boolean values first (most common case)
-        if (typeof value === 'boolean') {
-          if (fieldName === 'google_sign_in_enabled') {
-            console.log(`SystemSettingsService: getBoolean(${fieldName}) - value is boolean: ${value}, returning: ${value}`);
-          }
-          return value; // Return as-is, preserving false
-        }
-        
-        // Handle string booleans from database (case-insensitive)
-        if (typeof value === 'string') {
-          const lowerValue = value.toLowerCase().trim();
-          // Explicitly handle "false", "f", "0", "no", "n" as false
-          if (lowerValue === 'false' || lowerValue === 'f' || lowerValue === '0' || lowerValue === 'no' || lowerValue === 'n' || lowerValue === '') {
-            if (fieldName === 'google_sign_in_enabled') {
-              console.log(`SystemSettingsService: getBoolean(${fieldName}) - value is string: "${value}" (lowercase: "${lowerValue}"), explicitly returning false`);
-            }
-            return false;
-          }
-          // Handle "true", "t", "1", "yes", "y" as true
-          const result = lowerValue === 'true' || lowerValue === 't' || lowerValue === '1' || lowerValue === 'yes' || lowerValue === 'y';
-          if (fieldName === 'google_sign_in_enabled') {
-            console.log(`SystemSettingsService: getBoolean(${fieldName}) - value is string: "${value}" (lowercase: "${lowerValue}"), result: ${result}`);
-          }
-          return result;
-        }
-        
-        // Handle number (0/1)
-        if (typeof value === 'number') {
-          const result = value !== 0;
-          if (fieldName === 'google_sign_in_enabled') {
-            console.log(`SystemSettingsService: getBoolean(${fieldName}) - value is number: ${value}, result: ${result}`);
-          }
-          return result;
-        }
-        
-        // Fallback to Boolean conversion (shouldn't happen for proper booleans)
-        const result = Boolean(value);
-        if (fieldName === 'google_sign_in_enabled') {
-          console.log(`SystemSettingsService: getBoolean(${fieldName}) - fallback conversion, value:`, value, `result: ${result}`);
-        }
-        return result;
-      };
+      // Use class method to safely get boolean values
+      
 
       // Map database fields to camelCase
       // Note: Explicitly handle booleans to preserve false values
       let settings: SystemSettings;
       try {
+        if (__DEV__) {
+          console.log('SystemSettingsService: Mapping database data to settings object. Raw sunset field:', data.sunset_mode_enabled);
+        }
+
         settings = {
           id: data.id,
-          emailVerificationRequired: getBoolean(data.email_verification_required, true),
-          mfaEnabled: getBoolean(data.mfa_enabled, false),
-          mfaRequiredForAdmin: getBoolean(data.mfa_required_for_admin, false),
-          accountLockoutEnabled: getBoolean(data.account_lockout_enabled, true),
+          emailVerificationRequired: this.getBoolean(data.email_verification_required, true),
+          mfaEnabled: this.getBoolean(data.mfa_enabled, false),
+          mfaRequiredForAdmin: this.getBoolean(data.mfa_required_for_admin, false),
+          accountLockoutEnabled: this.getBoolean(data.account_lockout_enabled, true),
           accountLockoutAttempts: data.account_lockout_attempts ?? 5,
           accountLockoutDurationMinutes: data.account_lockout_duration_minutes ?? 30,
           sessionTimeoutHours: data.session_timeout_hours ?? 24,
           passwordMinLength: data.password_min_length ?? 8,
-          passwordRequireSpecialChars: getBoolean(data.password_require_special_chars, true),
-          rateLimitEnabled: getBoolean(data.rate_limit_enabled, true),
+          passwordRequireSpecialChars: this.getBoolean(data.password_require_special_chars, true),
+          rateLimitEnabled: this.getBoolean(data.rate_limit_enabled, true),
           rateLimitAuthAttempts: data.rate_limit_auth_attempts ?? 5,
           rateLimitAuthWindowMinutes: data.rate_limit_auth_window_minutes ?? 15,
           rateLimitApiRequests: data.rate_limit_api_requests ?? 100,
           rateLimitApiWindowMinutes: data.rate_limit_api_window_minutes ?? 1,
-          csrfProtectionEnabled: getBoolean(data.csrf_protection_enabled, true),
-          csrfOriginCheckEnabled: getBoolean(data.csrf_origin_check_enabled, true),
+          csrfProtectionEnabled: this.getBoolean(data.csrf_protection_enabled, true),
+          csrfOriginCheckEnabled: this.getBoolean(data.csrf_origin_check_enabled, true),
           csrfTokenExpiryMinutes: data.csrf_token_expiry_minutes ?? 60,
-          maintenanceMode: getBoolean(data.maintenance_mode, false),
-          newUserRegistrationEnabled: getBoolean(data.new_user_registration_enabled, true),
+          maintenanceMode: this.getBoolean(data.maintenance_mode, false),
+          newUserRegistrationEnabled: this.getBoolean(data.new_user_registration_enabled, true),
           // Handle google_sign_in_enabled field
           googleSignInEnabled: (() => {
           const fieldExists = 'google_sign_in_enabled' in data;
@@ -290,10 +273,18 @@ class SystemSettingsService {
           }
           return result;
         })(),
+        sunsetModeEnabled: this.getBoolean(data.sunset_mode_enabled, true),
+        sunsetShutdownDate: this.getDate(data.sunset_shutdown_date, new Date('2026-12-31')),
         updatedBy: data.updated_by,
         updatedAt: this.parseDate(data.updated_at) ?? new Date(),
         createdAt: this.parseDate(data.created_at) ?? new Date(),
       };
+
+        if (__DEV__) {
+          console.log('SystemSettingsService: Mapping complete. sunsetModeEnabled:', settings.sunsetModeEnabled);
+        }
+        
+        console.log('SystemSettingsService: ✅ Settings successfully loaded and mapped');
       } catch (mappingError) {
         console.error('SystemSettingsService: Error mapping settings from database:', mappingError);
         console.error('SystemSettingsService: Falling back to default settings');
@@ -329,6 +320,13 @@ class SystemSettingsService {
   }
 
   /**
+   * Safely parse a date with a default value
+   */
+  private getDate(value: unknown, defaultValue: Date): Date {
+    return this.parseDate(value) ?? defaultValue;
+  }
+
+  /**
    * Get default settings (fallback)
    */
   private getDefaultSettings(): SystemSettings {
@@ -354,10 +352,38 @@ class SystemSettingsService {
       maintenanceMode: false,
       newUserRegistrationEnabled: true,
       googleSignInEnabled: true,
+      sunsetModeEnabled: true,
+      sunsetShutdownDate: new Date('2026-05-23'),
       updatedBy: null,
       updatedAt: new Date(),
       createdAt: new Date(),
     };
+  }
+
+  /**
+   * Helper: Parse boolean from database value
+   */
+  private getBoolean(value: any, defaultValue: boolean, fieldName?: string): boolean {
+    if (value === null || value === undefined) {
+      if (fieldName === 'google_sign_in_enabled' && __DEV__) {
+        console.log(`SystemSettingsService: getBoolean(${fieldName}) - value is null/undefined, using default: ${defaultValue}`);
+      }
+      return defaultValue;
+    }
+    
+    if (typeof value === 'boolean') return value;
+    
+    if (typeof value === 'number') return value !== 0;
+    
+    if (typeof value === 'string') {
+      const lowerValue = value.toLowerCase().trim();
+      if (lowerValue === 'false' || lowerValue === 'f' || lowerValue === '0' || lowerValue === 'no' || lowerValue === 'n' || lowerValue === '') {
+        return false;
+      }
+      return lowerValue === 'true' || lowerValue === 't' || lowerValue === '1' || lowerValue === 'yes' || lowerValue === 'y';
+    }
+    
+    return Boolean(value);
   }
 
   /**
@@ -563,6 +589,12 @@ class SystemSettingsService {
       }
       if (updates.googleSignInEnabled !== undefined) {
         dbUpdates.google_sign_in_enabled = Boolean(updates.googleSignInEnabled);
+      }
+      if (updates.sunsetModeEnabled !== undefined) {
+        dbUpdates.sunset_mode_enabled = Boolean(updates.sunsetModeEnabled);
+      }
+      if (updates.sunsetShutdownDate !== undefined) {
+        dbUpdates.sunset_shutdown_date = updates.sunsetShutdownDate.toISOString();
       }
 
       // Log what we're about to update

@@ -19,6 +19,7 @@ export class FeatureFlagService {
   private flags: Record<string, FeatureFlag> = {};
   private configVersion: string = '1.0.0';
   private errorHandler?: (message: string, type: 'error' | 'warning' | 'info') => void;
+  private listeners: Set<() => void> = new Set();
   private readonly LOCAL_STORAGE_KEY = 'feature_flags_cache';
   private readonly LAST_SYNC_KEY = 'feature_flags_last_sync';
   private readonly CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
@@ -29,6 +30,20 @@ export class FeatureFlagService {
 
   setErrorHandler(handler: (message: string, type: 'error' | 'warning' | 'info') => void) {
     this.errorHandler = handler;
+  }
+
+  // Listener management
+  addListener(listener: () => void) {
+    this.listeners.add(listener);
+  }
+
+  removeListener(listener: () => void) {
+    this.listeners.delete(listener);
+  }
+
+  private notifyListeners() {
+    log('FeatureFlagService: Notifying listeners of flag update...');
+    this.listeners.forEach(listener => listener());
   }
 
   // Check if Supabase is available
@@ -67,6 +82,7 @@ export class FeatureFlagService {
       }
       
       log('FeatureFlagService: Initialization complete. Flags loaded:', Object.keys(this.flags));
+      this.notifyListeners();
     } catch (error) {
       console.error('FeatureFlagService: Initialization error:', error);
       // Fallback to defaults
@@ -214,7 +230,7 @@ export class FeatureFlagService {
       if (criticalFlags.includes(flagKey)) {
         const defaultFlag = DEFAULT_FEATURE_FLAGS[flagKey];
         const fallbackEnabled = defaultFlag?.enabled ?? false;
-        console.log(`FeatureFlagService: ${flagKey} flag not found, falling back to DEFAULT_FEATURE_FLAGS. Default enabled:`, fallbackEnabled);
+        console.log(`FeatureFlagService: ${flagKey} flag not found in local state, falling back to DEFAULT_FEATURE_FLAGS. Default enabled:`, fallbackEnabled);
         return fallbackEnabled;
       }
 
@@ -407,6 +423,7 @@ export class FeatureFlagService {
       await this.saveFlagToSupabase(updatedFlag);
 
       log(`FeatureFlagService: Updated flag ${flagKey}`);
+      this.notifyListeners();
     } catch (error) {
       this.handleError(error, 'Update Flag');
     }
@@ -549,6 +566,7 @@ export class FeatureFlagService {
       await this.saveToCache();
 
       log('FeatureFlagService: Batch update completed successfully');
+      this.notifyListeners();
     } catch (error) {
       this.handleError(error, 'Batch Update Feature Flags');
     }
@@ -595,6 +613,9 @@ export class FeatureFlagService {
   // Get current environment
   private getCurrentEnvironment(): 'development' | 'staging' | 'production' {
     const env = process.env.NODE_ENV || 'development';
+    if (enableFeatureFlagServiceLogs) {
+      log('FeatureFlagService: Current environment:', env);
+    }
     return env as 'development' | 'staging' | 'production';
   }
 

@@ -81,7 +81,7 @@ export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlag> = {
     id: 'note_export',
     name: 'Note Export',
     description: 'Enable note export functionality',
-    enabled: false,
+    enabled: true,
     premiumOnly: false,
     trackingEnabled: true, // Track export usage
     targetEnvironments: ['development', 'staging', 'production'],
@@ -206,5 +206,5 @@ export const DEFAULT_FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlag> = {
     createdAt: new Date(),
     updatedAt: new Date(),
     createdBy: 'system',
-  }
+  },
 };

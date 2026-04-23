@@ -17,10 +17,12 @@ import { useTranslation } from '../hooks/useTranslation';
 import { planManagementService } from '../services/PlanManagementService';
 import type { EnhancedPlan } from '../types/EnhancedPlans';
 import type { Promotion } from '../types/Promotion';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 
 export default function JoinPremiumScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { settings, loading: settingsLoading } = useSystemSettings();
   const { user } = useAuth();
   const searchParams = useLocalSearchParams();
 
@@ -36,6 +38,12 @@ export default function JoinPremiumScreen() {
   const accentWarning = useThemeColor({}, 'accentWarning');
   const accentDanger = useThemeColor({}, 'accentDanger');
   const tintColor = useThemeColor({}, 'tint');
+
+  const shutdownDateStr = settings?.sunsetShutdownDate.toLocaleDateString(undefined, { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  }) || 'May 23, 2026';
 
   const [plans, setPlans] = useState<EnhancedPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,6 +149,34 @@ export default function JoinPremiumScreen() {
   const handleError = (message: string) => {
     Alert.alert(t('premium.paymentError'), message);
   };
+
+  if (settings?.sunsetModeEnabled) {
+    return (
+      <WebLayout
+        title="Premium Purchases Disabled"
+        sidebar={<UserSidebar />}
+      >
+        <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, backgroundColor }}>
+          <Ionicons name="star-outline" size={80} color={accentWarning} />
+          <ThemedText style={{ fontSize: 28, fontWeight: 'bold', marginTop: 24, textAlign: 'center', color: textColor }}>
+            Premium Purchases are Disabled
+          </ThemedText>
+          <ThemedText style={{ fontSize: 18, marginTop: 16, textAlign: 'center', maxWidth: 600, color: textSecondaryColor }}>
+            WizNote is sunsetting on <ThemedText style={{ fontWeight: 'bold' }}>{shutdownDateStr}</ThemedText>. New premium subscriptions are no longer being accepted as we prepare to decommission the platform.
+          </ThemedText>
+          <ThemedText style={{ fontSize: 16, marginTop: 12, textAlign: 'center', color: textSecondaryColor }}>
+            Existing premium users will maintain their benefits until the shutdown date.
+          </ThemedText>
+          <TouchableOpacity 
+            style={{ marginTop: 40, paddingVertical: 14, paddingHorizontal: 32, borderRadius: 12, backgroundColor: accentPrimary }}
+            onPress={() => router.replace('/(tabs)')}
+          >
+            <ThemedText style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16 }}>Go to My Notes</ThemedText>
+          </TouchableOpacity>
+        </ThemedView>
+      </WebLayout>
+    );
+  }
 
   if (loading) {
     return (

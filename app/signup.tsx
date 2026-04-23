@@ -22,9 +22,14 @@ import { useThemeColor } from '../hooks/useThemeColor';
 import { useTranslation } from '../hooks/useTranslation';
 import { signupStyles as styles } from '../styles/SignupStyles';
 import { systemSettingsService } from '../services/SystemSettingsService';
+import { featureFlagService } from '../services/FeatureFlagService';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 
 export default function SignupScreen() {
   const { t } = useTranslation();
+  const { settings, loading: settingsLoading } = useSystemSettings();
+  const { user, signUp, signInWithGoogle } = useAuth();
+  const isSunsetMode = settings?.sunsetModeEnabled ?? false;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -35,7 +40,6 @@ export default function SignupScreen() {
   const [googleSignInEnabled, setGoogleSignInEnabled] = useState(true); // Default to true for better UX
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const { signUp, signInWithGoogle } = useAuth();
   const { showSnackbar } = useSnackbar();
 
   // Set page title for web
@@ -118,6 +122,10 @@ export default function SignupScreen() {
   };
 
   const handleSignUp = async () => {
+    if (isSunsetMode) {
+      showSnackbar('Signups are currently disabled as WizNote is sunsetting.', 'warning', 5000);
+      return;
+    }
     if (validateForm() !== null) return;
 
     setErrorMessage(null);
@@ -166,6 +174,10 @@ export default function SignupScreen() {
   };
 
   const handleGoogleSignUp = async () => {
+    if (isSunsetMode) {
+      showSnackbar('Signups are currently disabled as WizNote is sunsetting.', 'warning', 5000);
+      return;
+    }
     try {
       await signInWithGoogle();
       if (Platform.OS === 'web') {
@@ -204,9 +216,59 @@ export default function SignupScreen() {
   const textSecondaryColor = useThemeColor({}, 'textSecondary');
   const accentColor = useThemeColor({}, 'accentPrimary');
   const cardBg = useThemeColor({}, 'backgroundSecondary');
+  const shutdownDateStr = settings?.sunsetShutdownDate.toLocaleDateString(undefined, { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  }) || 'May 23, 2026';
 
   // Web layout
   if (Platform.OS === 'web') {
+    if (isSunsetMode) {
+      return (
+        <ThemedView style={[styles.webContainer, { backgroundColor }]}>
+          <View style={styles.webContent}>
+            <View style={[styles.webLeftPanel, { backgroundColor: cardBg, justifyContent: 'center' }]}>
+              <View style={styles.webBrandSection}>
+                <View style={styles.webLogoContainer}>
+                  <Image
+                    source={require('../assets/images/WiznoteLogoNov25.png')}
+                    style={styles.webLogoImage}
+                    resizeMode="contain"
+                  />
+                </View>
+                <ThemedText style={[styles.webBrandTitle, { color: textColor }]}>WizNote is Sunsetting</ThemedText>
+                <ThemedText style={[styles.webBrandSubtitle, { color: textSecondaryColor }]}>
+                  We are discontinuing the WizNote service.
+                </ThemedText>
+              </View>
+            </View>
+            <View style={[styles.webRightPanel, { justifyContent: 'center' }]}>
+              <View style={styles.webRightPanelContent}>
+                <View style={styles.webFormContainer}>
+                  <View style={styles.webFormHeader}>
+                    <ThemedText style={[styles.webFormTitle, { color: textColor }]}>New Signups Disabled</ThemedText>
+                    <ThemedText style={[styles.webFormSubtitle, { color: textSecondaryColor, marginTop: 16 }]}>
+                      WizNote will be officially shut down on <ThemedText style={{ fontWeight: 'bold' }}>{shutdownDateStr}</ThemedText>.
+                    </ThemedText>
+                    <ThemedText style={[styles.webFormSubtitle, { color: textSecondaryColor, marginTop: 12 }]}>
+                      Existing users can still log in to manage and export their data.
+                    </ThemedText>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.webSignupButton, { backgroundColor: accentColor, marginTop: 24 }]}
+                    onPress={() => router.push('/(auth)/login')}
+                  >
+                    <ThemedText style={styles.webSignupButtonText}>Sign In to Your Account</ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        </ThemedView>
+      );
+    }
+
     return (
       <ThemedView style={[styles.webContainer, { backgroundColor }]}>
         <View style={styles.webContent}>
@@ -480,7 +542,33 @@ export default function SignupScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ThemedView style={[styles.container, { backgroundColor }]}>
-        <ScrollView
+        {isSunsetMode ? (
+          <View style={[styles.scrollContent, { justifyContent: 'center', alignItems: 'center', flex: 1 }]}>
+            <View style={styles.header}>
+              <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                <Image
+                  source={require('../assets/images/WiznoteLogoNov25.png')}
+                  style={{ width: 100, height: 100 }}
+                  resizeMode="contain"
+                />
+              </View>
+              <ThemedText style={[styles.title, { color: textColor, textAlign: 'center' }]}>WizNote is Sunsetting</ThemedText>
+              <ThemedText style={[styles.subtitle, { color: textSecondaryColor, textAlign: 'center', marginTop: 16 }]}>
+                We are discontinuing the WizNote service. New signups are currently disabled.
+              </ThemedText>
+              <ThemedText style={[styles.subtitle, { color: textSecondaryColor, textAlign: 'center', marginTop: 12 }]}>
+                Shutdown Date: <ThemedText style={{ fontWeight: 'bold' }}>{shutdownDateStr}</ThemedText>
+              </ThemedText>
+            </View>
+            <TouchableOpacity
+              style={[styles.signupButton, { backgroundColor: accentColor, width: '100%', marginTop: 32 }]}
+              onPress={() => router.push('/(auth)/login')}
+            >
+              <ThemedText style={styles.signupButtonText}>Sign In to Your Account</ThemedText>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
@@ -650,6 +738,7 @@ export default function SignupScreen() {
             </View>
           </View>
         </ScrollView>
+      )}
       </ThemedView>
     </KeyboardAvoidingView>
   );

@@ -4,6 +4,7 @@ import { validateNoteTitle, validateNoteContent, NoteIdSchema } from '../schemas
 import { sanitizeNoteTitle, sanitizeNoteContent, sanitizePlainText } from '../utils/sanitization';
 import { Platform } from 'react-native';
 import { queryCache } from '../utils/queryCache';
+import { systemSettingsService } from './SystemSettingsService';
 
 export class SupabaseNoteStorage {
   private currentUser: string | null = null;
@@ -322,7 +323,7 @@ export class SupabaseNoteStorage {
         userId: note.user_id || this.currentUser || '',
         title: this.extractTitle(note.title) || 'Error loading note',
         content: note.content || '',
-        contentHtml: null,
+        contentHtml: undefined,
         contentFormat: 'plain',
         type: 'text',
         tags: [],
@@ -332,7 +333,7 @@ export class SupabaseNoteStorage {
         audioFiles: [],
         pdfFiles: [],
         keyDetails: [],
-        summary: null,
+        summary: undefined,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -729,6 +730,10 @@ export class SupabaseNoteStorage {
   async createNote(noteData: any): Promise<Note> {
     if (!this.hasValidUser()) {
       throw new Error('No user authenticated');
+    }
+
+    if (systemSettingsService.getSettingsSync()?.sunsetModeEnabled) {
+      throw new Error('New note creation is disabled as WizNote is sunsetting.');
     }
 
     try {

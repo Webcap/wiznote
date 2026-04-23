@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { featureFlagService } from '../services/FeatureFlagService';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Components
@@ -33,6 +34,7 @@ import { useNotes } from '../hooks/useNotes';
 import { useSaveManager } from '../hooks/useSaveManager';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { useTranslation } from '../hooks/useTranslation';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 
 // Types
 import { NoteFormData } from '../types/Note';
@@ -54,8 +56,20 @@ const MemoizedTextInput = React.memo(({ style, value, onChangeText, ...props }: 
 
 export default function CreateNoteScreen() {
   const { t } = useTranslation();
+  const { user, isLoading: authLoading } = useAuth();
+  const { settings, loading: settingsLoading } = useSystemSettings();
+  const isSunsetMode = settings?.sunsetModeEnabled ?? false;
   // Get URL parameters
   const params = useLocalSearchParams<{ noteId?: string; id?: string }>();
+  
+  const accentPrimary = useThemeColor({}, 'accentPrimary');
+  const accentDanger = useThemeColor({}, 'accentDanger');
+
+  const shutdownDateStr = settings?.sunsetShutdownDate.toLocaleDateString(undefined, { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  }) || 'May 23, 2026';
   
   // State management
   const [noteId, setNoteId] = useState<string | undefined>(params.noteId || params.id);
@@ -74,7 +88,7 @@ export default function CreateNoteScreen() {
 
   // Refs for optimization
   const prevNoteIdRef = useRef<string | undefined>(noteId);
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
   const hasUserMadeChangesRef = useRef(false);
   const originalNoteDataRef = useRef<{ title: string; content: string; contentHtml: string; tags: string[] } | null>(null);
@@ -83,7 +97,6 @@ export default function CreateNoteScreen() {
   const titleInputRef = useRef<TextInput>(null);
   
   // Authentication and data hooks
-  const { user, isLoading: authLoading } = useAuth();
   const userId = user?.id || '';
   const isAuthenticated = !!user?.id && !authLoading;
   
@@ -146,7 +159,7 @@ export default function CreateNoteScreen() {
   ], [inputBg, inputText, borderColor]);
 
   // Computed values
-  const isEditMode = noteId && !noteId.startsWith('temp_');
+  const isEditMode = !!(noteId && !noteId.startsWith('temp_'));
   const hasContent = title.trim() || content.trim() || contentHtml.trim();
   const isSaveDisabled = isSaving || authLoading || !isAuthenticated || !hasContent || !performManualSave;
   
@@ -272,7 +285,7 @@ export default function CreateNoteScreen() {
   
   // Track if we're currently typing to prevent auto-save from interfering
   const isTypingRef = useRef(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Memoize onChangeText handlers
   const handleTitleChange = useCallback((text: string) => {
@@ -501,7 +514,26 @@ export default function CreateNoteScreen() {
       <ErrorBoundary fallback={<ThemedView style={styles.container}><LoadingSpinner /></ThemedView>}>
       <WebLayout sidebar={<UserSidebar />}>
         <ThemedView style={styles.webContainer}>
-          <CreateNoteHeader
+          {isSunsetMode && !isEditMode ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+              <Ionicons name="warning-outline" size={64} color="#856404" />
+              <ThemedText style={{ fontSize: 24, fontWeight: 'bold', marginTop: 24, color: '#856404' }}>New Notes Disabled</ThemedText>
+              <ThemedText style={{ fontSize: 16, marginTop: 16, textAlign: 'center', maxWidth: 400, color: '#856404' }}>
+                WizNote is sunsetting on <ThemedText style={{ fontWeight: 'bold' }}>{shutdownDateStr}</ThemedText>. New note creation is currently disabled.
+              </ThemedText>
+              <ThemedText style={{ fontSize: 14, marginTop: 12, textAlign: 'center', color: '#856404' }}>
+                You can still edit your existing notes until the shutdown date.
+              </ThemedText>
+              <TouchableOpacity 
+                style={{ marginTop: 32, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, backgroundColor: '#6A5ACD' }}
+                onPress={() => router.replace('/(tabs)')}
+              >
+                <ThemedText style={{ color: '#FFF', fontWeight: 'bold' }}>Go to My Notes</ThemedText>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <CreateNoteHeader
             isEditMode={isEditMode}
             isSaveDisabled={isSaveDisabled}
             isSaving={isSaving}
@@ -562,7 +594,9 @@ export default function CreateNoteScreen() {
               </View>
             )}
           </ScrollView>
-        </ThemedView>
+        </>
+      )}
+      </ThemedView>
       </WebLayout>
       </ErrorBoundary>
     );
@@ -577,7 +611,23 @@ export default function CreateNoteScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          {/* Header */}
+          {isSunsetMode && !isEditMode ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+              <Ionicons name="warning-outline" size={64} color="#856404" />
+              <ThemedText style={{ fontSize: 22, fontWeight: 'bold', marginTop: 24, textAlign: 'center', color: '#856404' }}>New Notes Disabled</ThemedText>
+              <ThemedText style={{ fontSize: 16, marginTop: 16, textAlign: 'center', color: '#856404' }}>
+                WizNote is sunsetting on <ThemedText style={{ fontWeight: 'bold' }}>{shutdownDateStr}</ThemedText>. New note creation is currently disabled.
+              </ThemedText>
+              <TouchableOpacity 
+                style={{ marginTop: 32, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, backgroundColor: '#6A5ACD' }}
+                onPress={() => router.replace('/(tabs)')}
+              >
+                <ThemedText style={{ color: '#FFF', fontWeight: 'bold' }}>Go to My Notes</ThemedText>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              {/* Header */}
           <View style={[styles.header, { backgroundColor: safeAreaBg, borderBottomColor: borderThemeColor }]}>
             {isAuthenticated && (
               <TouchableOpacity 
@@ -706,6 +756,8 @@ export default function CreateNoteScreen() {
               </View>
             )}
           </ScrollView>
+          </>
+          )}
         
         {/* Conflict Resolution Modal */}
         <ConflictResolutionModal

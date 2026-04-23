@@ -188,15 +188,19 @@ export function SubscriptionManagementCard({
           <View style={styles.noSubscriptionText}>
             <ThemedText style={{ color: textColor, fontWeight: '600' }}>No Active Subscription</ThemedText>
             <ThemedText style={{ color: mutedTextColor, fontSize: 12 }}>
-              Upgrade to unlock premium features
+              {require('../services/SystemSettingsService').systemSettingsService.getSettingsSync()?.sunsetModeEnabled
+                ? 'Premium purchases are currently disabled.'
+                : 'Upgrade to unlock premium features'}
             </ThemedText>
           </View>
-          <TouchableOpacity 
-            style={[styles.upgradeButton, { backgroundColor: accentColor }]}
-            onPress={() => router.push('/join-premium')}
-          >
-            <ThemedText style={styles.upgradeButtonText}>Upgrade</ThemedText>
-          </TouchableOpacity>
+          {!require('../services/SystemSettingsService').systemSettingsService.getSettingsSync()?.sunsetModeEnabled && (
+            <TouchableOpacity 
+              style={[styles.upgradeButton, { backgroundColor: accentColor }]}
+              onPress={() => router.push('/join-premium')}
+            >
+              <ThemedText style={styles.upgradeButtonText}>Upgrade</ThemedText>
+            </TouchableOpacity>
+          )}
         </View>
       </ThemedView>
     );
