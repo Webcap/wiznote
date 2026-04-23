@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { featureFlagService } from '../services/FeatureFlagService';
-import { FeatureFlagKey } from '../types/FeatureFlags';
+import { FeatureFlag, FeatureFlagKey } from '../types/FeatureFlags';
 import { User } from '../types/User';
 
 /**
@@ -8,10 +8,14 @@ import { User } from '../types/User';
  * It will re-render when flags are updated in the FeatureFlagService.
  */
 export function useFeatureFlags() {
+  const [flags, setFlags] = useState<Record<string, FeatureFlag>>(featureFlagService.getAllFlags());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [flagsVersion, setFlagsVersion] = useState(0);
 
   useEffect(() => {
     const listener = () => {
+      setFlags(featureFlagService.getAllFlags());
       setFlagsVersion(v => v + 1);
     };
 
@@ -26,7 +30,10 @@ export function useFeatureFlags() {
   }, [flagsVersion]);
 
   return { 
+    flags,
     isFeatureEnabled, 
-    flagsVersion 
+    flagsVersion,
+    loading,
+    error
   };
 }

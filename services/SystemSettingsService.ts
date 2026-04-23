@@ -29,6 +29,8 @@ export interface SystemSettings {
   // Sunsetting Settings
   sunsetModeEnabled: boolean;
   sunsetShutdownDate: Date;
+  landingSunsetBannerEnabled: boolean;
+  sunsetReminder10Sent: boolean;
   // Customizable Headers
   landingHeaderTitle: string | null;
   landingHeaderSubtitle: string | null;
@@ -76,6 +78,12 @@ export interface UpdateSystemSettingsParams {
   googleSignInEnabled?: boolean;
   sunsetModeEnabled?: boolean;
   sunsetShutdownDate?: Date;
+  landingSunsetBannerEnabled?: boolean;
+  sunsetReminder10Sent?: boolean;
+  landingHeaderTitle?: string | null;
+  landingHeaderSubtitle?: string | null;
+  loginHeaderTitle?: string | null;
+  loginHeaderSubtitle?: string | null;
 }
 
 export class SystemSettingsService {
@@ -83,6 +91,7 @@ export class SystemSettingsService {
   private cachedSettings: SystemSettings | null = null;
   private cacheTimestamp: number = 0;
   private readonly CACHE_DURATION = 60000; // 1 minute cache
+  private listeners: Set<() => void> = new Set();
 
   private constructor() {}
 
@@ -92,6 +101,19 @@ export class SystemSettingsService {
       SystemSettingsService.instance = new SystemSettingsService();
     }
     return SystemSettingsService.instance;
+  }
+
+  // Listener management
+  addListener(listener: () => void) {
+    this.listeners.add(listener);
+  }
+
+  removeListener(listener: () => void) {
+    this.listeners.delete(listener);
+  }
+
+  private notifyListeners() {
+    this.listeners.forEach(listener => listener());
   }
 
   /**
@@ -152,7 +174,7 @@ export class SystemSettingsService {
         // Fallback: Try selecting the specific fields explicitly
         const { data: directFields, error: directError } = await supabase
           .from('system_settings')
-          .select('google_sign_in_enabled, sunset_mode_enabled, sunset_shutdown_date, landing_header_title, landing_header_subtitle, login_header_title, login_header_subtitle')
+          .select('google_sign_in_enabled, sunset_mode_enabled, sunset_shutdown_date, landing_sunset_banner_enabled, landing_header_title, landing_header_subtitle, login_header_title, login_header_subtitle')
           .eq('id', 'default')
           .single();
         
@@ -168,6 +190,9 @@ export class SystemSettingsService {
           }
           if (normalizedFields.sunset_shutdown_date !== undefined) {
             data.sunset_shutdown_date = normalizedFields.sunset_shutdown_date;
+          }
+          if (normalizedFields.landing_sunset_banner_enabled !== undefined) {
+            data.landing_sunset_banner_enabled = normalizedFields.landing_sunset_banner_enabled;
           }
           if (normalizedFields.landing_header_title !== undefined) {
             data.landing_header_title = normalizedFields.landing_header_title;
@@ -290,8 +315,10 @@ export class SystemSettingsService {
           }
           return result;
         })(),
-        sunsetModeEnabled: this.getBoolean(data.sunset_mode_enabled, true),
+        sunsetModeEnabled: this.getBoolean(data.sunset_mode_enabled, false),
         sunsetShutdownDate: this.getDate(data.sunset_shutdown_date, new Date('2026-05-23')),
+        landingSunsetBannerEnabled: this.getBoolean(data.landing_sunset_banner_enabled, false),
+        sunsetReminder10Sent: this.getBoolean(data.sunset_reminder_10_sent, false),
         landingHeaderTitle: data.landing_header_title ?? null,
         landingHeaderSubtitle: data.landing_header_subtitle ?? null,
         loginHeaderTitle: data.login_header_title ?? null,
@@ -373,8 +400,10 @@ export class SystemSettingsService {
       maintenanceMode: false,
       newUserRegistrationEnabled: true,
       googleSignInEnabled: true,
-      sunsetModeEnabled: true,
+      sunsetModeEnabled: false,
       sunsetShutdownDate: new Date('2026-05-23'),
+      landingSunsetBannerEnabled: false,
+      sunsetReminder10Sent: false,
       landingHeaderTitle: null,
       landingHeaderSubtitle: null,
       loginHeaderTitle: null,
@@ -621,6 +650,24 @@ export class SystemSettingsService {
       if (updates.sunsetShutdownDate !== undefined) {
         dbUpdates.sunset_shutdown_date = updates.sunsetShutdownDate.toISOString();
       }
+      if (updates.landingSunsetBannerEnabled !== undefined) {
+        dbUpdates.landing_sunset_banner_enabled = Boolean(updates.landingSunsetBannerEnabled);
+      }
+      if (updates.sunsetReminder10Sent !== undefined) {
+        dbUpdates.sunset_reminder_10_sent = Boolean(updates.sunsetReminder10Sent);
+      }
+      if (updates.landingHeaderTitle !== undefined) {
+        dbUpdates.landing_header_title = updates.landingHeaderTitle;
+      }
+      if (updates.landingHeaderSubtitle !== undefined) {
+        dbUpdates.landing_header_subtitle = updates.landingHeaderSubtitle;
+      }
+      if (updates.loginHeaderTitle !== undefined) {
+        dbUpdates.login_header_title = updates.loginHeaderTitle;
+      }
+      if (updates.loginHeaderSubtitle !== undefined) {
+        dbUpdates.login_header_subtitle = updates.loginHeaderSubtitle;
+      }
 
       // Log what we're about to update
       console.log('SystemSettingsService: Preparing to update with:', {
@@ -768,6 +815,7 @@ export class SystemSettingsService {
     this.cachedSettings = null;
     this.cacheTimestamp = 0;
     console.log('SystemSettingsService: Cache cleared');
+    this.notifyListeners();
   }
 
   /**

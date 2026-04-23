@@ -17,8 +17,13 @@ export function SunsetBanner() {
   const { isAuthenticated } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
 
-  // Hide global banner on dashboard pages as they have a specialized banner
-  const isDashboard = pathname === '/' || pathname === '/(tabs)' || pathname === '/index';
+  // Hide global banner on landing, dashboard, and admin pages
+  const shouldHideBanner = 
+    pathname === '/' || 
+    pathname === '/index' || 
+    pathname === '/(tabs)' || 
+    pathname.startsWith('/admin') || 
+    pathname === '/user-management';
   
   const isSunsetMode = settings?.sunsetModeEnabled ?? false;
   const bannerBg = '#FFF3CD'; // Warning yellow
@@ -49,7 +54,7 @@ export function SunsetBanner() {
     }
   };
 
-  if (loading || !isSunsetMode || !settings || isDashboard) return null;
+  if (loading || !isSunsetMode || !settings || shouldHideBanner) return null;
 
   const shutdownDateStr = settings.sunsetShutdownDate.toLocaleDateString(undefined, { 
     year: 'numeric', 

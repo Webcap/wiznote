@@ -24,6 +24,16 @@ export function useSystemSettings() {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+  
+  useEffect(() => {
+    const service = SystemSettingsService.getInstance();
+    const listener = () => {
+      fetchSettings();
+    };
+    
+    service.addListener(listener);
+    return () => service.removeListener(listener);
+  }, [fetchSettings]);
 
   const refresh = () => fetchSettings(true);
 

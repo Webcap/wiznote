@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import {
     Alert,
     Platform,
@@ -16,12 +16,99 @@ import { WebLayout } from '../components/web/WebLayout';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import { useAuth } from '../hooks/useAuth';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 import { featureFlagService } from '../services/FeatureFlagService';
 import { featureLimitService } from '../services/FeatureLimitService';
 // Old premium plan service removed - using enhanced plans system now
 
+function SunsetCountdownCard({ shutdownDate }: { shutdownDate: Date }) {
+  const [timeLeft, setTimeLeft] = useState<{
+    days: number;
+    hours: number;
+    minutes: number;
+    seconds: number;
+  } | null>(null);
+
+  const cardBg = useThemeColor({}, 'backgroundSecondary');
+  const textSecondaryColor = useThemeColor({}, 'textSecondary');
+  const accentWarning = useThemeColor({}, 'accentWarning');
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const difference = +new Date(shutdownDate) - +new Date();
+      let timeLeft = null;
+
+      if (difference > 0) {
+        timeLeft = {
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((difference / 1000 / 60) % 60),
+          seconds: Math.floor((difference / 1000) % 60),
+        };
+      }
+      return timeLeft;
+    };
+
+    const initial = calculateTimeLeft();
+    setTimeLeft(initial);
+    
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [shutdownDate]);
+
+  if (!timeLeft) {
+    return (
+      <View style={[styles.countdownCard, { backgroundColor: cardBg, borderColor: '#FF4444' }]}>
+        <View style={styles.countdownHeader}>
+          <Ionicons name="alert-circle" size={24} color="#FF4444" />
+          <ThemedText style={[styles.countdownTitle, { color: '#FF4444' }]}>
+            Platform Sunsetted
+          </ThemedText>
+        </View>
+        <ThemedText style={{ color: textSecondaryColor, textAlign: 'center' }}>
+          The shutdown date ({shutdownDate.toLocaleDateString()}) has passed.
+        </ThemedText>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.countdownCard, { backgroundColor: cardBg }]}>
+      <View style={styles.countdownHeader}>
+        <Ionicons name="timer" size={24} color={accentWarning} />
+        <ThemedText style={styles.countdownTitle}>Sunset Countdown</ThemedText>
+      </View>
+      <View style={styles.countdownGrid}>
+        <View style={styles.countdownItem}>
+          <ThemedText style={styles.countdownNumber}>{timeLeft.days}</ThemedText>
+          <ThemedText style={styles.countdownLabel}>Days</ThemedText>
+        </View>
+        <View style={styles.countdownItem}>
+          <ThemedText style={styles.countdownNumber}>{timeLeft.hours}</ThemedText>
+          <ThemedText style={styles.countdownLabel}>Hours</ThemedText>
+        </View>
+        <View style={styles.countdownItem}>
+          <ThemedText style={styles.countdownNumber}>{timeLeft.minutes}</ThemedText>
+          <ThemedText style={styles.countdownLabel}>Mins</ThemedText>
+        </View>
+        <View style={styles.countdownItem}>
+          <ThemedText style={styles.countdownNumber}>{timeLeft.seconds}</ThemedText>
+          <ThemedText style={styles.countdownLabel}>Secs</ThemedText>
+        </View>
+      </View>
+      <ThemedText style={[styles.countdownSubtitle, { color: textSecondaryColor }]}>
+        Remaining until {shutdownDate.toLocaleDateString()}
+      </ThemedText>
+    </View>
+  );
+}
+
 export default function AdminDashboardScreen() {
   const { user, isAdmin, isAuthenticated, isLoading, getAllUsers } = useAuth();
+  const { settings } = useSystemSettings();
   const { showSnackbar } = useSnackbar();
   const router = useRouter();
   const [stats, setStats] = useState({
@@ -664,6 +751,13 @@ export default function AdminDashboardScreen() {
       }
     >
       <ScrollView style={styles.webContent}>
+        {/* Sunset Countdown Card */}
+        {settings?.sunsetModeEnabled && settings?.sunsetShutdownDate && (
+          <View style={styles.section}>
+            <SunsetCountdownCard shutdownDate={new Date(settings.sunsetShutdownDate)} />
+          </View>
+        )}
+
         {/* Quick Stats */}
         <View style={styles.section}>
           <ThemedText style={styles.sectionTitle}>System Overview</ThemedText>
@@ -1759,5 +1853,50 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 8,
     marginBottom: 2,
+  },
+  countdownCard: {
+    padding: Platform.OS === 'web' ? 24 : 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+    marginBottom: 20,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  countdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  countdownTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  countdownGrid: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
+  countdownItem: {
+    alignItems: 'center',
+    minWidth: 60,
+  },
+  countdownNumber: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#6A5ACD',
+  },
+  countdownLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
+  countdownSubtitle: {
+    fontSize: 13,
+    opacity: 0.8,
   },
 }); 
