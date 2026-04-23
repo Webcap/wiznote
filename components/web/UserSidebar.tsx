@@ -10,6 +10,7 @@ import { usePDFUpload } from '../../contexts/PDFUploadContext';
 import { useAudioUpload } from '../../contexts/AudioUploadContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { pdfStorage } from '../../services/PDFStorage';
 import { audioStorage } from '../../services/AudioStorage';
@@ -54,6 +55,8 @@ export function UserSidebar({
   const { setUploadingPDF, onUploadComplete } = usePDFUpload();
   const { setUploadingAudio } = useAudioUpload();
   const { isFeatureEnabled } = useFeatureFlags();
+  const { settings } = useSystemSettings();
+  const isSunsetMode = settings?.sunsetModeEnabled;
   const [showCreateDropdown, setShowCreateDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const [showSizeLimitWarning, setShowSizeLimitWarning] = useState(false);
@@ -868,27 +871,32 @@ export function UserSidebar({
                   backdropFilter: 'blur(8px)'
                 }}
               >
-                <div 
+                <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     padding: '12px 16px',
                     borderBottom: '1px solid rgba(255,255,255,0.1)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
+                    cursor: isSunsetMode ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    opacity: isSunsetMode ? 0.5 : 1
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(106, 90, 205, 0.1)';
-                    e.currentTarget.style.transform = 'translateX(4px)';
+                    if (!isSunsetMode) {
+                      e.currentTarget.style.backgroundColor = 'rgba(106, 90, 205, 0.1)';
+                      e.currentTarget.style.transform = 'translateX(4px)';
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.transform = 'translateX(0)';
+                    if (!isSunsetMode) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.transform = 'translateX(0)';
+                    }
                   }}
-                  onClick={() => handleCreateOption('create')}
+                  onClick={isSunsetMode ? undefined : () => handleCreateOption('create')}
                 >
                   <div style={{ width: '24px', height: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginRight: '12px' }}>
-                    <Ionicons name="document-text" size={18} color="#6A5ACD" />
+                    <Ionicons name="document-text" size={18} color={isSunsetMode ? '#999' : '#6A5ACD'} />
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <div style={{ fontSize: '14px', fontWeight: '600', color: '#333333', marginBottom: '2px' }}>{t('sidebar.createTextNote')}</div>
@@ -896,55 +904,65 @@ export function UserSidebar({
                   </div>
                 </div>
                 
-                <div 
+                <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     padding: '12px 16px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
+                    cursor: isSunsetMode ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    opacity: isSunsetMode ? 0.5 : 1
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(106, 90, 205, 0.1)';
-                    e.currentTarget.style.transform = 'translateX(4px)';
+                    if (!isSunsetMode) {
+                      e.currentTarget.style.backgroundColor = 'rgba(106, 90, 205, 0.1)';
+                      e.currentTarget.style.transform = 'translateX(4px)';
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.transform = 'translateX(0)';
+                    if (!isSunsetMode) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                      e.currentTarget.style.transform = 'translateX(0)';
+                    }
                   }}
-                  onClick={() => handleCreateOption('create-audio')}
+                  onClick={isSunsetMode ? undefined : () => handleCreateOption('create-audio')}
                 >
                   <div style={{ width: '24px', height: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginRight: '12px' }}>
-                    <Ionicons name="mic" size={18} color="#6A5ACD" />
+                    <Ionicons name="mic" size={18} color={isSunsetMode ? '#999' : '#6A5ACD'} />
                   </div>
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                     <div style={{ fontSize: '14px', fontWeight: '600', color: '#333333', marginBottom: '2px' }}>{t('sidebar.createAudioNote')}</div>
                     <div style={{ fontSize: '12px', color: '#666666', fontWeight: '400' }}>{t('sidebar.createAudioNoteDesc')}</div>
                   </div>
                 </div>
-                
+
                 {/* Upload Audio Option */}
                 {isFeatureEnabled('voice_recording') && (
-                  <div 
+                  <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       padding: '12px 16px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
+                      cursor: isSunsetMode ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s ease',
+                      opacity: isSunsetMode ? 0.5 : 1
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(106, 90, 205, 0.1)';
-                      e.currentTarget.style.transform = 'translateX(4px)';
+                      if (!isSunsetMode) {
+                        e.currentTarget.style.backgroundColor = 'rgba(106, 90, 205, 0.1)';
+                        e.currentTarget.style.transform = 'translateX(4px)';
+                      }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                      e.currentTarget.style.transform = 'translateX(0)';
+                      if (!isSunsetMode) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.transform = 'translateX(0)';
+                      }
                     }}
-                    onClick={handleAudioUploadClick}
+                    onClick={isSunsetMode ? undefined : handleAudioUploadClick}
                   >
                     <div style={{ width: '24px', height: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginRight: '12px' }}>
-                      <Ionicons name="cloud-upload" size={18} color="#6A5ACD" />
+                      <Ionicons name="cloud-upload" size={18} color={isSunsetMode ? '#999' : '#6A5ACD'} />
                     </div>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                       <div style={{ fontSize: '14px', fontWeight: '600', color: '#333333', marginBottom: '2px' }}>{t('sidebar.uploadAudio')}</div>
@@ -952,29 +970,34 @@ export function UserSidebar({
                     </div>
                   </div>
                 )}
-                
+
                 {/* PDF Upload Option - Feature Flag Protected */}
                 {isFeatureEnabled('pdf_upload') && (
-                  <div 
+                  <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       padding: '12px 16px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
+                      cursor: isSunsetMode ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s ease',
+                      opacity: isSunsetMode ? 0.5 : 1
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(106, 90, 205, 0.1)';
-                      e.currentTarget.style.transform = 'translateX(4px)';
+                      if (!isSunsetMode) {
+                        e.currentTarget.style.backgroundColor = 'rgba(106, 90, 205, 0.1)';
+                        e.currentTarget.style.transform = 'translateX(4px)';
+                      }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                      e.currentTarget.style.transform = 'translateX(0)';
+                      if (!isSunsetMode) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.transform = 'translateX(0)';
+                      }
                     }}
-                    onClick={handlePDFUploadClick}
+                    onClick={isSunsetMode ? undefined : handlePDFUploadClick}
                   >
                     <div style={{ width: '24px', height: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginRight: '12px' }}>
-                      <Ionicons name="document" size={18} color="#6A5ACD" />
+                      <Ionicons name="document" size={18} color={isSunsetMode ? '#999' : '#6A5ACD'} />
                     </div>
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                       <div style={{ fontSize: '14px', fontWeight: '600', color: '#333333', marginBottom: '2px' }}>{t('sidebar.uploadPDF')}</div>

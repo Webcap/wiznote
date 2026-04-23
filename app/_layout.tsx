@@ -258,7 +258,8 @@ function AppContent() {
       
       // Check if current path is a public route (accessible without authentication)
       const isVerifyDeletionPage = currentPath === '/verify-deletion' || currentPath.startsWith('/verify-deletion');
-      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage || isChangelogPage || isFaqPage || isSignupPage || isLoginPage || isVerifyEmailPage || isVerifyDeletionPage;
+      const isSunsetInfoPage = currentPath.startsWith('/sunset-info') || currentPath === 'sunset-info' || currentPath.includes('/sunset-info');
+      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage || isChangelogPage || isFaqPage || isSignupPage || isLoginPage || isVerifyEmailPage || isVerifyDeletionPage || isSunsetInfoPage;
       
       console.log('Layout: Current path:', currentPath);
       console.log('Layout: Is payment page:', isPaymentPage);
@@ -426,7 +427,10 @@ function AppContent() {
                       <Stack.Screen name="admin" options={{ headerShown: false }} />
                       <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
                       <Stack.Screen name="reset-password" options={{ headerShown: false }} />
-                      <Stack.Screen name="help" options={{ 
+                      <Stack.Screen name="sunset-info" options={{
+                        headerShown: false,
+                      }} />
+                      <Stack.Screen name="help" options={{
                         headerShown: false,
                         presentation: 'card',
                         header: () => null,

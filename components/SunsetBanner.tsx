@@ -1,18 +1,25 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { ThemedText } from './ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { exportService } from '../services/ExportService';
 import { useSnackbar } from '../contexts/SnackbarContext';
+import { useAuth } from '../hooks/useAuth';
 
 export function SunsetBanner() {
   const router = useRouter();
+  const pathname = usePathname();
   const { showSnackbar } = useSnackbar();
   const { settings, loading } = useSystemSettings();
+  const { isAuthenticated } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
+
+  // Hide global banner on dashboard pages as they have a specialized banner
+  const isDashboard = pathname === '/' || pathname === '/(tabs)' || pathname === '/index';
+  
   const isSunsetMode = settings?.sunsetModeEnabled ?? false;
   const bannerBg = '#FFF3CD'; // Warning yellow
   const bannerText = '#856404'; // Dark warning yellow
@@ -20,6 +27,12 @@ export function SunsetBanner() {
 
   const handleExport = async () => {
     if (isExporting) return;
+    
+    if (!isAuthenticated) {
+      showSnackbar('Please sign in to export your data.', 'info');
+      router.push('/login');
+      return;
+    }
     
     setIsExporting(true);
     try {
@@ -36,7 +49,7 @@ export function SunsetBanner() {
     }
   };
 
-  if (loading || !isSunsetMode || !settings) return null;
+  if (loading || !isSunsetMode || !settings || isDashboard) return null;
 
   const shutdownDateStr = settings.sunsetShutdownDate.toLocaleDateString(undefined, { 
     year: 'numeric', 

@@ -10,6 +10,7 @@ import { usePDFUpload } from '../../contexts/PDFUploadContext';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../types/User';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { pdfStorage } from '../../services/PDFStorage';
 import { supabaseNoteStorage } from '../../services/SupabaseNoteStorage';
@@ -32,6 +33,8 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
   const { showSnackbar } = useSnackbar();
   const { setUploadingPDF, onUploadComplete } = usePDFUpload();
   const { isFeatureEnabled } = useFeatureFlags();
+  const { settings } = useSystemSettings();
+  const isSunsetMode = settings?.sunsetModeEnabled;
   const [showCreateDropdown, setShowCreateDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const [showSizeLimitWarning, setShowSizeLimitWarning] = useState(false);
@@ -607,15 +610,19 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
               accessibilityRole="menu"
               accessibilityLabel="Note creation options"
             >
-              <TouchableOpacity 
-                style={styles.dropdownItem}
-                onPress={() => handleCreateOption('create')}
+              <TouchableOpacity
+                style={[
+                  styles.dropdownItem,
+                  isSunsetMode && { opacity: 0.5, cursor: 'not-allowed' as any }
+                ]}
+                onPress={isSunsetMode ? undefined : () => handleCreateOption('create')}
                 accessibilityLabel="Create text note"
                 accessibilityHint="Creates a new text note with rich formatting"
                 accessibilityRole="menuitem"
+                activeOpacity={isSunsetMode ? 1 : 0.7}
               >
                 <View style={styles.dropdownItemIcon}>
-                  <Ionicons name="document-text" size={18} color="#6A5ACD" />
+                  <Ionicons name="document-text" size={18} color={isSunsetMode ? '#999' : '#6A5ACD'} />
                 </View>
                 <View style={styles.dropdownItemContent}>
                   <ThemedText style={styles.dropdownItemText}>Create Text Note</ThemedText>
@@ -623,33 +630,41 @@ export function AdminSidebar({ activePage = 'dashboard' }: AdminSidebarProps) {
                 </View>
               </TouchableOpacity>
               
-              <TouchableOpacity 
-                style={styles.dropdownItem}
-                onPress={() => handleCreateOption('create-audio')}
+              <TouchableOpacity
+                style={[
+                  styles.dropdownItem,
+                  isSunsetMode && { opacity: 0.5, cursor: 'not-allowed' as any }
+                ]}
+                onPress={isSunsetMode ? undefined : () => handleCreateOption('create-audio')}
                 accessibilityLabel="Create audio note"
                 accessibilityHint="Creates a new audio note with voice recording"
                 accessibilityRole="menuitem"
+                activeOpacity={isSunsetMode ? 1 : 0.7}
               >
                 <View style={styles.dropdownItemIcon}>
-                  <Ionicons name="mic" size={18} color="#6A5ACD" />
+                  <Ionicons name="mic" size={18} color={isSunsetMode ? '#999' : '#6A5ACD'} />
                 </View>
                 <View style={styles.dropdownItemContent}>
                   <ThemedText style={styles.dropdownItemText}>Create Audio Note</ThemedText>
                   <ThemedText style={styles.dropdownItemSubtitle}>Voice recording & transcription</ThemedText>
                 </View>
               </TouchableOpacity>
-              
+
               {/* PDF Upload Option - Feature Flag Protected */}
               {isFeatureEnabled('pdf_upload') && (
-                <TouchableOpacity 
-                  style={styles.dropdownItem}
-                  onPress={handlePDFUploadClick}
+                <TouchableOpacity
+                  style={[
+                    styles.dropdownItem,
+                    isSunsetMode && { opacity: 0.5, cursor: 'not-allowed' as any }
+                  ]}
+                  onPress={isSunsetMode ? undefined : handlePDFUploadClick}
                   accessibilityLabel="Upload PDF"
                   accessibilityHint="Upload a PDF document"
                   accessibilityRole="menuitem"
+                  activeOpacity={isSunsetMode ? 1 : 0.7}
                 >
                   <View style={styles.dropdownItemIcon}>
-                    <Ionicons name="document" size={18} color="#6A5ACD" />
+                    <Ionicons name="document" size={18} color={isSunsetMode ? '#999' : '#6A5ACD'} />
                   </View>
                   <View style={styles.dropdownItemContent}>
                     <ThemedText style={styles.dropdownItemText}>Upload PDF</ThemedText>

@@ -33,6 +33,7 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [googleSignInEnabled, setGoogleSignInEnabled] = useState(true); // Default to true for better UX
+  const [sunsetModeEnabled, setSunsetModeEnabled] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const { signUp, signInWithGoogle } = useAuth();
@@ -41,27 +42,36 @@ export default function SignupScreen() {
   // Set page title for web
   usePageTitle();
 
-  // Load Google Sign-In setting (system setting only - no feature flag needed for auth features)
+  // Load System Settings (Google Sign-In and Sunset Mode)
   useEffect(() => {
-    const loadGoogleSignInSettings = async () => {
+    const loadSettings = async () => {
       try {
-        // Only check system setting - no feature flag needed since users aren't authenticated yet
-        const systemSettingEnabled = await systemSettingsService.isGoogleSignInEnabled();
-        console.log('Signup: Google Sign-In system setting enabled:', systemSettingEnabled);
-        
-        setGoogleSignInEnabled(systemSettingEnabled);
+        const settings = await systemSettingsService.getSettings();
+        console.log('Signup: System settings loaded:', settings);
+
+        setGoogleSignInEnabled(settings.googleSignInEnabled);
+        setSunsetModeEnabled(settings.sunsetModeEnabled);
       } catch (error) {
-        console.error('Error loading Google Sign-In settings:', error);
-        // Default to true if there's an error (better UX - show button, error will show if clicked)
-        console.warn('Signup: Defaulting Google Sign-In to enabled due to error');
+        console.error('Error loading system settings:', error);
+        // Defaults
         setGoogleSignInEnabled(true);
+        setSunsetModeEnabled(false);
       }
     };
-    loadGoogleSignInSettings();
+    loadSettings();
   }, []);
 
   const validateForm = (): string | null => {
     setErrorMessage(null);
+
+    if (sunsetModeEnabled) {
+      const message = 'WizNote is in sunset mode. New registrations are disabled.';
+      setErrorMessage(message);
+      showSnackbar(message, 'error', 5000);
+      if (Platform.OS !== 'web') Alert.alert(t('signup.error'), message);
+      return message;
+    }
+
     if (!email.trim()) {
       const message = t('signup.pleaseEnterEmailAddress');
       setErrorMessage(message);
@@ -507,6 +517,30 @@ export default function SignupScreen() {
   }
 
   // Mobile layout (existing code)
+  if (sunsetModeEnabled && Platform.OS !== 'web') {
+    return (
+      <ThemedView style={[styles.container, { backgroundColor, justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+        <View style={{ backgroundColor: '#FFF3CD', borderRadius: 20, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: '#FFEEBA' }}>
+          <Ionicons name="alert-circle" size={48} color="#856404" style={{ marginBottom: 16 }} />
+          <ThemedText style={{ fontSize: 24, fontWeight: 'bold', color: '#856404', marginBottom: 12, textAlign: 'center' }}>
+            Registrations Disabled
+          </ThemedText>
+          <ThemedText style={{ fontSize: 16, color: '#856404', textAlign: 'center', lineHeight: 24, marginBottom: 24 }}>
+            WizNote is currently in sunset mode and new registrations have been disabled. Only existing users can sign in to manage their data.
+          </ThemedText>
+          <TouchableOpacity
+            style={{ backgroundColor: accentColor, paddingVertical: 14, paddingHorizontal: 24, borderRadius: 12, width: '100%', alignItems: 'center' }}
+            onPress={() => router.replace('/(auth)/login')}
+          >
+            <ThemedText style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>
+              Go to Login
+            </ThemedText>
+          </TouchableOpacity>
+        </View>
+      </ThemedView>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}

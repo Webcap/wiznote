@@ -240,15 +240,15 @@ export class PDFStorage {
           const file = fileOrUri;
           if (normalizeMimeType(file.type) !== uploadContentType) {
             const arrayBuffer = await file.arrayBuffer();
-            pdfData = new Uint8Array(arrayBuffer);
-            uploadFile = new File([pdfData], file.name, { type: uploadContentType });
+            // Pass the ArrayBuffer directly to avoid Uint8Array typing issues
+            uploadFile = new File([arrayBuffer], file.name, { type: uploadContentType });
           } else {
             uploadFile = file;
           }
         } else {
           const arrayBuffer = await fileOrUri.arrayBuffer();
-          pdfData = new Uint8Array(arrayBuffer);
-          uploadFile = new Blob([pdfData], { type: uploadContentType });
+          // Pass the ArrayBuffer directly
+          uploadFile = new Blob([arrayBuffer], { type: uploadContentType });
         }
       }
 
@@ -266,7 +266,8 @@ export class PDFStorage {
       } else if (pdfData) {
         // On web, creating a Blob is preferred for correct mime type handling
         if (Platform.OS === 'web' && typeof Blob !== 'undefined') {
-          uploadBody = new Blob([pdfData], { type: uploadContentType });
+          // Use the buffer directly
+          uploadBody = new Blob([pdfData.buffer as ArrayBuffer], { type: uploadContentType });
         } else {
           // On React Native/Mobile, pass the Uint8Array directly
           // Creating a Blob from ArrayBuffer manually often fails in RN

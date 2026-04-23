@@ -1,17 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { Image, Platform, ScrollView, TouchableOpacity, View, Dimensions } from 'react-native';
+import { Image, Platform, ScrollView, TouchableOpacity, View, Dimensions, ImageStyle } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { useTranslation } from '../hooks/useTranslation';
+import { useSystemSettings } from '../hooks/useSystemSettings';
 import { LanguageSelector } from './LanguageSelector';
 import { styles } from './LandingPage.styles';
 
 export default function LandingPage() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { settings } = useSystemSettings();
   const backgroundColor = useThemeColor({}, 'background');
   const backgroundSecondary = useThemeColor({}, 'backgroundSecondary');
   const textColor = useThemeColor({}, 'text');
@@ -49,7 +51,7 @@ export default function LandingPage() {
             <View style={styles.logo}>
               <Image
                 source={require('../assets/images/WiznoteLogoNov25.png')}
-                style={styles.logoImage}
+                style={styles.logoImage as ImageStyle}
                 resizeMode="contain"
               />
               <ThemedText style={[styles.logoText, { color: textColor }]}>WizNote</ThemedText>
@@ -85,12 +87,12 @@ export default function LandingPage() {
             
             {/* Title */}
             <ThemedText style={[styles.heroTitleMobile, { color: textColor }]}>
-              {t('landing.heroTitle')}
+              {settings?.landingHeaderTitle || t('landing.heroTitle')}
             </ThemedText>
             
             {/* Subtitle */}
             <ThemedText style={[styles.heroSubtitleMobile, { color: textSecondaryColor }]}>
-              {t('landing.heroSubtitle')}
+              {settings?.landingHeaderSubtitle || t('landing.heroSubtitle')}
             </ThemedText>
 
             {/* CTA Buttons */}
@@ -126,11 +128,11 @@ export default function LandingPage() {
               </View>
               
               <ThemedText style={[styles.heroTitle, { color: textColor }]}>
-                {t('landing.heroTitle').replace('.', '.\n')}
+                {(settings?.landingHeaderTitle || t('landing.heroTitle')).replace('.', '.\n')}
               </ThemedText>
               
               <ThemedText style={[styles.heroSubtitle, { color: textSecondaryColor }]}>
-                {t('landing.heroSubtitle')}
+                {settings?.landingHeaderSubtitle || t('landing.heroSubtitle')}
               </ThemedText>
 
               <View style={styles.heroButtons}>

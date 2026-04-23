@@ -929,5 +929,51 @@ export const styles = StyleSheet.create({
       },
     } : {}),
   },
+  // Sunset Banner Styles
+  sunsetBanner: {
+    backgroundColor: '#FFFBEB', // Light amber background
+    borderBottomWidth: 1,
+    borderBottomColor: '#F59E0B', // Amber border
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    zIndex: 1000,
+    ...(Platform.OS === 'web' ? {
+      position: 'sticky',
+      top: 0,
+    } : {}),
+  },
+  sunsetContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    maxWidth: 1200,
+    marginHorizontal: 'auto',
+    width: '100%',
+    ...(Platform.OS === 'web' ? {
+      '@media (max-width: 768px)': {
+        flexDirection: 'column',
+        textAlign: 'center',
+        gap: 8,
+      },
+    } : {}),
+  },
+  sunsetText: {
+    color: '#92400E', // Dark amber text
+    fontSize: 14,
+    fontWeight: '600',
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  sunsetLinkContainer: {
+    marginLeft: 4,
+  },
+  sunsetLink: {
+    color: '#B45309',
+    textDecorationLine: 'underline',
+    fontWeight: '700',
+  },
 });
 

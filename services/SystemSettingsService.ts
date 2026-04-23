@@ -29,6 +29,11 @@ export interface SystemSettings {
   // Sunsetting Settings
   sunsetModeEnabled: boolean;
   sunsetShutdownDate: Date;
+  // Customizable Headers
+  landingHeaderTitle: string | null;
+  landingHeaderSubtitle: string | null;
+  loginHeaderTitle: string | null;
+  loginHeaderSubtitle: string | null;
   // Audit
   updatedBy: string | null;
   updatedAt: Date;
@@ -147,7 +152,7 @@ export class SystemSettingsService {
         // Fallback: Try selecting the specific fields explicitly
         const { data: directFields, error: directError } = await supabase
           .from('system_settings')
-          .select('google_sign_in_enabled, sunset_mode_enabled, sunset_shutdown_date')
+          .select('google_sign_in_enabled, sunset_mode_enabled, sunset_shutdown_date, landing_header_title, landing_header_subtitle, login_header_title, login_header_subtitle')
           .eq('id', 'default')
           .single();
         
@@ -163,6 +168,18 @@ export class SystemSettingsService {
           }
           if (normalizedFields.sunset_shutdown_date !== undefined) {
             data.sunset_shutdown_date = normalizedFields.sunset_shutdown_date;
+          }
+          if (normalizedFields.landing_header_title !== undefined) {
+            data.landing_header_title = normalizedFields.landing_header_title;
+          }
+          if (normalizedFields.landing_header_subtitle !== undefined) {
+            data.landing_header_subtitle = normalizedFields.landing_header_subtitle;
+          }
+          if (normalizedFields.login_header_title !== undefined) {
+            data.login_header_title = normalizedFields.login_header_title;
+          }
+          if (normalizedFields.login_header_subtitle !== undefined) {
+            data.login_header_subtitle = normalizedFields.login_header_subtitle;
           }
         } else {
           if (__DEV__) {
@@ -274,10 +291,14 @@ export class SystemSettingsService {
           return result;
         })(),
         sunsetModeEnabled: this.getBoolean(data.sunset_mode_enabled, true),
-        sunsetShutdownDate: this.getDate(data.sunset_shutdown_date, new Date('2026-12-31')),
+        sunsetShutdownDate: this.getDate(data.sunset_shutdown_date, new Date('2026-05-23')),
+        landingHeaderTitle: data.landing_header_title ?? null,
+        landingHeaderSubtitle: data.landing_header_subtitle ?? null,
+        loginHeaderTitle: data.login_header_title ?? null,
+        loginHeaderSubtitle: data.login_header_subtitle ?? null,
         updatedBy: data.updated_by,
-        updatedAt: this.parseDate(data.updated_at) ?? new Date(),
-        createdAt: this.parseDate(data.created_at) ?? new Date(),
+        updatedAt: this.getDate(data.updated_at, new Date()),
+        createdAt: this.getDate(data.created_at, new Date()),
       };
 
         if (__DEV__) {
@@ -354,6 +375,10 @@ export class SystemSettingsService {
       googleSignInEnabled: true,
       sunsetModeEnabled: true,
       sunsetShutdownDate: new Date('2026-05-23'),
+      landingHeaderTitle: null,
+      landingHeaderSubtitle: null,
+      loginHeaderTitle: null,
+      loginHeaderSubtitle: null,
       updatedBy: null,
       updatedAt: new Date(),
       createdAt: new Date(),

@@ -7,11 +7,13 @@ import { useThemeColor } from '../hooks/useThemeColor';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { exportService } from '../services/ExportService';
 import { useSnackbar } from '../contexts/SnackbarContext';
+import { useAuth } from '../hooks/useAuth';
 
 export function DashboardSunsetBanner() {
   const router = useRouter();
   const { showSnackbar } = useSnackbar();
   const { settings, loading } = useSystemSettings();
+  const { isAuthenticated } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const isSunsetMode = settings?.sunsetModeEnabled ?? false;
   
@@ -33,6 +35,12 @@ export function DashboardSunsetBanner() {
 
   const handleExport = async () => {
     if (isExporting) return;
+    
+    if (!isAuthenticated) {
+      showSnackbar('Please sign in to export your data.', 'info');
+      router.push('/login');
+      return;
+    }
     
     setIsExporting(true);
     try {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View, TouchableOpacity, Linking, Platform, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ThemedText } from '../components/ThemedText';
@@ -7,14 +8,17 @@ import { ThemedView } from '../components/ThemedView';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { WebLayout } from '../components/web/WebLayout';
 import { UserSidebar } from '../components/web/UserSidebar';
+import { useAuth } from '../hooks/useAuth';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { exportService } from '../services/ExportService';
 import { useSnackbar } from '../contexts/SnackbarContext';
 
 export default function SunsetInfoScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { showSnackbar } = useSnackbar();
   const { settings, loading } = useSystemSettings();
+  const { isAuthenticated } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
@@ -24,6 +28,12 @@ export default function SunsetInfoScreen() {
 
   const handleExport = async () => {
     if (isExporting) return;
+    
+    if (!isAuthenticated) {
+      showSnackbar('Please sign in to export your data.', 'info');
+      router.push('/login');
+      return;
+    }
     
     setIsExporting(true);
     try {
@@ -42,13 +52,13 @@ export default function SunsetInfoScreen() {
 
   if (loading || !settings) return null;
 
-  const shutdownDateStr = settings.sunsetShutdownDate.toLocaleDateString(undefined, { 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+  const shutdownDateStr = settings.sunsetShutdownDate.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
   });
 
-  const Content = () => (
+  const content = (
     <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -63,10 +73,10 @@ export default function SunsetInfoScreen() {
         </View>
         <ThemedText style={styles.cardTitle}>WizNote is Sunsetting</ThemedText>
         <ThemedText style={styles.cardDescription}>
-          After careful consideration, we have decided to discontinue the WizNote service. 
+          After careful consideration, we have decided to discontinue the WizNote service.
           We want to thank all our users for being part of this journey.
         </ThemedText>
-        
+
         <View style={styles.deadlineBox}>
           <ThemedText style={styles.deadlineLabel}>Shutdown Date:</ThemedText>
           <ThemedText style={styles.deadlineDate}>{shutdownDateStr}</ThemedText>
@@ -75,13 +85,13 @@ export default function SunsetInfoScreen() {
 
       <View style={styles.section}>
         <ThemedText style={styles.sectionTitle}>What does this mean for you?</ThemedText>
-        
+
         <View style={styles.step}>
           <View style={styles.stepNumber}><ThemedText style={styles.stepNumberText}>1</ThemedText></View>
           <View style={styles.stepContent}>
             <ThemedText style={styles.stepTitle}>Read-Only Mode</ThemedText>
             <ThemedText style={styles.stepDescription}>
-              The platform is now in read-only mode. New signups and note creation have been disabled. 
+              The platform is now in read-only mode. New signups and note creation have been disabled.
               You can still view, edit, and manage your existing notes.
             </ThemedText>
           </View>
@@ -92,10 +102,10 @@ export default function SunsetInfoScreen() {
           <View style={styles.stepContent}>
             <ThemedText style={styles.stepTitle}>Export Your Data</ThemedText>
             <ThemedText style={styles.stepDescription}>
-              We provide a comprehensive export tool that allows you to download all your notes, quizzes, and flashcards in JSON format. 
+              We provide a comprehensive export tool that allows you to download all your notes, quizzes, and flashcards in JSON format.
               We recommend exporting your data as soon as possible.
             </ThemedText>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: accentColor, opacity: isExporting ? 0.7 : 1 }]}
               onPress={handleExport}
               disabled={isExporting}
@@ -117,7 +127,7 @@ export default function SunsetInfoScreen() {
           <View style={styles.stepContent}>
             <ThemedText style={styles.stepTitle}>Final Shutdown</ThemedText>
             <ThemedText style={styles.stepDescription}>
-              On {shutdownDateStr}, all WizNote servers will be powered down and all user data will be permanently deleted. 
+              On {shutdownDateStr}, all WizNote servers will be powered down and all user data will be permanently deleted.
               Access to the application will no longer be possible after this date.
             </ThemedText>
           </View>
@@ -126,7 +136,7 @@ export default function SunsetInfoScreen() {
 
       <View style={styles.faqSection}>
         <ThemedText style={styles.sectionTitle}>Frequently Asked Questions</ThemedText>
-        
+
         <View style={styles.faqItem}>
           <ThemedText style={styles.faqQuestion}>Can I still edit my existing notes?</ThemedText>
           <ThemedText style={styles.faqAnswer}>
@@ -137,7 +147,7 @@ export default function SunsetInfoScreen() {
         <View style={styles.faqItem}>
           <ThemedText style={styles.faqQuestion}>What happens to my Premium subscription?</ThemedText>
           <ThemedText style={styles.faqAnswer}>
-            All active Premium subscriptions will remain active until their current billing cycle ends. 
+            All active Premium subscriptions will remain active until their current billing cycle ends.
             New subscriptions and renewals have been disabled.
           </ThemedText>
         </View>
@@ -145,7 +155,7 @@ export default function SunsetInfoScreen() {
         <View style={styles.faqItem}>
           <ThemedText style={styles.faqQuestion}>How do I export my data?</ThemedText>
           <ThemedText style={styles.faqAnswer}>
-            Click the "Export All Data Now" button above or go to Settings and look for the "Export All Data" button. 
+            Click the "Export All Data Now" button above or go to Settings and look for the "Export All Data" button.
             This will generate a JSON file containing all your notes, quizzes, flashcards, and voice note transcriptions, which you can save to your device.
           </ThemedText>
         </View>
@@ -164,15 +174,15 @@ export default function SunsetInfoScreen() {
 
   if (Platform.OS === 'web') {
     return (
-      <WebLayout sidebar={<UserSidebar />}>
-        <Content />
+      <WebLayout sidebar={isAuthenticated ? <UserSidebar /> : undefined} title="Sunset Information">
+        {content}
       </WebLayout>
     );
   }
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor }]}>
-      <Content />
+    <ThemedView style={[styles.container, { backgroundColor, paddingTop: insets.top }]}>
+      {content}
     </ThemedView>
   );
 }
@@ -290,11 +300,26 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 10,
-    alignSelf: 'flex-start',
+    ...Platform.select({
+      native: {
+        height: 56,
+        borderRadius: 16,
+        alignSelf: 'stretch',
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexDirection: 'row',
+      },
+      default: {
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+      }
+    }),
   },
   actionButtonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
+    fontSize: Platform.OS === 'web' ? 14 : 16,
   },
   faqSection: {
     marginBottom: 40,

@@ -245,6 +245,7 @@ function AppContent() {
                         <Stack.Screen name="about" options={{ headerShown: false }} />
                         <Stack.Screen name="admin" options={{ headerShown: false }} />
                         <Stack.Screen name="flashcards" options={{ headerShown: false }} />
+                        <Stack.Screen name="sunset-info" options={{ headerShown: false }} />
                         <Stack.Screen name="+not-found" />
                       </Stack>
                       <StatusBar style={isDark ? 'light' : 'dark'} />
