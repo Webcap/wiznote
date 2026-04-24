@@ -7,7 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.5.3] - 2025-02-25
+## [2.0.0] - 2026-04-23
+
+### 🌅 Platform Sunset (THE FINAL RELEASE)
+
+#### Service Decommissioning
+- **Introduced Platform Sunset Mode** - WizNote is officially entering its sunset phase
+  - Transitioned the platform to **Read-Only Mode** for new users
+  - Disabled new user registrations and account creations
+  - Disabled new note creation for all users
+- **Comprehensive Data Export Tool** - New tool to help users migrate their data
+  - Export all notes, quizzes, flashcards, and transcriptions in a single JSON package
+  - Available via the new Sunset Information page and User Settings
+- **Sunset Information Center** - Dedicated page (`/sunset-info`) explaining the decommissioning process
+  - Real-time countdown to final shutdown
+  - Detailed FAQ regarding premium subscriptions and data retention
+  - Step-by-step guide for data migration
+
+#### System & Infrastructure
+- **Automated Sunsetting Workflow** - Backend systems for managed shutdown
+  - Automated reminder email system (triggered 10 days before shutdown)
+  - Admin controls for managing global shutdown dates and sunset status
+- **Security Hardening** - Final security updates for data protection
+  - Enhanced Supabase RLS (Row Level Security) policies
+  - Tiered admin access controls for system settings
+  - Content Security Policy (CSP) updates for media sources
+- **Feature Usage Tracking** - Comprehensive monitoring system
+  - Implementation of feature usage tracking and limit management
+  - Admin UI for monitoring platform-wide resource consumption
+
+### 🔧 Improvements & Fixes
+- **AudioPlayer Enhancements** - Improved error handling and loading states
+- **Database Migrations** - Finalized database schema and migration documentation
+- **Performance** - Optimized initial load times and font rendering
+
+---
+
+
 
 ### 🐛 Bug Fixes
 

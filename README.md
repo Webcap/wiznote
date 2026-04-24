@@ -13,7 +13,7 @@ A modern, feature-rich note-taking application built with React Native, Expo, an
 - **🌙 Dark Theme** - Beautiful dark theme with smooth animations
 - **📱 Cross-Platform** - Works on iOS, Android, and Web
 
-> **⚠️ Note**: Export functionality is currently not implemented and will be added in a future update.
+> **⚠️ WizNote is Sunsetting**: The service is officially entering its sunset phase and is now in **Read-Only Mode**. New user registrations and note creation have been disabled. All existing users are encouraged to use the new **Data Export Tool** to download their data before the final shutdown. See [CHANGELOG.md](./CHANGELOG.md) for more details.
 
 ## 🧪 Testing
 
