@@ -578,6 +578,14 @@ export default function SystemSettingsScreen() {
               }}
               disabled={!settings.sunsetModeEnabled}
             />
+            <SettingToggle
+              key={`sunset-reminder-${settings.sunsetReminder10Sent}`}
+              label="10-Day Reminder Sent"
+              description="Indicates if the 10-day shutdown reminder email has been sent to users"
+              value={settings.sunsetReminder10Sent}
+              onChange={(value) => updateSetting('sunsetReminder10Sent', value)}
+              disabled={!settings.sunsetModeEnabled}
+            />
           </View>
         </ThemedView>
 

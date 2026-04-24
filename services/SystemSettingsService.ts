@@ -113,7 +113,14 @@ export class SystemSettingsService {
   }
 
   private notifyListeners() {
-    this.listeners.forEach(listener => listener());
+    if (__DEV__) console.log(`SystemSettingsService: Notifying ${this.listeners.size} listeners...`);
+    this.listeners.forEach(listener => {
+      try {
+        listener();
+      } catch (e) {
+        console.error('SystemSettingsService: Error in listener:', e);
+      }
+    });
   }
 
   /**
@@ -648,13 +655,27 @@ export class SystemSettingsService {
         dbUpdates.sunset_mode_enabled = Boolean(updates.sunsetModeEnabled);
       }
       if (updates.sunsetShutdownDate !== undefined) {
-        dbUpdates.sunset_shutdown_date = updates.sunsetShutdownDate.toISOString();
+        const newDate = updates.sunsetShutdownDate.toISOString();
+        dbUpdates.sunset_shutdown_date = newDate;
+        
+        // Auto-reset reminder flags if the date has changed
+        // We fetch current settings to compare
+        const currentSettings = await this.getSettings();
+        const currentDate = currentSettings.sunsetShutdownDate.toISOString();
+        
+        if (newDate !== currentDate) {
+          console.log('SystemSettingsService: Shutdown date changed, resetting reminder flags');
+          dbUpdates.sunset_reminder_10_sent = false;
+        }
       }
       if (updates.landingSunsetBannerEnabled !== undefined) {
         dbUpdates.landing_sunset_banner_enabled = Boolean(updates.landingSunsetBannerEnabled);
       }
       if (updates.sunsetReminder10Sent !== undefined) {
-        dbUpdates.sunset_reminder_10_sent = Boolean(updates.sunsetReminder10Sent);
+        // Only update if it wasn't already set to false by the date change logic above
+        if (dbUpdates.sunset_reminder_10_sent !== false) {
+          dbUpdates.sunset_reminder_10_sent = Boolean(updates.sunsetReminder10Sent);
+        }
       }
       if (updates.landingHeaderTitle !== undefined) {
         dbUpdates.landing_header_title = updates.landingHeaderTitle;

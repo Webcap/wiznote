@@ -45,10 +45,11 @@ export default function LandingPage() {
   const isSunsetMode = settings?.sunsetModeEnabled ?? false;
   const showLandingBanner = settings?.landingSunsetBannerEnabled ?? false;
   const shutdownDateStr = settings?.sunsetShutdownDate 
-    ? new Date(settings.sunsetShutdownDate).toLocaleDateString(undefined, { 
+    ? new Date(settings.sunsetShutdownDate).toLocaleDateString('en-US', { 
         year: 'numeric', 
         month: 'long', 
-        day: 'numeric' 
+        day: 'numeric',
+        timeZone: 'UTC'
       })
     : '';
 

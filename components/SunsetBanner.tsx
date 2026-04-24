@@ -56,10 +56,11 @@ export function SunsetBanner() {
 
   if (loading || !isSunsetMode || !settings || shouldHideBanner) return null;
 
-  const shutdownDateStr = settings.sunsetShutdownDate.toLocaleDateString(undefined, { 
+  const shutdownDateStr = settings.sunsetShutdownDate.toLocaleDateString('en-US', { 
     year: 'numeric', 
     month: 'long', 
-    day: 'numeric' 
+    day: 'numeric',
+    timeZone: 'UTC'
   });
 
   return (
