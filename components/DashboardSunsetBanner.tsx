@@ -59,10 +59,11 @@ export function DashboardSunsetBanner() {
 
   if (loading || !isSunsetMode || !settings) return null;
 
-  const shutdownDateStr = settings.sunsetShutdownDate.toLocaleDateString(undefined, { 
+  const shutdownDateStr = settings.sunsetShutdownDate.toLocaleDateString('en-US', { 
     year: 'numeric', 
     month: 'long', 
-    day: 'numeric' 
+    day: 'numeric',
+    timeZone: 'UTC'
   });
 
   return (

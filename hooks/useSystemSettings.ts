@@ -28,7 +28,8 @@ export function useSystemSettings() {
   useEffect(() => {
     const service = SystemSettingsService.getInstance();
     const listener = () => {
-      fetchSettings();
+      if (__DEV__) console.log('useSystemSettings: Received notification, refreshing...');
+      fetchSettings(true);
     };
     
     service.addListener(listener);

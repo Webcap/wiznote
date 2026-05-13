@@ -209,6 +209,9 @@ function AppContent() {
   useEffect(() => {
     console.log('Layout: Navigation effect triggered - isLoading:', isLoading, 'isInitializing:', isInitializing, 'authTimeout:', authTimeout, 'sessionRestorationComplete:', sessionRestorationComplete, 'isAuthenticated:', isAuthenticated);
     
+    const SHUTDOWN_DATE = new Date('2026-05-22T03:00:00-04:00'); // 3 AM EST
+    const isPastShutdown = new Date() >= SHUTDOWN_DATE;
+
     // Don't navigate while initializing
     if (isInitializing) {
       console.log('Layout: Waiting for initialization to complete...');
@@ -249,25 +252,43 @@ function AppContent() {
       const isSignupPage = currentPath.startsWith('/signup') || currentPath === 'signup' || currentPath.includes('/signup');
       const isLoginPage = currentPath.startsWith('/login') || currentPath === 'login' || currentPath.includes('/login');
       const isVerifyEmailPage = currentPath.startsWith('/verify-email') || currentPath === 'verify-email' || currentPath.includes('/verify-email');
+      const isSunsetPage = currentPath.includes('sunset') && !currentPath.includes('sunset-info');
+      const isSunsetInfoPage = currentPath.includes('sunset-info');
+      
+      console.log('Layout: Path Debug - currentPath:', currentPath, 'length:', currentPath?.length, 'isSunsetPage:', isSunsetPage);
       
       // Check if current path is a valid authenticated route
         const isValidAuthenticatedRoute = isNotePage || isCreatePage || isAdminPage || 
           isArchivedPage || isSearchPage || isSettingsPage || isJoinPremiumPage || 
           isUsagePage || isUserManagementPage || isAiTranscriptionsPage || isCreateAudioPage ||
-          isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage || isHelpPage;
+          isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage || isHelpPage || isSunsetPage;
       
       // Check if current path is a public route (accessible without authentication)
       const isVerifyDeletionPage = currentPath === '/verify-deletion' || currentPath.startsWith('/verify-deletion');
-      const isSunsetInfoPage = currentPath.startsWith('/sunset-info') || currentPath === 'sunset-info' || currentPath.includes('/sunset-info');
-      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage || isChangelogPage || isFaqPage || isSignupPage || isLoginPage || isVerifyEmailPage || isVerifyDeletionPage || isSunsetInfoPage;
+      const isPublicRoute = isPrivacyPage || isTermsPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isIndexPage || isChangelogPage || isFaqPage || isSignupPage || isLoginPage || isVerifyEmailPage || isVerifyDeletionPage || isSunsetInfoPage || isSunsetPage;
       
       console.log('Layout: Current path:', currentPath);
+      console.log('Layout: isSunsetPage:', isSunsetPage);
+      console.log('Layout: isValidAuthenticatedRoute:', isValidAuthenticatedRoute);
+      console.log('Layout: isPublicRoute:', isPublicRoute);
       console.log('Layout: Is payment page:', isPaymentPage);
       console.log('Layout: Is tabs page:', isTabsPage);
       console.log('Layout: Is valid authenticated route:', isValidAuthenticatedRoute);
       console.log('Layout: Is public route:', isPublicRoute);
       console.log('Layout: Is forgot password page:', isForgotPasswordPage);
       console.log('Layout: Is reset password page:', isResetPasswordPage);
+      console.log('Layout: Is past shutdown:', isPastShutdown);
+
+      // FORCE SUNSET REDIRECT
+      if (isPastShutdown && !isSunsetPage) {
+        console.log('Layout: 🌅 WizNote has officially sunset. Redirecting to sunset page.');
+        try {
+          router.replace('/sunset');
+        } catch (error) {
+          router.push('/sunset');
+        }
+        return;
+      }
       
       if (isAuthenticated) {
         console.log('Layout: User is authenticated, checking navigation...');
@@ -428,6 +449,9 @@ function AppContent() {
                       <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
                       <Stack.Screen name="reset-password" options={{ headerShown: false }} />
                       <Stack.Screen name="sunset-info" options={{
+                        headerShown: false,
+                      }} />
+                      <Stack.Screen name="sunset" options={{
                         headerShown: false,
                       }} />
                       <Stack.Screen name="help" options={{

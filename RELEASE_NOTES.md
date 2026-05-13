@@ -1,6 +1,66 @@
 # WizNote - Release Notes
 
-## Version 1.5.3 - Bug Fixes & Improvements
+# WizNote - Release Notes
+
+## Version 2.0.0 - The Sunset Release (Final)
+**Release Date:** April 23, 2026
+
+### 📱 Google Play Store Release Notes (500 char limit)
+
+```
+The Final Release: WizNote is Sunsetting 🌅
+
+WizNote is officially entering its sunset phase.
+🌅 Platform in Read-Only mode
+🚫 New signups & note creation disabled
+📦 New Data Export tool - download all your data
+📅 Final shutdown info available in-app
+🔒 Critical security hardening
+✨ Final bug fixes & performance updates
+
+Thank you for being part of our journey! Please export your data before the final shutdown. ✨
+```
+
+---
+
+### 📱 Full Release Notes
+
+**Important Announcement:**
+
+After an incredible journey, we have made the difficult decision to sunset WizNote. This final release (v2.0.0) transitions the platform into its decommissioning phase, ensuring all users have the tools needed to securely export their data.
+
+**What's New in the Sunset Release:**
+
+**🌅 Platform Sunset Mode**
+- **Read-Only Transition**: The platform has moved to read-only mode. New user registrations and the creation of new notes have been disabled.
+- **Data Preservation**: You can still view, edit, and manage your existing notes, quizzes, and flashcards until the final shutdown date.
+
+**📦 Comprehensive Data Export (NEW TOOL)**
+- **Migrate Your Data**: We've introduced a powerful export tool that allows you to download all your content—notes, quizzes, flashcards, and audio transcriptions—in a standardized JSON format.
+- **Easy Access**: Find the export tool on the new Sunset Information page or within your account settings.
+
+**ℹ️ Sunset Information Center**
+- **Guided Shutdown**: A new dedicated information page explaining everything you need to know about the sunset process, including key dates and data retention policies.
+- **FAQs**: Comprehensive answers regarding Premium subscriptions, data security, and the final decommissioning schedule.
+
+**🛡️ Security & Infrastructure**
+- **Hardened Security**: Final updates to database security (RLS) to ensure your data remains protected during this transition.
+- **Automated Reminders**: We've implemented a notification system to keep you informed of the final shutdown deadline via email and in-app banners.
+
+**🔧 Improvements & Fixes**
+- **AudioPlayer**: Improved reliability with better error handling and loading states.
+- **Performance**: Final optimizations for app stability and font loading.
+
+**🎯 Final Message**
+- ✅ **Secure**: Your data remains private and protected until the final shutdown.
+- ✅ **Empowered**: Take your data with you using our new export tools.
+- ✅ **Informed**: Clear timelines and information provided every step of the way.
+
+Thank you for making WizNote your home for smart note-taking. We wish you the best in your future learning and productivity endeavors!
+
+---
+
+
 **Release Date:** February 25, 2025
 
 ### 📱 Google Play Store Release Notes (500 char limit)

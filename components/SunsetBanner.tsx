@@ -23,7 +23,8 @@ export function SunsetBanner() {
     pathname === '/index' || 
     pathname === '/(tabs)' || 
     pathname.startsWith('/admin') || 
-    pathname === '/user-management';
+    pathname === '/user-management' ||
+    pathname === '/sunset';
   
   const isSunsetMode = settings?.sunsetModeEnabled ?? false;
   const bannerBg = '#FFF3CD'; // Warning yellow
@@ -56,10 +57,11 @@ export function SunsetBanner() {
 
   if (loading || !isSunsetMode || !settings || shouldHideBanner) return null;
 
-  const shutdownDateStr = settings.sunsetShutdownDate.toLocaleDateString(undefined, { 
+  const shutdownDateStr = settings.sunsetShutdownDate.toLocaleDateString('en-US', { 
     year: 'numeric', 
     month: 'long', 
-    day: 'numeric' 
+    day: 'numeric',
+    timeZone: 'UTC'
   });
 
   return (
