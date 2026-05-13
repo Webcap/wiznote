@@ -23,7 +23,8 @@ export function SunsetBanner() {
     pathname === '/index' || 
     pathname === '/(tabs)' || 
     pathname.startsWith('/admin') || 
-    pathname === '/user-management';
+    pathname === '/user-management' ||
+    pathname === '/sunset';
   
   const isSunsetMode = settings?.sunsetModeEnabled ?? false;
   const bannerBg = '#FFF3CD'; // Warning yellow

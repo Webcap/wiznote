@@ -92,6 +92,9 @@ function AppContent() {
     if (!isLoading) {
       console.log('Layout: Auth state determined - isAuthenticated:', isAuthenticated);
       
+      const SHUTDOWN_DATE = new Date('2026-05-22T03:00:00-04:00'); // 3 AM EST
+      const isPastShutdown = new Date() >= SHUTDOWN_DATE;
+      
       // Debounce navigation to prevent rapid redirects
       const navigationTimeout = setTimeout(() => {
         // Get current pathname to check if we're on a payment page or valid note route
@@ -122,17 +125,19 @@ function AppContent() {
         const isLoginPage = currentPath.startsWith('/login') || currentPath === 'login' || currentPath.includes('/login');
         const isVerifyEmailPage = currentPath.startsWith('/verify-email') || currentPath === 'verify-email' || currentPath.includes('/verify-email');
         const isIndexPage = currentPath === '/' || currentPath === '' || currentPath === '/index';
+        const isSunsetPage = currentPath.includes('sunset') && !currentPath.includes('sunset-info');
         
         // Check if current path is a valid authenticated route
         const isValidAuthenticatedRoute = isNotePage || isCreatePage || isAdminPage || 
           isArchivedPage || isSearchPage || isSettingsPage || isJoinPremiumPage || 
           isUsagePage || isUserManagementPage || isAiTranscriptionsPage || isCreateAudioPage ||
-          isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage;
+          isSubscriptionManagementPage || isPaymentSuccessPage || isPaymentCancelledPage || isPaymentPage || isSunsetPage;
         
         // Check if current path is a public route (accessible without authentication)
         const isVerifyDeletionPage = currentPath === '/verify-deletion' || currentPath.startsWith('/verify-deletion');
         // Note: isIndexPage is excluded from isPublicRoute when authenticated - let index page handle its own redirect
-        const isPublicRoute = isPrivacyPage || isTermsPage || isChangelogPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isSignupPage || isLoginPage || isVerifyEmailPage || isVerifyDeletionPage;
+        const isSunsetInfoPage = currentPath.includes('sunset-info');
+        const isPublicRoute = isPrivacyPage || isTermsPage || isChangelogPage || isSharedPage || isDeleteAccountRequestPage || isForgotPasswordPage || isResetPasswordPage || isSignupPage || isLoginPage || isVerifyEmailPage || isVerifyDeletionPage || isSunsetInfoPage || isSunsetPage;
         
         console.log('Layout: Current path:', currentPath);
         console.log('Layout: Is payment page:', isPaymentPage);
@@ -142,6 +147,18 @@ function AppContent() {
         console.log('Layout: Is forgot password page:', isForgotPasswordPage);
         console.log('Layout: Is reset password page:', isResetPasswordPage);
         console.log('Layout: Is index page:', isIndexPage);
+        console.log('Layout: Is past shutdown:', isPastShutdown);
+
+        // FORCE SUNSET REDIRECT
+        if (isPastShutdown && !isSunsetPage) {
+          console.log('Layout: 🌅 WizNote has officially sunset. Redirecting to sunset page.');
+          try {
+            router.replace('/sunset');
+          } catch (error) {
+            router.push('/sunset');
+          }
+          return;
+        }
         
         if (isAuthenticated) {
           // If on index page, let the index page component handle the redirect
@@ -287,6 +304,7 @@ function AppContent() {
                     <Stack.Screen name="admin" options={{ headerShown: false }} />
                     <Stack.Screen name="shared/[token]" options={{ headerShown: false }} />
                     <Stack.Screen name="sunset-info" options={{ headerShown: false }} />
+                    <Stack.Screen name="sunset" options={{ headerShown: false }} />
 
                     <Stack.Screen name="+not-found" />
                   </Stack>
