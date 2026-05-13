@@ -126,14 +126,25 @@ export default function FAQScreen() {
 
   const renderCategory = (category: FAQCategory, categoryIndex: number) => {
     return (
-      <View key={category.id} style={styles.categorySection}>
+      <View
+        key={category.id}
+        style={[
+          styles.categorySection,
+          category.id === 'sunset-faq' && styles.sunsetCategorySection
+        ]}
+      >
         <View style={styles.categoryHeader}>
           <Ionicons
             name={category.icon as any}
             size={24}
-            color={accentColor}
+            color={category.id === 'sunset-faq' ? '#856404' : accentColor}
           />
-          <ThemedText style={styles.categoryTitle}>{category.title}</ThemedText>
+          <ThemedText style={[
+            styles.categoryTitle,
+            category.id === 'sunset-faq' && { color: '#856404' }
+          ]}>
+            {category.title}
+          </ThemedText>
         </View>
 
         <View style={styles.questionsContainer}>
@@ -584,6 +595,14 @@ const styles = StyleSheet.create({
   },
   categorySection: {
     gap: 16,
+  },
+  sunsetCategorySection: {
+    backgroundColor: 'rgba(255, 243, 205, 0.4)',
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 193, 7, 0.5)',
+    marginBottom: 16,
   },
   categoryHeader: {
     flexDirection: 'row',

@@ -1,25 +1,60 @@
 {
   "categories": [
     {
+      "id": "sunset-faq",
+      "title": "Service Update: WizNote Sunset",
+      "icon": "alert-circle",
+      "questions": [
+        {
+          "question": "Is WizNote shutting down?",
+          "answer": "Yes. After careful consideration, we have decided to discontinue the WizNote service. WizNote will officially cease all operations on May 22, 2026."
+        },
+        {
+          "question": "When is the final shutdown date?",
+          "answer": "The final shutdown is scheduled for May 22, 2026, at 3:00 AM EST. After this time, the application and all associated services will no longer be accessible."
+        },
+        {
+          "question": "Can I still use the app until the shutdown?",
+          "answer": "The platform is currently in read-only mode. You can still view, edit, and manage your existing notes, but new signups and the creation of new notes have been disabled."
+        },
+        {
+          "question": "How do I export my data?",
+          "answer": "We strongly recommend exporting your data as soon as possible. You can download all your notes, quizzes, and flashcards in JSON format by going to Settings > Export All Data or by visiting the Sunset Information page. This will provide you with a permanent backup of your content."
+        },
+        {
+          "question": "What happens to my data after May 22, 2026?",
+          "answer": "On the shutdown date, all WizNote servers will be decommissioned. In accordance with our privacy and security policies, all user data will be permanently and securely deleted. Data cannot be recovered after this date."
+        },
+        {
+          "question": "What happens to my Premium subscription?",
+          "answer": "All active Premium subscriptions will remain active until their current billing cycle ends, providing access to Premium features during the sunset period. Automatic renewals and new subscriptions have been disabled."
+        },
+        {
+          "question": "Who can I contact for help?",
+          "answer": "Our support team remains available to assist you with data exports or any questions you may have until the final shutdown. You can reach us at support@wiznote.app."
+        }
+      ]
+    },
+    {
       "id": "getting-started",
       "title": "Getting Started",
       "icon": "rocket",
       "questions": [
         {
           "question": "What is WizNote?",
-          "answer": "WizNote is an AI-powered note-taking app designed to help students and professionals organize, summarize, and study their notes more effectively. With features like automatic transcription, AI summaries, flashcards, and quizzes, WizNote transforms your notes into a powerful study tool."
+          "answer": "WizNote is an AI-powered note-taking app designed to help students and professionals organize, summarize, and study their notes more effectively. Please note that the service is currently sunsetting and will shut down on May 22, 2026."
         },
         {
           "question": "How do I create my first note?",
-          "answer": "Creating a note is easy! Click the '+' button or use the 'Create Note' option from the main screen. You can type your notes directly, record audio that gets transcribed automatically, or import existing documents. Your notes are automatically saved as you type."
+          "answer": "New note creation and account signups have been disabled as part of our sunset process. Existing users can still view and manage their current notes until May 22, 2026."
         },
         {
           "question": "Is WizNote free to use?",
-          "answer": "Yes! WizNote offers a free tier with essential features including note creation, basic organization, and limited AI features. Premium subscriptions are available for unlimited AI features, advanced transcription capabilities, and priority support."
+          "answer": "WizNote offered a free tier with essential features. However, new signups have been disabled. Existing users can continue to use their accounts until the final shutdown date."
         },
         {
           "question": "Do I need to create an account?",
-          "answer": "Yes, creating a free account is required to use WizNote. This allows us to sync your notes across devices, keep them secure, and provide you with personalized features. You can sign up with your email or use Google Sign-In for quick access."
+          "answer": "New account signups are no longer available. Existing account holders can continue to log in and access their data until May 22, 2026."
         }
       ]
     },
@@ -30,27 +65,27 @@
       "questions": [
         {
           "question": "How does AI transcription work?",
-          "answer": "WizNote uses advanced speech-to-text technology to automatically transcribe your audio recordings. Simply record your lecture, meeting, or voice note, and our AI will convert it to text. You can then edit, organize, and enhance the transcription with AI-powered summaries and key points."
+          "answer": "WizNote uses advanced speech-to-text technology to automatically transcribe your audio recordings. This feature remains available for existing notes until the service shutdown."
         },
         {
           "question": "Can I create flashcards from my notes?",
-          "answer": "Absolutely! WizNote automatically generates flashcards from your notes using AI. You can review them anytime to test your knowledge. Premium users get unlimited flashcard generation and can customize the learning experience."
+          "answer": "Yes, AI-generated flashcards remain available for existing notes. We recommend exporting any study materials you wish to keep before May 22, 2026."
         },
         {
           "question": "How do quizzes work?",
-          "answer": "Our AI analyzes your notes and automatically generates quiz questions to help you test your understanding. Simply select a note and click 'Generate Quiz' to create multiple-choice and short-answer questions based on the content."
+          "answer": "Our AI analyzes your notes and automatically generates quiz questions. This feature remains functional for existing users until the final shutdown."
         },
         {
           "question": "Can I share notes with others?",
-          "answer": "Yes! You can share notes with other WizNote users or create public links for anyone to view. Shared notes maintain formatting and can be viewed by recipients even if they don't have a WizNote account (for public links)."
+          "answer": "Yes, note sharing remains active for existing notes. However, recipients will only be able to view shared notes until the platform shuts down on May 22, 2026."
         },
         {
           "question": "What is the AI summary feature?",
-          "answer": "AI summaries automatically extract key points and create concise overviews of your notes. This feature helps you quickly review important information without reading through entire documents. Premium users can generate summaries for all their notes."
+          "answer": "AI summaries extract key points from your notes. This feature is available for your existing content during the sunset period."
         },
         {
           "question": "Can I organize notes with tags?",
-          "answer": "Yes! WizNote supports tags to help you organize your notes by topic, subject, or any category you choose. You can add multiple tags to each note and filter your notes by tags to quickly find what you need."
+          "answer": "Yes, tag organization remains available to help you manage your notes before you export them."
         }
       ]
     },
@@ -61,27 +96,27 @@
       "questions": [
         {
           "question": "How do I upgrade to Premium?",
-          "answer": "You can upgrade to Premium from your Settings page. Click on 'Subscription Management' or 'Join Premium' to view available plans and choose the one that best fits your needs. Premium plans are available on a monthly or annual basis."
+          "answer": "New Premium subscriptions and renewals have been disabled as part of the service sunset. Active subscriptions will continue until their current billing period ends."
         },
         {
           "question": "Can I cancel my Premium subscription?",
-          "answer": "Yes, you can cancel your Premium subscription at any time from the Subscription Management page in Settings. Your Premium features will remain active until the end of your current billing period, after which you'll be moved to the free tier."
+          "answer": "Yes, you can cancel your Premium subscription from the Subscription Management page. Note that all automatic renewals have already been disabled."
         },
         {
           "question": "What payment methods do you accept?",
-          "answer": "We accept all major credit and debit cards through Stripe, our secure payment processor. Payments are processed securely and your billing information is encrypted and protected."
+          "answer": "We are no longer accepting new payments or subscriptions. Existing subscriptions are managed through Stripe until they expire."
         },
         {
           "question": "Will I lose my notes if I cancel Premium?",
-          "answer": "No, all your notes will remain accessible. However, you'll lose access to Premium-only features like unlimited AI generations and advanced transcription. Your existing notes and basic features will continue to work on the free tier."
+          "answer": "You will not lose your notes by canceling a subscription, but all user data will be permanently deleted when the service shuts down on May 22, 2026."
         },
         {
           "question": "How do I change my email or password?",
-          "answer": "You can update your email and password from the Settings page. Click on 'Edit Profile' to change your email, display name, or other profile information. Password changes can be done through the 'Security' section."
+          "answer": "You can still update your profile information in Settings, but we recommend focusing on exporting your data before the shutdown date."
         },
         {
           "question": "Can I delete my account?",
-          "answer": "Yes, you can delete your account at any time from Settings > Danger Zone > Delete Account. Please note that this action is permanent and all your notes and data will be permanently deleted and cannot be recovered."
+          "answer": "Yes, you can delete your account at any time in Settings. Please note that all accounts will be automatically and securely deleted on May 22, 2026."
         }
       ]
     },
@@ -92,27 +127,27 @@
       "questions": [
         {
           "question": "Why is my audio not recording?",
-          "answer": "If audio recording isn't working, check that you've granted microphone permissions to WizNote in your device settings. On mobile, ensure the app has microphone access. On web, allow microphone access when prompted by your browser."
+          "answer": "New audio recordings have been disabled as the platform is now in read-only mode. You can still listen to and view transcriptions for existing audio notes."
         },
         {
           "question": "My notes aren't syncing across devices. What should I do?",
-          "answer": "Notes sync automatically when you have an internet connection. If sync isn't working, check your internet connection, ensure you're logged into the same account on all devices, and try refreshing the app. If issues persist, try logging out and back in."
+          "answer": "Syncing remains active for existing notes. If you encounter issues, please ensure you have an internet connection. We recommend exporting your data immediately if you're concerned about access."
         },
         {
           "question": "The app is running slowly. How can I fix this?",
-          "answer": "If WizNote is running slowly, try: clearing your browser cache (on web), closing and reopening the app, checking your internet connection, or archiving old notes you no longer need. If the problem persists, contact our support team."
+          "answer": "We are maintaining service stability during the sunset period. If you experience slowness, it may be due to high traffic as users export their data. Please try again or use the bulk export tool."
         },
         {
           "question": "I'm getting an error message. What should I do?",
-          "answer": "First, try refreshing the page or restarting the app. If the error persists, note the exact error message and contact our support team through the Help & Support page. We'll help you resolve the issue quickly."
+          "answer": "If you encounter errors during data export, please contact support@wiznote.app immediately so we can help you secure your data before the shutdown."
         },
         {
           "question": "Can I use WizNote offline?",
-          "answer": "WizNote works best with an internet connection for syncing and AI features. Some features like viewing and editing notes may work offline, but changes will sync once you're back online. AI features require an active internet connection."
+          "answer": "WizNote requires an internet connection for most features. We recommend performing your final data exports while online to ensure all content is backed up."
         },
         {
           "question": "Which browsers are supported?",
-          "answer": "WizNote works best on modern browsers including Chrome, Firefox, Safari, and Edge. We recommend using the latest version of your browser for the best experience. For mobile, we have native apps for Android (iOS coming soon)."
+          "answer": "WizNote continues to support modern browsers until the final shutdown on May 22, 2026."
         }
       ]
     },
@@ -123,27 +158,27 @@
       "questions": [
         {
           "question": "Is my data secure?",
-          "answer": "Absolutely! WizNote takes security seriously. All your notes and data are encrypted in transit and at rest. We use industry-standard security practices and never share your data with third parties. Your notes are private and only accessible to you (unless you choose to share them)."
+          "answer": "Yes, your data remains encrypted and secure. Following the shutdown on May 22, 2026, all user data will be securely deleted to ensure your privacy."
         },
         {
           "question": "Who can see my notes?",
-          "answer": "Your notes are private by default. Only you can see them unless you explicitly choose to share a note with others. We don't access or read your notes except as necessary to provide our services (like AI processing)."
+          "answer": "Your notes remain private and are only accessible by you. Our team will not access your notes during the sunset process except for automated deletion on the shutdown date."
         },
         {
           "question": "What data do you collect?",
-          "answer": "We collect only the data necessary to provide our services: your account information, notes, and usage data to improve the app. We never sell your data. For more details, please see our Privacy Policy, which you can access from the Settings page or footer."
+          "answer": "We have stopped collecting new data. Existing data is held securely until the final deletion on May 22, 2026."
         },
         {
           "question": "Can I export my notes?",
-          "answer": "Yes! You can export individual notes or all your notes from the Settings page. Notes can be exported in various formats including plain text, markdown, or PDF. This allows you to keep backups of your data."
+          "answer": "Yes, and we strongly encourage you to do so. Use the 'Export All Data' feature in Settings to download your content in JSON format before May 22, 2026."
         },
         {
           "question": "What happens to my notes if WizNote shuts down?",
-          "answer": "Your data belongs to you. We'll provide advance notice and export options if we ever need to discontinue the service. You can always export your notes at any time to keep local backups."
+          "answer": "WizNote is scheduled to shut down on May 22, 2026. Please refer to the 'Service Update: WizNote Sunset' section at the top of this FAQ for detailed information on how to export your data and what to expect before the final shutdown."
         },
         {
           "question": "Are my notes backed up?",
-          "answer": "Yes! Your notes are automatically backed up to secure cloud servers. This means your data is safe even if you lose your device. We maintain multiple backups to ensure data integrity and availability."
+          "answer": "While we maintain server backups for stability, these will also be deleted on May 22, 2026. You are responsible for making your own local backup using our export tools before that date."
         }
       ]
     }
@@ -151,7 +186,7 @@
   "supportContact": {
     "message": "Still have questions?",
     "cta": "Contact Support",
-    "description": "Our support team is here to help you 24/7"
+    "description": "Our support team is here to help you during the sunset period"
   }
 }
 
