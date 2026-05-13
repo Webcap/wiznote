@@ -787,6 +787,62 @@ export class SystemSettingsService {
   }
 
   /**
+   * Trigger the sunset reminder email process
+   */
+  async triggerSunsetReminder(days: number, testOnly: boolean = false): Promise<{
+    success: boolean;
+    message: string;
+    stats?: { success: number; errors: number; daysReported: number };
+  }> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session found');
+      }
+
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://wiznote.app';
+      const response = await fetch(`${apiUrl}/.netlify/functions/send-sunset-reminder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          days,
+          testOnly,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `Failed to trigger reminder (${response.status})`);
+      }
+
+      // Clear cache if it was an official reminder (to update the sunsetReminder10Sent flag)
+      if (!testOnly && days <= 10) {
+        this.clearCache();
+      }
+
+      return {
+        success: true,
+        message: result.message || 'Reminder process completed',
+        stats: {
+          success: result.success || 0,
+          errors: result.errors || 0,
+          daysReported: result.daysReported || days,
+        },
+      };
+    } catch (error) {
+      console.error('SystemSettingsService: Error triggering sunset reminder:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  }
+
+  /**
    * Get audit logs for settings changes
    */
   async getAuditLogs(limit: number = 100): Promise<SystemSettingsAuditLog[]> {

@@ -34,6 +34,15 @@ export default function SystemSettingsScreen() {
   const [auditLogs, setAuditLogs] = useState<SystemSettingsAuditLog[]>([]);
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  
+  // Manual reminder state
+  const [manualReminderDays, setManualReminderDays] = useState('10');
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
+  const [reminderStatus, setReminderStatus] = useState<{
+    success: boolean;
+    message: string;
+    stats?: { success: number; errors: number; daysReported: number };
+  } | null>(null);
 
   // Theme colors
   const backgroundColor = useThemeColor({}, 'background');
@@ -285,6 +294,50 @@ export default function SystemSettingsScreen() {
       Alert.alert('Error', 'Failed to save system settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTriggerReminder = async (testOnly: boolean = false) => {
+    const days = parseInt(manualReminderDays, 10);
+    if (isNaN(days) || days < 0) {
+      Alert.alert('Invalid Input', 'Please enter a valid number of days.');
+      return;
+    }
+
+    if (!testOnly) {
+      const confirmMessage = `Are you sure you want to send a ${days}-day shutdown reminder to ALL users? This action cannot be undone.`;
+      
+      if (Platform.OS === 'web') {
+        if (!window.confirm(confirmMessage)) return;
+      } else {
+        // For mobile, standard Alert with buttons is preferred
+        // Since this is primarily used via web admin, window.confirm is the reliable choice
+      }
+    }
+
+    try {
+      setIsSendingReminder(true);
+      setReminderStatus(null);
+      
+      const result = await systemSettingsService.triggerSunsetReminder(days, testOnly);
+      setReminderStatus(result);
+      
+      if (result.success) {
+        if (testOnly) {
+          Alert.alert('Test Sent', 'Test email has been sent to all admins.');
+        } else {
+          Alert.alert('Success', `Successfully initiated email campaign for ${result.stats?.success} users.`);
+          // Reload settings to update the "10-Day Reminder Sent" flag if applicable
+          if (days <= 10) loadSettings(false);
+        }
+      } else {
+        Alert.alert('Error', result.message);
+      }
+    } catch (error) {
+      console.error('Error triggering reminder:', error);
+      Alert.alert('Error', 'An unexpected error occurred while triggering the reminder.');
+    } finally {
+      setIsSendingReminder(false);
     }
   };
 
@@ -587,6 +640,61 @@ export default function SystemSettingsScreen() {
               disabled={!settings.sunsetModeEnabled}
             />
           </View>
+
+          <ThemedView style={[styles.reminderTool, { backgroundColor: backgroundColor, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.1)', marginTop: 20, paddingTop: 20 }]}>
+            <ThemedText style={styles.subSectionTitle}>📧 Manual Reminder Tool</ThemedText>
+            <ThemedText style={styles.description}>
+              Trigger a reminder email to all users. Use this if the automated reminder didn't run or if you need to send an urgent update.
+            </ThemedText>
+            
+            <View style={styles.inputGroup}>
+              <ThemedText style={styles.label}>Days Remaining to Report</ThemedText>
+              <TextInput
+                style={[styles.textInput, { color: textColor, backgroundColor: cardBg, borderColor: 'rgba(0,0,0,0.1)' }]}
+                value={manualReminderDays}
+                onChangeText={setManualReminderDays}
+                keyboardType="numeric"
+                placeholder="10"
+              />
+            </View>
+
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: isSendingReminder ? textSecondary : accentPrimary, flex: 1 }]}
+                onPress={() => handleTriggerReminder(true)}
+                disabled={isSendingReminder}
+              >
+                {isSendingReminder ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <ThemedText style={styles.buttonTextWhite}>Test (Admins)</ThemedText>
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: isSendingReminder ? textSecondary : accentDanger, flex: 1 }]}
+                onPress={() => handleTriggerReminder(false)}
+                disabled={isSendingReminder}
+              >
+                {isSendingReminder ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <ThemedText style={styles.buttonTextWhite}>Send to ALL</ThemedText>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {reminderStatus && (
+              <ThemedView style={[styles.statusBanner, { backgroundColor: reminderStatus.success ? accentSuccess + '20' : accentDanger + '20' }]}>
+                <ThemedText style={{ color: reminderStatus.success ? accentSuccess : accentDanger, fontSize: 13 }}>
+                  {reminderStatus.message}
+                  {reminderStatus.stats && (
+                    ` (Sent: ${reminderStatus.stats.success}, Failed: ${reminderStatus.stats.errors})`
+                  )}
+                </ThemedText>
+              </ThemedView>
+            )}
+          </ThemedView>
         </ThemedView>
 
         {/* Action Buttons */}
@@ -970,5 +1078,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 20,
     opacity: 0.9,
+  },
+  reminderTool: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  subSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    marginBottom: 8,
+  },
+  description: {
+    fontSize: 14,
+    opacity: 0.7,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    marginBottom: 8,
+  },
+  buttonRow: {
+    flexDirection: 'row' as const,
+    gap: 12,
+    marginBottom: 16,
+  },
+  statusBanner: {
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
   },
 });

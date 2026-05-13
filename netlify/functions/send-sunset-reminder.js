@@ -1,14 +1,32 @@
 /**
- * Netlify Scheduled Function: Send 10-day Sunset Reminder Email
+ * Netlify Function: Send Sunset Reminder Email
  * 
- * Schedule: Runs daily at 9:00 AM UTC
+ * Supports both:
+ * 1. Scheduled CRON execution (daily at 9:00 AM UTC)
+ * 2. Manual trigger via POST (admin only)
  */
 
 const { createClient } = require('@supabase/supabase-js');
 const brevo = require('@getbrevo/brevo');
 
 exports.handler = async (event, context) => {
-  console.log('🌅 Sunset Reminder: Checking if 10-day reminder needs to be sent...');
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  };
+
+  // Handle CORS preflight
+  if (event.httpMethod === 'OPTIONS') {
+    return { 
+      statusCode: 200, 
+      headers: corsHeaders, 
+      body: '' 
+    };
+  }
+
+  console.log(`🌅 Sunset Reminder: Execution started (${event.httpMethod})...`);
 
   try {
     // 1. Initialize Supabase Admin Client
@@ -21,12 +39,64 @@ exports.handler = async (event, context) => {
       throw new Error('Supabase credentials not configured.');
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey, {
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
-    // 2. Get System Settings
-    const { data: settings, error: settingsError } = await supabase
+    // 2. Authentication and Authorization (for manual triggers)
+    let isManual = event.httpMethod === 'POST';
+    let manualDays = null;
+    let isTestOnly = false;
+
+    if (isManual) {
+      const authHeader = event.headers['authorization'] || event.headers['Authorization'];
+      const accessToken = authHeader?.replace('Bearer ', '');
+
+      if (!accessToken) {
+        return { 
+          statusCode: 401, 
+          headers: corsHeaders, 
+          body: JSON.stringify({ error: 'Unauthorized: Missing token' }) 
+        };
+      }
+
+      // Verify user via token
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
+      if (authError || !user) {
+        return { 
+          statusCode: 401, 
+          headers: corsHeaders, 
+          body: JSON.stringify({ error: 'Unauthorized: Invalid token' }) 
+        };
+      }
+
+      // Check if user is admin
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || profile?.role !== 'admin') {
+        return { 
+          statusCode: 403, 
+          headers: corsHeaders, 
+          body: JSON.stringify({ error: 'Forbidden: Admin access required' }) 
+        };
+      }
+
+      // Parse body
+      try {
+        const body = JSON.parse(event.body || '{}');
+        manualDays = body.days;
+        isTestOnly = !!body.testOnly;
+      } catch (e) {
+        console.warn('Failed to parse body:', e);
+      }
+    }
+
+    // 3. Get System Settings
+    const { data: settings, error: settingsError } = await supabaseAdmin
       .from('system_settings')
       .select('*')
       .eq('id', 'default')
@@ -36,51 +106,82 @@ exports.handler = async (event, context) => {
       throw new Error(`Failed to fetch system settings: ${settingsError?.message}`);
     }
 
-    // 3. Check if Sunset Mode is Active and Reminder not already sent
-    if (!settings.sunset_mode_enabled) {
-      console.log('⏩ Sunset mode is not active. Skipping.');
-      return { statusCode: 200, body: 'Sunset mode not active' };
-    }
-
-    if (settings.sunset_reminder_10_sent) {
-      console.log('⏩ 10-day reminder already sent. Skipping.');
-      return { statusCode: 200, body: 'Reminder already sent' };
-    }
-
-    // 4. Calculate Days Until Shutdown
+    // 4. Decision Logic
     const shutdownDate = new Date(settings.sunset_shutdown_date);
     const now = new Date();
     const diffInTime = shutdownDate.getTime() - now.getTime();
-    const diffInDays = Math.ceil(diffInTime / (1000 * 3600 * 24));
+    const actualDiffInDays = Math.ceil(diffInTime / (1000 * 3600 * 24));
+    
+    // Use manual days if provided, otherwise use calculated days
+    const daysToReport = manualDays !== null ? manualDays : actualDiffInDays;
 
-    console.log(`📊 Days until shutdown: ${diffInDays}`);
+    if (!isManual) {
+      // Scheduled CRON checks
+      if (!settings.sunset_mode_enabled) {
+        return { 
+          statusCode: 200, 
+          headers: corsHeaders,
+          body: JSON.stringify({ message: 'Sunset mode not active' }) 
+        };
+      }
 
-    // We send the reminder if we are 10 days away or closer (but haven't sent yet)
-    if (diffInDays > 10) {
-      console.log('⏩ Too early for the 10-day reminder. Skipping.');
-      return { statusCode: 200, body: `Too early (${diffInDays} days left)` };
+      if (settings.sunset_reminder_10_sent) {
+        return { 
+          statusCode: 200, 
+          headers: corsHeaders,
+          body: JSON.stringify({ message: 'Reminder already sent' }) 
+        };
+      }
+
+      // Scheduled function only triggers at exactly 10 days (or closer if missed)
+      if (actualDiffInDays > 10) {
+        return { 
+          statusCode: 200, 
+          headers: corsHeaders,
+          body: JSON.stringify({ message: `Too early (${actualDiffInDays} days left)` }) 
+        };
+      }
     }
 
-    // 5. Fetch All Users
-    console.log('👥 Fetching all users...');
-    const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers();
+    console.log(`📊 Days to report in email: ${daysToReport}${isTestOnly ? ' (TEST ONLY - Admins only)' : ''}`);
 
-    if (usersError) {
-      throw new Error(`Failed to fetch users: ${usersError.message}`);
+    // 5. Fetch Users to notify
+    let usersToNotify = [];
+    if (isTestOnly) {
+      console.log('👥 Fetching admin users for test...');
+      const { data: adminProfiles, error: adminError } = await supabaseAdmin
+        .from('user_profiles')
+        .select('id')
+        .eq('role', 'admin');
+      
+      if (adminError) throw new Error(`Failed to fetch admin profiles: ${adminError.message}`);
+      
+      // Get full user objects to ensure we have current emails
+      for (const p of adminProfiles) {
+        const { data: { user }, error: uError } = await supabaseAdmin.auth.admin.getUserById(p.id);
+        if (!uError && user) usersToNotify.push(user);
+      }
+    } else {
+      console.log('👥 Fetching all users...');
+      const { data: { users }, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
+      if (usersError) throw new Error(`Failed to fetch users: ${usersError.message}`);
+      usersToNotify = users || [];
     }
 
-    if (!users || users.length === 0) {
+    if (usersToNotify.length === 0) {
       console.log('⏩ No users found to notify.');
-      return { statusCode: 200, body: 'No users found' };
+      return { 
+        statusCode: 200, 
+        headers: corsHeaders, 
+        body: JSON.stringify({ message: 'No users found' }) 
+      };
     }
 
-    console.log(`✅ Found ${users.length} users to notify.`);
+    console.log(`✅ Found ${usersToNotify.length} users to notify.`);
 
     // 6. Initialize Brevo
     const BREVO_API_KEY = process.env.BREVO_API_KEY;
-    if (!BREVO_API_KEY) {
-      throw new Error('BREVO_API_KEY not configured.');
-    }
+    if (!BREVO_API_KEY) throw new Error('BREVO_API_KEY not configured.');
 
     const apiInstance = new brevo.TransactionalEmailsApi();
     apiInstance.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
@@ -88,12 +189,9 @@ exports.handler = async (event, context) => {
     const fromEmail = process.env.BREVO_FROM_EMAIL || 'support@wiznote.app';
     const fromName = process.env.BREVO_FROM_NAME || 'WizNote Support';
 
-    // 7. Send Emails in Chunks
+    // 7. Prepare Email Content
     const shutdownDateFormatted = shutdownDate.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
 
     const emailHtml = `
@@ -102,11 +200,11 @@ exports.handler = async (event, context) => {
       <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #fff4f4; border-left: 4px solid #ff4444; padding: 20px; border-radius: 4px; margin-bottom: 20px;">
-          <h1 style="color: #d32f2f; margin-top: 0;">Final Reminder: WizNote Shutdown in 10 Days</h1>
+          <h1 style="color: #d32f2f; margin-top: 0;">${isTestOnly ? '[TEST] ' : ''}Final Reminder: WizNote Shutdown in ${daysToReport} Days</h1>
           <p style="font-weight: bold; font-size: 18px;">Shutdown Date: ${shutdownDateFormatted}</p>
         </div>
         <p>Hello,</p>
-        <p>This is a final reminder that WizNote will be officially shutting down in 10 days. After <strong>${shutdownDateFormatted}</strong>, you will no longer be able to access your notes or account.</p>
+        <p>This is a final reminder that WizNote will be officially shutting down in ${daysToReport} days. After <strong>${shutdownDateFormatted}</strong>, you will no longer be able to access your notes or account.</p>
         <p><strong>Action Required:</strong> If you have any important data stored in WizNote, please log in now to export or copy your notes before the platform is decommissioned.</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="https://wiznote.app/login" style="display: inline-block; background-color: #6A5ACD; color: #FFFFFF; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">Log In to Export Data</a>
@@ -119,19 +217,17 @@ exports.handler = async (event, context) => {
       </html>
     `;
 
-    console.log('📧 Sending emails...');
+    // 8. Send Emails
+    console.log(`📧 Sending ${isTestOnly ? 'TEST ' : ''}emails...`);
     let successCount = 0;
     let errorCount = 0;
 
-    // Send to users one by one (or in small batches)
-    // Note: For a large number of users, this should be optimized using Brevo campaigns or batch API
-    for (const user of users) {
+    for (const user of usersToNotify) {
       if (!user.email) continue;
-
       const sendSmtpEmail = new brevo.SendSmtpEmail();
       sendSmtpEmail.to = [{ email: user.email }];
       sendSmtpEmail.sender = { email: fromEmail, name: fromName };
-      sendSmtpEmail.subject = 'IMPORTANT: WizNote Shutdown in 10 Days';
+      sendSmtpEmail.subject = `${isTestOnly ? '[TEST] ' : ''}IMPORTANT: WizNote Shutdown in ${daysToReport} Days`;
       sendSmtpEmail.htmlContent = emailHtml;
 
       try {
@@ -143,24 +239,23 @@ exports.handler = async (event, context) => {
       }
     }
 
-    // 8. Update System Settings to mark as sent
-    if (successCount > 0) {
-      await supabase
+    // 9. Update tracking if this was the official 10-day reminder (scheduled or manual)
+    if (!isTestOnly && daysToReport <= 10 && successCount > 0) {
+      await supabaseAdmin
         .from('system_settings')
         .update({ sunset_reminder_10_sent: true })
         .eq('id', 'default');
-      
-      console.log(`✅ Successfully notified ${successCount} users. ${errorCount} errors.`);
-    } else {
-      console.log('⚠️ No emails were successfully sent.');
+      console.log('✅ Updated sunset_reminder_10_sent flag in settings.');
     }
 
     return {
       statusCode: 200,
+      headers: corsHeaders,
       body: JSON.stringify({
-        message: 'Sunset reminder process completed',
+        message: isTestOnly ? 'Test emails sent to admins' : 'Sunset reminder process completed',
         success: successCount,
-        errors: errorCount
+        errors: errorCount,
+        daysReported: daysToReport
       })
     };
 
@@ -168,6 +263,7 @@ exports.handler = async (event, context) => {
     console.error('❌ Sunset reminder failed:', error.message);
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ error: error.message })
     };
   }
