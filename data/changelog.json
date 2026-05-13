@@ -1,6 +1,45 @@
 {
   "versions": [
     {
+      "version": "2.0.1",
+      "date": "May 12, 2026",
+      "sections": [
+        {
+          "title": "WizNote Sunset Update",
+          "emoji": "🌅",
+          "items": [
+            {
+              "title": "Sunset Landing Page",
+              "description": "Created a dedicated landing page for the WizNote sunset.",
+              "details": [
+                "New /sunset page providing shutdown details and final instructions",
+                "Includes a final message of gratitude to our community",
+                "Streamlined layout with no distracting global banners"
+              ]
+            },
+            {
+              "title": "Automatic Transition",
+              "description": "Implemented automated redirect to the sunset page.",
+              "details": [
+                "Global navigation guard automatically locks the app at 3:00 AM EST on May 22, 2026",
+                "Redirection applies to all platforms (Web and Mobile)",
+                "Ensures a clean transition on the final day of operation"
+              ]
+            },
+            {
+              "title": "Admin Sunset Tools",
+              "description": "New tools for administrators to manage the sunset process.",
+              "details": [
+                "Ability to trigger final reminder emails to all users for data export",
+                "Dedicated testing routes for administrators to verify the sunset experience",
+                "Standardized CORS and routing logic for sunset-related serverless functions"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "1.5.3",
       "date": "February 25, 2026",
       "sections": [
